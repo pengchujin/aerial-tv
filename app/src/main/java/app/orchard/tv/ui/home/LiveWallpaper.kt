@@ -37,6 +37,7 @@ import app.orchard.tv.wallpaper.AerialQuality
 import app.orchard.tv.wallpaper.AerialStream
 import app.orchard.tv.wallpaper.Aerials
 import app.orchard.tv.wallpaper.Wallpapers
+import app.orchard.tv.wallpaper.Snoopy
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
@@ -100,6 +101,8 @@ fun LiveWallpaper(
     live: LiveFilm,
 ) {
     val context = LocalContext.current
+    val wallpaper = remember { Wallpapers.selectedId }
+    val snoopy = wallpaper == Wallpapers.SNOOPY
     var player by remember { mutableStateOf<ExoPlayer?>(null) }
     var surface by remember { mutableStateOf<SurfaceView?>(null) }
     // Frames are reaching the screen: the first one has been drawn and the film is not stopped.
@@ -130,14 +133,14 @@ fun LiveWallpaper(
         val quality = AerialFormats.resolve(context, AerialSettings.aerialQuality)
             .let { if (it == AerialQuality.DolbyVision) AerialQuality.Uhd else it }
         val overHttp = Build.VERSION.SDK_INT < Build.VERSION_CODES.N
-        val all = Aerials.all(context).shuffled()
+        val all = (if (snoopy) Snoopy.films() else Aerials.all(context)).shuffled()
         // The film the picture on screen came from, at that moment; else one fetched ahead.
         val spot = Wallpapers.liveSpot()
         val resume = spot?.let { (id, _) -> all.firstOrNull { it.id == id } }
-        val films = if (resume != null) listOf(resume) + (all - resume) else AerialStream.withOpenerFirst(context, all, quality)
+        val films = if (resume != null) listOf(resume) + (all - resume) else if (snoopy) all else AerialStream.withOpenerFirst(context, all, quality)
         var failures = 0
         var rendered = false
-        return AerialStream.player(context, quality).apply {
+        return (if (snoopy) localVideoPlayer(context) else AerialStream.player(context, quality)).apply {
             addListener(object : Player.Listener {
                 override fun onRenderedFirstFrame() {
                     rendered = true
@@ -161,7 +164,9 @@ fun LiveWallpaper(
                     prepare()
                 }
             })
-            setMediaItems(films.map { AerialStream.mediaItem(it, quality, overHttp) }, 0, if (resume != null) spot?.second ?: 0L else 0L)
+            setMediaItems(films.map {
+                if (snoopy) MediaItem.Builder().setUri(it.url).setMediaId(it.id).build() else AerialStream.mediaItem(it, quality, overHttp)
+            }, 0, if (resume != null) spot?.second ?: 0L else 0L)
             surface?.let { setVideoSurfaceView(it) }
             prepare()
             live.player = this
@@ -217,14 +222,14 @@ fun LiveWallpaper(
                 p.videoDecoderCounters?.let { DiagLog.i("wallpaper film dropped ${it.droppedBufferCount} of ${it.renderedOutputBufferCount + it.droppedBufferCount} frames") }
                 val before = Wallpapers.frosted
                 glassSample?.takeIf { it.film == film && abs(it.atMs - at) <= GLASS_EVERY_MS * 2 }?.let {
-                    Wallpapers.useLiveFrost(it.frame)
+                    Wallpapers.useLiveFrost(it.frame, wallpaper)
                     glassReady(live)
                 }
                 glassSample = null
                 var frame = if (pixelCopy == false) null else surface?.let { capture(it) }
                 if (frame == null && film != null) {
                     if (!live.stopped) reader.frame(film, at, 320, 180, exact = false)?.let {
-                        Wallpapers.useLiveFrost(it)
+                        Wallpapers.useLiveFrost(it, wallpaper)
                         glassReady(live)
                     }
                     // The exact frame is decoded from the key frame before it, reading that whole
@@ -235,7 +240,7 @@ fun LiveWallpaper(
                     if (frame == null && live.stopped) Wallpapers.restoreFrost(before)
                 }
                 if (frame != null) {
-                    Wallpapers.useLiveFrame(frame, film.orEmpty(), at)
+                    Wallpapers.useLiveFrame(frame, film.orEmpty(), at, wallpaper)
                     if (!live.stopped) glassReady(live)
                     // The paused film stands in for its picture while Home shows it plainly, and
                     // moves on from there when Home is still again. The picture, decoded apart
@@ -387,12 +392,13 @@ private class FrameReader(private val context: android.content.Context) {
     private fun retrieverFor(id: String): MediaMetadataRetriever? {
         if (openFor == id) retriever?.let { return it }
         close0()
-        val film = Aerials.all(context).firstOrNull { it.id == id } ?: return null
-        val url = AerialStream.url(film, AerialQuality.Hd, Build.VERSION.SDK_INT < Build.VERSION_CODES.N)
+        val local = Snoopy.file(id)
+        val film = if (local == null) Aerials.all(context).firstOrNull { it.id == id } ?: return null else null
         val started = android.os.SystemClock.elapsedRealtime()
         val mmr = MediaMetadataRetriever()
         return try {
-            mmr.setDataSource(url, emptyMap())
+            if (local != null) mmr.setDataSource(local.path)
+            else mmr.setDataSource(AerialStream.url(film!!, AerialQuality.Hd, Build.VERSION.SDK_INT < Build.VERSION_CODES.N), emptyMap())
             DiagLog.i("wallpaper film file opened in ${android.os.SystemClock.elapsedRealtime() - started} ms")
             retriever = mmr
             openFor = id

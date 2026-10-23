@@ -227,4 +227,9 @@
     <string name="tile_kids">Kids</string>
     <string name="ss_videos">Videos</string>
     <string name="ss_videos_hint">Add MP4 or MOV films from the phone page. Plays offline; photos are shown when no film can play.</string>
+    <string name="wp_snoopy">Snoopy</string>
+    <string name="wp_snoopy_note">Downloads about 550 MB once and keeps about 400 MB offline. Starts after 10 seconds still on Home; any key pauses it.</string>
+    <string name="wp_snoopy_downloading">Downloading Snoopy: %1$d%%. You can choose another wallpaper while it finishes.</string>
+    <string name="wp_snoopy_failed">Could not download Snoopy. Press Select to try again; check the network and free space.</string>
+    <string name="wp_snoopy_cancel">Cancel download</string>
 </resources>

@@ -219,4 +219,9 @@
     <string name="tile_kids">Детям</string>
     <string name="ss_videos">Видео</string>
     <string name="ss_videos_hint">Добавьте MP4 или MOV со страницы на телефоне. Просмотр без сети; если видео недоступны, показываются фото.</string>
+    <string name="wp_snoopy">Снупи</string>
+    <string name="wp_snoopy_note">Однократная загрузка около 550 МБ, около 400 МБ сохраняется офлайн. Запуск после 10 секунд покоя на главном экране; любая кнопка ставит на паузу.</string>
+    <string name="wp_snoopy_downloading">Загрузка Снупи: %1$d%%. Пока можно выбрать другие обои.</string>
+    <string name="wp_snoopy_failed">Не удалось загрузить Снупи. Нажмите ОК для повтора; проверьте сеть и свободное место.</string>
+    <string name="wp_snoopy_cancel">Отменить загрузку</string>
 </resources>

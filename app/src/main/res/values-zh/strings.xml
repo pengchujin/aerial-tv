@@ -226,4 +226,9 @@
     <string name="tile_kids">儿童</string>
     <string name="ss_videos">视频</string>
     <string name="ss_videos_hint">扫码从手机添加 MP4 或 MOV 视频，离线轮播；没有可播放的视频时显示照片。</string>
+    <string name="wp_snoopy">史努比</string>
+    <string name="wp_snoopy_note">首次下载约 550 MB，保留约 400 MB 本地影片。主屏幕停留 10 秒后播放，按任意键暂停。</string>
+    <string name="wp_snoopy_downloading">正在下载史努比：%1$d%%。下载期间可以继续选择其他壁纸。</string>
+    <string name="wp_snoopy_failed">史努比下载失败。按确认重试，请检查网络和可用空间。</string>
+    <string name="wp_snoopy_cancel">取消下载</string>
 </resources>

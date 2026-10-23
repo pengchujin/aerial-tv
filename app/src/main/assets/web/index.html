@@ -125,6 +125,7 @@
   <button data-mode="photos" data-i18n="ss_photos"></button>
   <button data-mode="clock" data-i18n="ss_clock"></button>
   <button data-mode="videos" data-i18n="ss_videos"></button>
+  <button data-mode="snoopy" data-i18n="ss_snoopy"></button>
 </div>
 <p class="hint" id="ssHint"></p>
 <section id="videos" hidden>
@@ -183,7 +184,7 @@ let state = null;
 
 // The language: ?lang=ru in the address, else the one picked with the button at the top right (kept on
 // the phone), else the first of the phone's preferred languages that has a table, else English. Keys are in KEYS, one array of texts per language.
-const KEYS = ["personalize", "screensaver", "screensaver_short", "ss_aerial", "ss_photos", "ss_clock", "focus", "focus_high", "focus_standard", "weather", "city_ph", "set", "add_h", "upload_label", "icons_h", "icons_hint", "feedback_h", "feedback_hint", "diag_show", "diag_copy", "diag_github", "hint_aerial", "hint_photos", "hint_clock", "g_live", "g_live_sub", "g_daily", "g_daily_sub", "g_photo", "g_builtin", "g_auto", "toast_wallpaper", "aria_delete", "confirm_delete", "wx_clear", "wx_partlycloudy", "wx_cloudy", "wx_fog", "wx_rain", "wx_snow", "wx_thunder", "wx_chosen", "wx_auto_btn", "toast_auto", "wx_guessed", "wx_none", "tag_source", "tag_custom", "aria_rename", "prompt_rename", "toast_renamed", "toast_name_reset", "toast_rename_fail", "aria_reset_icon", "confirm_reset_icon", "toast_icon_reset", "focus_hint_standard", "focus_hint_high", "daily_title", "daily_caption", "rotate_title", "rotate_caption", "empty_photos", "add_second", "toast_tv_updated", "sending_n", "toast_added", "toast_no_photos", "toast_send_fail", "toast_city_set", "toast_city_nf", "toast_set_fail", "toast_sending_icon", "toast_icon_set", "toast_icon_bad", "diag_collecting", "toast_diag_fail", "toast_copied", "toast_copy_manual", "language", "hint_follows", "ss_videos", "hint_videos", "videos_h", "videos_upload", "videos_hint", "videos_empty", "confirm_video_delete", "toast_videos_added", "toast_video_bad", "sending_video"];
+const KEYS = ["personalize", "screensaver", "screensaver_short", "ss_aerial", "ss_photos", "ss_clock", "focus", "focus_high", "focus_standard", "weather", "city_ph", "set", "add_h", "upload_label", "icons_h", "icons_hint", "feedback_h", "feedback_hint", "diag_show", "diag_copy", "diag_github", "hint_aerial", "hint_photos", "hint_clock", "g_live", "g_live_sub", "g_daily", "g_daily_sub", "g_photo", "g_builtin", "g_auto", "toast_wallpaper", "aria_delete", "confirm_delete", "wx_clear", "wx_partlycloudy", "wx_cloudy", "wx_fog", "wx_rain", "wx_snow", "wx_thunder", "wx_chosen", "wx_auto_btn", "toast_auto", "wx_guessed", "wx_none", "tag_source", "tag_custom", "aria_rename", "prompt_rename", "toast_renamed", "toast_name_reset", "toast_rename_fail", "aria_reset_icon", "confirm_reset_icon", "toast_icon_reset", "focus_hint_standard", "focus_hint_high", "daily_title", "daily_caption", "rotate_title", "rotate_caption", "empty_photos", "add_second", "toast_tv_updated", "sending_n", "toast_added", "toast_no_photos", "toast_send_fail", "toast_city_set", "toast_city_nf", "toast_set_fail", "toast_sending_icon", "toast_icon_set", "toast_icon_bad", "diag_collecting", "toast_diag_fail", "toast_copied", "toast_copy_manual", "language", "hint_follows", "ss_videos", "hint_videos", "videos_h", "videos_upload", "videos_hint", "videos_empty", "confirm_video_delete", "toast_videos_added", "toast_video_bad", "sending_video", "ss_snoopy", "hint_snoopy"];
 const TEXTS = {
  "zh": [
   "个性化",
@@ -276,7 +277,9 @@ const TEXTS = {
   "删除“{name}”？",
   "视频：添加 {n} 段，失败 {failed} 段",
   "无法保存，请检查视频格式和电视剩余空间",
-  "正在发送 {n} / {total}…"
+  "正在发送 {n} / {total}…",
+  "史努比",
+  "首次下载约 550 MB，保留约 400 MB 本地影片。主屏幕停留 10 秒后播放，按任意键暂停。"
  ],
  "en": [
   "Personalize",
@@ -369,7 +372,9 @@ const TEXTS = {
   "Delete “{name}”?",
   "Videos: {n} added, {failed} failed",
   "Could not save; check the format and free space on the TV",
-  "Sending {n} / {total}…"
+  "Sending {n} / {total}…",
+  "Snoopy",
+  "Downloads about 550 MB once and keeps about 400 MB offline. Starts after 10 seconds still on Home; any key pauses it."
  ],
  "ru": [
   "Персонализация",
@@ -462,7 +467,9 @@ const TEXTS = {
   "Удалить «{name}»?",
   "Видео: добавлено {n}, не удалось {failed}",
   "Не удалось сохранить; проверьте формат и свободное место на ТВ",
-  "Отправка {n} / {total}…"
+  "Отправка {n} / {total}…",
+  "Снупи",
+  "Однократная загрузка около 550 МБ, около 400 МБ сохраняется офлайн. Запуск после 10 секунд покоя на главном экране; любая кнопка ставит на паузу."
  ],
  "uk": [
   "Персоналізація",
@@ -555,7 +562,9 @@ const TEXTS = {
   "Видалити «{name}»?",
   "Відео: додано {n}, не вдалося {failed}",
   "Не вдалося зберегти; перевірте формат і вільне місце на ТБ",
-  "Надсилання {n} / {total}…"
+  "Надсилання {n} / {total}…",
+  "Снупі",
+  "Одноразове завантаження близько 550 МБ, близько 400 МБ зберігається офлайн. Запуск після 10 секунд спокою на головному екрані; будь-яка кнопка ставить на паузу."
  ],
  "kk": [
   "Жекелендіру",
@@ -648,7 +657,9 @@ const TEXTS = {
   "«{name}» жойылсын ба?",
   "Бейне: {n} қосылды, {failed} сәтсіз",
   "Сақтау мүмкін емес; пішімді және теледидардағы бос орынды тексеріңіз",
-  "Жіберілуде {n} / {total}…"
+  "Жіберілуде {n} / {total}…",
+  "Снупи",
+  "Бір рет шамамен 550 МБ жүктеледі, шамамен 400 МБ офлайн сақталады. Басты экранда 10 секундтан кейін ойнатылады; кез келген түйме кідіртеді."
  ]
 };
 const LANGS = Object.keys(TEXTS);
@@ -688,10 +699,12 @@ const hints = {
   aerial: t('hint_aerial'),
   photos: t('hint_photos'),
   clock: t('hint_clock'),
-  videos: t('hint_videos')
+  videos: t('hint_videos'),
+  snoopy: t('hint_snoopy')
 };
 const groups = [
   ['live', t('g_live'), t('g_live_sub')],
+  ['snoopy', t('ss_snoopy'), t('hint_snoopy')],
   ['daily', t('g_daily'), t('g_daily_sub')],
   ['photo', t('g_photo'), ''],
   ['builtin', t('g_builtin'), ''],
@@ -714,7 +727,7 @@ function card(w, selected, extraClass) {
   const b = document.createElement('button');
   b.className = 'wp ' + (extraClass || '');
   b.setAttribute('aria-selected', selected ? 'true' : 'false');
-  b.innerHTML = `<img loading="lazy" alt="" src="${base}thumb/${encodeURIComponent(w.id)}">
+  b.innerHTML = `<img loading="lazy" alt="" src="${base}thumb/${encodeURIComponent(w.id)}${w.kind === 'snoopy' ? '?v=' + Number(state.snoopyReady) : ''}">
     <span class="check"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>
     <div class="t"></div><div class="c"></div>`;
   b.querySelector('.t').textContent = w.title;

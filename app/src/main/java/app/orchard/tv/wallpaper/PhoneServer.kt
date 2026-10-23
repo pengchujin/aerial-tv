@@ -126,6 +126,7 @@ class PhoneServer private constructor(private val context: Context, private val 
             .put("rotatePhotos", Wallpapers.ROTATE_PHOTOS)
             .put("screensaver", Wallpapers.screensaver.key)
             .put("screensaverFollows", Wallpapers.screensaverFollows)
+            .put("snoopyReady", Snoopy.ready)
             .put("videos", JSONArray().apply {
                 ScreensaverVideos.all(context).forEach { put(JSONObject().put("id", it.id).put("name", it.name)) }
             })

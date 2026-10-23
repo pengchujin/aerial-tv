@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -80,6 +81,7 @@ import app.orchard.tv.wallpaper.ScreensaverMode
 import app.orchard.tv.wallpaper.Wallpaper
 import app.orchard.tv.wallpaper.WallpaperKind
 import app.orchard.tv.wallpaper.Wallpapers
+import app.orchard.tv.wallpaper.Snoopy
 import app.orchard.tv.weather.Weather
 import app.orchard.tv.weather.WeatherKind
 import kotlinx.coroutines.Dispatchers
@@ -228,16 +230,19 @@ fun WallpaperSheet(
                     Spacer(Modifier.height(22.dp))
                     SectionTitle(R.string.wp_screensaver)
                     Group { note ->
-                        SettingRow(
-                            R.string.ss_kind,
-                            when {
+                        val saverHint = when {
+                                Wallpapers.screensaver == ScreensaverMode.Snoopy -> stringResource(R.string.wp_snoopy_note)
                                 Wallpapers.screensaver == ScreensaverMode.Videos -> stringResource(R.string.ss_videos_hint)
                                 Wallpapers.screensaverFollows -> stringResource(R.string.ss_follow_hint)
                                 AerialSettings.backStartsScreensaver -> stringResource(R.string.ss_back_hint)
                                 else -> null
-                            },
-                            note, first = true,
-                        ) { ScreensaverChoice(onStartScreensaver) }
+                            }
+                        // Five kinds and the preview action need room to wrap in every language.
+                        Column(Modifier.fillMaxWidth().padding(18.dp).onFocusChanged { if (it.hasFocus) note(saverHint) }) {
+                            BasicText(stringResource(R.string.ss_kind), style = Type.Body)
+                            Spacer(Modifier.height(10.dp))
+                            ScreensaverChoice(onStartScreensaver)
+                        }
                         // Only the qualities this TV can play; a 1080p-only TV has nothing to choose.
                         val qualities = remember { AerialFormats.supported(context) }
                         if (qualities.size > 1) {
@@ -306,6 +311,7 @@ private fun WallpaperRows() {
     val list = remember(items, selected, dailyTitle, rotateTitle) {
         buildList {
             addAll(items.filter { it.kind == WallpaperKind.Live })
+            addAll(items.filter { it.kind == WallpaperKind.Snoopy })
             if (items.any { it.kind == WallpaperKind.Daily }) add(Wallpaper(Wallpapers.LATEST_DAILY, WallpaperKind.Daily, dailyTitle))
             addAll(items.filter { it.kind == WallpaperKind.Daily && it.id == selected })
             val photos = items.filter { it.kind == WallpaperKind.Photo }
@@ -316,7 +322,7 @@ private fun WallpaperRows() {
             addAll(items.filter { it.kind == WallpaperKind.Auto })
         }
     }
-    var note by remember { mutableStateOf<String?>(null) }
+    var focusedWallpaper by remember { mutableStateOf<Wallpaper?>(null) }
     // A row clips to its bounds, and the focused card grows by 8%: room on the left for that,
     // with the row moved back by as much so the cards still line up with the titles.
     LazyRow(
@@ -325,12 +331,16 @@ private fun WallpaperRows() {
         contentPadding = PaddingValues(start = 14.dp, end = 24.dp, top = 6.dp, bottom = 4.dp),
     ) {
         items(list, key = { it.id }) { wp ->
-            val hint = wallpaperNote(wp)
-            WallpaperCard(wp, if (wp === list.first()) first else null, onFocused = { note = hint })
+            WallpaperCard(wp, if (wp === list.first()) first else null, onFocused = { focusedWallpaper = wp })
         }
     }
-    Box(Modifier.height(42.dp).padding(start = 4.dp, top = 8.dp)) {
-        note?.let { BasicText(it, style = Type.Caption.copy(color = Palette.TertiaryLabel), maxLines = 2, overflow = TextOverflow.Ellipsis) }
+    Row(Modifier.height(50.dp).padding(start = 4.dp, top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.weight(1f)) {
+            focusedWallpaper?.let { wallpaperNote(it) }?.let {
+                BasicText(it, style = Type.Caption.copy(color = Palette.TertiaryLabel), maxLines = 2, overflow = TextOverflow.Ellipsis)
+            }
+        }
+        if (Snoopy.downloading) ActionChip(stringResource(R.string.wp_snoopy_cancel), Glyph.ChevronLeft, Snoopy::cancel)
     }
 }
 
@@ -338,6 +348,11 @@ private fun WallpaperRows() {
 @Composable
 private fun wallpaperNote(wp: Wallpaper): String? = when {
     wp.kind == WallpaperKind.Live -> stringResource(R.string.wp_live)
+    wp.kind == WallpaperKind.Snoopy -> when {
+        Snoopy.downloading -> stringResource(R.string.wp_snoopy_downloading, (Snoopy.progress * 100).toInt())
+        Snoopy.failed -> stringResource(R.string.wp_snoopy_failed)
+        else -> stringResource(R.string.wp_snoopy_note)
+    }
     wp.id == Wallpapers.LATEST_DAILY -> stringResource(R.string.wp_daily_note)
     wp.id == Wallpapers.ROTATE_PHOTOS -> stringResource(R.string.wp_photos_rotate_note)
     wp.kind == WallpaperKind.Photo -> stringResource(R.string.wp_photo_note)
@@ -349,7 +364,7 @@ private fun wallpaperNote(wp: Wallpaper): String? = when {
 @Composable
 private fun WallpaperCard(wp: Wallpaper, focusRequester: FocusRequester?, onFocused: () -> Unit) {
     val selected = Wallpapers.selectedId == wp.id
-    val thumb by produceState<ImageBitmap?>(null, wp.id, Wallpapers.items) {
+    val thumb by produceState<ImageBitmap?>(null, wp.id, Wallpapers.items, Snoopy.ready) {
         value = withContext(Dispatchers.Default) { Wallpapers.thumbnail(wp.id)?.asImageBitmap() }
     }
     Pressable(onClick = { Wallpapers.select(wp.id) }, focusRequester = focusRequester, focusedScale = 1.08f) { state ->
@@ -382,7 +397,7 @@ private fun WallpaperCard(wp: Wallpaper, focusRequester: FocusRequester?, onFocu
                     ) { GlyphIcon(Glyph.Check, Palette.OnFocus, 13.dp) }
                 }
                 // The aerial wallpaper moves; its card shows the last frame it stopped on.
-                if (wp.kind == WallpaperKind.Live) {
+                if (wp.kind == WallpaperKind.Live || wp.kind == WallpaperKind.Snoopy) {
                     GlyphIcon(Glyph.Play, Color.White, 22.dp, Modifier.align(Alignment.BottomStart).padding(7.dp))
                 }
             }
@@ -543,12 +558,13 @@ private fun ActionChip(label: String, glyph: Glyph, onClick: () -> Unit) {
 @Composable
 private fun ScreensaverChoice(onStart: () -> Unit) {
     // The choice first, then the action that tries it.
-    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         listOf(
             ScreensaverMode.Aerial to R.string.ss_aerial,
             ScreensaverMode.Photos to R.string.ss_photos,
             ScreensaverMode.Clock to R.string.ss_clock,
             ScreensaverMode.Videos to R.string.ss_videos,
+            ScreensaverMode.Snoopy to R.string.wp_snoopy,
         ).forEach { (mode, label) ->
             Chip(stringResource(label), on = Wallpapers.screensaver == mode) { Wallpapers.chooseScreensaver(mode) }
         }

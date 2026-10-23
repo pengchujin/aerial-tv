@@ -30,6 +30,7 @@ import androidx.media3.exoplayer.ExoPlayer
 import app.orchard.tv.system.DiagLog
 import app.orchard.tv.wallpaper.ScreensaverVideo
 import app.orchard.tv.wallpaper.ScreensaverVideos
+import app.orchard.tv.wallpaper.Snoopy
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.SharedFlow
@@ -37,10 +38,13 @@ import kotlinx.coroutines.withContext
 
 /** A local, silent playlist, shared by Home and AerialDream. An empty or broken set falls back. */
 @Composable
-internal fun VideoSaver(steps: SharedFlow<Int>, onUnavailable: () -> Unit) {
+internal fun VideoSaver(steps: SharedFlow<Int>, onUnavailable: () -> Unit, snoopy: Boolean = false) {
     val context = LocalContext.current
     val films by produceState<List<ScreensaverVideo>?>(null) {
-        value = withContext(Dispatchers.IO) { ScreensaverVideos.all(context).shuffled() }
+        value = withContext(Dispatchers.IO) {
+            if (snoopy) Snoopy.films().mapNotNull { film -> Snoopy.file(film.id)?.let { ScreensaverVideo(film.id, film.label, it) } }.shuffled()
+            else ScreensaverVideos.all(context).shuffled()
+        }
     }
     val loaded = films ?: return
     if (loaded.isEmpty()) {
@@ -54,17 +58,7 @@ internal fun VideoSaver(steps: SharedFlow<Int>, onUnavailable: () -> Unit) {
 @Composable
 private fun LocalFilms(films: List<ScreensaverVideo>, steps: SharedFlow<Int>, onUnavailable: () -> Unit) {
     val context = LocalContext.current
-    val player = remember {
-        ExoPlayer.Builder(context).setLoadControl(
-            DefaultLoadControl.Builder().setTargetBufferBytes(12 * 1024 * 1024)
-                .setBufferDurationsMs(5_000, 15_000, 500, 1_000).build(),
-        ).build().apply {
-            volume = 0f
-            trackSelectionParameters = trackSelectionParameters.buildUpon().setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, true).build()
-            repeatMode = Player.REPEAT_MODE_ALL
-            videoScalingMode = C.VIDEO_SCALING_MODE_SCALE_TO_FIT
-        }
-    }
+    val player = remember { localVideoPlayer(context) }
     var attempt by remember { mutableIntStateOf(0) }
     var playing by remember { mutableStateOf(false) }
     var aspect by remember { mutableFloatStateOf(16f / 9f) }
@@ -122,3 +116,16 @@ private fun LocalFilms(films: List<ScreensaverVideo>, steps: SharedFlow<Int>, on
         )
     }
 }
+
+/** The same small, silent player for imported films and the downloaded Snoopy wallpaper. */
+@androidx.annotation.OptIn(UnstableApi::class)
+internal fun localVideoPlayer(context: android.content.Context): ExoPlayer =
+    ExoPlayer.Builder(context).setLoadControl(
+        DefaultLoadControl.Builder().setTargetBufferBytes(12 * 1024 * 1024)
+            .setBufferDurationsMs(5_000, 15_000, 500, 1_000).build(),
+    ).build().apply {
+        volume = 0f
+        trackSelectionParameters = trackSelectionParameters.buildUpon().setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, true).build()
+        repeatMode = Player.REPEAT_MODE_ALL
+        videoScalingMode = C.VIDEO_SCALING_MODE_SCALE_TO_FIT
+    }

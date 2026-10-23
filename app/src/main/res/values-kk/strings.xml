@@ -219,4 +219,9 @@
     <string name="tile_kids">Балаларға</string>
     <string name="ss_videos">Бейне</string>
     <string name="ss_videos_hint">Телефон бетінен MP4 немесе MOV қосыңыз. Интернетсіз ойнатылады; бейне болмаса, фотолар көрсетіледі.</string>
+    <string name="wp_snoopy">Снупи</string>
+    <string name="wp_snoopy_note">Бір рет шамамен 550 МБ жүктеледі, шамамен 400 МБ офлайн сақталады. Басты экранда 10 секундтан кейін ойнатылады; кез келген түйме кідіртеді.</string>
+    <string name="wp_snoopy_downloading">Снупи жүктелуде: %1$d%%. Осы кезде басқа тұсқағазды таңдауға болады.</string>
+    <string name="wp_snoopy_failed">Снупи жүктелмеді. Қайталау үшін OK басыңыз; желі мен бос орынды тексеріңіз.</string>
+    <string name="wp_snoopy_cancel">Жүктеуден бас тарту</string>
 </resources>

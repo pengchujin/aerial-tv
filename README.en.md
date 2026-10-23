@@ -37,8 +37,8 @@ Made for the Xiaomi, TCL and other TVs sold in China. It starts at boot and surv
 - **Home**: your favorite apps in one row on a glass shelf at the bottom, every app below it. Hidden system apps like Xiaomi's App Store and Mi Home show up too.
 - **Organize**: hold OK (or press Menu) to move an app, put it in a folder, hide it or uninstall it. An HDMI input pinned to Home can say what is plugged in (Apple TV, PlayStation, Switch, Xbox, a computer...) and take its icon, or a name you type on your phone.
 - **Control Center**: press Up from the top row to the top right. Inputs, network, settings, volume, brightness and Personalize.
-- **Screensaver**: Apple TV's 114 aerial films, in 4K or 4K Dolby Vision where the TV supports it, your photos, a clock, or local videos sent from your phone ([guide, Chinese](docs/SCREENSAVER_VIDEOS.md)).
-- **Wallpaper**: Bing's photo of the day, fourteen built-ins, photos you upload by scanning a code with your phone, or aerial films that play behind the apps after ten still seconds on Home and stop on the frame showing at any key.
+- **Screensaver**: Apple TV's 114 aerial films, in 4K or 4K Dolby Vision where the TV supports it, Snoopy, your photos, a clock, or local videos sent from your phone ([Snoopy wallpaper and video screensavers, Chinese](docs/SCREENSAVER_VIDEOS.md)).
+- **Wallpaper**: Bing's photo of the day, fourteen built-ins, photos you upload by scanning a code with your phone, or aerial and Snoopy films that play behind the apps after ten still seconds on Home and stop on the frame showing at any key.
 - **Personalize**: one or two rows, clock size and corner, app names, focus style and key sounds.
 
 <p align="center">

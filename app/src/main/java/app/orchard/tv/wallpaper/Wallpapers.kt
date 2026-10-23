@@ -11,6 +11,7 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.core.content.edit
 import app.orchard.tv.BuildConfig
+import app.orchard.tv.R
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -27,7 +28,7 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.util.Locale
 
-enum class WallpaperKind { Daily, Builtin, Photo, Auto, Live }
+enum class WallpaperKind { Daily, Builtin, Photo, Auto, Live, Snoopy }
 
 data class Wallpaper(
     val id: String,
@@ -38,7 +39,7 @@ data class Wallpaper(
 )
 
 enum class ScreensaverMode(val key: String) {
-    Aerial("aerial"), Photos("photos"), Clock("clock"), Videos("videos");
+    Aerial("aerial"), Photos("photos"), Clock("clock"), Videos("videos"), Snoopy("snoopy");
 
     companion object {
         fun of(key: String?) = entries.firstOrNull { it.key == key } ?: Aerial
@@ -57,6 +58,7 @@ enum class ScreensaverMode(val key: String) {
  * - Auto: the previous behaviour, light taken from the focused app's artwork.
  * - Live: Apple's aerial films, moving once Home has sat still a while (ui/home/LiveWallpaper.kt).
  *   Its picture is the frame the film last stopped on, so the glass and the grid match it.
+ * - Snoopy: downloaded recordings, using the same moving-wallpaper and stopped-frame path.
  *
  * State is Compose snapshot state, written on the main thread only.
  */
@@ -67,6 +69,8 @@ object Wallpapers {
     const val AUTO = "auto"
     const val ROTATE_PHOTOS = "photos:rotate"
     const val LIVE = "aerial:live"
+    const val SNOOPY = "snoopy:live"
+    val movingWallpaper: Boolean get() = selectedId == LIVE || selectedId == SNOOPY
     private const val FOLLOW = "follow"
     private const val DEFAULT_FALLBACK = "grad:aurora"
 
@@ -80,6 +84,9 @@ object Wallpapers {
     private val dailyDir by lazy { File(app.filesDir, "daily").apply { mkdirs() } }
     private val photoDir by lazy { File(app.filesDir, "photos").apply { mkdirs() } }
     private val liveFrame by lazy { File(app.filesDir, "live-frame.jpg") }
+    private val snoopyFrame by lazy { File(app.filesDir, "snoopy-frame.jpg") }
+    private fun movingFrame(id: String = selectedId) = if (id == SNOOPY) snoopyFrame else liveFrame
+    private fun movingKey(key: String, id: String = selectedId) = if (id == SNOOPY) "snoopy_$key" else "live_$key"
     private val bakedDir by lazy { File(app.filesDir, "backdrop").apply { mkdirs() } }
     private val thumbs = HashMap<String, Bitmap>()
 
@@ -94,7 +101,11 @@ object Wallpapers {
      * from that picture.
      */
     val screensaver: ScreensaverMode
-        get() = chosenScreensaver ?: if (selectedId == LIVE || selectedId == AUTO) ScreensaverMode.Aerial else ScreensaverMode.Photos
+        get() = chosenScreensaver ?: when (selectedId) {
+            SNOOPY -> ScreensaverMode.Snoopy
+            LIVE, AUTO -> ScreensaverMode.Aerial
+            else -> ScreensaverMode.Photos
+        }
 
     /** No screensaver chosen: it follows the wallpaper. */
     val screensaverFollows: Boolean get() = chosenScreensaver == null
@@ -119,6 +130,7 @@ object Wallpapers {
         if (started) return
         started = true
         app = context.applicationContext
+        Snoopy.init(app)
         context.resources.displayMetrics.let {
             screenW = maxOf(it.widthPixels, it.heightPixels)
             screenH = minOf(it.widthPixels, it.heightPixels)
@@ -156,6 +168,7 @@ object Wallpapers {
     fun select(id: String) {
         selectedId = id
         prefs.edit { putString("selected", id) }
+        if (id == SNOOPY) Snoopy.download()
         rebuildBackdrop()
     }
 
@@ -174,11 +187,12 @@ object Wallpapers {
 
     /** The wallpaper's picture, when the photo screensaver starts from it: a picture wallpaper, not the aerial one. */
     fun screensaverPicture(): Wallpaper? =
-        if (screensaver != ScreensaverMode.Photos || selectedId == LIVE || selectedId == AUTO) null else resolve()
+        if (screensaver != ScreensaverMode.Photos || movingWallpaper || selectedId == AUTO) null else resolve()
 
     fun chooseScreensaver(mode: ScreensaverMode) {
         chosenScreensaver = mode
         prefs.edit { putString("screensaver", mode.key) }
+        if (mode == ScreensaverMode.Snoopy) Snoopy.download()
     }
 
     /** The concrete wallpaper the selection points at today. */
@@ -217,6 +231,8 @@ object Wallpapers {
         // Until a film has stopped on a frame, the first built-in stands in.
         WallpaperKind.Live -> liveFrame.takeIf { it.exists() }?.let { Images.decodeCover(it, w, h) }
             ?: Gradients.render(Gradients.presets.first(), w, h)
+        WallpaperKind.Snoopy -> (snoopyFrame.takeIf { it.isFile } ?: Snoopy.poster.takeIf { it.isFile })
+            ?.let { Images.decodeCover(it, w, h) } ?: Gradients.render(Gradients.presets.first(), w, h)
     }
 
     /** A 16:9 thumbnail for pickers and the phone page. Call off the main thread. */
@@ -269,6 +285,7 @@ object Wallpapers {
         val stamp = when (wp.kind) {
             WallpaperKind.Daily, WallpaperKind.Photo -> fileFor(wp)?.lastModified() ?: 0L
             WallpaperKind.Live -> liveFrame.lastModified()
+            WallpaperKind.Snoopy -> (snoopyFrame.takeIf { it.isFile } ?: Snoopy.poster).lastModified()
             else -> 0L
         }
         return "${wp.id}|$stamp|${screenW}x$screenH|${BuildConfig.VERSION_CODE}"
@@ -310,21 +327,22 @@ object Wallpapers {
      * and kept for the next start. Returns once Home has it. [frame] is screen-sized and is used up.
      * It was [atMs] into [film], where the film picks up when it next moves ([liveSpot]).
      */
-    suspend fun useLiveFrame(frame: Bitmap, film: String, atMs: Long) {
-        if (selectedId != LIVE) return
+    suspend fun useLiveFrame(frame: Bitmap, film: String, atMs: Long, wallpaper: String = LIVE) {
+        if (selectedId != wallpaper || !movingWallpaper) return
         backdropJob?.cancel()
-        prefs.edit { putString("live_film", film).putLong("live_at", atMs) }
+        prefs.edit { putString(movingKey("film", wallpaper), film).putLong(movingKey("at", wallpaper), atMs) }
         val (bmp, frost) = withContext(Dispatchers.Default) {
-            runCatching { liveFrame.outputStream().use { frame.compress(Bitmap.CompressFormat.JPEG, 90, it) } }
+            runCatching { movingFrame(wallpaper).outputStream().use { frame.compress(Bitmap.CompressFormat.JPEG, 90, it) } }
                 .onFailure { Log.w(TAG, "could not keep the film's frame", it) }
             // Frosted before shading, which draws on the frame itself.
             val frost = Images.frost(frame)
             Images.shadeForHome(frame) to frost
         }
-        synchronized(thumbs) { thumbs.remove(LIVE) }
+        if (selectedId != wallpaper) return
+        synchronized(thumbs) { thumbs.remove(wallpaper) }
         backdrop = bmp.asImageBitmap()
         frosted = frost.asImageBitmap()
-        resolve(LIVE)?.let { saveBaked(bakedKey(it), bmp, frost) }
+        resolve(wallpaper)?.let { saveBaked(bakedKey(it), bmp, frost) }
     }
 
     /**
@@ -332,8 +350,8 @@ object Wallpapers {
      * picture on screen rather than cutting to another place. Null until one has stopped on a frame.
      */
     fun liveSpot(): Pair<String, Long>? {
-        val film = prefs.getString("live_film", null)?.takeIf { it.isNotEmpty() } ?: return null
-        return film to prefs.getLong("live_at", 0L)
+        val film = prefs.getString(movingKey("film"), null)?.takeIf { it.isNotEmpty() } ?: return null
+        return film to prefs.getLong(movingKey("at"), 0L)
     }
 
     /**
@@ -341,15 +359,20 @@ object Wallpapers {
      * plate can stand over the paused film at once, before the exact frame is decoded for
      * [useLiveFrame]. [frame] is used up.
      */
-    suspend fun useLiveFrost(frame: Bitmap) {
-        if (selectedId != LIVE) return
+    suspend fun useLiveFrost(frame: Bitmap, wallpaper: String = LIVE) {
+        if (selectedId != wallpaper || !movingWallpaper) return
         backdropJob?.cancel()
         frosted = withContext(Dispatchers.Default) { Images.frost(frame) }.asImageBitmap()
     }
 
     /** Puts back the glass from before [useLiveFrost] when the exact frame could not be had. */
     fun restoreFrost(before: ImageBitmap?) {
-        if (selectedId == LIVE && before != null) frosted = before
+        if (movingWallpaper && before != null) frosted = before
+    }
+
+    fun snoopyReady() {
+        synchronized(thumbs) { thumbs.remove(SNOOPY) }
+        if (selectedId == SNOOPY) rebuildBackdrop()
     }
 
     private fun rebuildList() {
@@ -361,7 +384,8 @@ object Wallpapers {
             .map { Wallpaper("photo:${it.nameWithoutExtension}", WallpaperKind.Photo, if (zh) "我的照片" else "My Photo") }
         val auto = Wallpaper(AUTO, WallpaperKind.Auto, if (zh) "跟随 App" else "Follow App")
         val live = Wallpaper(LIVE, WallpaperKind.Live, if (zh) "航拍" else "Aerial")
-        items = listOf(live) + daily + builtins + photos + auto
+        val snoopy = Wallpaper(SNOOPY, WallpaperKind.Snoopy, app.getString(R.string.wp_snoopy))
+        items = listOf(live, snoopy) + daily + builtins + photos + auto
     }
 
     // ---- daily photos ----

@@ -75,6 +75,7 @@ import app.orchard.tv.ui.control.ControlCenter
 import app.orchard.tv.ui.wallpaper.WallpaperSheet
 import app.orchard.tv.wallpaper.ScreensaverMode
 import app.orchard.tv.wallpaper.Wallpapers
+import app.orchard.tv.wallpaper.Snoopy
 import app.orchard.tv.ui.components.liquidGlass
 import app.orchard.tv.ui.theme.LocalReducedMotion
 import app.orchard.tv.ui.theme.Motion
@@ -194,6 +195,7 @@ fun HomeScreen(
     // The aerial wallpaper's film, and how far it shows through.
     val filmCover = remember { Animatable(0f) }
     val liveFilm = remember { LiveFilm() }
+    LaunchedEffect(Wallpapers.selectedId) { filmCover.snapTo(0f) }
     // A screensaver of aerials over the aerial wallpaper carries the wallpaper's film on, one shot
     // from Home to screensaver: the apps fade, the clock moves to the corner. Whether the film is
     // moving already or still on its frame (Back on the top row), as long as Home shows it: on the
@@ -201,7 +203,9 @@ fun HomeScreen(
     // to the screensaver's own films.
     var filmFailed by remember(vm.screensaverVisible) { mutableStateOf(false) }
     val filmSaverChosen = remember(vm.screensaverVisible) {
-        vm.screensaverVisible && Wallpapers.selectedId == Wallpapers.LIVE && Wallpapers.screensaver == ScreensaverMode.Aerial &&
+        vm.screensaverVisible &&
+            (Wallpapers.selectedId == Wallpapers.LIVE && Wallpapers.screensaver == ScreensaverMode.Aerial ||
+                Wallpapers.selectedId == Wallpapers.SNOOPY && Snoopy.ready && Wallpapers.screensaver == ScreensaverMode.Snoopy) &&
             (filmCover.value > 0.5f || focusedRow == 0 && overlay == Overlay.None && moving == null)
     }
     val filmSaver = filmSaverChosen && !filmFailed
@@ -451,7 +455,7 @@ fun HomeScreen(
                 )
             }
             // The aerial wallpaper's film, under everything; it moves only on a still top row.
-            if (Wallpapers.selectedId == Wallpapers.LIVE) {
+            if (Wallpapers.selectedId == Wallpapers.LIVE || Wallpapers.selectedId == Wallpapers.SNOOPY && Snoopy.ready) key(Wallpapers.selectedId) {
                 LiveWallpaper(
                     moving = vm.resumed && overlay == Overlay.None && !vm.screensaverVisible && !pastShelf &&
                         focusedRow == 0 && moving == null,
