@@ -224,4 +224,18 @@
     <string name="notice_boot_off">开机时不再打开「%1$s」</string>
     <string name="tile_stock_home">原桌面</string>
     <string name="tile_kids">儿童</string>
+    <string name="cc_networks_title">无线网络</string>
+    <string name="cc_networks_scanning">正在扫描…</string>
+    <string name="cc_networks_empty">附近没有可用网络。</string>
+    <string name="cc_networks_saved">已保存</string>
+    <string name="cc_networks_open">开放网络</string>
+    <string name="cc_networks_secured">加密网络</string>
+    <string name="cc_networks_connected">已连接</string>
+    <string name="cc_networks_password_title">%1$s 的密码</string>
+    <string name="cc_networks_join">连接</string>
+    <string name="cc_networks_cancel">取消</string>
+    <string name="cc_networks_joining">正在连接…</string>
+    <string name="cc_networks_joined">已连接 %1$s</string>
+    <string name="cc_networks_failed">连接失败，请检查密码，或改用电视网络设置。</string>
+    <string name="cc_networks_system">电视网络设置</string>
 </resources>

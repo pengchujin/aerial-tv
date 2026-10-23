@@ -217,4 +217,18 @@
     <string name="notice_boot_off">%1$s больше не будет открываться при включении телевизора</string>
     <string name="tile_stock_home">Главный экран ТВ</string>
     <string name="tile_kids">Детям</string>
+    <string name="cc_networks_title">Сети</string>
+    <string name="cc_networks_scanning">Поиск сетей…</string>
+    <string name="cc_networks_empty">В зоне действия нет сетей.</string>
+    <string name="cc_networks_saved">Сохранённая</string>
+    <string name="cc_networks_open">Открытая</string>
+    <string name="cc_networks_secured">Защищённая</string>
+    <string name="cc_networks_connected">Подключено</string>
+    <string name="cc_networks_password_title">Пароль для %1$s</string>
+    <string name="cc_networks_join">Подключить</string>
+    <string name="cc_networks_cancel">Отмена</string>
+    <string name="cc_networks_joining">Подключение…</string>
+    <string name="cc_networks_joined">Подключено к %1$s</string>
+    <string name="cc_networks_failed">Не удалось подключиться. Проверьте пароль или подключитесь в настройках сети телевизора.</string>
+    <string name="cc_networks_system">Настройки сети телевизора</string>
 </resources>

@@ -217,4 +217,18 @@
     <string name="notice_boot_off">Теледидар қосылғанда %1$s енді ашылмайды</string>
     <string name="tile_stock_home">ТД басты экраны</string>
     <string name="tile_kids">Балаларға</string>
+    <string name="cc_networks_title">Желілер</string>
+    <string name="cc_networks_scanning">Сканерлеу…</string>
+    <string name="cc_networks_empty">Қашықтықта желі жоқ.</string>
+    <string name="cc_networks_saved">Сақталған</string>
+    <string name="cc_networks_open">Ашық</string>
+    <string name="cc_networks_secured">Қорғалған</string>
+    <string name="cc_networks_connected">Қосылған</string>
+    <string name="cc_networks_password_title">%1$s желісінің құпия сөзі</string>
+    <string name="cc_networks_join">Қосу</string>
+    <string name="cc_networks_cancel">Бас тарту</string>
+    <string name="cc_networks_joining">Қосылуда…</string>
+    <string name="cc_networks_joined">%1$s желісіне қосылды</string>
+    <string name="cc_networks_failed">Қосылу мүмкін болмады. Құпия сөзді тексеріңіз немесе теледидардың желі параметрлерін пайдаланыңыз.</string>
+    <string name="cc_networks_system">Теледидардың желі параметрлері</string>
 </resources>

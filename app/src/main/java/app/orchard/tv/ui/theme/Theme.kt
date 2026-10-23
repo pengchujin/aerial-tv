@@ -34,6 +34,7 @@ object Palette {
     val Hairline = Color(0x1AFFFFFF)
     val Green = Color(0xFF30D158)
     val Orange = Color(0xFFFF9F0A)
+    val Blue = Color(0xFF0A84FF)
     val Red = Color(0xFFFF453A)
 
     /** tvOS draws a focused control as a near-white plate with dark content. */

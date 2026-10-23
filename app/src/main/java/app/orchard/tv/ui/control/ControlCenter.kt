@@ -57,6 +57,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -81,6 +82,17 @@ import app.orchard.tv.system.LaunchFallback
 import app.orchard.tv.system.NetKind
 import app.orchard.tv.system.SourceKind
 import app.orchard.tv.system.Sounds
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import app.orchard.tv.system.WifiNetworks
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import app.orchard.tv.system.SystemProbe
 import app.orchard.tv.ui.components.Pressable
 import app.orchard.tv.ui.components.consumeTaps
@@ -97,6 +109,15 @@ import app.orchard.tv.ui.theme.Type
 import app.orchard.tv.update.Updates
 import app.orchard.tv.wallpaper.PhoneServer
 import java.time.LocalDateTime
+
+/** Which button in Control Center's top row opened the last page; focus returns to it. */
+private enum class MainAction { Inputs, Network }
+
+/**
+ * Kept outside the composition on purpose: a page replaces the panel, so the panel is disposed
+ * while the page is open and a remembered state would forget which button to focus on return.
+ */
+private var lastMainAction = MainAction.Inputs
 
 /**
  * tvOS Control Center: a glass panel that drops in from the top-right corner over a blurred Home.
@@ -116,7 +137,7 @@ fun ControlCenter(
             CcPage.Main -> onClose()
             CcPage.Inputs -> vm.overlay = Overlay.ControlCenter(CcPage.Main)
             CcPage.InputSettings -> vm.overlay = Overlay.ControlCenter(CcPage.Inputs)
-            CcPage.Update, CcPage.Setup -> vm.overlay = Overlay.ControlCenter(CcPage.Main)
+            CcPage.Update, CcPage.Setup, CcPage.Networks -> vm.overlay = Overlay.ControlCenter(CcPage.Main)
         }
     }
 
@@ -166,6 +187,7 @@ fun ControlCenter(
                         CcPage.InputSettings -> InputSettingsPage(vm, visible)
                         CcPage.Update -> UpdatePage(vm, visible)
                         CcPage.Setup -> SetupPage(vm, visible, onOpen)
+                        CcPage.Networks -> NetworksPage(vm, visible, onOpen)
                     }
                 }
             }
@@ -176,11 +198,17 @@ fun ControlCenter(
 @Composable
 private fun MainPage(vm: HomeViewModel, now: LocalDateTime, takeFocus: Boolean, onOpen: (android.content.Intent) -> Unit) {
     val context = LocalContext.current
-    val first = remember { FocusRequester() }
+    val inputsButton = remember { FocusRequester() }
+    val networkButton = remember { FocusRequester() }
     LaunchedEffect(Unit) {
         if (!takeFocus) return@LaunchedEffect
         withFrameNanos { }
-        runCatching { first.requestFocus() }
+        // Come back to the button that opened the page we are returning from, not to Inputs.
+        val requester = when (lastMainAction) {
+            MainAction.Inputs -> inputsButton
+            MainAction.Network -> networkButton
+        }
+        runCatching { requester.requestFocus() }
     }
 
     Column {
@@ -209,7 +237,8 @@ private fun MainPage(vm: HomeViewModel, now: LocalDateTime, takeFocus: Boolean, 
 
         Spacer(Modifier.height(16.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            RoundButton(Glyph.Input, stringResource(R.string.cc_inputs), focusRequester = first) {
+            RoundButton(Glyph.Input, stringResource(R.string.cc_inputs), focusRequester = inputsButton) {
+                lastMainAction = MainAction.Inputs
                 // TCL lists no inputs to Android; its own input panel is the next best thing.
                 vm.overlay = if (vm.sources.isEmpty() && SystemProbe.openInputPicker(context)) Overlay.None
                 else Overlay.ControlCenter(CcPage.Inputs)
@@ -217,11 +246,20 @@ private fun MainPage(vm: HomeViewModel, now: LocalDateTime, takeFocus: Boolean, 
             RoundButton(
                 when (vm.network.kind) { NetKind.Ethernet -> Glyph.Ethernet; NetKind.Offline -> Glyph.Offline; else -> Glyph.Wifi },
                 stringResource(R.string.cc_network),
+                focusRequester = networkButton,
             ) {
-                vm.whenUnlocked {
-                    val pages = SystemProbe.networkSettingsIntents(context, ethernet = vm.network.kind == NetKind.Ethernet)
-                    LaunchFallback.arm(pages.drop(1))
-                    onOpen(pages.first())
+                lastMainAction = MainAction.Network
+                // Picked and joined inside Control Center when the firmware's framework allows it;
+                // otherwise the firm's Wi-Fi page still is one press away, and the candidate pages are
+                // tried one after another because a Xiaomi page can close at once (issue #331).
+                if (WifiNetworks.available(context)) {
+                    vm.overlay = Overlay.ControlCenter(CcPage.Networks)
+                } else {
+                    vm.whenUnlocked {
+                        val pages = SystemProbe.networkSettingsIntents(context, ethernet = vm.network.kind == NetKind.Ethernet)
+                        LaunchFallback.arm(pages.drop(1))
+                        onOpen(pages.first())
+                    }
                 }
             }
             RoundButton(Glyph.Gear, stringResource(R.string.cc_settings)) { vm.whenUnlocked { onOpen(SystemProbe.settingsIntent(context)) } }
@@ -391,6 +429,190 @@ private fun SetupPage(vm: HomeViewModel, takeFocus: Boolean, onOpen: (android.co
                 BasicText(stringResource(R.string.cc_setup_scan_hint), style = Type.Caption)
             }
         }
+    }
+}
+
+@Composable
+private fun NetworksPage(vm: HomeViewModel, takeFocus: Boolean, onOpen: (android.content.Intent) -> Unit) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val first = remember { FocusRequester() }
+    var networks by remember { mutableStateOf<List<WifiNetworks.Ap>?>(null) }
+    var passwordFor by remember { mutableStateOf<WifiNetworks.Ap?>(null) }
+    var password by remember { mutableStateOf("") }
+    var status by remember { mutableStateOf<String?>(null) }
+    var joining by remember { mutableStateOf(false) }
+    val passwordField = remember { FocusRequester() }
+
+    fun reload() {
+        networks = null
+        scope.launch {
+            val list = withContext(Dispatchers.IO) { WifiNetworks.scan(context) }
+            networks = list
+        }
+    }
+    // The firmware's own network page, tried through every candidate because a Xiaomi page can
+    // close at once (issue #331).
+    fun openSystemNetwork() = vm.whenUnlocked {
+        val pages = SystemProbe.networkSettingsIntents(context)
+        LaunchFallback.arm(pages.drop(1))
+        onOpen(pages.first())
+    }
+    LaunchedEffect(Unit) { reload() }
+    LaunchedEffect(takeFocus) {
+        if (!takeFocus) return@LaunchedEffect
+        withFrameNanos { }
+        runCatching { first.requestFocus() }
+    }
+    LaunchedEffect(passwordFor) {
+        if (passwordFor != null) {
+            withFrameNanos { }
+            runCatching { passwordField.requestFocus() }
+        }
+    }
+    BackHandler(enabled = passwordFor != null) {
+        passwordFor = null
+        password = ""
+    }
+
+    fun join(ap: WifiNetworks.Ap, pass: String) {
+        if (joining) return
+        joining = true
+        status = null
+        scope.launch {
+            val outcome = withContext(Dispatchers.IO) { WifiNetworks.connect(context, ap, pass) }
+            when (outcome) {
+                WifiNetworks.Outcome.Started -> {
+                    delay(1800)
+                    joining = false
+                    status = context.getString(R.string.cc_networks_joined, ap.ssid)
+                    passwordFor = null
+                    password = ""
+                    reload()
+                }
+                WifiNetworks.Outcome.Failed -> {
+                    joining = false
+                    status = context.getString(R.string.cc_networks_failed)
+                }
+                WifiNetworks.Outcome.UseSystemPage -> {
+                    joining = false
+                    openSystemNetwork()
+                }
+            }
+        }
+    }
+
+    val target = passwordFor
+    if (target != null) {
+        Column {
+            BasicText(stringResource(R.string.cc_networks_password_title, target.ssid), style = Type.Title, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Spacer(Modifier.height(12.dp))
+            BasicTextField(
+                value = password,
+                onValueChange = { password = it },
+                singleLine = true,
+                textStyle = Type.Body.copy(color = Palette.Label),
+                cursorBrush = Brush.verticalGradient(listOf(Palette.Focus, Palette.Focus)),
+                visualTransformation = PasswordVisualTransformation(),
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Password,
+                    imeAction = ImeAction.Done,
+                ),
+                keyboardActions = KeyboardActions(onDone = { join(target, password) }),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(Palette.Fill)
+                    .padding(horizontal = 16.dp, vertical = 14.dp)
+                    .focusRequester(passwordField),
+            )
+            Spacer(Modifier.height(14.dp))
+            MenuRow(
+                Glyph.Check,
+                if (joining) stringResource(R.string.cc_networks_joining) else stringResource(R.string.cc_networks_join),
+                onClick = { join(target, password) },
+            )
+            MenuRow(Glyph.ChevronLeft, stringResource(R.string.cc_networks_cancel), onClick = {
+                passwordFor = null
+                password = ""
+            })
+            status?.let {
+                Spacer(Modifier.height(10.dp))
+                BasicText(it, style = Type.Caption, modifier = Modifier.padding(horizontal = 14.dp))
+            }
+        }
+        return
+    }
+
+    Column(Modifier.heightIn(max = 520.dp).verticalScroll(rememberScrollState())) {
+        MenuRow(
+            Glyph.ChevronLeft,
+            stringResource(R.string.cc_networks_title),
+            focusRequester = first,
+            onClick = { vm.overlay = Overlay.ControlCenter(CcPage.Main) },
+        )
+        status?.let {
+            BasicText(it, style = Type.Caption, modifier = Modifier.padding(horizontal = 14.dp, vertical = 4.dp))
+        }
+        val list = networks
+        if (list == null) {
+            BasicText(
+                stringResource(R.string.cc_networks_scanning),
+                style = Type.Caption,
+                modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+            )
+        } else {
+            if (list.isEmpty()) {
+                BasicText(
+                    stringResource(R.string.cc_networks_empty),
+                    style = Type.Caption,
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                )
+            }
+            list.forEach { ap ->
+                // One indicator style for every row: a coloured dot, then the state in words.
+                val label: String
+                val dot: Color
+                when {
+                    ap.connected -> {
+                        label = stringResource(R.string.cc_networks_connected)
+                        dot = Palette.Green
+                    }
+                    ap.saved -> {
+                        label = stringResource(R.string.cc_networks_saved)
+                        dot = Palette.SecondaryLabel
+                    }
+                    ap.secured -> {
+                        label = stringResource(R.string.cc_networks_secured)
+                        dot = Palette.Orange
+                    }
+                    else -> {
+                        label = stringResource(R.string.cc_networks_open)
+                        dot = Palette.Blue
+                    }
+                }
+                MenuRow(
+                    Glyph.Wifi,
+                    ap.ssid,
+                    trailing = label,
+                    trailingDot = dot,
+                    trailingWidth = 56.dp,
+                    onClick = {
+                        when {
+                            ap.connected -> Unit
+                            ap.saved || !ap.secured -> join(ap, "")
+                            else -> {
+                                passwordFor = ap
+                                password = ""
+                                status = null
+                            }
+                        }
+                    },
+                )
+            }
+        }
+        Spacer(Modifier.height(4.dp))
+        MenuRow(Glyph.Gear, stringResource(R.string.cc_networks_system), trailing = "›", onClick = { openSystemNetwork() })
     }
 }
 

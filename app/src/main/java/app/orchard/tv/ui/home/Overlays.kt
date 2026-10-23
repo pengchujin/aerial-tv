@@ -40,6 +40,9 @@ import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
@@ -92,6 +95,9 @@ fun MenuRow(
     focusRequester: FocusRequester? = null,
     destructive: Boolean = false,
     trailing: String? = null,
+    trailingDot: Color? = null,
+    /** Fixed width for the trailing text, so state dots on a list line up. */
+    trailingWidth: Dp? = null,
 ) {
     Pressable(onClick = onClick, focusRequester = focusRequester, focusedScale = 1.03f, modifier = modifier.fillMaxWidth()) { state ->
         val bg by animateColorAsState(
@@ -114,11 +120,18 @@ fun MenuRow(
         ) {
             GlyphIcon(glyph, fg, 18.dp)
             BasicText(text, style = Type.Body.copy(color = fg), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+            if (trailingDot != null) {
+                Box(Modifier.size(8.dp).clip(CircleShape).background(trailingDot))
+            }
             if (trailing != null) {
                 BasicText(
                     trailing,
-                    style = Type.Callout.copy(color = if (state.focused) Palette.OnFocus.copy(alpha = 0.6f) else Palette.SecondaryLabel),
-                    maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = 200.dp),
+                    style = Type.Callout.copy(
+                        color = if (state.focused) Palette.OnFocus.copy(alpha = 0.6f) else Palette.SecondaryLabel,
+                        textAlign = if (trailingWidth != null) TextAlign.End else TextAlign.Start,
+                    ),
+                    maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    modifier = if (trailingWidth != null) Modifier.width(trailingWidth) else Modifier.widthIn(max = 200.dp),
                 )
             }
         }

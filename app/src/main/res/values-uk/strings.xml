@@ -217,4 +217,18 @@
     <string name="notice_boot_off">%1$s більше не відкриватиметься під час увімкнення телевізора</string>
     <string name="tile_stock_home">Головний екран ТБ</string>
     <string name="tile_kids">Дітям</string>
+    <string name="cc_networks_title">Мережі</string>
+    <string name="cc_networks_scanning">Сканування…</string>
+    <string name="cc_networks_empty">У зоні дії немає мереж.</string>
+    <string name="cc_networks_saved">Збережена</string>
+    <string name="cc_networks_open">Відкрита</string>
+    <string name="cc_networks_secured">Захищена</string>
+    <string name="cc_networks_connected">Підключено</string>
+    <string name="cc_networks_password_title">Пароль для %1$s</string>
+    <string name="cc_networks_join">Підключити</string>
+    <string name="cc_networks_cancel">Скасувати</string>
+    <string name="cc_networks_joining">Підключення…</string>
+    <string name="cc_networks_joined">Підключено до %1$s</string>
+    <string name="cc_networks_failed">Не вдалося підключитися. Перевірте пароль або скористайтеся налаштуваннями мережі телевізора.</string>
+    <string name="cc_networks_system">Налаштування мережі телевізора</string>
 </resources>

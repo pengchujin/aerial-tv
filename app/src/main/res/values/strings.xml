@@ -225,4 +225,18 @@
     <string name="notice_boot_off">%1$s will no longer open when the TV turns on</string>
     <string name="tile_stock_home">TV Home</string>
     <string name="tile_kids">Kids</string>
+    <string name="cc_networks_title">Networks</string>
+    <string name="cc_networks_scanning">Scanning…</string>
+    <string name="cc_networks_empty">No networks in range.</string>
+    <string name="cc_networks_saved">Saved</string>
+    <string name="cc_networks_open">Open</string>
+    <string name="cc_networks_secured">Secured</string>
+    <string name="cc_networks_connected">Connected</string>
+    <string name="cc_networks_password_title">Password for %1$s</string>
+    <string name="cc_networks_join">Join</string>
+    <string name="cc_networks_cancel">Cancel</string>
+    <string name="cc_networks_joining">Joining…</string>
+    <string name="cc_networks_joined">Joined %1$s</string>
+    <string name="cc_networks_failed">Could not join. Check the password, or use the TV\'s network settings.</string>
+    <string name="cc_networks_system">TV network settings</string>
 </resources>
