@@ -217,4 +217,18 @@
     <string name="notice_boot_off">%1$s більше не відкриватиметься під час увімкнення телевізора</string>
     <string name="tile_stock_home">Головний екран ТБ</string>
     <string name="tile_kids">Дітям</string>
+    <string name="info_version">Версія %1$s (%2$d)</string>
+    <string name="info_installed">Встановлено %1$s</string>
+    <string name="info_permissions">Дозволи</string>
+    <string name="info_no_permissions">Немає запитаних дозволів</string>
+    <string name="perm_on">Увімк.</string>
+    <string name="perm_off">Вимк.</string>
+    <string name="perm_partial">Частково</string>
+    <string name="info_special_access">Особливий доступ</string>
+    <string name="access_all_files">Доступ до всіх файлів</string>
+    <string name="access_overlay">Поверх інших застосунків</string>
+    <string name="access_write_settings">Зміна системних налаштувань</string>
+    <string name="access_install">Встановлення невідомих застосунків</string>
+    <string name="action_open">Відкрити</string>
+    <string name="action_uninstall">Видалити</string>
 </resources>

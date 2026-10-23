@@ -2,10 +2,12 @@ package app.orchard.tv
 
 import android.app.ActivityOptions
 import android.content.BroadcastReceiver
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.graphics.drawable.BitmapDrawable
+import android.content.pm.PackageManager
 import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkRequest
@@ -41,6 +43,7 @@ import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.lifecycleScope
+import app.orchard.tv.apps.AppDetails
 import app.orchard.tv.apps.AppEntry
 import app.orchard.tv.apps.CustomIcons
 import app.orchard.tv.apps.SourceLooks
@@ -179,6 +182,25 @@ class MainActivity : ComponentActivity() {
         }
         if (savedInstanceState == null && firstStartSinceBoot()) openBootSource("boot")
         if (intent.getBooleanExtra(EXTRA_WOKE, false)) openBootSource("brought back on wake")
+        updateAppInfoEntry()
+    }
+
+    /**
+     * Firmware without Android's App Info screen (Xiaomi HyperOS on MiTV-MFTR0 has none) sends apps
+     * that ask for it to nothing: File Manager+ showed "Error". Aerial answers those intents with
+     * AppInfoActivity, through an alias that is on only when the firmware has no screen of its own,
+     * so that other TVs do not get an "Open with" choice for it.
+     */
+    private fun updateAppInfoEntry() {
+        val alias = ComponentName(this, "$packageName.AppInfoEntry")
+        val state = if (AppDetails.hasSystemScreen(this)) {
+            PackageManager.COMPONENT_ENABLED_STATE_DISABLED
+        } else {
+            PackageManager.COMPONENT_ENABLED_STATE_ENABLED
+        }
+        if (packageManager.getComponentEnabledSetting(alias) != state) {
+            packageManager.setComponentEnabledSetting(alias, state, PackageManager.DONT_KILL_APP)
+        }
     }
 
     override fun onDestroy() {

@@ -7,6 +7,7 @@
 ```
 app/src/main/java/app/orchard/tv/
 ├── MainActivity.kt          HOME Activity：窗口设置、960×540 画布密度、广播/网络监听、空闲计时与桌面内屏保、启动 App
+├── AppInfoActivity.kt       其他 App 发来「应用信息」Intent 时，在固件没有这个页面的电视上弹出 Aerial 自己的应用信息（单独的任务，叠在请求方上面）
 ├── HomeViewModel.kt         首页状态：App 列表、浮层（Overlay）、系统状态（网络/音量/亮度/信号源/桌面状态）、移动模式
 ├── apps/
 │   ├── Apps.kt              AppCatalog：枚举 LEANBACK_LAUNCHER + LAUNCHER，按包去重，缓存磁贴图（按 lastUpdateTime）
@@ -14,6 +15,7 @@ app/src/main/java/app/orchard/tv/
 │   ├── TileArt.kt           磁贴图生成：横幅 / 自适应图标双层 / 铺满底板 / 同色系底色；主色；每 App 的 64×36 环境光背景
 │   ├── TileRecipes.kt       精选图标库：按包名给 App 指定重绘方式（品牌色、白色 logo、用图标代替横幅、自绘图标）
 │   ├── TileSheet.kt         把所有磁贴拼成一张图，用来对比改动前后（ADB 触发，见 HANDOFF「调试」）
+│   ├── AppDetails.kt        应用信息的数据：版本、安装时间、运行时权限（按权限组）、特殊权限（app op），只读；`hasSystemScreen` 判断固件有没有自己的应用信息页
 │   ├── LayoutStore.kt       用户排序、文件夹与隐藏（SharedPreferences "layout"），首次运行的默认排序
 │   └── CustomIcons.kt       用户在手机页给 App 换的磁贴图（files/icons/<包名>.png，16:9）
 ├── ui/
@@ -24,6 +26,7 @@ app/src/main/java/app/orchard/tv/
 │   ├── home/HomeScreen.kt   首页布局：网格几何、滚动、焦点管理、各浮层挂载、返回键
 │   ├── home/AppTile.kt      单个磁贴：聚焦弹簧、阴影、柔光、视差、边缘回弹、长按、移动抖动
 │   ├── home/HomeChrome.kt   背景（AmbientBackground）、大时钟、右上角状态胶囊、时间格式
+│   ├── home/AppInfoSheet.kt 应用信息面板：版本和安装时间、「打开」「卸载」两个按钮、权限状态（只读）
 │   ├── home/Overlays.kt     长按菜单、隐藏的 App 面板、MenuRow、MiniTile
 │   ├── home/FolderView.kt   打开的文件夹
 │   ├── home/PinPad.kt       家长密码键盘（设置 / 解锁，遥控器数字键或屏幕键盘）
@@ -225,6 +228,13 @@ NanoHTTPD 监听 8790 端口，路径前缀是 8 位随机令牌（每次打开�
 电视的播放器（`com.tcl.tv`、`com.xiaomi.mitv.tvplayer`）即使声明了 HOME，也不算原桌面，除非它就是系统解析出来的 HOME：TCL 85G60E 把 `com.tcl.tv` 列为 HOME，每次切信号源都被守护当成原桌面拉回（#223，用户日志；家里的 TCL MT5879 没有这个 HOME，没有真机验证）。
 
 **只装了 APK 的电视**（U 盘、应用商店，#207 #213）：1.32 起 `MainActivity` 也声明 `CATEGORY_LAUNCHER`，国内电视的「我的应用」大多只列这种，以前装完找不到图标。打开后没有 `WRITE_SECURE_SETTINGS`（只有 install.sh 会授权）、桌面状态又是「尚未设为默认桌面」时，4 秒后自动打开一次控制中心的「设为主屏幕」页（`CcPage.Setup`，`settings` 的 `setup_offered` 记住），以后从控制中心底部进去。页上按电视有没有这些设置页显示：无障碍（手动打开桌面守护，小米 MFTR0 有，TCL MT5879 没有）、默认桌面（只有 standard 版；小米会忽略）、通知使用权（待机被杀后复活），以及二维码：打开 `site/update/#setup=1`，给出这台电视的安装命令和 Agent 提示词。Google TV 模拟器（Android 13）上验证过自动弹出和跳到无障碍设置。
+
+## 应用信息（固件没有「应用信息」页时）
+
+- 小米 HyperOS（MiTV-MFTR0，Android 11）没有「应用信息」页。长按菜单的「应用信息」原来只弹「此电视不支持」；其他 App（如文件管理器+）发来的 `ACTION_APPLICATION_DETAILS_SETTINGS` 也只显示「错误」。
+- `AppDetails.hasSystemScreen` 看有没有别的 App 响应这个 Intent（不算 Aerial 自己）。有就沿用系统的；没有就用 Aerial 自己的 `AppInfoSheet`。
+- 只读：`PackageManager`（版本、安装时间、运行时权限，按权限组；没有分组的权限各占一行）和 `AppOpsManager`（特殊权限：所有文件访问、显示在其他应用上层、修改系统设置、安装未知来源应用），不需要特权。面板上能做的是「打开」和「卸载」（回到 Home，由它启动 App 或交给系统安装器）。改权限、强行停止、清除数据没有做：那要 shell 的权限，另说。
+- 其他 App 发来的请求：`AppInfoEntry`（`activity-alias`，默认关闭，只响应 `APPLICATION_DETAILS_SETTINGS`）只在没有系统页面时由 `MainActivity.updateAppInfoEntry` 打开，指向 `AppInfoActivity`。它是 `singleInstance`、独立的任务，透明主题叠在请求方上面（半透明深色玻璃，`LocalGlassOverApp`），返回键关掉整个任务，回到请求方。放在 `MainActivity`（`singleTask`）里时，面板会被放进请求方的任务，返回键反而打开 Aerial。
 
 ## 系统能力（system/）
 

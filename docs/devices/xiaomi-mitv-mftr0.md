@@ -84,3 +84,7 @@
 - 「安装未知应用」是 Android TV 设置里的总列表（`com.android.tv.settings/.device.apps.specialaccess.ExternalSourcesActivity`），不会直接定位到 Aerial；`install.sh` 用 appops 预先放行。
 - 按「完成」后露出的是 PatchWall 的 `com.mitv.tvhome/.DetailsActivity`，不是 HOME Activity，所以加了「安装器关闭后拉回 Aerial」那条规则（见 ARCHITECTURE.md「升级」）。
 
+## 没有「应用信息」和特殊权限页
+
+- HyperOS（Android 11）没有 `ACTION_APPLICATION_DETAILS_SETTINGS`、`MANAGE_APP_ALL_FILES_ACCESS_PERMISSION`、`MANAGE_OVERLAY_PERMISSION`、`MANAGE_WRITE_SETTINGS`、`MANAGE_UNKNOWN_APP_SOURCES` 的处理者；`android.intent.action.MANAGE_PERMISSIONS` 有两个，但 `permissioncontroller` 的那个要 `GRANT_RUNTIME_PERMISSIONS`，`packageinstaller` 的那个缺字符串、只列出一个权限组。Aerial 自己做了只读的应用信息，见 ARCHITECTURE.md「应用信息」。
+- 删掉 Aerial 再装一个签名不同的版本时，系统保存的「默认桌面」会丢；`com.mitv.tvhome` 被停用的话，`FallbackHome` 和选择桌面的对话框会每秒启动十几次，`system_server` 占满一个核。保持 `com.mitv.tvhome` 启用。

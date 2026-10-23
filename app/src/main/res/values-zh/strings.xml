@@ -224,4 +224,18 @@
     <string name="notice_boot_off">开机时不再打开「%1$s」</string>
     <string name="tile_stock_home">原桌面</string>
     <string name="tile_kids">儿童</string>
+    <string name="info_version">版本 %1$s（%2$d）</string>
+    <string name="info_installed">安装于 %1$s</string>
+    <string name="info_permissions">权限</string>
+    <string name="info_no_permissions">没有申请任何权限</string>
+    <string name="perm_on">开</string>
+    <string name="perm_off">关</string>
+    <string name="perm_partial">部分</string>
+    <string name="info_special_access">特殊权限</string>
+    <string name="access_all_files">访问所有文件</string>
+    <string name="access_overlay">显示在其他应用上层</string>
+    <string name="access_write_settings">修改系统设置</string>
+    <string name="access_install">安装未知来源应用</string>
+    <string name="action_open">打开</string>
+    <string name="action_uninstall">卸载</string>
 </resources>

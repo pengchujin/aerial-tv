@@ -217,4 +217,18 @@
     <string name="notice_boot_off">Теледидар қосылғанда %1$s енді ашылмайды</string>
     <string name="tile_stock_home">ТД басты экраны</string>
     <string name="tile_kids">Балаларға</string>
+    <string name="info_version">Нұсқа %1$s (%2$d)</string>
+    <string name="info_installed">Орнатылған күні: %1$s</string>
+    <string name="info_permissions">Рұқсаттар</string>
+    <string name="info_no_permissions">Сұралған рұқсаттар жоқ</string>
+    <string name="perm_on">Қосулы</string>
+    <string name="perm_off">Өшірулі</string>
+    <string name="perm_partial">Жартылай</string>
+    <string name="info_special_access">Арнайы қолжетімділік</string>
+    <string name="access_all_files">Барлық файлдарға қолжетімділік</string>
+    <string name="access_overlay">Басқа қолданбалардың үстінен көрсету</string>
+    <string name="access_write_settings">Жүйе параметрлерін өзгерту</string>
+    <string name="access_install">Белгісіз қолданбаларды орнату</string>
+    <string name="action_open">Ашу</string>
+    <string name="action_uninstall">Жою</string>
 </resources>
