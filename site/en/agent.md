@@ -85,6 +85,7 @@ Run these in PowerShell, with the adb from step 1. Everything inside `adb shell 
    ```
    adb shell pm grant app.orchard.tv android.permission.ACCESS_FINE_LOCATION
    adb shell pm grant app.orchard.tv android.permission.WRITE_SECURE_SETTINGS
+   adb shell pm grant app.orchard.tv android.permission.READ_TV_LISTINGS
    adb shell appops set app.orchard.tv SYSTEM_ALERT_WINDOW allow
    adb shell appops set app.orchard.tv WRITE_SETTINGS allow
    adb shell appops set app.orchard.tv REQUEST_INSTALL_PACKAGES allow

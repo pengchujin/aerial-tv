@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import app.orchard.tv.apps.TileSheet
 import app.orchard.tv.settings.AerialSettings
+import app.orchard.tv.settings.NameMode
 import app.orchard.tv.system.DiagLog
 import app.orchard.tv.update.Updates
 import kotlinx.coroutines.launch
@@ -46,7 +47,8 @@ class ConfigReceiver : BroadcastReceiver() {
             "one_row_home" to AerialSettings::chooseOneRowHome,
             "peek_next_row" to AerialSettings::choosePeekNextRow,
             "home_plate" to AerialSettings::chooseHomePlate,
-            "show_all_names" to AerialSettings::chooseShowAllNames,
+            // The name setting has three modes since the big name (#348); this switch is every name or the focused one's.
+            "show_all_names" to { on: Boolean -> AerialSettings.chooseNameMode(if (on) NameMode.All else NameMode.Focused) },
         ).filterKeys { intent.hasExtra(it) }
         if (layout.isNotEmpty()) {
             AerialSettings.init(context)

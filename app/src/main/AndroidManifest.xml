@@ -29,6 +29,9 @@
     <uses-permission android:name="android.permission.WRITE_SETTINGS"
         tools:ignore="ProtectedPermissions" />
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Home's shelf: other apps' watch-next and preview-channel programs in the TV provider
+         (shelf/Shelf.kt). Granted over ADB by tools/install.sh, never prompted. -->
+    <uses-permission android:name="android.permission.READ_TV_LISTINGS" />
     <!-- RevivalSync: the sync adapter that restarts Aerial after a force-stop. -->
     <uses-permission android:name="android.permission.READ_SYNC_SETTINGS" />
     <uses-permission android:name="android.permission.WRITE_SYNC_SETTINGS" />

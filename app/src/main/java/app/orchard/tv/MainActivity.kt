@@ -47,6 +47,9 @@ import app.orchard.tv.apps.SourceLooks
 import app.orchard.tv.apps.TileArtFactory
 import app.orchard.tv.guard.GuardSetup
 import app.orchard.tv.guard.HomeGuardService
+import app.orchard.tv.shelf.Shelf
+import app.orchard.tv.shelf.ShelfImages
+import app.orchard.tv.shelf.ShelfItem
 import app.orchard.tv.ui.home.HomeScreen
 import app.orchard.tv.ui.theme.LocalReducedMotion
 import app.orchard.tv.ui.theme.canvasDensity
@@ -73,7 +76,11 @@ class MainActivity : ComponentActivity() {
     private val vm by viewModels<HomeViewModel>()
 
     private val packageReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context, intent: Intent) = vm.reload()
+        override fun onReceive(context: Context, intent: Intent) {
+            vm.reload()
+            // A newly installed app is asked to publish its channels, as the TV launcher would.
+            lifecycleScope.launch { Shelf.askToPublish() }
+        }
     }
 
     private val volumeReceiver = object : BroadcastReceiver() {
@@ -121,6 +128,8 @@ class MainActivity : ComponentActivity() {
         SourceLooks.init(this)
         AerialSettings.init(this)
         Sounds.init(this)
+        Shelf.init(this)
+        ShelfImages.init(this)
         val reducedMotion = Settings.Global.getFloat(contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f
 
         // The home screen paints every pixel itself; a window background would be one more
@@ -155,6 +164,7 @@ class MainActivity : ComponentActivity() {
                 HomeScreen(
                     vm = vm,
                     onLaunch = ::launch,
+                    onOpenShelfItem = ::openShelfItem,
                     onOpen = ::open,
                     onAppInfo = { open(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", it, null)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) },
                     onUninstall = { open(Intent(Intent.ACTION_DELETE, Uri.fromParts("package", it, null)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) },
@@ -450,6 +460,7 @@ class MainActivity : ComponentActivity() {
         GuardSetup.ensureEnabled(this)
         idleHandler.postDelayed({ GuardSetup.rebindIfStalled(this) }, 5_000)
         vm.reloadIfPackagesChanged()
+        lifecycleScope.launch { Shelf.askToPublish() }
         ContextCompat.registerReceiver(
             this, packageReceiver,
             IntentFilter().apply {
@@ -546,6 +557,35 @@ class MainActivity : ComponentActivity() {
         } catch (e: Exception) {
             Toast.makeText(this, getString(R.string.launch_failed, app.label), Toast.LENGTH_SHORT).show()
         }
+    }
+
+    /**
+     * Opens a shelf card: the program's own link, kept to the app that published it so a card
+     * can never start some other app. If the app no longer takes the link, the app itself opens.
+     */
+    private fun openShelfItem(app: AppEntry, item: ShelfItem, bounds: Rect?) {
+        // Behind the parental PIN the same way as its tile.
+        if (AerialSettings.locked && SystemProbe.isSettingsApp(this, app.packageName)) return launch(app, bounds)
+        val intent = runCatching {
+            Intent.parseUri(item.intentUri, Intent.URI_INTENT_SCHEME).apply {
+                // Only the app that published it, and none of the flags or grants it may carry.
+                selector = null
+                if (component?.packageName != app.packageName) component = null
+                setPackage(app.packageName)
+                clipData = null
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            }
+        }.getOrNull()
+        val options = bounds?.let {
+            ActivityOptions.makeScaleUpAnimation(
+                window.decorView, it.left.toInt(), it.top.toInt(), it.width.toInt(), it.height.toInt(),
+            ).toBundle()
+        }
+        if (intent != null && runCatching { startActivity(intent, options) }.isSuccess) {
+            openedAppSinceHome = true
+            return
+        }
+        launch(app, bounds)
     }
 
     private fun open(intent: Intent) {

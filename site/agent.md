@@ -86,6 +86,7 @@ curl -fsSL https://aerial.qust.me/install.sh | KEEP_ADB=1 TV=<IP> bash
    ```
    adb shell pm grant app.orchard.tv android.permission.ACCESS_FINE_LOCATION
    adb shell pm grant app.orchard.tv android.permission.WRITE_SECURE_SETTINGS
+   adb shell pm grant app.orchard.tv android.permission.READ_TV_LISTINGS
    adb shell appops set app.orchard.tv SYSTEM_ALERT_WINDOW allow
    adb shell appops set app.orchard.tv WRITE_SETTINGS allow
    adb shell appops set app.orchard.tv REQUEST_INSTALL_PACKAGES allow

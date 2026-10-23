@@ -183,6 +183,7 @@ fi
 # Grants that only ADB can give; Aerial never asks for them on screen.
 adb shell pm grant "$PKG" android.permission.ACCESS_FINE_LOCATION 2>/dev/null || true   # Wi-Fi name
 adb shell pm grant "$PKG" android.permission.WRITE_SECURE_SETTINGS 2>/dev/null || true  # keep Home Guard (and ADB) on
+adb shell pm grant "$PKG" android.permission.READ_TV_LISTINGS 2>/dev/null || true      # apps' programs on Home's shelf
 adb shell appops set "$PKG" SYSTEM_ALERT_WINDOW allow 2>/dev/null || true             # open Aerial after boot
 adb shell appops set "$PKG" WRITE_SETTINGS allow 2>/dev/null || true                  # brightness
 adb shell appops set "$PKG" REQUEST_INSTALL_PACKAGES allow 2>/dev/null || true        # update from Control Center
