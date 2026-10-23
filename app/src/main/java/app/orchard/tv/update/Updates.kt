@@ -158,7 +158,10 @@ object Updates {
             // Xiaomi MiTV-MFTR0 has this page; TCL MT5879 does not (tools/install.sh grants it there).
             val settings = Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:${app.packageName}"))
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            if (runCatching { context.startActivity(settings) }.isSuccess) {
+            // Not Aerial's own stand-in for the page (AppInfoActivity, on firmware without one): it
+            // would only offer to change it through ADB, and the installer below may do without.
+            val page = settings.resolveActivity(app.packageManager)?.packageName
+            if (page != null && page != app.packageName && runCatching { context.startActivity(settings) }.isSuccess) {
                 install = Install.NeedsPermission
                 return
             }

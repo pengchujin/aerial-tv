@@ -46,6 +46,8 @@ sealed interface Overlay {
     data class AppMenu(val key: String, val anchor: Rect, val inFolder: String? = null) : Overlay
     data class Folder(val id: String) : Overlay
     data object HiddenApps : Overlay
+    /** App Info drawn by Aerial, on firmware that has no screen for it. */
+    data class AppInfo(val packageName: String) : Overlay
     data object Wallpaper : Overlay
     data class Pin(val mode: PinMode, val onDone: () -> Unit) : Overlay
 }

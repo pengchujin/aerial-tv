@@ -7,6 +7,7 @@
 ```
 app/src/main/java/app/orchard/tv/
 ├── MainActivity.kt          HOME Activity：窗口设置、960×540 画布密度、广播/网络监听、空闲计时与桌面内屏保、启动 App
+├── AppInfoActivity.kt       其他 App 发来「应用信息」等设置 Intent 时，在固件没有这些页面的电视上弹出 Aerial 自己的应用信息（单独的任务，叠在请求方上面）
 ├── HomeViewModel.kt         首页状态：App 列表、浮层（Overlay）、系统状态（网络/音量/亮度/信号源/桌面状态）、移动模式
 ├── apps/
 │   ├── Apps.kt              AppCatalog：枚举 LEANBACK_LAUNCHER + LAUNCHER，按包去重，缓存磁贴图（按 lastUpdateTime）
@@ -14,6 +15,7 @@ app/src/main/java/app/orchard/tv/
 │   ├── TileArt.kt           磁贴图生成：横幅 / 自适应图标双层 / 铺满底板 / 同色系底色；主色；每 App 的 64×36 环境光背景
 │   ├── TileRecipes.kt       精选图标库：按包名给 App 指定重绘方式（品牌色、白色 logo、用图标代替横幅、自绘图标）
 │   ├── TileSheet.kt         把所有磁贴拼成一张图，用来对比改动前后（ADB 触发，见 HANDOFF「调试」）
+│   ├── AppDetails.kt        应用信息的数据：版本、安装时间、运行时权限（按权限组）、特殊权限（app op）；`hasSystemScreen` 判断固件有没有自己的应用信息页
 │   ├── LayoutStore.kt       用户排序、文件夹与隐藏（SharedPreferences "layout"），首次运行的默认排序
 │   └── CustomIcons.kt       用户在手机页给 App 换的磁贴图（files/icons/<包名>.png，16:9）
 ├── ui/
@@ -24,6 +26,7 @@ app/src/main/java/app/orchard/tv/
 │   ├── home/HomeScreen.kt   首页布局：网格几何、滚动、焦点管理、各浮层挂载、返回键
 │   ├── home/AppTile.kt      单个磁贴：聚焦弹簧、阴影、柔光、视差、边缘回弹、长按、移动抖动
 │   ├── home/HomeChrome.kt   背景（AmbientBackground）、大时钟、右上角状态胶囊、时间格式
+│   ├── home/AppInfoSheet.kt 应用信息面板：操作按钮（打开、强行停止、清除数据、卸载）、权限开关；由其他 App 请求时是只显示关闭项的精简版
 │   ├── home/Overlays.kt     长按菜单、隐藏的 App 面板、MenuRow、MiniTile
 │   ├── home/FolderView.kt   打开的文件夹
 │   ├── home/PinPad.kt       家长密码键盘（设置 / 解锁，遥控器数字键或屏幕键盘）
@@ -225,6 +228,17 @@ NanoHTTPD 监听 8790 端口，路径前缀是 8 位随机令牌（每次打开�
 电视的播放器（`com.tcl.tv`、`com.xiaomi.mitv.tvplayer`）即使声明了 HOME，也不算原桌面，除非它就是系统解析出来的 HOME：TCL 85G60E 把 `com.tcl.tv` 列为 HOME，每次切信号源都被守护当成原桌面拉回（#223，用户日志；家里的 TCL MT5879 没有这个 HOME，没有真机验证）。
 
 **只装了 APK 的电视**（U 盘、应用商店，#207 #213）：1.32 起 `MainActivity` 也声明 `CATEGORY_LAUNCHER`，国内电视的「我的应用」大多只列这种，以前装完找不到图标。打开后没有 `WRITE_SECURE_SETTINGS`（只有 install.sh 会授权）、桌面状态又是「尚未设为默认桌面」时，4 秒后自动打开一次控制中心的「设为主屏幕」页（`CcPage.Setup`，`settings` 的 `setup_offered` 记住），以后从控制中心底部进去。页上按电视有没有这些设置页显示：无障碍（手动打开桌面守护，小米 MFTR0 有，TCL MT5879 没有）、默认桌面（只有 standard 版；小米会忽略）、通知使用权（待机被杀后复活），以及二维码：打开 `site/update/#setup=1`，给出这台电视的安装命令和 Agent 提示词。Google TV 模拟器（Android 13）上验证过自动弹出和跳到无障碍设置。
+
+## 应用信息（固件没有「应用信息」页时）
+
+- 小米 HyperOS（MiTV-MFTR0，Android 11）没有「应用信息」页，也没有「所有文件访问」「显示在其他应用上层」「修改系统设置」「安装未知来源应用」这几个设置页。长按菜单的「应用信息」原来只弹「此电视不支持」；其他 App（如文件管理器+）发来的 `ACTION_APPLICATION_DETAILS_SETTINGS` 也只显示「错误」。
+- `AppDetails.hasSystemScreen` 看有没有别的 App 响应这个 Intent（不算 Aerial 自己）。有就沿用系统的；没有就用 Aerial 自己的 `AppInfoSheet`。
+- 读：`PackageManager`（运行时权限，按权限组；没有分组的权限各占一行）和 `AppOpsManager`（特殊权限），不需要特权。写：改权限要 `GRANT_RUNTIME_PERMISSIONS`，只有 shell 有，所以走 `system/AdbShell.kt`：连电视本机的 adbd（`127.0.0.1:5555`，安装脚本的 `KEEP_ADB` 已经保持开启），用 Aerial 自己的密钥，第一次电视会问「允许 USB 调试吗」，选「始终允许」。它**不是**通用 shell：只能发 `pm grant|revoke`、`appops set`、`am force-stop`、`pm clear`，包名和权限名要符合 `NAME`（点分标识符），操作名来自固定的枚举。
+- **默认关闭，要用户明确同意**：`AerialSettings.adbAccess`（默认 false）。个性化最下面的「高级 · 应用权限」（只在用 Aerial 自己的应用信息的电视上出现）选「开」时弹 `AdbAccessDialog`：说明做什么（连电视自带的 adbd）、风险（选了「始终允许」后，谁拿到 Aerial 的密钥就能通过 ADB 执行任意命令，不只是 Aerial 发的那几条；密钥在 Aerial 的私有存储里；还要求 ADB 网络调试一直开着）、怎么撤销，勾选「我了解风险」后「打开」才可用。关掉就删除密钥（`AdbShell.revoke`，删 `adb_priv`、`adb_pub`；电视自己的列表里可能还留着公钥，但没有私钥谁也登不进去，要清空电视自己的列表在开发者选项里「撤销 USB 调试授权」），所以可以只在需要时临时打开。没打开时 `AdbShell.run` 直接拒绝，面板里改权限、强行停止、清除数据只提示先去个性化里打开；密钥也是打开之后第一次用才生成。
+- 没有「清除缓存」：Android 11 的 `pm clear` 没有 `--cache-only`，会忽略它并清除全部数据（在 MFTR0 上试出来的），`pm trim-caches` 又不是按 App 的。
+- 「所有文件访问」（`MANAGE_EXTERNAL_STORAGE`）是 uid 级的 app op，要用 `appops set --uid`；只撤销 `READ/WRITE_EXTERNAL_STORAGE` 时，App 仍能读写存储。
+- 其他 App 发来的请求：`AppInfoEntry`（`activity-alias`，默认关闭）只在没有系统页面时由 `MainActivity.updateAppInfoEntry` 打开，指向 `AppInfoActivity`。它是 `singleInstance`、独立的任务，透明主题叠在请求方上面（半透明深色玻璃，`LocalGlassOverApp`），返回键关掉整个任务，回到请求方。放在 `MainActivity`（`singleTask`）里时，它会落进请求方的任务；请求方的进程被杀（改权限会杀进程）后，再点它的磁贴只会看到 Aerial。请求没有指明哪一项时（应用信息）只显示当前关闭的项目，指明时（`MANAGE_APP_ALL_FILES_ACCESS_PERMISSION` 等）只显示那一项，旁边有「全部应用设置」进完整页面。
+- 改权限会让 Android 重启该 App（和系统自带的一样）。强行停止后「最近任务」里会留着一张空卡片，shell 在 Android 11 上删不掉。
 
 ## 系统能力（system/）
 

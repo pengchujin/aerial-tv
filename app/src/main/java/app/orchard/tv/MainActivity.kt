@@ -2,9 +2,11 @@ package app.orchard.tv
 
 import android.app.ActivityOptions
 import android.content.BroadcastReceiver
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.pm.PackageManager
 import android.graphics.drawable.BitmapDrawable
 import android.net.ConnectivityManager
 import android.net.Network
@@ -41,6 +43,7 @@ import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.lifecycleScope
+import app.orchard.tv.apps.AppDetails
 import app.orchard.tv.apps.AppEntry
 import app.orchard.tv.apps.CustomIcons
 import app.orchard.tv.apps.SourceLooks
@@ -179,6 +182,28 @@ class MainActivity : ComponentActivity() {
         }
         if (savedInstanceState == null && firstStartSinceBoot()) openBootSource("boot")
         if (intent.getBooleanExtra(EXTRA_WOKE, false)) openBootSource("brought back on wake")
+        updateAppInfoEntry()
+    }
+
+    /**
+     * Firmware without Android's App Info screen (Xiaomi HyperOS on MiTV-MFTR0 has none) sends apps
+     * that ask for it to nothing: File Manager+ showed "Error". Aerial answers those intents with
+     * AppInfoActivity, through one alias per screen, each on only when the firmware has no screen of
+     * its own for it, so that other TVs do not get an "Open with" choice for it. Screens are
+     * checked one by one: MFTR0 lacks App Info but has "Install unknown apps".
+     */
+    private fun updateAppInfoEntry() {
+        for ((alias, action) in APP_INFO_ENTRIES) {
+            val component = ComponentName(this, "$packageName.$alias")
+            val state = if (AppDetails.hasSystemScreen(this, action)) {
+                PackageManager.COMPONENT_ENABLED_STATE_DISABLED
+            } else {
+                PackageManager.COMPONENT_ENABLED_STATE_ENABLED
+            }
+            if (packageManager.getComponentEnabledSetting(component) != state) {
+                packageManager.setComponentEnabledSetting(component, state, PackageManager.DONT_KILL_APP)
+            }
+        }
     }
 
     override fun onDestroy() {
@@ -558,6 +583,15 @@ class MainActivity : ComponentActivity() {
     }
 
     companion object {
+        /** The manifest's aliases for AppInfoActivity, and the settings screen each stands in for. */
+        private val APP_INFO_ENTRIES = listOf(
+            "AppInfoEntry" to Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+            "AllFilesAccessEntry" to "android.settings.MANAGE_APP_ALL_FILES_ACCESS_PERMISSION",
+            "OverlayEntry" to "android.settings.action.MANAGE_OVERLAY_PERMISSION",
+            "WriteSettingsEntry" to "android.settings.action.MANAGE_WRITE_SETTINGS",
+            "UnknownSourcesEntry" to "android.settings.MANAGE_UNKNOWN_APP_SOURCES",
+        )
+
         /** How Home Guard and the boot receiver bring Aerial back: the same task the launcher entry uses. */
         fun bringBackIntent(context: Context): Intent =
             Intent(context, MainActivity::class.java)

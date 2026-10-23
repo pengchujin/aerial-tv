@@ -60,6 +60,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import app.orchard.tv.R
+import app.orchard.tv.apps.AppDetails
 import app.orchard.tv.settings.AerialSettings
 import app.orchard.tv.settings.FocusStyle
 import app.orchard.tv.settings.UiSounds
@@ -103,6 +104,8 @@ fun WallpaperSheet(
     onPin: (on: Boolean) -> Unit,
 ) {
     val context = LocalContext.current
+    var showAdbDialog by remember { mutableStateOf(false) }
+    if (showAdbDialog) AdbAccessDialog(onConfirm = { AerialSettings.chooseAdbAccess(true); showAdbDialog = false }, onDismiss = { showAdbDialog = false })
     var phoneUrl by remember { mutableStateOf<String?>(null) }
     var qr by remember { mutableStateOf<ImageBitmap?>(null) }
 
@@ -274,6 +277,20 @@ fun WallpaperSheet(
                         SettingRow(R.string.st_pin, null, note, first = true) {
                             // The last row that takes focus: bring the note under it into view too.
                             PinChoice(onPin, onFocused = { scope.launch { scroll.animateScrollTo(scroll.maxValue) } })
+                        }
+                    }
+                    // Only where Aerial's own App Info is in use, which is where this is needed.
+                    if (remember { !AppDetails.hasSystemScreen(context) }) {
+                        Spacer(Modifier.height(22.dp))
+                        SectionTitle(R.string.wp_advanced)
+                        Group(stringResource(R.string.st_adb_hint)) { note ->
+                            Choices(
+                                R.string.st_adb, null, note,
+                                listOf(false to R.string.st_adb_off, true to R.string.st_adb_on),
+                                AerialSettings.adbAccess,
+                                { on -> if (on) showAdbDialog = true else AerialSettings.chooseAdbAccess(false) },
+                                first = true,
+                            )
                         }
                     }
                     Spacer(Modifier.height(24.dp))

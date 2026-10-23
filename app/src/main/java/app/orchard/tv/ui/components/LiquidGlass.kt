@@ -6,6 +6,7 @@ import android.graphics.Matrix
 import android.graphics.Paint
 import android.graphics.Shader
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -40,6 +41,16 @@ import app.orchard.tv.wallpaper.Wallpapers
 import kotlin.math.roundToInt
 
 /**
+ * True where a panel sits over another app's window (AppInfoActivity), not over Aerial's wallpaper:
+ * it is then plain translucent dark glass, so that app shows through. There is no live blur here,
+ * and Aerial's frosted wallpaper would be the wrong picture behind it.
+ */
+val LocalGlassOverApp = compositionLocalOf { false }
+
+/** Dark glass for [LocalGlassOverApp]: dense enough for white text, thin enough to see the app. */
+private val OverAppGlass = Palette.Glass.copy(alpha = 0.86f)
+
+/**
  * Liquid Glass, the material of tvOS 26's panels, without a live blur: the TVs here mostly run
  * Android 9–11 (no RenderEffect) and their GPUs could not afford one. The surface shows the part
  * of the frosted wallpaper (Wallpapers.frosted, baked small) that lies behind it, dimmed so white
@@ -52,7 +63,8 @@ import kotlin.math.roundToInt
  * rounded rect, which holds it.
  */
 fun Modifier.liquidGlass(corner: Dp, bottomCorners: Boolean = true): Modifier = composed {
-    val frost = Wallpapers.frosted.takeIf { Wallpapers.backdrop != null }
+    val overApp = LocalGlassOverApp.current
+    val frost = Wallpapers.frosted.takeIf { Wallpapers.backdrop != null && !overApp }
     var at by remember { mutableStateOf(Offset.Zero) }
     var root by remember { mutableStateOf(IntSize.Zero) }
     val shape = if (bottomCorners) RoundedCornerShape(corner) else RoundedCornerShape(topStart = corner, topEnd = corner)
@@ -74,7 +86,7 @@ fun Modifier.liquidGlass(corner: Dp, bottomCorners: Boolean = true): Modifier = 
             val flat = mask.asImageBitmap()
             onDrawBehind {
                 if (shader == null || brush == null || root == IntSize.Zero) {
-                    drawImage(flat, dstSize = IntSize(w, h), colorFilter = ColorFilter.tint(Palette.Glass))
+                    drawImage(flat, dstSize = IntSize(w, h), colorFilter = ColorFilter.tint(if (overApp) OverAppGlass else Palette.Glass))
                 } else {
                     shader.setLocalMatrix(Matrix().apply {
                         setScale(root.width.toFloat() / frost.width, root.height.toFloat() / frost.height)

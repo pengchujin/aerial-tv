@@ -8,6 +8,7 @@ import androidx.core.content.edit
 import android.os.SystemClock
 import android.provider.Settings
 import app.orchard.tv.guard.GuardSetup
+import app.orchard.tv.system.AdbShell
 import app.orchard.tv.wallpaper.AerialQuality
 import java.security.MessageDigest
 
@@ -80,6 +81,13 @@ object AerialSettings {
     /** Interface sounds (system/Sounds), as tvOS plays them on every press. */
     var uiSounds by mutableStateOf(UiSounds.Tv); private set
 
+    /**
+     * Whether App Info may change other apps (permissions, force stop, clear data) through the TV's own
+     * adbd. Off until the owner has read what it means and agreed (WallpaperSheet); turning it off
+     * deletes the key it used.
+     */
+    var adbAccess by mutableStateOf(false); private set
+
     /** The Liquid Glass plate under the top row; some prefer the apps straight on the wallpaper (#151). */
     var homePlate by mutableStateOf(true); private set
 
@@ -143,6 +151,7 @@ object AerialSettings {
         clockRight = prefs.getBoolean("clock_right", false)
         largeClock = prefs.getBoolean("large_clock", false)
         homePlate = prefs.getBoolean("home_plate", true)
+        adbAccess = prefs.getBoolean("adb_access", false)
         showAllNames = prefs.getBoolean("show_all_names", false)
         // Before 1.28 this was on or off; on meant whichever sounds Aerial played.
         uiSounds = UiSounds.of(prefs.getString("ui_sounds_kind", null)) ?: when {
@@ -205,6 +214,12 @@ object AerialSettings {
     fun chooseUiSounds(kind: UiSounds) {
         uiSounds = kind
         app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit { putString("ui_sounds_kind", kind.key) }
+    }
+
+    fun chooseAdbAccess(on: Boolean) {
+        adbAccess = on
+        app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit { putBoolean("adb_access", on) }
+        if (!on) AdbShell.revoke(app)
     }
 
     fun chooseHomePlate(on: Boolean) {
