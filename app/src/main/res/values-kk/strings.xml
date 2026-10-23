@@ -8,6 +8,7 @@
     <string name="cc_title">Басқару орталығы</string>
     <string name="cc_inputs">Көздер</string>
     <string name="cc_network">Желі</string>
+    <string name="cc_bluetooth">Bluetooth</string>
     <string name="cc_settings">Параметрлер</string>
     <string name="cc_volume">Дыбыс деңгейі</string>
     <string name="cc_muted">Дыбыс өшірулі</string>

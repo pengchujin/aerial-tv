@@ -220,6 +220,17 @@ object SystemProbe {
         )
     }
 
+    /** Pages for the Bluetooth button, best first; allResolvable falls back to the last one. */
+    fun bluetoothSettingsIntents(context: Context): List<Intent> =
+        allResolvable(
+            context,
+            // Opens fine where the Wi-Fi page is killed (issue #331, MiTV-ANSP0).
+            Intent(Intent.ACTION_MAIN).setComponent(ComponentName("com.xiaomi.mitv.settings", "com.xiaomi.mitv.settings.bluetooth.MitvBluetoothActivity")),
+            Intent(Intent.ACTION_MAIN).setComponent(ComponentName("com.android.tv.settings", "com.android.tv.settings.bluetooth.BluetoothActivity")),
+            Intent(Settings.ACTION_BLUETOOTH_SETTINGS),
+            Intent(Settings.ACTION_SETTINGS),
+        )
+
     private val XGIMI_SETTINGS = ComponentName("com.android.newsettings", "com.xgimi.newsettings.SettingService")
     private const val XGIMI_NETWORK_PAGE = "Settings://com.xgimi.settings.net/wifi_misckey"
 
