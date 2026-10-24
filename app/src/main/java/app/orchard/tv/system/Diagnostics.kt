@@ -62,7 +62,10 @@ object Diagnostics {
             .forEach { key -> prop(key)?.takeIf { it.isNotEmpty() }?.let { appendLine("  $key = $it") } }
         appendLine("Screen      ${screen(context)}")
         appendLine("Memory      ${memory(context)}")
-        appendLine("Network     ${SystemProbe.network(context).kind}")
+        val network = SystemProbe.network(context)
+        appendLine("Network     ${network.kind}")
+        appendLine("  Wi-Fi connected=${network.wifiConnected} enabled=${network.wifiEnabled}" +
+            " Ethernet connected=${network.ethernetConnected} VPN connected=${network.vpnConnected}")
         appendLine("```")
 
         appendLine()

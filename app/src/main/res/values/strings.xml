@@ -32,6 +32,10 @@
     <string name="net_ethernet">Ethernet</string>
     <string name="net_wifi">Wi-Fi</string>
     <string name="net_offline">Not Connected</string>
+    <string name="net_connected">Connected</string>
+    <string name="net_disabled">Off</string>
+    <string name="net_vpn">VPN</string>
+    <string name="net_vpn_connected">Established</string>
 
     <string name="input_connected">Connected</string>
     <string name="input_live_tv">Live TV</string>

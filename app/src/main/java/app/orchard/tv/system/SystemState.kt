@@ -10,9 +10,7 @@ import android.media.tv.TvInputInfo
 import android.media.tv.TvInputManager
 import android.net.ConnectivityManager
 import android.net.Network
-import android.net.NetworkCapabilities
 import android.net.Uri
-import android.net.wifi.WifiManager
 import android.os.Build
 import android.provider.Settings
 import androidx.core.content.ContextCompat
@@ -20,8 +18,6 @@ import androidx.core.content.getSystemService
 import app.orchard.tv.BuildConfig
 import app.orchard.tv.R
 import app.orchard.tv.guard.HomeGuardService
-
-enum class NetKind { Wifi, Ethernet, Offline }
 
 /** The network apps use by default. ConnectivityManager.activeNetwork only exists from Android 6.0. */
 fun ConnectivityManager.currentNetwork(): Network? {
@@ -31,8 +27,6 @@ fun ConnectivityManager.currentNetwork(): Network? {
     @Suppress("DEPRECATION")
     return allNetworks.firstOrNull { getNetworkInfo(it)?.type == type }
 }
-
-data class NetworkStatus(val kind: NetKind = NetKind.Offline, val name: String? = null, val level: Float = 1f)
 
 data class VolumeStatus(val level: Int = 0, val max: Int = 100, val muted: Boolean = false) {
     val fraction: Float get() = if (max == 0) 0f else level / max.toFloat()
@@ -54,27 +48,7 @@ enum class HomeStatus { Default, Guarded, NotDefault }
 
 object SystemProbe {
 
-    fun network(context: Context): NetworkStatus {
-        val cm = context.getSystemService<ConnectivityManager>() ?: return NetworkStatus()
-        val caps = cm.getNetworkCapabilities(cm.currentNetwork() ?: return NetworkStatus()) ?: return NetworkStatus()
-        return when {
-            caps.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) -> NetworkStatus(NetKind.Ethernet)
-            caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> {
-                val wm = context.applicationContext.getSystemService<WifiManager>()
-                @Suppress("DEPRECATION")
-                val info = wm?.connectionInfo
-                val ssid = info?.ssid?.trim('"')?.takeUnless { it.isBlank() || it == WifiManager.UNKNOWN_SSID.trim('<', '>') || it == "<unknown ssid>" }
-                val level = if (info == null) 1f else if (Build.VERSION.SDK_INT >= 30) {
-                    wm.calculateSignalLevel(info.rssi) / wm.maxSignalLevel.coerceAtLeast(1).toFloat()
-                } else {
-                    @Suppress("DEPRECATION")
-                    WifiManager.calculateSignalLevel(info.rssi, 4) / 3f
-                }
-                NetworkStatus(NetKind.Wifi, ssid, level)
-            }
-            else -> NetworkStatus(NetKind.Ethernet)
-        }
-    }
+    fun network(context: Context): NetworkStatus = NetworkProbe.read(context)
 
     fun volume(context: Context): VolumeStatus {
         val am = context.getSystemService<AudioManager>() ?: return VolumeStatus()

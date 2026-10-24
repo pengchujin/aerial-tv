@@ -63,6 +63,7 @@ import app.orchard.tv.system.Diagnostics
 import app.orchard.tv.system.MissingClipboard
 import app.orchard.tv.system.Sounds
 import app.orchard.tv.system.SystemProbe
+import app.orchard.tv.system.NetworkProbe
 import app.orchard.tv.system.LaunchFallback
 import app.orchard.tv.system.settingsLaunchIntent
 import app.orchard.tv.update.Updates
@@ -103,6 +104,16 @@ class MainActivity : ComponentActivity() {
         }
         override fun onLost(network: Network) = runOnUiThread { vm.refreshNetwork() }
         override fun onCapabilitiesChanged(network: Network, caps: NetworkCapabilities) = runOnUiThread { vm.refreshNetwork() }
+    }
+
+    private val networkStatusCallback = object : ConnectivityManager.NetworkCallback() {
+        override fun onAvailable(network: Network) = runOnUiThread { vm.refreshNetwork() }
+        override fun onLost(network: Network) = runOnUiThread { vm.refreshNetwork() }
+        override fun onCapabilitiesChanged(network: Network, caps: NetworkCapabilities) = runOnUiThread { vm.refreshNetwork() }
+    }
+
+    private val wifiStateReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) = vm.refreshNetwork()
     }
 
     // See MissingClipboard.
@@ -578,7 +589,13 @@ class MainActivity : ComponentActivity() {
         getSystemService<ConnectivityManager>()?.let { cm ->
             if (Build.VERSION.SDK_INT >= 24) cm.registerDefaultNetworkCallback(networkCallback)
             else cm.registerNetworkCallback(NetworkRequest.Builder().build(), networkCallback)
+            cm.registerNetworkCallback(NetworkProbe.request(), networkStatusCallback)
         }
+        ContextCompat.registerReceiver(
+            this, wifiStateReceiver,
+            IntentFilter(android.net.wifi.WifiManager.WIFI_STATE_CHANGED_ACTION),
+            ContextCompat.RECEIVER_EXPORTED,
+        )
         // Apps can change while Aerial is in the background without it hearing about it.
         vm.reload()
         Wallpapers.refreshDailyIfStale()
@@ -623,7 +640,9 @@ class MainActivity : ComponentActivity() {
         unregisterReceiver(packageReceiver)
         unregisterReceiver(volumeReceiver)
         unregisterReceiver(dayReceiver)
+        unregisterReceiver(wifiStateReceiver)
         runCatching { getSystemService<ConnectivityManager>()?.unregisterNetworkCallback(networkCallback) }
+        runCatching { getSystemService<ConnectivityManager>()?.unregisterNetworkCallback(networkStatusCallback) }
     }
 
     /** Opens an app, growing it out of its tile. */

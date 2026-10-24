@@ -21,6 +21,15 @@
 - 原桌面：`com.jamdeo.tv.vod/com.ju.main.launcher.LauncherActivity`（聚好看）。
 - 安装的 flavor：`standard`。`adb install` 直接成功；`pm grant`、`appops`、通知监听、屏保接管都正常，`APP_AUTO_START` / `APP_ASSOC_START` 报 `Unknown operation string`（TCL 才有，忽略）。
 
+## Wi-Fi / 有线 / VPN 状态（H55E9A）
+
+2026-10-24，H55E9A（Android 8.0.0 / SDK 26，Hi3751v811 / bigfish，固件 `03.02.60.02`）上，Aerial 1.41 在 Wi-Fi + VPN 时显示「有线网络」。`wlan0` 已连接、`eth0` 无链路，VPN 的 capabilities 只有 `TRANSPORT_VPN`；旧代码把未识别的 transport 默认当作 Ethernet。
+
+- 网络状态分别记录 Wi-Fi、有线、VPN，不用应用默认网络代表全部连接。VPN 携带的底层 transport 也不当成独立物理连接；未知类型不再默认归为 Ethernet。
+- 控制中心分别显示三项状态，首页显示已连接项目。监听所有可见网络（包括 VPN、非默认连接）及 Wi-Fi 开关变化。连接状态不代表外网可达，也不推测双物理连接时 VPN 实际走哪条线路。
+- 实机验证：把生产 `NetworkProbe`、`NetworkSummary` 和主题代码编入独立 release 诊断包，执行 speed 编译；读到 `wifi=true ethernet=false vpn=true wifiEnabled=true`，网络回调收到后结果一致。电视上检查了五种语言、长网络名和三项同时连接的排版；三项同时连接为显示样例，实际连接仍是 Wi-Fi + VPN。
+- 临时包和截图已清理，回到原 Aerial。未修改网络、VPN 设置，未覆盖 Aerial 或清除数据。完整 Aerial 控制中心、状态栏和连接切换流程尚未上机验证：本机缺少原安装的签名密钥。有线 + VPN、双物理连接、断网等由单元测试覆盖，不作为真机结论。
+
 ## HOME 锁定
 
 - `cmd role add-role-holder` 成功，`dumpsys role` 里 HOME 的 holder 也是 Aerial，但按 HOME 时系统用**显式 component** 直接拉起聚好看：`START ... cat=[HOME] cmp=com.jamdeo.tv.vod/... from uid 1000`。

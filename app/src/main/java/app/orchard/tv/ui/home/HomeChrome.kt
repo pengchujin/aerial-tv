@@ -555,12 +555,12 @@ fun StatusPill(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            val glyph = when (network.kind) {
-                NetKind.Wifi -> Glyph.Wifi
-                NetKind.Ethernet -> Glyph.Ethernet
-                NetKind.Offline -> Glyph.Offline
+            if (network.wifiConnected) GlyphIcon(Glyph.Wifi, fg, 17.dp, level = network.level)
+            if (network.ethernetConnected) GlyphIcon(Glyph.Ethernet, fg, 17.dp)
+            if (network.vpnConnected) GlyphIcon(Glyph.Shield, fg, 17.dp)
+            if (!network.wifiConnected && !network.ethernetConnected && !network.vpnConnected) {
+                GlyphIcon(if (network.kind == NetKind.Other) Glyph.Globe else Glyph.Offline, fg, 17.dp)
             }
-            GlyphIcon(glyph, fg, 17.dp, level = network.level)
             if (showTime) {
                 BasicText(timeText(now), style = Type.Headline.copy(color = fg))
             }
