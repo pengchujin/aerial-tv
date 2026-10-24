@@ -161,8 +161,12 @@ sealed interface SaverCarry {
     }
 }
 
-/** What a wallpaper's picture is, for the screensaver: where it was taken, else its name. */
-fun stillCaption(wp: app.orchard.tv.wallpaper.Wallpaper): String? = wp.caption?.takeIf { it.isNotBlank() } ?: wp.title
+/** What a wallpaper's picture is, for the screensaver: where it was taken, else its name. The
+ * owner's own photos carry no information for the owner, so they stay unlabeled (issue #117). */
+fun stillCaption(wp: app.orchard.tv.wallpaper.Wallpaper): String? = when (wp.kind) {
+    app.orchard.tv.wallpaper.WallpaperKind.Photo -> null
+    else -> wp.caption?.takeIf { it.isNotBlank() } ?: wp.title
+}
 
 /** How long one slow push in (or back out) of a still wallpaper takes. */
 private const val DRAW_IN_MS = 60_000
