@@ -41,6 +41,7 @@ adb devices
 
 - **`unauthorized`**：电视上弹出了「允许 USB 调试吗？」，请用户选「允许」并勾选「始终允许」，再运行一次 `adb devices`。
 - **`failed to connect` / `Connection refused` / 超时**：电视的 ADB 调试没打开，或 IP 不对。让用户按下表打开，再试：
+- **5555 连不上、电视里只有「无线调试」没有 USB 调试**（TCL Q9M / Q10L 等 Android 11+ 机型）：这类固件要先配对。让用户在电视上打开 开发者选项 → 无线调试 → **使用配对码配对设备**，要来两组 IP:端口和 6 位配对码——一组在配对码屏幕上，一组在无线调试主屏幕上（两个端口不一样，每次进这个页面都会变）。然后运行 `adb pair <配对屏IP:端口> <配对码>`，成功后 `adb connect <主屏IP:端口>`，`adb devices` 显示 `device` 后马上 `adb tcpip 5555`，再 `adb connect <IP>:5555`，以后就不用再配对。新版 `install.sh` 会引导整个过程（交互输入，或先设 `ADB_PAIR=<ip:端口> ADB_CODE=<配对码> ADB_CONNECT=<ip:端口>` 再运行）。部分 TCL 固件（Q10M、鹤 7 Pro）没有配对码入口，只能用数据线把电视连上电脑执行一次 `adb tcpip 5555`。
 
 | 电视 | 怎么打开 ADB |
 |---|---|
