@@ -26,11 +26,14 @@ internal object CecHome {
     // This is an Amlogic raw-frame ABI, not Linux's unrelated /dev/cec0 ioctl ABI.
     // X7 version 5 is verified; other versions of this ABI require device testing.
     fun enabled(context: Context): Boolean =
-        prefs(context).getString("cec_home_input", null) != null &&
+        GuardSetup.isUserUnlocked(context) && prefs(context).getString("cec_home_input", null) != null &&
             File("/dev/cec").canWrite() && File("/sys/class/cec/cec_version").canRead()
 
     /** The setting that names the input in front, while the feature is configured; else null. */
     fun inputSettingKey(context: Context): String? {
+        // Home Guard binds before credential storage opens, even when CEC Home is disabled.
+        // Reading it here crashed Aerial at boot on Hisense H55E9A (Android 8).
+        if (!GuardSetup.isUserUnlocked(context)) return null
         val config = prefs(context)
         if (config.getString("cec_home_input", null) == null) return null
         return config.getString("cec_home_input_setting", null) ?: "tv_current_inputid"

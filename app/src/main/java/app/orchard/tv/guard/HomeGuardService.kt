@@ -168,6 +168,8 @@ class HomeGuardService : AccessibilityService() {
         override fun onReceive(context: Context, intent: Intent) {
             // Before unlock only Direct Boot aware launchers resolve.
             refreshStockHomes()
+            watchCecInput()
+            updateKeyFilter()
             // The ADB and screensaver checks were skipped while locked.
             GuardSetup.ensureEnabled(this@HomeGuardService)
             val skipReason = when {
