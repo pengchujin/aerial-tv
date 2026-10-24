@@ -119,7 +119,7 @@ class MainActivity : ComponentActivity() {
     private var locked = false
 
     private val unlocked = object : BroadcastReceiver() {
-        override fun onReceive(context: Context, intent: Intent) = startUnlocked()
+        override fun onReceive(context: Context, intent: Intent) = startReal(null)
     }
 
     private fun showLocked() {
@@ -130,18 +130,10 @@ class MainActivity : ComponentActivity() {
         window.setBackgroundDrawable(picture?.let { BitmapDrawable(resources, it) } ?: ColorDrawable(Color.BLACK))
         ContextCompat.registerReceiver(this, unlocked, IntentFilter(Intent.ACTION_USER_UNLOCKED), ContextCompat.RECEIVER_EXPORTED)
         // Unlocked between the check and the registration.
-        if (GuardSetup.isUserUnlocked(this)) startUnlocked()
+        if (GuardSetup.isUserUnlocked(this)) startReal(null)
     }
 
-    private var recreating = false
-
-    /** The locked instance stays locked to its end: it has set up none of what the rest undo. */
-    private fun startUnlocked() {
-        if (!locked || recreating) return
-        recreating = true
-        startedLocked = true
-        recreate()
-    }
+    private var realStarted = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         DiagLog.catchCrashes()
@@ -151,13 +143,29 @@ class MainActivity : ComponentActivity() {
             showLocked()
             return
         }
+        super.onCreate(savedInstanceState)
+        startReal(savedInstanceState)
+    }
+
+    /**
+     * The real start, in the window the locked instance already shows. Recreating the activity at
+     * the unlock left the screen black for the second or two the new window took: unlock 20.4 s,
+     * new window 21.9 s, first frame 22.5 s on an OPPO K9 (ColorOS TV 2.4, 2026-10-24).
+     */
+    private fun startReal(savedInstanceState: Bundle?) {
+        if (realStarted) return
+        realStarted = true
+        val fromLocked = locked
+        if (locked) {
+            locked = false
+            runCatching { unregisterReceiver(unlocked) }
+        }
         DiagLog.init(this)
         DiagLog.i("onCreate ${intent.action} restored=${savedInstanceState != null}; ${DiagLog.device()}")
-        super.onCreate(savedInstanceState)
         hideSystemBars()
-        // Recreated at unlock: this is the boot's first real start, though the state was saved.
-        val fresh = savedInstanceState == null || startedLocked
-        startedLocked = false
+        // Unlocked at power-on: what the system kept. Unlocked under the locked window: nothing to
+        // restore, and this is the boot's first real start.
+        val fresh = savedInstanceState == null
         TileArtFactory.useCanvasDensity(canvasDensity(resources.displayMetrics))
         Wallpapers.init(this)
         Weather.init(this)
@@ -170,20 +178,21 @@ class MainActivity : ComponentActivity() {
 
         // The home screen paints every pixel itself; a window background would be one more
         // full-screen fill per frame for the TV's GPU. Only until Home's first frame, the backdrop
-        // baked at the last start, so the window never shows black while Compose sets up.
+        // baked at the last start, so the window never shows black while Compose sets up. Without
+        // one, keep what the window already shows (the kept backdrop of a locked start).
         val baked = Wallpapers.backdrop
-        window.setBackgroundDrawable(baked?.let { BitmapDrawable(resources, it.asAndroidBitmap()) })
-        if (baked != null) {
-            window.decorView.viewTreeObserver.addOnDrawListener(object : ViewTreeObserver.OnDrawListener {
-                override fun onDraw() {
-                    // Not from inside the draw itself.
-                    idleHandler.post {
-                        window.setBackgroundDrawable(null)
-                        window.decorView.viewTreeObserver.removeOnDrawListener(this)
-                    }
+        if (baked != null) window.setBackgroundDrawable(BitmapDrawable(resources, baked.asAndroidBitmap()))
+        // Clear whatever the window showed until the first frame (the baked backdrop, or the kept
+        // one of a locked start): from then on Home paints every pixel itself.
+        window.decorView.viewTreeObserver.addOnDrawListener(object : ViewTreeObserver.OnDrawListener {
+            override fun onDraw() {
+                // Not from inside the draw itself.
+                idleHandler.post {
+                    window.setBackgroundDrawable(null)
+                    window.decorView.viewTreeObserver.removeOnDrawListener(this)
                 }
-            })
-        }
+            }
+        })
         if (DiagLog.modeSwitch(this)) preferSmoothestRefreshRate() else DiagLog.i("refresh rate left as it is (mode_switch off)")
         if (DiagLog.softLayer(this)) window.decorView.setLayerType(View.LAYER_TYPE_SOFTWARE, null)
         logWindow()
@@ -224,6 +233,14 @@ class MainActivity : ComponentActivity() {
         }
         if (fresh && firstStartSinceBoot()) openBootSource("boot")
         if (intent.getBooleanExtra(EXTRA_WOKE, false)) openBootSource("brought back on wake")
+        if (fromLocked) {
+            // This window already went through onStart and onResume while locked (both returned
+            // early) and the system will not call them again unless it stops and starts the
+            // activity: do their work for the state it is in now. Doing it unconditionally would
+            // register receivers while stopped, or mark Aerial resumed with the screen off.
+            if (lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) startWork()
+            if (lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) resumeWork()
+        }
     }
 
     private fun hideSystemBars() {
@@ -546,6 +563,11 @@ class MainActivity : ComponentActivity() {
     override fun onStart() {
         super.onStart()
         if (locked) return
+        startWork()
+    }
+
+    /** What onStart does once the user is unlocked; also run by a start that was locked before. */
+    private fun startWork() {
         DiagLog.i("onStart")
         GuardSetup.ensureEnabled(this)
         idleHandler.postDelayed({ GuardSetup.rebindIfStalled(this) }, 5_000)
@@ -590,6 +612,11 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         if (locked) return
+        resumeWork()
+    }
+
+    /** What onResume does once the user is unlocked; also run by a start that was locked before. */
+    private fun resumeWork() {
         vm.resumed = true
         DiagLog.i("onResume; screensaver after ${idleBeforeScreensaver() / 1000} s")
         restartIdleTimer()
@@ -661,9 +688,6 @@ class MainActivity : ComponentActivity() {
     }
 
     companion object {
-        /** Set as the locked start recreates itself at unlock; read by the next onCreate. */
-        private var startedLocked = false
-
         /** How Home Guard and the boot receiver bring Aerial back: the same task the launcher entry uses. */
         fun bringBackIntent(context: Context): Intent =
             Intent(context, MainActivity::class.java)
