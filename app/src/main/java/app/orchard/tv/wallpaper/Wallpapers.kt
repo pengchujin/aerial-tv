@@ -4,6 +4,7 @@ import android.content.Context
 import android.os.Build
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.os.SystemClock
 import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -17,6 +18,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -69,6 +71,7 @@ object Wallpapers {
     private const val DAILY_RETRY_MS = 30 * 60 * 1000L
     const val AUTO = "auto"
     const val ROTATE_PHOTOS = "photos:rotate"
+    const val SLIDESHOW_PHOTOS = "photos:slideshow"
     const val LIVE = "aerial:live"
     private const val FOLLOW = "follow"
     private const val DEFAULT_FALLBACK = "grad:aurora"
@@ -88,6 +91,7 @@ object Wallpapers {
 
     var items by mutableStateOf<List<Wallpaper>>(emptyList()); private set
     var selectedId by mutableStateOf(LATEST_DAILY); private set
+    var slideshowIntervalSec by mutableStateOf(10); private set
     /** The screensaver the owner chose; null while it follows the wallpaper ([screensaver]). */
     private var chosenScreensaver by mutableStateOf<ScreensaverMode?>(ScreensaverMode.Aerial)
 
@@ -112,6 +116,9 @@ object Wallpapers {
     var frosted by mutableStateOf<ImageBitmap?>(null); private set
 
     private var backdropJob: Job? = null
+    private var slideshowJob: Job? = null
+    private var slideshowIndex = 0
+    private var homeResumed = false
     private var started = false
 
     /** The UI's size in pixels. Pictures are decoded to it: 1080p on most TVs, 4K where the UI is. */
@@ -129,6 +136,7 @@ object Wallpapers {
         selectedId = (prefs.getString("selected", LATEST_DAILY) ?: LATEST_DAILY)
             // A built-in wallpaper from before the Mac-style set: its nearest one now.
             .let { if (it.startsWith("grad:")) "grad:" + Gradients.currentKey(it.removePrefix("grad:")) else it }
+        slideshowIntervalSec = prefs.getInt("slideshow_interval", 10).takeIf { it in listOf(10, 30, 60) } ?: 10
         chosenScreensaver = when (val key = prefs.getString("screensaver", null)) {
             null -> firstScreensaver()
             // "wallpaper" was a fourth kind in test builds of 1.38, for what following now is.
@@ -159,9 +167,61 @@ object Wallpapers {
     }
 
     fun select(id: String) {
+        if (id == SLIDESHOW_PHOTOS) {
+            val current = resolve()?.id
+            slideshowPhotos().indexOfFirst { it.id == current }.takeIf { it >= 0 }?.let { slideshowIndex = it }
+        }
         selectedId = id
         prefs.edit { putString("selected", id) }
         rebuildBackdrop()
+        restartSlideshow()
+    }
+
+    fun chooseSlideshowInterval(sec: Int) {
+        if (sec !in listOf(10, 30, 60) || sec == slideshowIntervalSec) return
+        slideshowIntervalSec = sec
+        prefs.edit { putInt("slideshow_interval", sec) }
+        restartSlideshow()
+    }
+
+    /** Uses Home's existing resume/pause callbacks; coming back starts a fresh interval. */
+    fun setHomeResumed(resumed: Boolean) {
+        homeResumed = resumed
+        restartSlideshow()
+    }
+
+    private fun slideshowPhotos() = items.filter { it.kind == WallpaperKind.Photo }.sortedBy { it.id }
+
+    private fun restartSlideshow() {
+        slideshowJob?.cancel()
+        slideshowJob = null
+        if (!homeResumed || selectedId != SLIDESHOW_PHOTOS) return
+        slideshowJob = scope.launch {
+            // Start counting once the first shaded picture is ready, not while it is still baking.
+            backdropJob?.join()
+            while (true) {
+                val photos = slideshowPhotos()
+                if (photos.size < 2) return@launch
+                val nextIndex = (slideshowIndex + 1).mod(photos.size)
+                val next = photos[nextIndex]
+                val due = SystemClock.elapsedRealtime() + slideshowIntervalSec * 1000L
+                // Baking can take seconds on a TV. Do it while the current picture is on screen.
+                val (bmp, frost) = withContext(Dispatchers.Default) {
+                    val picture = picture(next, screenW, screenH)
+                    val frost = picture?.let(Images::frost)
+                    picture?.let(Images::shadeForHome) to frost
+                }
+                delay((due - SystemClock.elapsedRealtime()).coerceAtLeast(0L))
+                // A late or unreadable picture never replaces the current one with black or raw pixels.
+                if (bmp != null && frost != null) {
+                    slideshowIndex = nextIndex
+                    backdrop = bmp.asImageBitmap()
+                    frosted = frost.asImageBitmap()
+                    // This pair is only in memory: selecting a static wallpaper must bake/save it again.
+                    bakedKey = null
+                }
+            }
+        }
     }
 
     /**
@@ -192,6 +252,9 @@ object Wallpapers {
         LATEST_DAILY -> items.firstOrNull { it.kind == WallpaperKind.Daily }
         ROTATE_PHOTOS -> items.filter { it.kind == WallpaperKind.Photo }.sortedBy { it.id }.let { photos ->
             if (photos.isEmpty()) resolve(LATEST_DAILY) else photos[Math.floorMod(today(), photos.size)]
+        }
+        SLIDESHOW_PHOTOS -> slideshowPhotos().let { photos ->
+            if (photos.isEmpty()) resolve(LATEST_DAILY) else photos[slideshowIndex.mod(photos.size)]
         }
         else -> items.firstOrNull { it.id == id }
     }
@@ -228,7 +291,7 @@ object Wallpapers {
     /** A 16:9 thumbnail for pickers and the phone page. Call off the main thread. */
     fun thumbnail(id: String): Bitmap? {
         synchronized(thumbs) { thumbs[id] }?.let { return it }
-        val wp = (if (id == LATEST_DAILY || id == ROTATE_PHOTOS) resolve(id) else items.firstOrNull { it.id == id }) ?: return null
+        val wp = (if (id == LATEST_DAILY || id == ROTATE_PHOTOS || id == SLIDESHOW_PHOTOS) resolve(id) else items.firstOrNull { it.id == id }) ?: return null
         val b = if (wp.kind == WallpaperKind.Auto) Gradients.render(Gradients.autoThumb, 384, 216) else picture(wp, 384, 216)
         if (b != null) synchronized(thumbs) { thumbs[id] = b }
         return b
@@ -254,9 +317,11 @@ object Wallpapers {
                 val frost = picture?.let(Images::frost)
                 picture?.let(Images::shadeForHome) to frost
             }
+            if (id == SLIDESHOW_PHOTOS && (bmp == null || frost == null)) return@launch
             backdrop = bmp?.asImageBitmap()
             frosted = frost?.asImageBitmap()
-            if (key != null && bmp != null && frost != null) saveBaked(key, bmp, frost)
+            if (id == SLIDESHOW_PHOTOS) bakedKey = null
+            else if (key != null && bmp != null && frost != null) saveBaked(key, bmp, frost)
         }
     }
 
@@ -292,6 +357,11 @@ object Wallpapers {
             val home = BitmapFactory.decodeFile(File(bakedDir, "home.jpg").path) ?: return
             val frost = BitmapFactory.decodeFile(File(bakedDir, "frost.png").path) ?: return
             if (home.width != screenW || home.height != screenH) return
+            if (selectedId == SLIDESHOW_PHOTOS) {
+                // Continue from the cached photo when it is still in the uploaded collection.
+                slideshowPhotos().indexOfFirst { it.id == key.substringBefore('|') }
+                    .takeIf { it >= 0 }?.let { slideshowIndex = it }
+            }
             backdrop = home.asImageBitmap()
             frosted = frost.asImageBitmap()
             bakedKey = key
@@ -381,6 +451,8 @@ object Wallpapers {
     }
 
     private fun rebuildList() {
+        val previousPhotos = slideshowPhotos()
+        val currentPhoto = previousPhotos.getOrNull(slideshowIndex)?.id
         val daily = readDailyIndex().map { Wallpaper("daily:${it.first}", WallpaperKind.Daily, it.second, it.third) }
         val zh = Locale.getDefault().language == "zh"
         val builtins = Gradients.presets.map { Wallpaper("grad:${it.key}", WallpaperKind.Builtin, if (zh) it.nameZh else it.nameEn) }
@@ -390,6 +462,20 @@ object Wallpapers {
         val auto = Wallpaper(AUTO, WallpaperKind.Auto, if (zh) "跟随 App" else "Follow App")
         val live = Wallpaper(LIVE, WallpaperKind.Live, if (zh) "航拍" else "Aerial")
         items = listOf(live) + daily + builtins + photos + auto
+        val updatedPhotos = slideshowPhotos()
+        slideshowIndex = updatedPhotos.indexOfFirst { it.id == currentPhoto }.takeIf { it >= 0 }
+            ?: slideshowIndex.mod(updatedPhotos.size.coerceAtLeast(1))
+        if (previousPhotos.map { it.id } != updatedPhotos.map { it.id }) {
+            synchronized(thumbs) { thumbs.remove(SLIDESHOW_PHOTOS) }
+            if (selectedId == SLIDESHOW_PHOTOS) {
+                // Keep a surviving current photo; deletion of it advances to the corrected position.
+                if (updatedPhotos.size < 2) select(updatedPhotos.firstOrNull()?.id ?: LATEST_DAILY)
+                else {
+                    if (updatedPhotos[slideshowIndex].id != currentPhoto) rebuildBackdrop()
+                    restartSlideshow()
+                }
+            }
+        }
     }
 
     // ---- daily photos ----

@@ -82,6 +82,10 @@
     <string name="wp_photos_rotate">Күніне біреуі</string>
     <string name="wp_daily_note">Bing күн суреті, күн сайын жаңасына ауысады.</string>
     <string name="wp_photos_rotate_note">Күн сайын фотоларыңыздың басқасы.</string>
+    <string name="wp_photos_slideshow">Фото слайд-шоуы</string>
+    <string name="wp_photos_slideshow_note">Фото бірнеше секунд сайын ауысады</string>
+    <string name="wp_slideshow_interval">Ауыстыру аралығы</string>
+    <string name="wp_slideshow_seconds">%d с</string>
     <string name="wp_photo_note">Сіздің фотоңыз. Телефоннан тағы жіберу үшін оң жақтағы кодты сканерлеңіз.</string>
     <string name="wp_auto_note">Жарық таңдалған қолданбаның суретінен алынады.</string>
     <string name="wp_screensaver">Экран қорғаушы</string>

@@ -124,6 +124,7 @@ class PhoneServer private constructor(private val context: Context, private val 
             .put("selected", selected)
             .put("latestDaily", Wallpapers.LATEST_DAILY)
             .put("rotatePhotos", Wallpapers.ROTATE_PHOTOS)
+            .put("slideshowPhotos", Wallpapers.SLIDESHOW_PHOTOS)
             .put("screensaver", Wallpapers.screensaver.key)
             .put("screensaverFollows", Wallpapers.screensaverFollows)
             .put("videos", JSONArray().apply {

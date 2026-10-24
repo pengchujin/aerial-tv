@@ -591,6 +591,7 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         if (locked) return
         vm.resumed = true
+        Wallpapers.setHomeResumed(vm.resumed)
         DiagLog.i("onResume; screensaver after ${idleBeforeScreensaver() / 1000} s")
         restartIdleTimer()
         GuardSetup.setHomeInFront(this, true)
@@ -610,6 +611,7 @@ class MainActivity : ComponentActivity() {
         super.onPause()
         if (locked) return
         vm.resumed = false
+        Wallpapers.setHomeResumed(vm.resumed)
         DiagLog.i("onPause")
         GuardSetup.setHomeInFront(this, false)
         idleHandler.removeCallbacks(showScreensaver)
