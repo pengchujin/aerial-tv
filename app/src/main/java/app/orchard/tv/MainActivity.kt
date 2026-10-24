@@ -647,6 +647,9 @@ class MainActivity : ComponentActivity() {
         try {
             startActivity(settingsLaunchIntent(this, app.launchIntent()), options)
         } catch (e: Exception) {
+            // XGIMI (GMUI): nothing answers the passthrough intent a source tile carries, so the tile
+            // opens the source page of its settings service instead (issue #241).
+            if (app.source != null && SystemProbe.openInputPicker(this)) return
             Toast.makeText(this, getString(R.string.launch_failed, app.label), Toast.LENGTH_SHORT).show()
         }
     }
@@ -655,6 +658,9 @@ class MainActivity : ComponentActivity() {
         try {
             SystemProbe.startSettingsIntent(this, intent)
         } catch (e: Exception) {
+            // XGIMI (GMUI): its inputs carry a passthrough intent that nothing answers, so switching
+            // goes through the source page of its settings service (issue #241).
+            if (intent.data?.host == "android.media.tv" && SystemProbe.openInputPicker(this)) return
             LaunchFallback.next()?.let { return open(it) }
             Toast.makeText(this, R.string.unavailable, Toast.LENGTH_SHORT).show()
         }

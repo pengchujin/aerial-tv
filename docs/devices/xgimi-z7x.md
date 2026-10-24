@@ -26,6 +26,11 @@ App 里的「开机自动恢复」默认关闭，**关着的话重启后 5555 �
 - 无障碍：原值 `com.xgimi.duertts/com.xgimi.duertts.MonitorService`，追加为 `...:app.orchard.tv/app.orchard.tv.guard.HomeGuardService`，可正常生效。
 - 屏保：`screensaver_enabled=1` 时接管为 `app.orchard.tv/app.orchard.tv.dream.AerialDream`。
 
+## 信号源
+
+- 标准 passthrough intent（TvInputManager 输入自带的 `content://android.media.tv/...`）在这类固件上没有处理器：`am start` 报 `unable to resolve Intent`，主屏的信号磁贴和控制中心里的输入源都打不开，只弹一句「此电视不支持」。Z7X（GMUI 6.11）如此，`pig_chivalrous`（GMUI 9）实测一样。
+- `Settings://com.xgimi.settings.signalSource/hdmi_misckey` 走 `ACTION_VIEW` 也没有 Activity 接。信号源页由导出的 `com.android.newsettings/com.xgimi.newsettings.SettingService`（action `com.xgimi.settings.SETTINGS`，extras `data` / `packageName` / `unlocked`）拉起，实测前台变成 `com.xgimi.xhplayer/.InputActivity`。
+
 ## 开机行为
 
 - **1.19 / 1.20**：重启后停在极米原桌面，需要手动按一次 Home 才进 Aerial，`keep_adb` 已经下发也无效。

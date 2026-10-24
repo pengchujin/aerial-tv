@@ -287,6 +287,9 @@ object SystemProbe {
         }.isSuccess
     }
 
+    /** XGIMI's own source page, opened through its settings service; see [openInputPicker]. */
+    private const val XGIMI_SOURCE_PAGE = "Settings://com.xgimi.settings.signalSource/hdmi_misckey"
+
     /**
      * Opens the TV's own input picker, for TVs whose inputs Android does not list. TCL MT5879 keeps
      * its inputs in its own middleware (TvInputManager has none) and its remote's input key opens a
@@ -295,6 +298,13 @@ object SystemProbe {
      */
     fun openInputPicker(context: Context): Boolean {
         val pm = context.packageManager
+        // XGIMI (GMUI): TvInputManager does list the inputs here, but nothing on the firmware answers
+        // the passthrough intent they carry - `am start` cannot resolve it - so a source tile and the
+        // inputs page of Control Center both end at "this TV does not support it" (issue #241, and
+        // again on a `pig_chivalrous`, GMUI 9). Its settings service opens the source page instead.
+        xgimiSettingsIntent(context, XGIMI_SOURCE_PAGE)?.let { intent ->
+            if (runCatching { context.startService(intent) }.getOrNull() != null) return true
+        }
         // Hisense VIDAA_TV (MT9653, Android 11) lists no inputs either; its input panel is a
         // foreground service (issue #261, tried on the reporter's TV).
         val hisense = Intent("com.hisense.tv.start_inputs")
