@@ -564,7 +564,7 @@ class HomeGuardService : AccessibilityService() {
     /** The music stream's level and mute when the guard last looked, after the last key was done. */
     private var volumeSeen: Pair<Int, Boolean>? = null
 
-    /** Whether the volume key being pressed is kept from the system, repeats and lift included. */
+    /** Whether the volume key being pressed is kept from the system, repeats included. */
     private var volumeKeyTaken = false
 
     private fun volumeNow(): Pair<Int, Boolean>? = getSystemService<AudioManager>()?.let {
@@ -586,6 +586,13 @@ class HomeGuardService : AccessibilityService() {
      * acts on the key before the filter, but the key's lift never reached the guard while Aerial
      * was in front, and one press ran the volume to 100 or 0 (7AA46_H5D and 8A002_H5D, Android 9,
      * issues #448 #451). There the firmware has the held key. Never longer than VOLUME_REPEAT_MAX_MS.
+     *
+     * On Skyworth/Coocaa 8R145_P3DM (Android 11, issue #460), the same "key's lift never reached
+     * the guard" is caused by this method swallowing the key-up: once the volume has changed before
+     * the filter (taken == true), `return taken` also swallowed the ACTION_UP, the firmware never
+     * saw the lift and repeated the key indefinitely (logcat: 902 ACTION_DOWN, zero ACTION_UP;
+     * one tap drove the volume for ~17 s). With the guard disabled the key-up reached the system
+     * and everything was normal (6 events, 4 ACTION_UP). The key-up is therefore always passed on.
      */
     private fun takeVolumeKey(event: KeyEvent): Boolean {
         if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
@@ -614,6 +621,11 @@ class HomeGuardService : AccessibilityService() {
             handler.removeCallbacks(volumeRepeat)
             volumeKeyTaken = false
             volumeSeen = volumeNow()
+            // Skyworth/Coocaa (8R145 etc.): swallowing the key-up keeps the firmware's repeats
+            // running (hundreds of ACTION_DOWN, zero ACTION_UP) and the volume runs away. Always
+            // pass the key-up on so the firmware stops repeating; only repeat-downs are swallowed,
+            // so the volume still steps once per physical press.
+            return false
         }
         return taken
     }
