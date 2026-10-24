@@ -153,6 +153,13 @@ fun WallpaperSheet(
                     Spacer(Modifier.height(16.dp))
                     SectionTitle(R.string.wp_wallpaper)
                     WallpaperRows()
+                    if (Wallpapers.selectedId == Wallpapers.SLIDESHOW_PHOTOS) Group { note ->
+                        Choices(
+                            R.string.wp_slideshow_interval, stringResource(R.string.wp_photos_slideshow_note), note,
+                            listOf(10, 30, 60).map { it to stringResource(R.string.wp_slideshow_seconds, it) },
+                            Wallpapers.slideshowIntervalSec, Wallpapers::chooseSlideshowInterval, first = true,
+                        )
+                    }
 
                     Spacer(Modifier.height(6.dp))
                     SectionTitle(R.string.st_home_layout)
@@ -298,7 +305,8 @@ private fun WallpaperRows() {
     }
     val dailyTitle = stringResource(R.string.wp_daily_latest)
     val rotateTitle = stringResource(R.string.wp_photos_rotate)
-    val list = remember(items, selected, dailyTitle, rotateTitle) {
+    val slideshowTitle = stringResource(R.string.wp_photos_slideshow)
+    val list = remember(items, selected, dailyTitle, rotateTitle, slideshowTitle) {
         buildList {
             addAll(items.filter { it.kind == WallpaperKind.Live })
             if (items.any { it.kind == WallpaperKind.Daily }) add(Wallpaper(Wallpapers.LATEST_DAILY, WallpaperKind.Daily, dailyTitle))
@@ -306,6 +314,7 @@ private fun WallpaperRows() {
             val photos = items.filter { it.kind == WallpaperKind.Photo }
             // With two or more, one card takes turns through all of them, one a day (#27).
             if (photos.size > 1) add(Wallpaper(Wallpapers.ROTATE_PHOTOS, WallpaperKind.Photo, rotateTitle))
+            if (photos.size > 1) add(Wallpaper(Wallpapers.SLIDESHOW_PHOTOS, WallpaperKind.Photo, slideshowTitle))
             addAll(photos)
             addAll(items.filter { it.kind == WallpaperKind.Builtin && (it.id in Wallpapers.FEATURED_BUILTINS || it.id == selected) })
             addAll(items.filter { it.kind == WallpaperKind.Auto })
@@ -335,6 +344,7 @@ private fun wallpaperNote(wp: Wallpaper): String? = when {
     wp.kind == WallpaperKind.Live -> stringResource(R.string.wp_live)
     wp.id == Wallpapers.LATEST_DAILY -> stringResource(R.string.wp_daily_note)
     wp.id == Wallpapers.ROTATE_PHOTOS -> stringResource(R.string.wp_photos_rotate_note)
+    wp.id == Wallpapers.SLIDESHOW_PHOTOS -> stringResource(R.string.wp_photos_slideshow_note)
     wp.kind == WallpaperKind.Photo -> stringResource(R.string.wp_photo_note)
     wp.kind == WallpaperKind.Auto -> stringResource(R.string.wp_auto_note)
     wp.kind == WallpaperKind.Daily -> wp.caption

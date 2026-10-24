@@ -90,6 +90,10 @@
     <string name="wp_photos_rotate">My Photos, Daily</string>
     <string name="wp_daily_note">Bing\'s photo of the day, changing to the new one every day.</string>
     <string name="wp_photos_rotate_note">A different one of your photos each day.</string>
+    <string name="wp_photos_slideshow">Photo Slideshow</string>
+    <string name="wp_photos_slideshow_note">Changes every few seconds</string>
+    <string name="wp_slideshow_interval">Switch every</string>
+    <string name="wp_slideshow_seconds">%d sec</string>
     <string name="wp_photo_note">Your photo. Scan the code on the right to send more from your phone.</string>
     <string name="wp_auto_note">Light taken from the selected app\'s artwork.</string>
     <string name="wp_screensaver">Screensaver</string>

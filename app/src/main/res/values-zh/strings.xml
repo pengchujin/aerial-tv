@@ -89,6 +89,10 @@
     <string name="wp_photos_rotate">我的照片 · 每天换</string>
     <string name="wp_daily_note">必应每日一图，每天自动换成当天的。</string>
     <string name="wp_photos_rotate_note">从你的照片里每天换一张。</string>
+    <string name="wp_photos_slideshow">照片轮播</string>
+    <string name="wp_photos_slideshow_note">每隔几秒换一张</string>
+    <string name="wp_slideshow_interval">切换间隔</string>
+    <string name="wp_slideshow_seconds">%d 秒</string>
     <string name="wp_photo_note">你的照片。用手机扫右边的二维码可以继续添加。</string>
     <string name="wp_auto_note">取所选 App 图片里的颜色做背景。</string>
     <string name="wp_screensaver">屏幕保护程序</string>

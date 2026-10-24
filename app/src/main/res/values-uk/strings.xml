@@ -82,6 +82,10 @@
     <string name="wp_photos_rotate">Одне на день</string>
     <string name="wp_daily_note">Фото дня від Bing, щодня нове.</string>
     <string name="wp_photos_rotate_note">Щодня інше з ваших фото.</string>
+    <string name="wp_photos_slideshow">Слайд-шоу фотографій</string>
+    <string name="wp_photos_slideshow_note">Зміна фото кожні кілька секунд</string>
+    <string name="wp_slideshow_interval">Інтервал зміни</string>
+    <string name="wp_slideshow_seconds">%d с</string>
     <string name="wp_photo_note">Ваше фото. Відскануйте код праворуч, щоб надіслати ще з телефона.</string>
     <string name="wp_auto_note">Світло береться з обкладинки вибраного застосунку.</string>
     <string name="wp_screensaver">Заставка</string>
