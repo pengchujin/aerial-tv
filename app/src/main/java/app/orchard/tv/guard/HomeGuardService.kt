@@ -166,6 +166,8 @@ class HomeGuardService : AccessibilityService() {
      */
     private val userUnlocked = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
+            // The settings, ADB and screensaver setup was skipped while locked.
+            startWatching()
             // Before unlock only Direct Boot aware launchers resolve.
             refreshStockHomes()
             // The ADB and screensaver checks were skipped while locked.
@@ -286,13 +288,18 @@ class HomeGuardService : AccessibilityService() {
         }.onFailure { Log.w(TAG, "could not watch the current input", it) }
     }
 
-    override fun onServiceConnected() {
-        instance = this
-        // Register before querying homes or checking the state so an unlock cannot be missed.
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            registerReceiver(userUnlocked, IntentFilter(Intent.ACTION_USER_UNLOCKED))
-        }
-        refreshStockHomes()
+    /** Set once [startWatching] has run; it must run once, after the unlock. */
+    private var watching = false
+
+    /**
+     * Everything that reads AerialSettings (key filter, CEC input, ADB switch) or registers the
+     * wake/Home receivers. Safe only once the user is unlocked; see the call in
+     * [onServiceConnected] and [userUnlocked].
+     */
+    private fun startWatching() {
+        if (watching) return
+        watching = true
+        // The screen may have changed while the service waited for the unlock.
         screenOff = getSystemService<PowerManager>()?.isInteractive == false
         updateKeyFilter()
         watchCecInput()
@@ -311,10 +318,25 @@ class HomeGuardService : AccessibilityService() {
             if (usageStatsAllowed(this)) handler.post(foregroundCheck)
             else Log.i(TAG, "usage stats not allowed; not watching the front by them")
         }
+    }
+
+    override fun onServiceConnected() {
+        instance = this
+        // Register before querying homes or checking the state so an unlock cannot be missed.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            registerReceiver(userUnlocked, IntentFilter(Intent.ACTION_USER_UNLOCKED))
+        }
+        refreshStockHomes()
+        // On Android 9 with Direct Boot the accessibility service is bound before the user is
+        // unlocked, and every read of AerialSettings (all of the setup below) throws until then:
+        // "SharedPreferences in credential encrypted storage are not available until after user is
+        // unlocked". The process died and Home restarted twice at boot, each restart a black
+        // screen (OPPO K9, ColorOS TV 2.4, 2026-10-24). The unlock receiver does the setup instead.
         if (!GuardSetup.isUserUnlocked(this)) {
-            Log.i(TAG, "bound while user locked; deferred takeover until unlock")
+            Log.i(TAG, "bound while user locked; deferred setup until unlock")
             return
         }
+        startWatching()
         // Bound a little after boot, or brought back after the firmware killed Aerial: either way
         // the stock launcher is what's in front, and the window change that showed it is long gone.
         // Not after an update, though: installing over Aerial also kills it, and whoever is watching
