@@ -28,6 +28,10 @@
     <string name="net_ethernet">Ethernet</string>
     <string name="net_wifi">Wi-Fi</string>
     <string name="net_offline">Немає з’єднання</string>
+    <string name="net_connected">Підключено</string>
+    <string name="net_disabled">Вимкнено</string>
+    <string name="net_vpn">VPN</string>
+    <string name="net_vpn_connected">Встановлено</string>
     <string name="input_connected">Підключено</string>
     <string name="input_live_tv">Ефірне ТБ</string>
     <string name="input_antenna">Антена</string>

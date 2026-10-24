@@ -183,31 +183,12 @@ private fun MainPage(vm: HomeViewModel, now: LocalDateTime, takeFocus: Boolean, 
         runCatching { first.requestFocus() }
     }
 
-    Column {
-        Row(verticalAlignment = Alignment.Bottom) {
-            Column(Modifier.weight(1f)) {
-                BasicText(timeText(now), style = Type.LargeTitle.copy(fontSize = Type.LargeTitle.fontSize * 1.25f))
-                BasicText(dateText(now), style = Type.Callout)
-            }
-            val net = vm.network
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                GlyphIcon(
-                    when (net.kind) { NetKind.Wifi -> Glyph.Wifi; NetKind.Ethernet -> Glyph.Ethernet; NetKind.Offline -> Glyph.Offline },
-                    Palette.SecondaryLabel, 14.dp, level = net.level,
-                )
-                BasicText(
-                    when (net.kind) {
-                        NetKind.Wifi -> net.name ?: stringResource(R.string.net_wifi)
-                        NetKind.Ethernet -> stringResource(R.string.net_ethernet)
-                        NetKind.Offline -> stringResource(R.string.net_offline)
-                    },
-                    style = Type.Caption, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.widthIn(max = 130.dp),
-                )
-            }
-        }
-
-        Spacer(Modifier.height(16.dp))
+    Column(Modifier.heightIn(max = 448.dp).verticalScroll(rememberScrollState())) {
+        BasicText(timeText(now), style = Type.LargeTitle.copy(fontSize = Type.LargeTitle.fontSize * 1.25f))
+        BasicText(dateText(now), style = Type.Callout)
+        Spacer(Modifier.height(12.dp))
+        NetworkSummary(vm.network)
+        Spacer(Modifier.height(8.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             RoundButton(Glyph.Input, stringResource(R.string.cc_inputs), focusRequester = first) {
                 // TCL lists no inputs to Android; its own input panel is the next best thing.
@@ -215,7 +196,7 @@ private fun MainPage(vm: HomeViewModel, now: LocalDateTime, takeFocus: Boolean, 
                 else Overlay.ControlCenter(CcPage.Inputs)
             }
             RoundButton(
-                when (vm.network.kind) { NetKind.Ethernet -> Glyph.Ethernet; NetKind.Offline -> Glyph.Offline; else -> Glyph.Wifi },
+                Glyph.Globe,
                 stringResource(R.string.cc_network),
             ) {
                 vm.whenUnlocked {
