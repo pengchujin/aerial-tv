@@ -56,6 +56,7 @@ class TileArt(
 /** Firmware apps Aerial draws its own tile for, each in the color that tells the kind apart. */
 enum class SystemTile(top: Long, bottom: Long, val glyph: Glyph) {
     Settings(0xFF8E8E93, 0xFF48484A, Glyph.Gear),
+    TvSettings(0xFF647A92, 0xFF28394C, Glyph.Switches),
     Photos(0xFFFFB340, 0xFFFF5E3A, Glyph.Photo),
     Media(0xFF3A3A3C, 0xFF111113, Glyph.Play),
     Store(0xFF40B0FF, 0xFF0A5FD8, Glyph.Bag),
@@ -779,6 +780,7 @@ object TileArtFactory {
         val dh = (ih * scale).roundToInt()
         val l = (w - dw) / 2
         val t = (h - dh) / 2
+        if (d is BitmapDrawable) d.isFilterBitmap = true
         d.setBounds(l, t, l + dw, t + dh)
         d.draw(this)
     }

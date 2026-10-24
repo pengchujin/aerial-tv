@@ -214,6 +214,9 @@ fi
 # Other firmwares do not know the op names and refuse them, which is fine.
 adb shell appops set "$PKG" APP_AUTO_START allow >/dev/null 2>&1 || true
 adb shell appops set "$PKG" APP_ASSOC_START allow >/dev/null 2>&1 || true
+# App-op writes are deferred; an immediate ADB reboot can lose these grants (MiTV-MFTR0).
+# Older firmware may not implement this command.
+adb shell appops write-settings >/dev/null 2>&1 || true
 if [ "${KEEP_ADB:-0}" = 1 ]; then
   adb shell am broadcast -a "$PKG.CONFIG" -n "$PKG/.guard.ConfigReceiver" --ez keep_adb true >/dev/null
   echo "Aerial will switch ADB debugging back on whenever the TV turns it off."

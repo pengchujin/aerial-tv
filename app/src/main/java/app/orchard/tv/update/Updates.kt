@@ -68,6 +68,7 @@ object Updates {
     private var lastAttempt = 0L
 
     fun init(context: Context) {
+        if (BuildConfig.MANAGED_FORK) return
         if (started) return
         started = true
         prefs = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -159,6 +160,7 @@ object Updates {
      * with this copy's key and no older, or the installer would only fail with a less clear message.
      */
     fun install(context: Context) {
+        if (BuildConfig.MANAGED_FORK) return
         if (install is Install.Downloading) return
         val app = context.applicationContext
         if (!canInstall(app)) { install = Install.Failed(Failure.NotOfficial); return }

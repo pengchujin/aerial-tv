@@ -32,6 +32,7 @@ import app.orchard.tv.system.TvSource
 import app.orchard.tv.system.VolumeStatus
 import app.orchard.tv.ui.home.PinMode
 import app.orchard.tv.ui.home.ScreensaverSkips
+import kotlinx.coroutines.async
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.Job
@@ -115,6 +116,7 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
      * few seconds in, when Home Guard would have bound if it were on.
      */
     private fun offerSetupOnce() {
+        if (BuildConfig.PREVIEW) return
         val prefs = context.getSharedPreferences("settings", android.content.Context.MODE_PRIVATE)
         if (prefs.getBoolean("setup_offered", false)) return
         viewModelScope.launch {
@@ -130,6 +132,10 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
 
     /** PackageManager's change counter when the list was last loaded (Android 8+). */
     private var packagesSeen = 0
+    private var catalogConfig: Triple<String, Int, Boolean>? = null
+    private fun currentCatalogConfig() = Triple(
+        java.util.Locale.getDefault().toLanguageTag(), TileArtFactory.W, TileArtFactory.unified,
+    )
 
     /**
      * Apps installed or removed while Aerial was in the background (from an app store in front)
@@ -137,22 +143,31 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
      * (issue #55). Before Android 8 there is no change counter; the reload is cheap, tiles are cached.
      */
     fun reloadIfPackagesChanged() {
-        if (!loaded) return
-        if (Build.VERSION.SDK_INT >= 26 && context.packageManager.getChangedPackages(packagesSeen) == null) return
+        if (!loaded) {
+            if (loadJob?.isActive != true) reload()
+            return
+        }
+        if (catalogConfig == currentCatalogConfig() && Build.VERSION.SDK_INT >= 26 &&
+            context.packageManager.getChangedPackages(packagesSeen) == null) return
         reload()
     }
 
     fun reload() {
-        if (Build.VERSION.SDK_INT >= 26) {
-            packagesSeen = context.packageManager.getChangedPackages(0)?.sequenceNumber ?: packagesSeen
-        }
+        val sequence = if (Build.VERSION.SDK_INT >= 26)
+            context.packageManager.getChangedPackages(0)?.sequenceNumber ?: packagesSeen else packagesSeen
+        val config = currentCatalogConfig()
         loadJob?.cancel()
         loadJob = viewModelScope.launch {
             val ctx = context
             val started = SystemClock.uptimeMillis()
-            all = AppCatalog.load(ctx)
-            DiagLog.i("${all.size} apps in ${SystemClock.uptimeMillis() - started} ms")
-            sources = withContext(Dispatchers.Default) { SystemProbe.sources(ctx) }
+            val sourceLoad = async(Dispatchers.Default) { SystemProbe.sources(ctx) }
+            val appLoad = AppCatalog.load(ctx)
+            val sourceList = sourceLoad.await()
+            all = appLoad
+            sources = sourceList
+            packagesSeen = sequence
+            catalogConfig = config
+            DiagLog.i("${all.size} apps and inputs in ${SystemClock.uptimeMillis() - started} ms")
             arrange()
             if (!loaded) {
                 DiagLog.i("Home loaded: ${apps.size} tiles, ${sources.size} inputs, ${SystemClock.uptimeMillis() - started} ms")
@@ -295,20 +310,28 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    private var systemRefresh: Job? = null
+
     fun refreshSystem() {
-        viewModelScope.launch {
+        // A foreground transition and a broadcast often arrive together. Cancel the stale
+        // result; the replacement reads the newest state without racing an older assignment.
+        systemRefresh?.cancel()
+        val refreshInputs = loaded && loadJob?.isActive != true
+        systemRefresh = viewModelScope.launch {
             val ctx = context
             // Brightness off the main thread too: on MiTV without picture_backlight its first read
             // probes the panel over binder (MitvPanel.usable).
             val (n, v, s) = withContext(Dispatchers.Default) {
-                Triple(SystemProbe.network(ctx), SystemProbe.volume(ctx), SystemProbe.sources(ctx))
+                Triple(SystemProbe.network(ctx), SystemProbe.volume(ctx), if (refreshInputs) SystemProbe.sources(ctx) else null)
             }
-            val level = withContext(Dispatchers.Default) { Brightness.level(ctx) }
+            val (level, home) = withContext(Dispatchers.Default) {
+                Brightness.level(ctx) to SystemProbe.homeStatus(ctx)
+            }
             network = n; volume = v
             // TvSource holds an Intent, which has no value equality; compare what a tile shows.
             fun shown(list: List<TvSource>) = list.map { Triple(it.id, it.label, it.deviceName) }
-            if (shown(s) != shown(sources)) { sources = s; arrange() } else sources = s
-            homeStatus = SystemProbe.homeStatus(ctx)
+            if (s != null && shown(s) != shown(sources)) { sources = s; arrange() }
+            homeStatus = home
             brightness = level
         }
     }
@@ -329,7 +352,23 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun refreshNetwork() { network = SystemProbe.network(context) }
+    private var networkRefresh: Job? = null
+    private var volumeRefresh: Job? = null
+
+    fun refreshNetwork() {
+        networkRefresh?.cancel()
+        networkRefresh = viewModelScope.launch {
+            network = withContext(Dispatchers.Default) { SystemProbe.network(context) }
+        }
+    }
+
+    /** Volume broadcasts must not enumerate HDMI inputs or probe panel brightness. */
+    fun refreshVolume() {
+        volumeRefresh?.cancel()
+        volumeRefresh = viewModelScope.launch {
+            volume = withContext(Dispatchers.Default) { SystemProbe.volume(context) }
+        }
+    }
 
     fun adjustVolume(direction: Int) {
         SystemProbe.adjustVolume(context, direction)

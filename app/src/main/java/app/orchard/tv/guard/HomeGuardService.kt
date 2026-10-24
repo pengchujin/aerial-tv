@@ -48,8 +48,8 @@ import app.orchard.tv.system.SystemProbe
  * is also read from usage stats once a second (see foregroundCheck).
  *
  * Both only act while Aerial is not the resolved HOME app; once it is, the system does the work.
- * The service reads window-change events and, up to Android 6, which app is in front; it never
- * reads screen content.
+ * The service reads window-change events and recent activity usage events when the window is
+ * unknown (continuously only up to Android 6); it never reads screen content.
  */
 class HomeGuardService : AccessibilityService() {
 
@@ -118,9 +118,9 @@ class HomeGuardService : AccessibilityService() {
     private var foregroundTakenAt = Long.MIN_VALUE / 2
 
     /** The newest activity moved to the front in the last few seconds, with its time; null if none. */
-    private fun foreground(): Pair<Pair<String, String>, Long>? = runCatching {
+    private fun foreground(lookbackMs: Long = FOREGROUND_LOOKBACK_MS): Pair<Pair<String, String>, Long>? = runCatching {
         val now = System.currentTimeMillis()
-        val events = getSystemService<UsageStatsManager>()?.queryEvents(now - FOREGROUND_LOOKBACK_MS, now) ?: return null
+        val events = getSystemService<UsageStatsManager>()?.queryEvents(now - lookbackMs, now) ?: return null
         var last: Pair<Pair<String, String>, Long>? = null
         val event = UsageEvents.Event()
         while (events.hasNextEvent()) {
@@ -128,6 +128,10 @@ class HomeGuardService : AccessibilityService() {
             @Suppress("DEPRECATION")
             if (event.eventType == UsageEvents.Event.MOVE_TO_FOREGROUND && event.className != null) {
                 last = (event.packageName to event.className) to event.timeStamp
+            } else if (event.eventType == UsageEvents.Event.MOVE_TO_BACKGROUND &&
+                last?.first == (event.packageName to event.className)
+            ) {
+                last = null
             }
         }
         last
@@ -376,7 +380,15 @@ class HomeGuardService : AccessibilityService() {
      */
     private fun takeOverIfStockHomeInFront(reason: String, woke: Boolean) {
         if (!GuardSetup.isUserUnlocked(this)) return
-        val last = lastWindow
+        // On Xiaomi MiTV-MFTR0 the guard can rebind after SCREEN_ON and after PatchWall's
+        // window event. Repeated notification/sync revivals then trigger the eUI safety gate.
+        // Resolve an unknown front from recent activity lifecycle events before that gate;
+        // keep the gate when permission is missing or no resumed activity can be established.
+        val last = lastWindow ?: if (usageStatsAllowed(this)) {
+            foreground(60_000L)?.first?.also {
+                Log.i(TAG, "$reason: recovered foreground ${it.first}/${it.second} from usage stats")
+            }
+        } else null
         // Unknown means we were only just bound, which happens after a standby kill. Any screen of
         // the stock launcher counts: when Aerial is killed, whatever was on top of the launcher's
         // task is uncovered, not always its home activity (PatchWall's StrategicLayerActivity).

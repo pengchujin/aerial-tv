@@ -107,7 +107,7 @@ object AppCatalog {
      */
     private val SYSTEM_TILES = mapOf(
         // Xiaomi MiTV-MFTR0
-        "com.xiaomi.mitv.settings" to SystemTile.Settings,
+        "com.xiaomi.mitv.settings" to SystemTile.TvSettings,
         "com.mitv.gallery" to SystemTile.Photos,
         "com.xiaomi.mitv.calendar" to SystemTile.Calendar,
         "com.xiaomi.tweather" to SystemTile.Weather,
@@ -138,7 +138,7 @@ object AppCatalog {
         CATEGORY_APPSTORE_LAUNCHER to SystemTile.Store,
     )
 
-    private class Cached(val stamp: Long, val width: Int, val label: String, val art: TileArt)
+    private class Cached(val key: String, val label: String, val art: TileArt)
     private val cache = HashMap<String, Cached>()
 
     /** The apps of the last load, for the phone page. */
@@ -193,14 +193,17 @@ object AppCatalog {
             found.values.map { (info, leanback) ->
                 val home = info.packageName in stockHomes
                 async {
-                    runCatching { entry(pm, info, leanback, byCategory, home) }
+                    runCatching { entry(context, pm, info, leanback, byCategory, home) }
                         .onFailure { Log.w(TAG, "left ${info.packageName} out of Home", it) }
                         .getOrNull()?.let { if (home) it.copy(label = homeLabel) else it }
                 }
             }.awaitAll().filterNotNull()
         }.plus(shortcuts(context, pm)).also {
             loaded = it
-            TileDiskCache.keepOnly(it.mapTo(HashSet()) { app -> app.packageName })
+            val installed = it.mapTo(HashSet()) { app -> app.packageName }
+            // Package removal should release the corresponding artwork, not just its disk file.
+            synchronized(cache) { cache.keys.retainAll(installed) }
+            TileDiskCache.keepOnly(installed)
         }
     }
 
@@ -287,15 +290,16 @@ object AppCatalog {
         label to art
     }.getOrNull()
 
-    private fun entry(pm: PackageManager, info: ActivityInfo, leanback: Boolean, byCategory: Map<String, SystemTile>, stockHome: Boolean = false): AppEntry {
+    private fun entry(context: Context, pm: PackageManager, info: ActivityInfo, leanback: Boolean, byCategory: Map<String, SystemTile>, stockHome: Boolean = false): AppEntry {
         val pkg = info.packageName
         // A picture chosen on the phone page changes the tile as much as an update does.
         // Drawn as the stock launcher or not is part of it too: the same package can be either.
         val stamp = runCatching { pm.getPackageInfo(pkg, 0).lastUpdateTime }.getOrDefault(0L) + CustomIcons.stamp(pkg) +
             if (stockHome) 1 else 0
-        val cached = synchronized(cache) { cache[pkg] }?.takeIf { it.stamp == stamp && it.width == TileArtFactory.W }
-            ?: runCatching { TileDiskCache.read(pkg, TileDiskCache.key(stamp)) }.getOrNull()?.let { (label, art) ->
-                Cached(stamp, TileArtFactory.W, label, art).also { synchronized(cache) { cache[pkg] = it } }
+        val cacheKey = TileDiskCache.key(stamp)
+        val cached = synchronized(cache) { cache[pkg] }?.takeIf { it.key == cacheKey }
+            ?: runCatching { TileDiskCache.read(pkg, cacheKey) }.getOrNull()?.let { (label, art) ->
+                Cached(cacheKey, label, art).also { synchronized(cache) { cache[pkg] = it } }
             }
         val system = (info.applicationInfo.flags and ApplicationInfo.FLAG_SYSTEM) != 0
         val label: String
@@ -316,6 +320,7 @@ object AppCatalog {
             val own = if (stockHome) SystemTile.Home
                 else if (system) SYSTEM_TILES[pkg] ?: byCategory[pkg]?.takeIf { banner == null } else null
             val custom = CustomIcons.load(pkg)
+            val bundled = if (custom == null) BundledIcons.load(context, pkg) else null
             val recipe = TileRecipes.of(pkg)
             // A tile that cannot be drawn used to drop the app from Home altogether, without a word
             // in the log (com.fongmi.androidtv on TCL MT5879, issue #415). Its icon then, or
@@ -323,6 +328,7 @@ object AppCatalog {
             art = runCatching {
                 when {
                     custom != null -> TileArtFactory.fromBanner(android.graphics.drawable.BitmapDrawable(android.content.res.Resources.getSystem(), custom))
+                    bundled != null -> TileArtFactory.fromBanner(bundled)
                     own != null -> TileArtFactory.forSystem(own)
                     recipe?.glyph != null -> TileArtFactory.glyphTile(recipe.top ?: 0, recipe.bottom ?: 0, recipe.glyph)
                     banner != null && recipe?.useIcon != true -> TileArtFactory.fromBanner(banner)
@@ -334,9 +340,9 @@ object AppCatalog {
             }.recoverCatching {
                 Log.w(TAG, "could not draw the icon of $pkg either; using the default one", it)
                 TileArtFactory.fromIcon(pm.defaultActivityIcon, null)
-            }.getOrThrow()
-            synchronized(cache) { cache[pkg] = Cached(stamp, TileArtFactory.W, label, art) }
-            runCatching { TileDiskCache.write(pkg, TileDiskCache.key(stamp), label, art) }
+            }.also { bundled?.bitmap?.recycle() }.getOrThrow()
+            synchronized(cache) { cache[pkg] = Cached(cacheKey, label, art) }
+            runCatching { TileDiskCache.write(pkg, cacheKey, label, art) }
         }
         val removable = !system
         return AppEntry(pkg, label, ComponentName(pkg, info.name), leanback, removable, art)

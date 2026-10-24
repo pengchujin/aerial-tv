@@ -16,7 +16,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
@@ -28,7 +27,6 @@ import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.graphics.asAndroidPath
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
@@ -73,11 +71,16 @@ fun Modifier.liquidGlass(corner: Dp, bottomCorners: Boolean = true): Modifier = 
             val mask = smoothMask(w, h, radius, if (bottomCorners) radius else 0f)
             val brush = shader?.let { ShaderBrush(it) }
             val flat = mask.asImageBitmap()
+            val flatTint = ColorFilter.tint(Palette.Glass)
+            val matrix = Matrix()
+            val bounds = Rect(Offset.Zero, size)
+            val layerPaint = ComposePaint()
+            val edge = glassEdge(w, h, radius, 1.2.dp.toPx(), bottomCorners)
             onDrawBehind {
                 if (shader == null || brush == null || root == IntSize.Zero) {
-                    drawImage(flat, dstSize = IntSize(w, h), colorFilter = ColorFilter.tint(Palette.Glass))
+                    drawImage(flat, dstSize = IntSize(w, h), colorFilter = flatTint)
                 } else {
-                    shader.setLocalMatrix(Matrix().apply {
+                    shader.setLocalMatrix(matrix.apply {
                         setScale(root.width.toFloat() / frost.width, root.height.toFloat() / frost.height)
                         postTranslate(-at.x, -at.y)
                     })
@@ -85,25 +88,14 @@ fun Modifier.liquidGlass(corner: Dp, bottomCorners: Boolean = true): Modifier = 
                     // where it lies. One shader per draw: a ComposeShader of the glass and the mask
                     // (1.27-1.30) came out an opaque dark slab on Xiaomi MiTV-ASTP0 (Android 9,
                     // Mali-G31), and before Android 9 hardware drawing cannot compose two bitmaps.
-                    drawContext.canvas.saveLayer(Rect(Offset.Zero, size), ComposePaint())
+                    drawContext.canvas.saveLayer(bounds, layerPaint)
                     drawImage(flat, dstSize = IntSize(w, h))
                     drawRect(brush, colorFilter = PanelTint, blendMode = BlendMode.SrcIn)
                     drawContext.canvas.restore()
                 }
-                drawGlassEdge(size, radius, bottomCorners)
+                drawImage(edge, dstSize = IntSize(w, h))
             }
         }
-}
-
-/**
- * The lit edge of a piece of glass: a sheen inside the top, and a rim bright where light falls on
- * it from the top left, faint along the sides, and catching again at the far corner.
- */
-private fun DrawScope.drawGlassEdge(size: Size, radius: Float, bottomCorners: Boolean) {
-    val w = size.width.roundToInt()
-    val h = size.height.roundToInt()
-    if (w <= 0 || h <= 0) return
-    drawImage(glassEdge(w, h, radius, 1.2.dp.toPx(), bottomCorners), dstSize = IntSize(w, h))
 }
 
 /** The lit edge of a [w]×[h] piece of glass at full strength, white with alpha; made once per size. */

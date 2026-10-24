@@ -373,6 +373,9 @@ private fun bakePlate(glass: ImageBitmap, screen: Size, plate: Rect, radius: Flo
  * under a dark [veil], its own panel the glass (1.41 frosted all of Home behind it too, which
  * owners took for everything gone blurry).
  */
+// Equivalent to the previous two black scrims (45% then 28%), in one pass.
+internal const val CONTROL_CENTER_DIM = 1f - (1f - 0.45f) * (1f - 0.28f)
+
 @Composable
 fun PanelBackdrop(frosted: ImageBitmap?, frost: () -> Float, veil: () -> Float) {
     val dark = remember(frosted) { frosted?.let { darkened(it, GRID_SHADE) } }
@@ -383,7 +386,7 @@ fun PanelBackdrop(frosted: ImageBitmap?, frost: () -> Float, veil: () -> Float) 
             else drawImage(dark, dstSize = IntSize(size.width.roundToInt(), size.height.roundToInt()), filterQuality = FilterQuality.Low, alpha = f)
         }
         val v = veil()
-        if (v >= 0.01f) drawRect(Color.Black, alpha = 0.45f * v)
+        if (v >= 0.01f) drawRect(Color.Black, alpha = CONTROL_CENTER_DIM * v)
     }
 }
 

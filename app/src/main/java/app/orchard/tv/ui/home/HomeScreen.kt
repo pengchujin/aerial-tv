@@ -623,8 +623,17 @@ fun HomeScreen(
             }
         }
 
-        homeShot?.let { shot -> Canvas(Modifier.fillMaxSize()) { drawImage(shot) } }
-        PanelBackdrop(Wallpapers.frosted.takeIf { Wallpapers.backdrop != null }, { backdropFrost }, { backdropVeil })
+        // Dim the snapshot in its image draw instead of blending another full-screen rectangle.
+        // Keep the filter stable; allocating a ColorMatrix each frame costs the main thread too.
+        val shotDim = remember {
+            androidx.compose.ui.graphics.ColorFilter.colorMatrix(
+                androidx.compose.ui.graphics.ColorMatrix().apply {
+                    setToScale(1f - CONTROL_CENTER_DIM, 1f - CONTROL_CENTER_DIM, 1f - CONTROL_CENTER_DIM, 1f)
+                },
+            )
+        }
+        homeShot?.let { shot -> Canvas(Modifier.fillMaxSize()) { drawImage(shot, colorFilter = shotDim) } }
+        PanelBackdrop(Wallpapers.frosted.takeIf { Wallpapers.backdrop != null }, { backdropFrost }, { if (homeShot == null) backdropVeil else 0f })
 
         // Rows that scroll up under the status pill fade out instead of colliding with it.
         Canvas(

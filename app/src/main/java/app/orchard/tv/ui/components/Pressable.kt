@@ -85,7 +85,7 @@ fun Pressable(
             state.focused -> focusedScale
             else -> 1f
         },
-        animationSpec = if (state.pressed) tween(100, easing = Motion.EaseOut) else spring(dampingRatio = 0.7f, stiffness = 520f),
+        animationSpec = if (state.pressed) tween(100, easing = Motion.EaseOut) else Motion.focusSpring(),
         label = "pressable-scale",
     )
     Box(

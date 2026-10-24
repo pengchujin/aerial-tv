@@ -34,6 +34,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -71,6 +72,7 @@ import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -91,6 +93,8 @@ import app.orchard.tv.ui.components.smoothRectPath
 import app.orchard.tv.ui.theme.LocalReducedMotion
 import app.orchard.tv.ui.theme.Motion
 import app.orchard.tv.ui.theme.Type
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -137,12 +141,28 @@ fun AppTile(
 ) {
     val reduced = LocalReducedMotion.current
     // The tile's face at its drawn size, made on first draw and kept while the artwork lasts.
-    val faceFor = remember(app.art) { arrayOfNulls<Pair<IntSize, ImageBitmap>>(2) }
+    val faceFor = remember(app.art) { arrayOfNulls<Pair<IntSize, ImageBitmap>>(1) }
     val scope = rememberCoroutineScope()
     val focusManager = LocalFocusManager.current
 
     var focused by remember { mutableStateOf(false) }
     var pressed by remember { mutableStateOf(false) }
+    val faceDensity = LocalDensity.current
+    val faceWidth = with(faceDensity) { width.roundToPx() }
+    val faceHeight = with(faceDensity) { height.roundToPx() }
+    val faceRadius = with(faceDensity) { Corner.toPx() }
+    val faceRim = with(faceDensity) { 0.5.dp.toPx() }
+    var focusedFace by remember(app.art, faceWidth, faceHeight, faceRadius, faceRim) { mutableStateOf<ImageBitmap?>(null) }
+    // The old path allocated and rasterized this bitmap inside a frame halfway through the
+    // focus spring. Prepare it on a worker; until ready, reuse the resting face at its scale.
+    LaunchedEffect(app.art, faceWidth, faceHeight, faceRadius, faceRim, focused, moving) {
+        if ((!focused && !moving) || focusedFace != null || faceWidth <= 0 || faceHeight <= 0) return@LaunchedEffect
+        focusedFace = withContext(Dispatchers.Default) {
+            val fw = focusedPx(faceWidth.toFloat())
+            val fh = focusedPx(faceHeight.toFloat())
+            tileFace(app.art.back, fw, fh, faceRadius * fw / faceWidth, faceRim * fw / faceWidth)
+        }
+    }
     var bounds by remember { mutableStateOf<Rect?>(null) }
     var longPressJob by remember { mutableStateOf<Job?>(null) }
     var longFired by remember { mutableStateOf(false) }
@@ -165,7 +185,7 @@ fun AppTile(
         // Press answers immediately; focus settles on a spring so rapid D-pad presses retarget
         // smoothly. Critically damped, as Android TV's focus zoom (Leanback, Compose for TV) is: an
         // overshoot reads as a wobble on a lit tile and makes the white frame shimmer.
-        animationSpec = if (pressed) tween(110, easing = Motion.EaseOut) else spring(dampingRatio = 1f, stiffness = 520f),
+        animationSpec = if (pressed) tween(110, easing = Motion.EaseOut) else Motion.focusSpring(),
         label = "tile-scale",
     )
     val lift by animateFloatAsState(
@@ -186,6 +206,11 @@ fun AppTile(
         label = "tile-ring-in",
     )
 
+    // Observe threshold crossings in composition, not every spring frame. Layer and draw
+    // lambdas below still read the full animation values without rebuilding the tile tree.
+    val shadowVisible by remember { derivedStateOf { lift > 0.01f } }
+    val ringVisible by remember { derivedStateOf { ring > 0.01f && ringIn > 0.01f } }
+
     // tvOS "jiggle" while the app is being moved.
     val wobble = if (moving && !reduced) {
         rememberInfiniteTransition(label = "jiggle").animateFloat(
@@ -204,19 +229,23 @@ fun AppTile(
         }
     }
 
+    var nudgeJob by remember { mutableStateOf<Job?>(null) }
     fun nudge(dx: Float, dy: Float) {
         if (reduced) return
-        scope.launch {
-            push.animateTo(Offset(dx * 14f, dy * 14f), tween(90, easing = Motion.EaseOut))
-            push.animateTo(Offset.Zero, spring(dampingRatio = 0.45f, stiffness = 520f))
-        }
-        scope.launch {
-            leanY.animateTo(dx * 7f, tween(90, easing = Motion.EaseOut))
-            leanY.animateTo(0f, spring(dampingRatio = 0.45f, stiffness = 420f))
-        }
-        scope.launch {
-            leanX.animateTo(-dy * 7f, tween(90, easing = Motion.EaseOut))
-            leanX.animateTo(0f, spring(dampingRatio = 0.45f, stiffness = 420f))
+        nudgeJob?.cancel()
+        nudgeJob = scope.launch {
+            launch {
+                push.animateTo(Offset(dx * 14f, dy * 14f), tween(90, easing = Motion.EaseOut))
+                push.animateTo(Offset.Zero, spring(dampingRatio = 0.45f, stiffness = 520f))
+            }
+            launch {
+                leanY.animateTo(dx * 7f, tween(90, easing = Motion.EaseOut))
+                leanY.animateTo(0f, spring(dampingRatio = 0.45f, stiffness = 420f))
+            }
+            launch {
+                leanX.animateTo(-dy * 7f, tween(90, easing = Motion.EaseOut))
+                leanX.animateTo(0f, spring(dampingRatio = 0.45f, stiffness = 420f))
+            }
         }
     }
 
@@ -228,7 +257,7 @@ fun AppTile(
                 translationY = (1f - appear.value) * 18.dp.toPx()
             },
     ) {
-        if (lift > 0.01f) {
+        if (shadowVisible) {
             // A lifted tile casts a soft shadow below it, as cards do on tvOS. The system's
             // elevation shadow is too faint to read on a TV; this one is baked, so it costs one
             // image draw while a tile is lifted.
@@ -391,13 +420,25 @@ fun AppTile(
                 val shape = BitmapShader(smoothMask(w, h, Corner.toPx()), Shader.TileMode.CLAMP, Shader.TileMode.CLAMP)
                     .apply { setLocalMatrix(Matrix().apply { setScale(size.width / w, size.height / h) }) }
                 val rim = tileRim(w, h, Corner.toPx(), 0.5.dp.toPx())
+                // Reuse the shader graph. Only its local matrix and draw alpha change per frame.
+                val glint = RadialGradient(
+                    size.width * 0.3f, -size.height * 0.25f, size.width * 0.75f,
+                    Color.White.copy(alpha = 0.28f).toArgb(), Color.Transparent.toArgb(), Shader.TileMode.CLAMP,
+                )
+                val glintMatrix = Matrix()
+                val glintBrush = ShaderBrush(ComposeShader(glint, shape, PorterDuff.Mode.DST_IN))
                 onDrawBehind {
                     // Plate and logo are placed in the face's pixels; at focus the zoom undoes the scale.
-                    val lifted = scale > (1f + FOCUSED_SCALE) / 2f
+                    val ready = focusedFace
+                    val lifted = scale > (1f + FOCUSED_SCALE) / 2f && ready != null
                     val pw = if (lifted) fw else w
                     val ph = if (lifted) fh else h
                     scale(size.width / pw, size.height / ph, pivot = Offset.Zero) {
-                        drawImage(face(if (lifted) 1 else 0, pw, ph))
+                        drawImage(
+                            if (lifted) ready!! else face(0, pw, ph),
+                            dstSize = IntSize(pw, ph),
+                            filterQuality = FilterQuality.Medium,
+                        )
                         art.fore?.let { fore ->
                             val at = art.foreAt
                             // Parallax: the logo travels further than the plate when the tile leans.
@@ -413,12 +454,9 @@ fun AppTile(
                     }
                     if (lift > 0.01f) {
                         // Light from above: a soft sheen across the top, brighter where the tile leans toward it.
-                        val glintX = size.width * (0.3f + leanY.value / 7f * 0.25f)
-                        val glint = RadialGradient(
-                            glintX, -size.height * 0.25f, size.width * 0.75f,
-                            Color.White.copy(alpha = 0.28f * lift).toArgb(), Color.Transparent.toArgb(), Shader.TileMode.CLAMP,
-                        )
-                        drawRect(ShaderBrush(ComposeShader(glint, shape, PorterDuff.Mode.DST_IN)), blendMode = BlendMode.Screen)
+                        glintMatrix.setTranslate(size.width * leanY.value / 7f * 0.25f, 0f)
+                        glint.setLocalMatrix(glintMatrix)
+                        drawRect(glintBrush, alpha = lift, blendMode = BlendMode.Screen)
                     }
                     // A focused tile's rim catches a little more light.
                     if (lift > 0.01f) drawImage(rim, dstSize = full, alpha = 0.08f * lift)
@@ -426,7 +464,7 @@ fun AppTile(
             })
         }
 
-        if (ring > 0.01f && ringIn > 0.01f) {
+        if (ringVisible) {
             // The frame sits outside the tile, so it is drawn on its own unclipped layer that moves
             // exactly as the tile does: same lift, lean, push and jiggle.
             Canvas(
@@ -507,7 +545,15 @@ private fun GraphicsLayerScope.zoom(scale: Float) {
 }
 
 private fun tileFace(back: ImageBitmap, w: Int, h: Int, radius: Float, rimWidth: Float): ImageBitmap {
-    val src = back.asAndroidBitmap()
+    val original = back.asAndroidBitmap()
+    var src = original
+    // A bilinear shader alone skips pixels when shrinking by more than 2:1. Prefilter the
+    // cached face once, preserving the original artwork for the larger focused face.
+    while (src.width > w * 2 && src.height > h * 2) {
+        val next = android.graphics.Bitmap.createScaledBitmap(src, src.width / 2, src.height / 2, true)
+        if (src !== original) src.recycle()
+        src = next
+    }
     val bitmap = createBitmap(w, h)
     android.graphics.Canvas(bitmap).apply {
         val fill = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG).apply {
@@ -517,6 +563,7 @@ private fun tileFace(back: ImageBitmap, w: Int, h: Int, radius: Float, rimWidth:
         drawPath(smoothRectPath(Rect(0f, 0f, w.toFloat(), h.toFloat()), radius).asAndroidPath(), fill)
         drawBitmap(tileRim(w, h, radius, rimWidth, RIM_AT_REST).asAndroidBitmap(), 0f, 0f, null)
     }
+    if (src !== original) src.recycle()
     return bitmap.frozen().asImageBitmap()
 }
 
