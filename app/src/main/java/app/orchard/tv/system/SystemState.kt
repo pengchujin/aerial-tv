@@ -224,6 +224,62 @@ object SystemProbe {
     private val XGIMI_SETTINGS = ComponentName("com.android.newsettings", "com.xgimi.newsettings.SettingService")
     private const val XGIMI_NETWORK_PAGE = "Settings://com.xgimi.settings.net/wifi_misckey"
 
+    /**
+     * The DLP light-engine levels XGIMI's HAL steps through (1..10, 10 being full); measured on a Z7X
+     * (GMUI 6.11) and a `pig_chivalrous` (GMUI 9). The HAL has no getter for the range, and other
+     * light engines may use a wider one.
+     */
+    private const val XGIMI_DLP_LUMENS_MAX = 10
+
+    /**
+     * XGIMI's real brightness as 0..1, read from the DLP light-engine HAL
+     * `com.xgimi.gmpf.api.DisplayManager.getDlpLumensLevel()` (a byte). The class ships only on the
+     * device, in com.xgimi.api.jar, so it is reached by reflection and is absent everywhere else.
+     * The system `screen_brightness` setting does not follow this value — which is why Control
+     * Center reads it here to show the level the light engine is actually at. Writing goes through
+     * the same class; see [setXgimiBrightnessLevel].
+     */
+    fun xgimiBrightnessLevel(): Float? = runCatching {
+        val dm = xgimiDisplayManager() ?: return@runCatching null
+        val get = xgimiDisplayManagerClass()?.getMethod("getDlpLumensLevel") ?: return@runCatching null
+        val raw = (get.invoke(dm) as? Number)?.toInt() ?: return@runCatching null
+        ((raw and 0xFF) / XGIMI_DLP_LUMENS_MAX.toFloat()).coerceIn(0f, 1f)
+    }.getOrNull()
+
+    /** The class, only on devices that have XGIMI's SDK in their boot class path. */
+    private fun xgimiDisplayManagerClass(): Class<*>? =
+        runCatching { Class.forName("com.xgimi.gmpf.api.DisplayManager") }.getOrNull()
+
+    private fun xgimiDisplayManager(): Any? {
+        val c = xgimiDisplayManagerClass() ?: return null
+        return runCatching { c.getMethod("getInstance").invoke(null) }.getOrNull()
+            ?: runCatching { c.getDeclaredConstructor().also { it.isAccessible = true }.newInstance() }.getOrNull()
+    }
+
+    /**
+     * Sets the DLP light-engine level, 1..[XGIMI_DLP_LUMENS_MAX]. Returns false where the class or
+     * the setter is missing, and true once the call went through — the light engine applies it off
+     * the caller's thread, so the level is not read back here: Control Center polls the HAL while its
+     * row is up, and shows what the light engine settled at, including where a TV drops the write.
+     *
+     * Issue #241 took this for read-only on a Z7X, where the native setter was said to drop a
+     * third-party call. On the GMUI 9 firmware of `pig_chivalrous` it goes through from a plain app:
+     * `setDlpLumensLevel` changes what `getDlpLumensLevel` answers, across processes. So it is tried
+     * rather than assumed broken.
+     */
+    fun setXgimiBrightnessLevel(level: Int): Boolean {
+        val c = xgimiDisplayManagerClass() ?: return false
+        val dm = xgimiDisplayManager() ?: return false
+        val target = level.coerceIn(1, XGIMI_DLP_LUMENS_MAX)
+        return runCatching { c.getMethod("setDlpLumensLevel", java.lang.Byte.TYPE).invoke(dm, target.toByte()) }.isSuccess
+    }
+
+    /** The DLP levels on this light engine, as the top step Control Center steps through. */
+    val xgimiBrightnessMax: Int get() = XGIMI_DLP_LUMENS_MAX
+
+    /** Whether this TV's brightness is the light engine's (see [xgimiBrightnessLevel]). */
+    val hasXgimiBrightness: Boolean get() = xgimiBrightnessLevel() != null
+
     // XGIMI Z7X (GMUI 6.11) opens these pages through an exported service rather than an activity;
     // the reporter of issue #241 opened settings, network, inputs and picture through it on a Z7X.
     private fun xgimiSettingsIntent(context: Context, page: String): Intent? {

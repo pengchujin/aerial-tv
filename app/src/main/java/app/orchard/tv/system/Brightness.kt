@@ -22,6 +22,10 @@ import androidx.core.content.ContextCompat
  * - Sony BRAVIA: the screen brightness setting changes but the backlight does not (no backlight in
  *   the display config); Control Center opens Sony's picture settings, which DISPLAY_SETTINGS
  *   resolves to. Reported on a BRAVIA VH1, Android 12 (GitHub issue #2).
+ * - XGIMI (GMUI): the real brightness is the DLP light engine's level, in a private HAL class
+ *   (com.xgimi.gmpf.api.DisplayManager, see SystemProbe.xgimiBrightnessLevel); the system setting
+ *   does not follow it. Issue #241 took the level for read-only on a Z7X, but a `pig_chivalrous` on
+ *   GMUI 9 takes a write from a plain app, so Control Center steps the light engine's own levels.
  * - Others: the standard Settings.System screen brightness, 0–255. Writing it needs the "modify
  *   system settings" app-op. Both are granted by tools/install.sh; without them Control Center
  *   opens the TV's own picture settings instead.
@@ -66,6 +70,9 @@ object Brightness {
 
     /** Current level as 0..1, or null when Aerial cannot change it on this TV. */
     fun level(context: Context): Float? {
+        // XGIMI: the real brightness is the DLP light-engine level; the system screen_brightness
+        // setting does not follow it (issue #241).
+        SystemProbe.xgimiBrightnessLevel()?.let { return it }
         val r = context.contentResolver
         if (isTcl(context)) TclPicture.backlight(context)?.let { return it / 100f }
         return when {
@@ -88,12 +95,36 @@ object Brightness {
     }
 
     /**
-     * Steps brightness one notch (5%) up or down and returns the new level. Never to 0: Xiaomi turns
-     * the backlight off at picture_backlight 0 and the screen goes black, with Control Center still
-     * open on it (HyperOS, issue #174); its own slider stops at 1. So the lowest notch is 1, and the
-     * steps stay on multiples of 5 above it (1, 5, 10 ...).
+     * XGIMI's light-engine level one notch from [current], or null on a TV without the engine.
+     * [current] comes from the caller rather than from the HAL: the engine applies a write a moment
+     * later, so a level read back between the repeats of a held key names the previous notch again
+     * and the row would stick while the picture moves on.
+     */
+    fun xgimiStep(current: Float, direction: Int): Float? {
+        if (!SystemProbe.hasXgimiBrightness) return null
+        val max = SystemProbe.xgimiBrightnessMax
+        val now = Math.round(current * max)
+        val next = (now + if (direction > 0) 1 else -1).coerceIn(1, max)
+        return next / max.toFloat()
+    }
+
+    /**
+     * Steps brightness one notch up or down and returns the new level. Never to 0: Xiaomi turns the
+     * backlight off at picture_backlight 0 and the screen goes black, with Control Center still open
+     * on it (HyperOS, issue #174); its own slider stops at 1. So the lowest notch is 1, and the steps
+     * stay on multiples of 5 above it (1, 5, 10 ...).
+     *
+     * On XGIMI the level is the DLP light engine's, stepped by its own single levels (1..10) through
+     * the HAL class (see [SystemProbe.setXgimiBrightnessLevel]).
      */
     fun adjust(context: Context, direction: Int): Float? {
+        SystemProbe.xgimiBrightnessLevel()?.let { current ->
+            val next = xgimiStep(current, direction) ?: return current
+            val level = Math.round(next * SystemProbe.xgimiBrightnessMax)
+            // The light engine applies it off this thread, so the new level is reported as asked and
+            // Control Center's poll shows what it settled at — including where a TV drops the write.
+            return if (SystemProbe.setXgimiBrightnessLevel(level)) next else current
+        }
         val current = level(context) ?: return null
         val percent = Math.round(current * 100)
         val next = (if (direction > 0) (percent / 5 + 1) * 5 else ((percent + 4) / 5 - 1) * 5).coerceIn(1, 100)

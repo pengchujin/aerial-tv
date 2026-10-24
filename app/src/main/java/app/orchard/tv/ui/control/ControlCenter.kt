@@ -49,6 +49,8 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -503,6 +505,21 @@ private fun VolumeRow(vm: HomeViewModel) {
 @Composable
 private fun BrightnessRow(vm: HomeViewModel) {
     val context = LocalContext.current
+    // XGIMI (GMUI): the real brightness is the DLP light-engine level. It reads through the HAL
+    // class (SystemProbe.xgimiBrightnessLevel) and, on this firmware, writes through it too, so the
+    // row is a slider of the light engine's own levels (1..10) rather than a percentage of the
+    // system setting that moves nothing. Poll the HAL while the row is on screen: the level can be
+    // changed from the TV's own overlay, which does not pause Aerial, so no onResume or
+    // screen_brightness observer ever fires for it.
+    val xgimi = remember { SystemProbe.xgimiBrightnessLevel() != null }
+    LaunchedEffect(xgimi) {
+        if (!xgimi) return@LaunchedEffect
+        vm.refreshBrightness()
+        while (isActive) {
+            delay(700)
+            vm.refreshBrightness()
+        }
+    }
     val level = vm.brightness
     if (level == null) {
         MenuRow(Glyph.Sun, stringResource(R.string.cc_brightness), onClick = {
@@ -514,8 +531,8 @@ private fun BrightnessRow(vm: HomeViewModel) {
             glyph = Glyph.Sun,
             level = level,
             value = Math.round(level * 100).toString(),
-            // Brightness.adjust moves 5% a step, and stops at 1%.
-            steps = 20,
+            // Brightness.adjust moves 5% a step, and stops at 1%; XGIMI steps its own levels.
+            steps = if (xgimi) SystemProbe.xgimiBrightnessMax else 20,
             onStep = vm::adjustBrightness,
             onClick = {},
         )
