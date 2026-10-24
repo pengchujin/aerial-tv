@@ -63,6 +63,7 @@ import app.orchard.tv.system.Diagnostics
 import app.orchard.tv.system.MissingClipboard
 import app.orchard.tv.system.Sounds
 import app.orchard.tv.system.SystemProbe
+import app.orchard.tv.system.HisenseSources
 import app.orchard.tv.system.LaunchFallback
 import app.orchard.tv.system.settingsLaunchIntent
 import app.orchard.tv.update.Updates
@@ -645,6 +646,7 @@ class MainActivity : ComponentActivity() {
             ).toBundle()
         }
         try {
+            if (HisenseSources.open(this, app.launchIntent())) return
             startActivity(settingsLaunchIntent(this, app.launchIntent()), options)
         } catch (e: Exception) {
             Toast.makeText(this, getString(R.string.launch_failed, app.label), Toast.LENGTH_SHORT).show()
