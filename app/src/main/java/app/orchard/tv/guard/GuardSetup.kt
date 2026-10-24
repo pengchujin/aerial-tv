@@ -42,6 +42,16 @@ object GuardSetup {
 
     private const val REVIVAL_WINDOW_MS = 10 * 60 * 1000L
     private const val KEY_KEEP_ADB = "keep_adb"
+
+    /** When [ensureAdbListening] may still act: only boot shows the lying setting (issue #454). */
+    private const val ADB_BOOT_WINDOW_MS = 3 * 60_000L
+    private const val KEY_ADB_DANCED_AT = "adb_danced_at"
+    private val adbDanceLock = Any()
+    @Volatile private var adbDancing = false
+
+    /** Test hook: probe another port to watch the toggle without closing a working ADB link. */
+    @Volatile var adbProbePort = 5555
+
     private const val KEY_OWN_SCREENSAVER = "own_screensaver"
     private const val KEY_HOME_IN_FRONT = "home_in_front"
     private const val KEY_INSTALLER_OPENED = "installer_opened_at"
@@ -191,14 +201,61 @@ object GuardSetup {
             context.getSystemService(UserManager::class.java).isUserUnlocked
 
     fun ensureAdb(context: Context) {
+        if (adbDancing) return // the toggle below writes a 0 on purpose; nothing may undo it
         if (!isUserUnlocked(context) || !keepAdb(context)) return
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_SECURE_SETTINGS) != PackageManager.PERMISSION_GRANTED) return
         val resolver = context.contentResolver
-        if (Settings.Global.getInt(resolver, Settings.Global.ADB_ENABLED, 0) == 1) return
-        runCatching {
-            Settings.Global.putInt(resolver, Settings.Global.ADB_ENABLED, 1)
-            Log.i(TAG, "ADB debugging had been switched off; turned it back on")
-        }.onFailure { Log.w(TAG, "could not turn ADB back on", it) }
+        if (Settings.Global.getInt(resolver, Settings.Global.ADB_ENABLED, 0) == 0) {
+            runCatching {
+                Settings.Global.putInt(resolver, Settings.Global.ADB_ENABLED, 1)
+                Log.i(TAG, "ADB debugging had been switched off; turned it back on")
+            }.onFailure { Log.w(TAG, "could not turn ADB back on", it) }
+            return
+        }
+        ensureAdbListening(context)
+    }
+
+    /**
+     * adb_enabled=1 does not mean adbd listens: after a reboot the MiTV4-ANSM0 firmware
+     * (Android 6) left adbd out of TCP mode, and only a 0→1 transition of the setting brought
+     * it back (issue #454) — Aerial writing 1 over an unchanged 1 restarts nothing. Probe the
+     * port, and when it is closed walk the setting through 0 and back. Only in the first
+     * minutes after a boot, and once: that is when the setting can lie; a TV used over USB
+     * debugging also has the port closed, by choice.
+     */
+    private fun ensureAdbListening(context: Context) {
+        if (adbDancing) return
+        Thread {
+            if (adbdListens(adbProbePort)) return@Thread
+            val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            synchronized(adbDanceLock) {
+                val now = SystemClock.elapsedRealtime()
+                if (now > ADB_BOOT_WINDOW_MS) return@Thread
+                if (prefs.getLong(KEY_ADB_DANCED_AT, -1L) in 0..now) return@Thread
+                prefs.edit().putLong(KEY_ADB_DANCED_AT, now).apply()
+                adbDancing = true
+                try {
+                    runCatching {
+                        // The observer in HomeGuardService sees the 0 and would put the 1 back
+                        // at once; adbDancing holds it off until the 0 has done its work.
+                        Settings.Global.putInt(context.contentResolver, Settings.Global.ADB_ENABLED, 0)
+                        Thread.sleep(1_000)
+                        Settings.Global.putInt(context.contentResolver, Settings.Global.ADB_ENABLED, 1)
+                        Log.i(TAG, "adb_enabled was on but adbd was not listening; toggled it to restart it")
+                    }.onFailure { Log.w(TAG, "could not toggle ADB debugging", it) }
+                } finally {
+                    adbDancing = false
+                }
+            }
+        }.apply { isDaemon = true }.start()
+    }
+
+    /** adbd answering on the TV itself; a refusal means it is not in TCP mode. */
+    internal fun adbdListens(port: Int): Boolean = try {
+        java.net.Socket().use { it.connect(java.net.InetSocketAddress("127.0.0.1", port), 400) }
+        true
+    } catch (_: Exception) {
+        false
     }
 
     /**

@@ -72,6 +72,9 @@ class ConfigReceiver : BroadcastReceiver() {
             Updates.checkIfStale(force = true)
         }
         if (intent.hasExtra("keep_adb")) GuardSetup.setKeepAdb(context, intent.getBooleanExtra("keep_adb", false))
+        // ... --ei adb_probe_port <port>   (verify the keep_adb toggle without closing a working
+        //                                 link, until Aerial restarts; issue #454)
+        if (intent.hasExtra("adb_probe_port")) GuardSetup.adbProbePort = intent.getIntExtra("adb_probe_port", 5555)
         if (intent.hasExtra("guard_off_in_standby")) GuardSetup.setOffInStandby(context, intent.getBooleanExtra("guard_off_in_standby", false))
         if (intent.hasExtra("own_screensaver")) GuardSetup.setOwnScreensaver(context, intent.getBooleanExtra("own_screensaver", false))
         // aerial, photos, clock, videos or system.
