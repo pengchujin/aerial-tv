@@ -224,6 +224,13 @@ private fun MainPage(vm: HomeViewModel, now: LocalDateTime, takeFocus: Boolean, 
                     onOpen(pages.first())
                 }
             }
+            RoundButton(Glyph.Bluetooth, stringResource(R.string.cc_bluetooth)) {
+                vm.whenUnlocked {
+                    val pages = SystemProbe.bluetoothSettingsIntents(context)
+                    LaunchFallback.arm(pages.drop(1))
+                    onOpen(pages.first())
+                }
+            }
             RoundButton(Glyph.Gear, stringResource(R.string.cc_settings)) { vm.whenUnlocked { onOpen(SystemProbe.settingsIntent(context)) } }
         }
 
