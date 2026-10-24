@@ -33,6 +33,13 @@
          Android 6, issue #81); granted over ADB. -->
     <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS"
         tools:ignore="ProtectedPermissions" />
+    <!-- Stopping the stock launcher's process: PatchWall's BootActivity covers Aerial ~20 s into
+         every boot on Mi TV 4 (Android 6, issue #318), and only stopping the process mid-ad ends
+         it early. FORCE_STOP_PACKAGES is signature-level and no firmware grants it to third-party
+         apps (Mi TV 4: "not a changeable permission type"), so the guard covers the launcher with
+         Aerial first and then kills its background processes — the permission below, normal and
+         granted at install. -->
+    <uses-permission android:name="android.permission.KILL_BACKGROUND_PROCESSES" />
     <!-- RevivalSync: the sync adapter that restarts Aerial after a force-stop. -->
     <uses-permission android:name="android.permission.READ_SYNC_SETTINGS" />
     <uses-permission android:name="android.permission.WRITE_SYNC_SETTINGS" />
