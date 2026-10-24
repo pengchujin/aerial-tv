@@ -63,15 +63,19 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
+import androidx.compose.ui.unit.sp
 import app.orchard.tv.CcPage
 import app.orchard.tv.apps.SourceLooks
 import app.orchard.tv.HomeViewModel
 import app.orchard.tv.Overlay
 import app.orchard.tv.R
 import app.orchard.tv.settings.AerialSettings
+import app.orchard.tv.settings.NameMode
 import app.orchard.tv.apps.AppEntry
 import app.orchard.tv.ui.control.ControlCenter
 import app.orchard.tv.ui.wallpaper.WallpaperSheet
@@ -397,9 +401,9 @@ fun HomeScreen(
         val rows = (apps.size + COLUMNS - 1) / COLUMNS
         // With a single row of apps the two-row layout would leave the bottom of the screen empty.
         val oneRow = AerialSettings.oneRowHome || rows <= 1
-        val nameRoom = if (AerialSettings.showAllNames) NameRoom else 0.dp
+        val nameRoom = if (AerialSettings.nameMode == NameMode.All) NameRoom else 0.dp
         // With every name shown, the top row's go on its glass plate, which grows to hold them.
-        val plateNames = AerialSettings.showAllNames && AerialSettings.homePlate
+        val plateNames = AerialSettings.nameMode == NameMode.All && AerialSettings.homePlate
         val peek = AerialSettings.peekNextRow
         val hasPlate = AerialSettings.homePlate
         val metrics = remember(maxWidth, maxHeight, oneRow, nameRoom, plateNames, peek, hasPlate) {
@@ -545,6 +549,24 @@ fun HomeScreen(
 
                 // In one row with no peek, the rows below stay out of sight until Home scrolls to them.
                 val hideBelow = oneRow && !peek
+                // One big name above the grid for the focused app (CleanYourTV-style), in place of
+                // the labels under the tiles. Fades out as the grid scrolls up.
+                if (AerialSettings.nameMode == NameMode.HeroTitle) {
+                    val hero = apps.getOrNull(focusedIndex) ?: apps.firstOrNull()
+                    if (hero != null) {
+                        BasicText(
+                            text = hero.label,
+                            style = Type.Title.copy(fontSize = 42.sp, letterSpacing = (-0.02).em),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier
+                                .align(Alignment.TopStart)
+                                .padding(start = metrics.margin, top = metrics.topRowY - 74.dp)
+                                .graphicsLayer { alpha = 1f - (scroll.value / collapsePx * 1.6f).coerceIn(0f, 1f) },
+                        )
+                    }
+                }
+
                 apps.forEachIndexed { index, app ->
                     key(app.key) {
                         val (x, y) = metrics.slot(index, onTop = focusedRow <= 0)

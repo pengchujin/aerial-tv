@@ -61,6 +61,7 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import app.orchard.tv.R
 import app.orchard.tv.settings.AerialSettings
+import app.orchard.tv.settings.NameMode
 import app.orchard.tv.settings.FocusStyle
 import app.orchard.tv.settings.UiSounds
 import app.orchard.tv.system.Sounds
@@ -176,8 +177,12 @@ fun WallpaperSheet(
                         )
                         Choices(
                             R.string.st_names, stringResource(R.string.st_names_hint), note,
-                            listOf(false to R.string.st_names_focused, true to R.string.st_names_all),
-                            AerialSettings.showAllNames, AerialSettings::chooseShowAllNames,
+                            listOf(
+                                NameMode.Focused to R.string.st_names_focused,
+                                NameMode.All to R.string.st_names_all,
+                                NameMode.HeroTitle to R.string.st_names_hero,
+                            ),
+                            AerialSettings.nameMode, AerialSettings::chooseNameMode,
                         )
                         // Apps taken off Home are kept with the rest of how Home looks.
                         SettingRow(R.string.st_hidden_apps, stringResource(R.string.st_hidden_apps_hint), note) {

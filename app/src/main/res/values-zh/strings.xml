@@ -128,7 +128,8 @@
     <string name="st_names">App 名称</string>
     <string name="st_names_focused">只显示选中的</string>
     <string name="st_names_all">全部显示</string>
-    <string name="st_names_hint">每个 App 下面都显示名称，或者像 Apple TV 一样只显示选中的。全部显示时，第一排的名称也显示在玻璃底板里。</string>
+    <string name="st_names_hero">上方显示大字</string>
+    <string name="st_names_hint">每个 App 下面都显示名称；或像 Apple TV 一样只显示选中的；或在图标区左上方显示选中 App 的大名字。全部显示时，第一排的名称也显示在玻璃底板里。</string>
     <string name="ss_kind">类型</string>
     <string name="wp_weather_city">位置</string>
     <string name="st_home_standard">双排</string>

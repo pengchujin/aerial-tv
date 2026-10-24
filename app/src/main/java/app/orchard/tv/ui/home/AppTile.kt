@@ -82,6 +82,7 @@ import androidx.core.graphics.createBitmap
 import app.orchard.tv.apps.AppEntry
 import app.orchard.tv.settings.AerialSettings
 import app.orchard.tv.settings.FocusStyle
+import app.orchard.tv.settings.NameMode
 import app.orchard.tv.system.Sounds
 import app.orchard.tv.ui.components.isSelect
 import app.orchard.tv.ui.components.baked
@@ -472,9 +473,15 @@ fun AppTile(
                 .offset(y = height + 10.dp)
                 .requiredSize(width + 36.dp, 24.dp)
                 .graphicsLayer {
-                    // Only the focused app shows its name. With every name shown, the others stay a
-                    // little dimmer than the focused one.
-                    alpha = if (AerialSettings.showAllNames) 0.7f + 0.3f * lift else lift
+                    // Only the focused app shows its name, top row included (tvOS 26 hides it on
+                    // the glass, but people read that as a bug). With every name shown, the others
+                    // stay a little dimmer than the focused one. In HeroTitle mode the labels are
+                    // replaced by one big name above the grid, so none are drawn.
+                    alpha = when (AerialSettings.nameMode) {
+                        NameMode.All -> 0.7f + 0.3f * lift
+                        NameMode.HeroTitle -> 0f
+                        NameMode.Focused -> lift
+                    }
                     // Sits just under the lifted tile, and rises into place as it appears.
                     translationY = height.toPx() * (scale - 1f) / 2f - (1f - lift) * 6.dp.toPx() +
                         if (nameOnPlate) 0f else ring * ringIn * (RingGap + RingWidth).toPx() * scale

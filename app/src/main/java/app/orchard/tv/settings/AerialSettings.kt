@@ -38,6 +38,19 @@ enum class UiSounds(val key: String) {
     }
 }
 
+/**
+ * How app names show on Home: the focused app's under its tile (tvOS), every tile's, or one big
+ * title in the top-left corner of the grid (the older CleanYourTV-style launcher). The big title
+ * replaces the labels under the tiles.
+ */
+enum class NameMode(val key: String) {
+    Focused("focused"), All("all"), HeroTitle("hero");
+
+    companion object {
+        fun of(key: String?) = entries.firstOrNull { it.key == key }
+    }
+}
+
 /** Aerial's own preferences. Compose state, written on the main thread only. */
 object AerialSettings {
     private const val PREFS = "settings"
@@ -83,8 +96,8 @@ object AerialSettings {
     /** The date and weather over a big clock above the top row, instead of one small line in the corner. */
     var largeClock by mutableStateOf(false); private set
 
-    /** Every app's name under its tile, not only the focused one's (issue #28), the top row's on the glass plate too. */
-    var showAllNames by mutableStateOf(false); private set
+    /** Every app's name under its tile, or one big title above the grid (issue #28), the top row's on the glass plate too. */
+    var nameMode by mutableStateOf(NameMode.Focused); private set
 
     /** Back on Home's top row starts the screensaver, as on tvOS; off for homes where it gets pressed by accident (issue #94). */
     var backStartsScreensaver by mutableStateOf(true); private set
@@ -136,7 +149,9 @@ object AerialSettings {
         clockRight = prefs.getBoolean("clock_right", false)
         largeClock = prefs.getBoolean("large_clock", false)
         homePlate = prefs.getBoolean("home_plate", true)
-        showAllNames = prefs.getBoolean("show_all_names", false)
+        // Before this setting had three modes it was a boolean "show every name"; keep old installs.
+        nameMode = NameMode.of(prefs.getString("name_mode", null))
+            ?: if (prefs.getBoolean("show_all_names", false)) NameMode.All else NameMode.Focused
         // Before 1.28 this was on or off; on meant whichever sounds Aerial played.
         uiSounds = UiSounds.of(prefs.getString("ui_sounds_kind", null)) ?: when {
             !prefs.getBoolean("ui_sounds", true) -> UiSounds.Off
@@ -215,9 +230,13 @@ object AerialSettings {
         app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit { putBoolean("large_clock", on) }
     }
 
-    fun chooseShowAllNames(on: Boolean) {
-        showAllNames = on
-        app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit { putBoolean("show_all_names", on) }
+    fun chooseNameMode(mode: NameMode) {
+        nameMode = mode
+        app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit {
+            putString("name_mode", mode.key)
+            // Drop the old boolean so a downgrade to an older build still reads the right mode.
+            putBoolean("show_all_names", mode == NameMode.All)
+        }
     }
 
     fun chooseBackStartsScreensaver(on: Boolean) {
