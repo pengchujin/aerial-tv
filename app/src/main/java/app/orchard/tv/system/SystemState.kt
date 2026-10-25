@@ -610,7 +610,7 @@ object SystemProbe {
 
     private fun hw(id: String): Int? = Regex("/HW(\\d+)$").find(id)?.groupValues?.get(1)?.toIntOrNull()
 
-    internal fun xiaomiRoute(info: TvInputInfo, kind: SourceKind, label: String, profile: DeviceProfile): Intent? {
+    private fun xiaomiRoute(info: TvInputInfo, kind: SourceKind, label: String, profile: DeviceProfile): Intent? {
         val n = hw(info.id) ?: return null
         return when (kind) {
             // MediaTek hardware ids HW5.. map onto Xiaomi's source ids 23.. for HDMI; models that
@@ -671,7 +671,7 @@ object SystemProbe {
  * MiTV-MFZP0 (77" OLED, mt9950, Android 9) registers HW4–HW7 as HDMI 1–4 but has three ports:
  * HW7 has none behind it, and its tvplayer numbers them hw + 19 (#311, the reporter's local build).
  */
-internal class DeviceProfile(
+private class DeviceProfile(
     val hiddenHardware: Set<Int?> = emptySet(),
     val labels: Map<Int?, String> = emptyMap(),
     /** Xiaomi tvplayer source ids for inputs that have no rule or another one, by hardware id. */
