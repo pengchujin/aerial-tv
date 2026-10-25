@@ -13,6 +13,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.core.content.edit
 import app.orchard.tv.BuildConfig
 import app.orchard.tv.guard.GuardSetup
+import app.orchard.tv.locale.ChineseLocale
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -113,14 +114,23 @@ object Wallpapers {
 
     private var backdropJob: Job? = null
     private var started = false
+    private var labelLocale = ""
 
     /** The UI's size in pixels. Pictures are decoded to it: 1080p on most TVs, 4K where the UI is. */
     var screenW = 1920; private set
     var screenH = 1080; private set
 
     fun init(context: Context) {
-        if (started) return
+        val locale = Locale.getDefault().toLanguageTag()
+        if (started) {
+            if (labelLocale != locale) {
+                labelLocale = locale
+                rebuildList()
+            }
+            return
+        }
         started = true
+        labelLocale = locale
         app = context.applicationContext
         context.resources.displayMetrics.let {
             screenW = maxOf(it.widthPixels, it.heightPixels)
@@ -386,11 +396,18 @@ object Wallpapers {
     private fun rebuildList() {
         val daily = readDailyIndex().map { Wallpaper("daily:${it.first}", WallpaperKind.Daily, it.second, it.third) }
         val zh = Locale.getDefault().language == "zh"
-        val builtins = Gradients.presets.map { Wallpaper("grad:${it.key}", WallpaperKind.Builtin, if (zh) it.nameZh else it.nameEn) }
+        val hant = ChineseLocale.isTraditional(Locale.getDefault())
+        val builtins = Gradients.presets.map {
+            Wallpaper("grad:${it.key}", WallpaperKind.Builtin, when {
+                hant -> it.nameHant
+                zh -> it.nameZh
+                else -> it.nameEn
+            })
+        }
         val photos = (photoDir.listFiles { f -> f.extension == "jpg" } ?: emptyArray())
             .sortedByDescending { it.lastModified() }
             .map { Wallpaper("photo:${it.nameWithoutExtension}", WallpaperKind.Photo, if (zh) "我的照片" else "My Photo") }
-        val auto = Wallpaper(AUTO, WallpaperKind.Auto, if (zh) "跟随 App" else "Follow App")
+        val auto = Wallpaper(AUTO, WallpaperKind.Auto, if (hant) "跟隨 App" else if (zh) "跟随 App" else "Follow App")
         val live = Wallpaper(LIVE, WallpaperKind.Live, if (zh) "航拍" else "Aerial")
         items = listOf(live) + daily + builtins + photos + auto
     }

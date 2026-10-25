@@ -326,7 +326,8 @@ const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls)
 let state = null, stateJson = '';
 
 // The language: ?lang=ru in the address, else the one picked under More (kept on the phone), else the
-// first of the phone's preferred languages that has a table, else English. Keys are in KEYS, one array of texts per language.
+// first of the phone's preferred languages that has a table, else English. zh-HK, zh-TW and zh-Hant
+// use Traditional Chinese; other zh locales keep Simplified Chinese. Keys are in KEYS, one array per language.
 const KEYS = ["screensaver", "screensaver_short", "ss_aerial", "ss_photos", "ss_clock", "focus", "focus_high", "focus_standard", "weather", "city_ph", "set", "upload_label", "feedback_h", "feedback_hint", "diag_show", "diag_copy", "diag_github", "hint_aerial", "hint_photos", "hint_clock", "g_live", "g_live_sub", "g_daily", "g_daily_sub", "g_photo", "g_builtin", "g_auto", "toast_wallpaper", "aria_delete", "confirm_delete", "wx_clear", "wx_partlycloudy", "wx_cloudy", "wx_fog", "wx_rain", "wx_snow", "wx_thunder", "wx_chosen", "wx_auto_btn", "toast_auto", "wx_guessed", "wx_none", "tag_source", "aria_rename", "toast_renamed", "toast_name_reset", "toast_rename_fail", "aria_reset_icon", "toast_icon_reset", "focus_hint_standard", "focus_hint_high", "daily_title", "daily_caption", "rotate_title", "rotate_caption", "empty_photos", "add_second", "toast_tv_updated", "sending_n", "toast_added", "toast_no_photos", "toast_send_fail", "toast_city_set", "toast_city_nf", "toast_set_fail", "toast_sending_icon", "toast_icon_set", "toast_icon_bad", "diag_collecting", "toast_diag_fail", "toast_copied", "toast_copy_manual", "language", "hint_follows", "ss_videos", "hint_videos", "videos_h", "videos_upload", "videos_hint", "videos_empty", "confirm_video_delete", "toast_videos_added", "toast_video_bad", "sending_video", "hint_system", "tab_home", "tab_more", "current_wp", "cancel", "save", "name_ph", "rename_hint", "change_icon", "this_tv", "folder_count", "folder_ph", "inputs_h", "inputs_hint", "rename_hint_app", "was_named", "arrange_hint", "arrange_unready", "hidden_h", "hidden_none", "hidden_locked", "show_app", "hide_app", "to_folder", "new_folder", "out_of_folder", "ungroup", "ungroup_confirm", "folder_hint", "toast_hidden", "toast_shown", "toast_in_folder", "toast_out_folder", "toast_ungrouped", "tab_looks", "looks_title", "show_on_home", "source_device", "source_plain", "source_device_hint", "tv_model"];
 const TEXTS = {
  "zh": [
@@ -455,6 +456,133 @@ const TEXTS = {
   "默认",
   "选一个设备，电视上这个信号源的图标会换成它的样子，名字也跟着变；自己起的名字会被替换。",
   "型号"
+ ],
+ "zh-Hant": [
+  "螢幕保護程式",
+  "螢幕保護程式",
+  "航拍",
+  "照片",
+  "時鐘",
+  "焦點樣式",
+  "高對比度",
+  "標準",
+  "天氣",
+  "輸入城市，例如 香港",
+  "設定",
+  "加入照片",
+  "回報問題",
+  "如果這部電視上的 Aerial 有問題，或希望 Aerial 支援這部電視：請複製診斷資料，貼到 GitHub 的「機型適配」回報中。資料包括型號、系統版本、主畫面接管狀態、訊號來源和 Aerial 記錄，不含帳戶、Wi-Fi 名稱、IP 位址或照片。",
+  "顯示診斷資料",
+  "複製",
+  "到 GitHub 回報",
+  "播放 Apple TV 航拍影片，畫面會標示拍攝地點。",
+  "輪播每日精選和你的照片。",
+  "在目前的背景圖片上顯示大時鐘。",
+  "航拍",
+  "停留在主畫面 10 秒後，背景圖片會播放 Apple TV 航拍影片；按任意鍵可停在目前畫面",
+  "每日精選",
+  "每天自動更新的風景照片",
+  "我的照片",
+  "內置",
+  "更多",
+  "已設為電視背景圖片",
+  "刪除",
+  "刪除這張照片？",
+  "晴朗",
+  "部分時間多雲",
+  "多雲",
+  "有霧",
+  "有雨",
+  "有雪",
+  "雷暴",
+  "正在顯示 {place} 的天氣。",
+  "改回透過網絡自動定位",
+  "已改回自動定位",
+  "透過網絡自動定位：{place}。使用代理伺服器時可能定位錯誤；如有錯誤，請輸入你所在的城市。",
+  "尚未取得位置。請輸入你所在的城市。",
+  "訊號來源",
+  "重新命名",
+  "已在電視上重新命名",
+  "已恢復預設名稱",
+  "重新命名失敗，請重試",
+  "恢復預設圖示",
+  "已恢復預設圖示",
+  "與 Apple TV 的預設效果一樣：選取的 App 只會放大並浮起。",
+  "在選取的 App 外加上白色邊框，從遠處也看得清楚。",
+  "每天自動更新",
+  "始終使用當天的照片",
+  "每天換一張",
+  "每天自動換成下一張照片",
+  "尚未有照片。請用上方按鈕從手機加入。",
+  "再加入一張照片，即可選擇「每天換一張」。",
+  "已在電視上更新",
+  "正在傳送 {n} 張…",
+  "已加入 {n} 張，最後一張已設為背景圖片",
+  "沒有可用的照片",
+  "傳送失敗，請重試",
+  "已設為 {place}",
+  "找不到「{name}」",
+  "設定失敗，請重試",
+  "正在傳送「{label}」的圖示…",
+  "已在電視上更換",
+  "無法使用這張圖片",
+  "正在收集資料…",
+  "無法取得資料，請重試",
+  "已複製",
+  "請長按文字框、全選後複製",
+  "語言",
+  "尚未選擇，會跟隨背景圖片：航拍背景圖片配航拍影片，其他背景圖片配照片，並從目前的背景圖片開始。選擇一種後便會固定使用。",
+  "影片",
+  "離線輪播已加入的影片；沒有可播放的影片時顯示照片。",
+  "螢幕保護程式影片",
+  "加入影片",
+  "MP4 / MOV，建議使用 1080p H.264。每段最多 200 MB，合共 512 MB。",
+  "尚未有影片，螢幕保護程式暫時顯示照片。",
+  "刪除「{name}」？",
+  "影片：已加入 {n} 段，失敗 {failed} 段",
+  "無法儲存，請檢查影片格式和電視的剩餘空間",
+  "正在傳送 {n} / {total}…",
+  "電視的個人化設定選了「系統內置」，使用電視本身的螢幕保護程式。在這裏選擇一種，即可改回 Aerial 的螢幕保護程式。",
+  "主畫面",
+  "更多",
+  "目前的背景圖片",
+  "取消",
+  "儲存",
+  "例如 客廳 Apple TV",
+  "為訊號來源命名；留空可恢復預設名稱。",
+  "從手機選擇圖片",
+  "這部電視",
+  "{n} 個 App",
+  "資料夾名稱",
+  "訊號來源",
+  "開啟後，這個訊號來源會放在主畫面的第一個位置；點按上方的圖示可更換圖片或名稱。",
+  "改成你想在電視上顯示的名稱；留空可恢復「{name}」。",
+  "原本名稱：{name}",
+  "排列方式與電視相同，每行 5 個，第一行就是電視底板上的一行。按住圖示拖到想放的位置；點按圖示可改名、換圖示、放進資料夾或隱藏。",
+  "電視的主畫面尚未準備好；請返回電視主畫面後重試。",
+  "隱藏的 App",
+  "沒有隱藏的 App。",
+  "已啟用家長密碼：有 {n} 個隱藏的 App，須在電視上輸入密碼才能恢復顯示。",
+  "顯示",
+  "從主畫面隱藏",
+  "放進資料夾",
+  "新增資料夾",
+  "移出資料夾",
+  "解散資料夾",
+  "解散「{name}」？裏面的 App 會回到主畫面。",
+  "按住圖示拖動可調整順序；點按圖示可改名、換圖示或移出資料夾。",
+  "已隱藏",
+  "已在主畫面顯示",
+  "已放進「{name}」",
+  "已移出資料夾",
+  "資料夾已解散",
+  "背景圖片",
+  "背景圖片與螢幕保護程式",
+  "在主畫面顯示",
+  "連接的裝置",
+  "預設",
+  "選擇裝置後，電視上這個訊號來源的圖示和名稱會跟著變；你自行設定的名稱會被取代。",
+  "型號"
  ],
  "en": [
   "Screensaver",
@@ -971,10 +1099,16 @@ const LANG = (() => {
   let saved = null;
   try { saved = localStorage.getItem('aerial-lang'); } catch (e) {}
   const prefs = [asked, saved, ...(navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language || ''])];
-  for (const l of prefs) { if (!l) continue; const c = String(l).toLowerCase().split('-')[0]; if (LANGS.includes(c)) return c; }
+  for (const l of prefs) {
+    if (!l) continue;
+    const tag = String(l).toLowerCase();
+    if (/^zh-(hant|hk|tw|mo)(-|$)/.test(tag)) return 'zh-Hant';
+    const c = tag.split('-')[0];
+    if (LANGS.includes(c)) return c;
+  }
   return 'en';
 })();
-const NAMES = { zh: '中文', en: 'English', ru: 'Русский', uk: 'Українська', kk: 'Қазақша' };
+const NAMES = { zh: '简体中文', 'zh-Hant': '繁體中文', en: 'English', ru: 'Русский', uk: 'Українська', kk: 'Қазақша' };
 const I18N = {};
 for (const l of LANGS) { I18N[l] = {}; KEYS.forEach((k, i) => I18N[l][k] = TEXTS[l][i]); }
 function t(key, vars) {
