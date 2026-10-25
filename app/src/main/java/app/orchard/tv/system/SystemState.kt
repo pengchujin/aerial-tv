@@ -681,7 +681,7 @@ private class DeviceProfile(
         fun current(): DeviceProfile = when (Build.MODEL) {
             // NSOP0 / Novatek, firmware 22.7.26.1365: real input sessions map 23/24/25 to HW6/5/4.
             "MiTV_NSOP0", "MiTV-NSOP0" -> DeviceProfile(
-                labels = mapOf(6 to "HDMI 1", 5 to "HDMI 2", 4 to "HDMI 3"),
+                labels = mapOf(6 to "HDMI 1", 5 to "HDMI 2", 4 to "HDMI 3", 3 to "TV", 1 to "DTMB", 0 to "AV"),
                 xiaomiSourceIds = mapOf(6 to 23, 5 to 24, 4 to 25),
             )
             "MiTV_MFTR0", "MiTV-MFTR0" -> DeviceProfile(
