@@ -610,7 +610,7 @@ object SystemProbe {
 
     private fun hw(id: String): Int? = Regex("/HW(\\d+)$").find(id)?.groupValues?.get(1)?.toIntOrNull()
 
-    private fun xiaomiRoute(info: TvInputInfo, kind: SourceKind, label: String, profile: DeviceProfile): Intent? {
+    internal fun xiaomiRoute(info: TvInputInfo, kind: SourceKind, label: String, profile: DeviceProfile): Intent? {
         val n = hw(info.id) ?: return null
         return when (kind) {
             // MediaTek hardware ids HW5.. map onto Xiaomi's source ids 23.. for HDMI; models that
@@ -671,7 +671,7 @@ object SystemProbe {
  * MiTV-MFZP0 (77" OLED, mt9950, Android 9) registers HW4–HW7 as HDMI 1–4 but has three ports:
  * HW7 has none behind it, and its tvplayer numbers them hw + 19 (#311, the reporter's local build).
  */
-private class DeviceProfile(
+internal class DeviceProfile(
     val hiddenHardware: Set<Int?> = emptySet(),
     val labels: Map<Int?, String> = emptyMap(),
     /** Xiaomi tvplayer source ids for inputs that have no rule or another one, by hardware id. */
@@ -679,6 +679,11 @@ private class DeviceProfile(
 ) {
     companion object {
         fun current(): DeviceProfile = when (Build.MODEL) {
+            // NSOP0 / Novatek, firmware 22.7.26.1365: real input sessions map 23/24/25 to HW6/5/4.
+            "MiTV_NSOP0", "MiTV-NSOP0" -> DeviceProfile(
+                labels = mapOf(6 to "HDMI 1", 5 to "HDMI 2", 4 to "HDMI 3"),
+                xiaomiSourceIds = mapOf(6 to 23, 5 to 24, 4 to 25),
+            )
             "MiTV_MFTR0", "MiTV-MFTR0" -> DeviceProfile(
                 hiddenHardware = setOf(8),
                 labels = mapOf(1 to "ATV", 0 to "DTMB", 2 to "AV", 6 to "HDMI 2 (eARC)"),
