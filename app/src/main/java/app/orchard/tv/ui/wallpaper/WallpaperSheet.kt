@@ -296,13 +296,19 @@ private fun WallpaperRows() {
         withFrameNanos { }
         runCatching { first.requestFocus() }
     }
+    val scope = rememberCoroutineScope()
     val dailyTitle = stringResource(R.string.wp_daily_latest)
     val rotateTitle = stringResource(R.string.wp_photos_rotate)
     val list = remember(items, selected, dailyTitle, rotateTitle) {
         buildList {
             addAll(items.filter { it.kind == WallpaperKind.Live })
-            if (items.any { it.kind == WallpaperKind.Daily }) add(Wallpaper(Wallpapers.LATEST_DAILY, WallpaperKind.Daily, dailyTitle))
-            addAll(items.filter { it.kind == WallpaperKind.Daily && it.id == selected })
+            if (items.any { it.kind == WallpaperKind.Daily && !Wallpapers.isRandom(it.id) }) {
+                add(Wallpaper(Wallpapers.LATEST_DAILY, WallpaperKind.Daily, dailyTitle))
+            }
+            // The newest random photo is the card that fetches another; it is always there,
+            // picture or not.
+            addAll(items.filter { Wallpapers.isRandom(it.id) })
+            addAll(items.filter { it.kind == WallpaperKind.Daily && it.id == selected && !Wallpapers.isRandom(it.id) })
             val photos = items.filter { it.kind == WallpaperKind.Photo }
             // With two or more, one card takes turns through all of them, one a day (#27).
             if (photos.size > 1) add(Wallpaper(Wallpapers.ROTATE_PHOTOS, WallpaperKind.Photo, rotateTitle))
@@ -311,7 +317,7 @@ private fun WallpaperRows() {
             addAll(items.filter { it.kind == WallpaperKind.Auto })
         }
     }
-    var note by remember { mutableStateOf<String?>(null) }
+    var focusedId by remember { mutableStateOf<String?>(null) }
     // A row clips to its bounds, and the focused card grows by 8%: room on the left for that,
     // with the row moved back by as much so the cards still line up with the titles.
     LazyRow(
@@ -320,18 +326,34 @@ private fun WallpaperRows() {
         contentPadding = PaddingValues(start = 14.dp, end = 24.dp, top = 6.dp, bottom = 4.dp),
     ) {
         items(list, key = { it.id }) { wp ->
-            val hint = wallpaperNote(wp)
-            WallpaperCard(wp, if (wp === list.first()) first else null, onFocused = { note = hint })
+            // The random photo is fetched by choosing its card.
+            WallpaperCard(
+                wp,
+                if (wp === list.first()) first else null,
+                onFocused = { focusedId = wp.id },
+                onChosen = if (wp.id == Wallpapers.RANDOM_DAILY) ({ scope.launch { Wallpapers.fetchRandomDaily() } }) else null,
+            )
         }
     }
+    // Read again as it composes, so "fetching" and "could not fetch" show up under the row.
+    val focused = list.firstOrNull { it.id == focusedId }
+    val noteText = if (focused != null) wallpaperNote(focused) else null
     Box(Modifier.height(42.dp).padding(start = 4.dp, top = 8.dp)) {
-        note?.let { BasicText(it, style = Type.Caption.copy(color = Palette.TertiaryLabel), maxLines = 2, overflow = TextOverflow.Ellipsis) }
+        noteText?.let {
+            BasicText(it, style = Type.Caption.copy(color = Palette.TertiaryLabel), maxLines = 2, overflow = TextOverflow.Ellipsis)
+        }
     }
 }
 
 /** What a wallpaper card is, for the note under the row; null where its picture says it all. */
 @Composable
 private fun wallpaperNote(wp: Wallpaper): String? = when {
+    wp.id == Wallpapers.RANDOM_DAILY -> when {
+        Wallpapers.randomFetching -> stringResource(R.string.wp_random_getting)
+        Wallpapers.randomFailedLast -> stringResource(R.string.wp_random_failed)
+        wp.caption != null -> wp.caption
+        else -> stringResource(R.string.wp_random_hint)
+    }
     wp.kind == WallpaperKind.Live -> stringResource(R.string.wp_live)
     wp.id == Wallpapers.LATEST_DAILY -> stringResource(R.string.wp_daily_note)
     wp.id == Wallpapers.ROTATE_PHOTOS -> stringResource(R.string.wp_photos_rotate_note)
@@ -342,12 +364,21 @@ private fun wallpaperNote(wp: Wallpaper): String? = when {
 }
 
 @Composable
-private fun WallpaperCard(wp: Wallpaper, focusRequester: FocusRequester?, onFocused: () -> Unit) {
+private fun WallpaperCard(
+    wp: Wallpaper,
+    focusRequester: FocusRequester?,
+    onFocused: () -> Unit,
+    onChosen: (() -> Unit)? = null,
+) {
     val selected = Wallpapers.selectedId == wp.id
     val thumb by produceState<ImageBitmap?>(null, wp.id, Wallpapers.items) {
         value = withContext(Dispatchers.Default) { Wallpapers.thumbnail(wp.id)?.asImageBitmap() }
     }
-    Pressable(onClick = { Wallpapers.select(wp.id) }, focusRequester = focusRequester, focusedScale = 1.08f) { state ->
+    Pressable(
+        onClick = { if (onChosen != null) onChosen() else Wallpapers.select(wp.id) },
+        focusRequester = focusRequester,
+        focusedScale = 1.08f,
+    ) { state ->
         LaunchedEffect(state.focused) { if (state.focused) onFocused() }
         Column(Modifier.width(168.dp)) {
             Box(
@@ -379,6 +410,17 @@ private fun WallpaperCard(wp: Wallpaper, focusRequester: FocusRequester?, onFocu
                 // The aerial wallpaper moves; its card shows the last frame it stopped on.
                 if (wp.kind == WallpaperKind.Live) {
                     GlyphIcon(Glyph.Play, Color.White, 22.dp, Modifier.align(Alignment.BottomStart).padding(7.dp))
+                }
+                // The random one before anything has been fetched: no picture yet, so it says what
+                // choosing it does.
+                if (wp.id == Wallpapers.RANDOM_DAILY && thumb == null) {
+                    BasicText(
+                        stringResource(if (Wallpapers.randomFetching) R.string.wp_random_getting else R.string.wp_random_tap),
+                        style = Type.Caption.copy(color = Palette.SecondaryLabel),
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.align(Alignment.Center).padding(horizontal = 10.dp),
+                    )
                 }
             }
             Spacer(Modifier.height(6.dp))

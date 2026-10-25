@@ -455,9 +455,10 @@ private fun PhotoSaver(
 ) {
     val reduced = LocalReducedMotion.current
     val pool = remember(Wallpapers.items) {
-        // The owner's own photos when there are any, else the daily ones (issue #27).
+        // The owner's own photos when there are any, else the daily ones (issue #27). The random
+        // photo is not one of them: it is one picture fetched on demand, and may not be there yet.
         val pictures = Wallpapers.items.filter { it.kind == WallpaperKind.Photo }
-            .ifEmpty { Wallpapers.items.filter { it.kind == WallpaperKind.Daily } }
+            .ifEmpty { Wallpapers.items.filter { it.kind == WallpaperKind.Daily && !Wallpapers.isRandom(it.id) } }
         val rest = (pictures.ifEmpty { Wallpapers.items.filter { it.kind == WallpaperKind.Builtin } }).shuffled()
         if (first == null) rest else listOf(first) + rest.filter { it.id != first.id }
     }

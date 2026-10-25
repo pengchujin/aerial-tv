@@ -89,6 +89,11 @@
     <string name="wp_photos_rotate">我的照片 · 每天换</string>
     <string name="wp_daily_note">必应每日一图，每天自动换成当天的。</string>
     <string name="wp_photos_rotate_note">从你的照片里每天换一张。</string>
+    <string name="wp_random">随机一张</string>
+    <string name="wp_random_tap">点一下换一张</string>
+    <string name="wp_random_hint">换一张别的日子，不会是最近这几天的：从必应的老照片里随机挑一张。</string>
+    <string name="wp_random_getting">正在挑一张老照片…</string>
+    <string name="wp_random_failed">没取到，检查一下网络</string>
     <string name="wp_photo_note">你的照片。用手机扫右边的二维码可以继续添加。</string>
     <string name="wp_auto_note">取所选 App 图片里的颜色做背景。</string>
     <string name="wp_screensaver">屏幕保护程序</string>

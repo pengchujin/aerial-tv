@@ -321,7 +321,7 @@ let state = null, stateJson = '';
 
 // The language: ?lang=ru in the address, else the one picked under More (kept on the phone), else the
 // first of the phone's preferred languages that has a table, else English. Keys are in KEYS, one array of texts per language.
-const KEYS = ["screensaver", "screensaver_short", "ss_aerial", "ss_photos", "ss_clock", "focus", "focus_high", "focus_standard", "weather", "city_ph", "set", "upload_label", "feedback_h", "feedback_hint", "diag_show", "diag_copy", "diag_github", "hint_aerial", "hint_photos", "hint_clock", "g_live", "g_live_sub", "g_daily", "g_daily_sub", "g_photo", "g_builtin", "g_auto", "toast_wallpaper", "aria_delete", "confirm_delete", "wx_clear", "wx_partlycloudy", "wx_cloudy", "wx_fog", "wx_rain", "wx_snow", "wx_thunder", "wx_chosen", "wx_auto_btn", "toast_auto", "wx_guessed", "wx_none", "tag_source", "aria_rename", "toast_renamed", "toast_name_reset", "toast_rename_fail", "aria_reset_icon", "toast_icon_reset", "focus_hint_standard", "focus_hint_high", "daily_title", "daily_caption", "rotate_title", "rotate_caption", "empty_photos", "add_second", "toast_tv_updated", "sending_n", "toast_added", "toast_no_photos", "toast_send_fail", "toast_city_set", "toast_city_nf", "toast_set_fail", "toast_sending_icon", "toast_icon_set", "toast_icon_bad", "diag_collecting", "toast_diag_fail", "toast_copied", "toast_copy_manual", "language", "hint_follows", "ss_videos", "hint_videos", "videos_h", "videos_upload", "videos_hint", "videos_empty", "confirm_video_delete", "toast_videos_added", "toast_video_bad", "sending_video", "hint_system", "tab_home", "tab_more", "current_wp", "cancel", "save", "name_ph", "rename_hint", "change_icon", "this_tv", "folder_count", "folder_ph", "inputs_h", "inputs_hint", "rename_hint_app", "was_named", "arrange_hint", "arrange_unready", "hidden_h", "hidden_none", "hidden_locked", "show_app", "hide_app", "to_folder", "new_folder", "out_of_folder", "ungroup", "ungroup_confirm", "folder_hint", "toast_hidden", "toast_shown", "toast_in_folder", "toast_out_folder", "toast_ungrouped", "tab_looks", "looks_title", "show_on_home", "source_device", "source_plain", "source_device_hint", "tv_model"];
+const KEYS = ["screensaver", "screensaver_short", "ss_aerial", "ss_photos", "ss_clock", "focus", "focus_high", "focus_standard", "weather", "city_ph", "set", "upload_label", "feedback_h", "feedback_hint", "diag_show", "diag_copy", "diag_github", "hint_aerial", "hint_photos", "hint_clock", "g_live", "g_live_sub", "g_daily", "g_daily_sub", "g_photo", "g_builtin", "g_auto", "toast_wallpaper", "aria_delete", "confirm_delete", "wx_clear", "wx_partlycloudy", "wx_cloudy", "wx_fog", "wx_rain", "wx_snow", "wx_thunder", "wx_chosen", "wx_auto_btn", "toast_auto", "wx_guessed", "wx_none", "tag_source", "aria_rename", "toast_renamed", "toast_name_reset", "toast_rename_fail", "aria_reset_icon", "toast_icon_reset", "focus_hint_standard", "focus_hint_high", "daily_title", "daily_caption", "rotate_title", "rotate_caption", "empty_photos", "add_second", "toast_tv_updated", "sending_n", "toast_added", "toast_no_photos", "toast_send_fail", "toast_city_set", "toast_city_nf", "toast_set_fail", "toast_sending_icon", "toast_icon_set", "toast_icon_bad", "diag_collecting", "toast_diag_fail", "toast_copied", "toast_copy_manual", "language", "hint_follows", "ss_videos", "hint_videos", "videos_h", "videos_upload", "videos_hint", "videos_empty", "confirm_video_delete", "toast_videos_added", "toast_video_bad", "sending_video", "hint_system", "tab_home", "tab_more", "current_wp", "cancel", "save", "name_ph", "rename_hint", "change_icon", "this_tv", "folder_count", "folder_ph", "inputs_h", "inputs_hint", "rename_hint_app", "was_named", "arrange_hint", "arrange_unready", "hidden_h", "hidden_none", "hidden_locked", "show_app", "hide_app", "to_folder", "new_folder", "out_of_folder", "ungroup", "ungroup_confirm", "folder_hint", "toast_hidden", "toast_shown", "toast_in_folder", "toast_out_folder", "toast_ungrouped", "tab_looks", "looks_title", "show_on_home", "source_device", "source_plain", "source_device_hint", "tv_model", "random_title", "random_done"];
 const TEXTS = {
  "zh": [
   "屏幕保护程序",
@@ -448,7 +448,9 @@ const TEXTS = {
   "接入的设备",
   "默认",
   "选一个设备，电视上这个信号源的图标会换成它的样子，名字也跟着变；自己起的名字会被替换。",
-  "型号"
+  "型号",
+  "随机一张",
+  "已换上历史壁纸"
  ],
  "en": [
   "Screensaver",
@@ -575,7 +577,9 @@ const TEXTS = {
   "Connected Device",
   "Default",
   "Pick a device and the tile on the TV takes its look and its name; a name you typed is replaced.",
-  "Model"
+  "Model",
+  "Random Photo",
+  "A past wallpaper is now set"
  ],
  "ru": [
   "Заставка",
@@ -702,7 +706,9 @@ const TEXTS = {
   "Подключённое устройство",
   "По умолчанию",
   "Выберите устройство — плитка на телевизоре примет его вид и название; введённое вами название заменится.",
-  "Модель"
+  "Модель",
+  "Случайное фото",
+  "Установлено старое фото"
  ],
  "uk": [
   "Заставка",
@@ -829,7 +835,9 @@ const TEXTS = {
   "Підключений пристрій",
   "Типово",
   "Виберіть пристрій — плитка на телевізорі набуде його вигляду й назви; введену вами назву буде замінено.",
-  "Модель"
+  "Модель",
+  "Кездейсоқ фото",
+  "Ескі түсқағаз орнатылды"
  ],
  "kk": [
   "Экран қорғаушы",
@@ -956,7 +964,9 @@ const TEXTS = {
   "Қосылған құрылғы",
   "Әдепкі",
   "Құрылғыны таңдасаңыз, теледидардағы плитка оның түрі мен атауын алады; өзіңіз жазған атау ауыстырылады.",
-  "Модель"
+  "Модель",
+  "Випадкове фото",
+  "Встановлено старе фото"
  ]
 };
 const LANGS = Object.keys(TEXTS);
@@ -1078,6 +1088,7 @@ function action(list, text, cls, fn) {
 function titleOf(id) {
   if (id === state.latestDaily) return t('daily_title');
   if (id === state.rotatePhotos) return t('rotate_title');
+  if (id === 'daily:random') return t('random_title');
   const w = state.wallpapers.find(w => w.id === id);
   return w ? w.title : '';
 }
@@ -1085,12 +1096,27 @@ function card(w) {
   const b = el('button', 'wp');
   b.setAttribute('aria-selected', w.id === state.selected ? 'true' : 'false');
   b.innerHTML = `<div class="pic"><img loading="lazy" alt=""><span class="check">${ICON.check}</span></div><div class="t"></div><div class="c"></div>`;
-  b.querySelector('img').src = `${base}thumb/${encodeURIComponent(w.id)}`;
+  b.querySelector('img').src = w.id === 'daily:random' ? `${base}thumb/${encodeURIComponent(w.id)}?t=${Date.now()}` : `${base}thumb/${encodeURIComponent(w.id)}`;
   b.querySelector('.t').textContent = w.title;
   b.querySelector('.c').textContent = w.caption || '';
   b.onclick = async () => {
-    if (w.id === state.selected) return;
-    try { take(await api('api/wallpaper', { id: w.id })); toast(t('toast_wallpaper')); } catch (e) { toast(t('toast_set_fail')); }
+    // The random card always fetches a fresh picture, instead of just selecting the one on disk.
+    const isRandom = w.id === 'daily:random';
+    if (w.id === state.selected && !isRandom) return;
+    try {
+      take(await api('api/wallpaper', { id: isRandom ? 'random' : w.id }));
+      toast(isRandom ? t('random_done') : t('toast_wallpaper'));
+      if (isRandom) {
+        // The picture is fetched on the server in the background. Poll the state until it is done,
+        // forcing a re-render each time so the (cache-busted) thumbnail shows the new picture at once.
+        for (let i = 0; i < 14; i++) {
+          await new Promise(r => setTimeout(r, 700));
+          take(await api('api/state'));
+          if (!state.randomFetching) break;
+        }
+        take(await api('api/state'));
+      }
+    } catch (e) { toast(t('toast_set_fail')); }
   };
   if (w.kind === 'photo') {
     const d = el('button', 'badge'); d.innerHTML = ICON.close; d.setAttribute('aria-label', t('aria_delete'));
@@ -1111,12 +1137,19 @@ function card(w) {
   return b;
 }
 function renderWallpapers() {
-  $('#heroImg').src = `${base}thumb/${encodeURIComponent(state.selected)}`;
+  $('#heroImg').src = state.selected === 'daily:random' ? `${base}thumb/${encodeURIComponent(state.selected)}?t=${Date.now()}` : `${base}thumb/${encodeURIComponent(state.selected)}`;
   $('#heroTitle').textContent = titleOf(state.selected);
   const root = $('#sections'); root.replaceChildren();
   for (const [kind, title, sub] of groups) {
     let list = state.wallpapers.filter(w => w.kind === kind);
-    if (kind === 'daily' && list.length) list = [{ id: state.latestDaily, kind: 'daily', title: t('daily_title'), caption: t('daily_caption') }, ...list];
+    if (kind === 'daily') {
+      // The random photo stays inside the daily group, as the last card after the daily items.
+      const r = list.find(w => w.id === 'daily:random');
+      list = list.filter(w => w.id !== 'daily:random');
+      if (list.length) list = [{ id: state.latestDaily, kind: 'daily', title: t('daily_title'), caption: t('daily_caption') }, ...list];
+      // The random photo is the second card: right after the "latest daily" one.
+      if (r && list.length) list = [list[0], r, ...list.slice(1)];
+    }
     // Two or more photos: one a day, as on the TV (#27, #194).
     if (kind === 'photo' && list.length > 1) list = [{ id: state.rotatePhotos, kind: 'photos', title: t('rotate_title'), caption: t('rotate_caption') }, ...list];
     if (!list.length && kind !== 'photo') continue;

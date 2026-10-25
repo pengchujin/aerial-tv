@@ -90,6 +90,11 @@
     <string name="wp_photos_rotate">My Photos, Daily</string>
     <string name="wp_daily_note">Bing\'s photo of the day, changing to the new one every day.</string>
     <string name="wp_photos_rotate_note">A different one of your photos each day.</string>
+    <string name="wp_random">Random photo</string>
+    <string name="wp_random_tap">Tap for one</string>
+    <string name="wp_random_hint">Fetches a different photo of the day, never one of the last few days: an older picture from Bing\'s archive.</string>
+    <string name="wp_random_getting">Fetching an older photo…</string>
+    <string name="wp_random_failed">Could not fetch one; check the network</string>
     <string name="wp_photo_note">Your photo. Scan the code on the right to send more from your phone.</string>
     <string name="wp_auto_note">Light taken from the selected app\'s artwork.</string>
     <string name="wp_screensaver">Screensaver</string>

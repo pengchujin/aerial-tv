@@ -60,7 +60,9 @@ class PhoneServer private constructor(private val context: Context, private val 
                 path.startsWith("/thumb/") -> thumb(path.removePrefix("/thumb/"))
                 session.method == Method.POST && path == "/api/wallpaper" -> {
                     val id = form(session)["id"].orEmpty()
-                    onMain { Wallpapers.select(id) }
+                    // "random" fetches a new picture of the day, as the card in Personalize does.
+                    if (id == "random") onMain { Wallpapers.fetchRandomDailyNow() }
+                    else onMain { Wallpapers.select(id) }
                     json(state())
                 }
                 session.method == Method.POST && path == "/api/screensaver" -> {
@@ -164,6 +166,7 @@ class PhoneServer private constructor(private val context: Context, private val 
         }
         return JSONObject()
             .put("selected", selected)
+            .put("randomFetching", Wallpapers.randomFetching)
             .put("latestDaily", Wallpapers.LATEST_DAILY)
             .put("rotatePhotos", Wallpapers.ROTATE_PHOTOS)
             .put("screensaver", Wallpapers.screensaver.key)
@@ -290,7 +293,9 @@ class PhoneServer private constructor(private val context: Context, private val 
     }
 
     private fun thumb(id: String): Response {
-        val bmp = Wallpapers.thumbnail(java.net.URLDecoder.decode(id, "UTF-8")) ?: return text(Response.Status.NOT_FOUND, "")
+        // Ignore a cache-busting query (?t=…) the phone page appends so a fresh picture is always fetched.
+        val clean = id.substringBefore('?')
+        val bmp = Wallpapers.thumbnail(java.net.URLDecoder.decode(clean, "UTF-8")) ?: return text(Response.Status.NOT_FOUND, "")
         val out = ByteArrayOutputStream()
         bmp.compress(Bitmap.CompressFormat.JPEG, 82, out)
         val bytes = out.toByteArray()
