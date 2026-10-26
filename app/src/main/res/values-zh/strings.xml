@@ -242,4 +242,28 @@
     <string name="st_play_hint">静止时：在第一排停 10 秒后播放，按键停下。一直：按键不停，背景压暗一点；进入下面的 App 时停下。</string>
     <string name="ss_show_time">时间</string>
     <string name="ss_show_time_hint">航拍和照片屏保上的时间。时间和地名会不时挪一点位置，避免烧屏。</string>
+
+    <string name="ds_section">每日图源</string>
+    <string name="ds_source">图源</string>
+    <string name="ds_note">默认使用 Bing；也可以填写局域网服务器地址、端口和可选 Token。</string>
+    <string name="ds_title">每日图源</string>
+    <string name="ds_current">当前：%1$s</string>
+    <string name="ds_host">地址</string>
+    <string name="ds_host_hint">192.168.1.10 或 nas.local</string>
+    <string name="ds_port">端口</string>
+    <string name="ds_port_hint">8899</string>
+    <string name="ds_token">Token</string>
+    <string name="ds_token_hint">可选</string>
+    <string name="ds_probe">探测局域网</string>
+    <string name="ds_probing">探测中…</string>
+    <string name="ds_save">保存</string>
+    <string name="ds_bing">恢复 Bing</string>
+    <string name="ds_cancel">取消</string>
+    <string name="ds_found">已找到 %1$s</string>
+    <string name="ds_saved">已保存</string>
+    <string name="ds_invalid_host">地址必须是私有 IPv4 或 .local 主机名。</string>
+    <string name="ds_invalid_port">端口必须在 1–65535。</string>
+    <string name="ds_unreachable">服务器不可达，或 Token 不正确。</string>
+    <string name="ds_probe_failed">未找到局域网图源。</string>
+    <string name="ds_bing_now">已恢复 Bing。</string>
 </resources>

@@ -180,6 +180,38 @@ class PhoneServer private constructor(private val context: Context, private val 
                     onMain { Weather.useNetworkLocation() }
                     json(state())
                 }
+                session.method == Method.POST && path == "/api/daily/source" -> {
+                    val f = form(session)
+                    val host = DailySource.parseHost(f["host"].orEmpty())
+                    val port = DailySource.parsePort(f["port"].orEmpty())
+                    val token = f["token"].orEmpty()
+                    val ok = host != null && port != null &&
+                        runBlocking(Dispatchers.IO) { DailySource.saveIfHealthy(context, host, port, token) }
+                    if (ok) onMain { Wallpapers.refreshDailyNow() }
+                    val error = when {
+                        ok -> ""
+                        host == null -> "host"
+                        port == null -> "port"
+                        else -> "health"
+                    }
+                    json(state().put("ok", ok).put("error", error))
+                }
+                session.method == Method.POST && path == "/api/daily/probe" -> {
+                    val f = form(session)
+                    val found = runBlocking(Dispatchers.IO) {
+                        DailySource.probe(context, f["host"].orEmpty(), f["port"].orEmpty(), f["token"].orEmpty())
+                    }
+                    val ok = found != null && DailySource.save(context, found.host, found.port, f["token"].orEmpty())
+                    if (ok) onMain { Wallpapers.refreshDailyNow() }
+                    json(state().put("ok", ok).put("found", found?.let { "${it.host}:${it.port}" } ?: ""))
+                }
+                session.method == Method.POST && path == "/api/daily/bing" -> {
+                    onMain {
+                        DailySource.clear(context)
+                        Wallpapers.refreshDailyNow()
+                    }
+                    json(state())
+                }
                 else -> text(Response.Status.NOT_FOUND, "Not found")
             }
         }.getOrElse {
@@ -253,6 +285,12 @@ class PhoneServer private constructor(private val context: Context, private val 
                     val f = e.folder ?: return@forEach
                     put(JSONObject().put("id", f.id).put("key", e.key).put("name", f.name).put("count", f.apps.size).put("stamp", e.art.hashCode()))
                 }
+            })
+            .put("daily", JSONObject().apply {
+                val source = DailySource.settings(context)
+                put("host", source.host)
+                put("port", source.port)
+                put("token", source.token)
             })
             .put("weather", JSONObject().apply {
                 put("place", Weather.place ?: "")

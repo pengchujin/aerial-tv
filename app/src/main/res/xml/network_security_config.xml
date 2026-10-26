@@ -10,6 +10,10 @@
      The weather and location services use Let's Encrypt, whose root older TVs do not trust; they
      serve the same over HTTP, and Weather falls back to that. -->
 <network-security-config>
+    <!-- The optional daily-photo server is plain HTTP and is found at runtime, so its address
+         cannot be listed here in advance. DailySource only accepts private IPv4/.local hosts;
+         Bing and the other services are still HTTPS. -->
+    <base-config cleartextTrafficPermitted="true" />
     <domain-config cleartextTrafficPermitted="true">
         <domain includeSubdomains="false">sylvan.apple.com</domain>
         <trust-anchors>
