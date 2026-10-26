@@ -7,6 +7,7 @@ import androidx.compose.runtime.setValue
 import androidx.core.content.edit
 import android.os.SystemClock
 import android.provider.Settings
+import app.orchard.tv.apps.IconLibrary
 import app.orchard.tv.guard.GuardSetup
 import app.orchard.tv.system.DeviceClass
 import app.orchard.tv.wallpaper.AerialQuality
@@ -99,6 +100,25 @@ object AerialSettings {
     /** The date and weather over a big clock above the top row, instead of one small line in the corner. */
     var largeClock by mutableStateOf(false); private set
 
+    /**
+     * The moving wallpaper (aerial films, the owner's own videos) plays on the top row whatever the
+     * keys do, under a little shade, rather than only once Home has sat still (issues #360, #456).
+     * The grid below and panels still stop it: they cover it.
+     */
+    var wallpaperAlwaysMoves by mutableStateOf(false); private set
+
+    /** The weather beside the clock; off for those who want the time alone (issue #472). */
+    var showWeather by mutableStateOf(true); private set
+
+    /** Ready-made tile pictures for popular apps from the website ([IconLibrary]). */
+    var iconLibrary by mutableStateOf(true); private set
+
+    /**
+     * The time over Aerial's aerial and photo screensavers (issue #240: TCL's firmware puts its own
+     * clock over the system screensaver). The clock screensaver is the clock and keeps it.
+     */
+    var screensaverClock by mutableStateOf(true); private set
+
     /** Every app's name under its tile, not only the focused one's (issue #28), the top row's on the glass plate too. */
     var showAllNames by mutableStateOf(false); private set
 
@@ -161,6 +181,10 @@ object AerialSettings {
         largeClock = prefs.getBoolean("large_clock", false)
         homePlate = prefs.getBoolean("home_plate", true)
         showAllNames = prefs.getBoolean("show_all_names", false)
+        wallpaperAlwaysMoves = prefs.getBoolean("wallpaper_always_moves", false)
+        showWeather = prefs.getBoolean("show_weather", true)
+        iconLibrary = prefs.getBoolean("icon_library", true)
+        screensaverClock = prefs.getBoolean("screensaver_clock", true)
         // Before 1.28 this was on or off; on meant whichever sounds Aerial played.
         uiSounds = UiSounds.of(prefs.getString("ui_sounds_kind", null)) ?: when {
             !prefs.getBoolean("ui_sounds", true) -> UiSounds.Off
@@ -244,6 +268,27 @@ object AerialSettings {
     fun chooseShowAllNames(on: Boolean) {
         showAllNames = on
         app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit { putBoolean("show_all_names", on) }
+    }
+
+    fun chooseWallpaperAlwaysMoves(on: Boolean) {
+        wallpaperAlwaysMoves = on
+        app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit { putBoolean("wallpaper_always_moves", on) }
+    }
+
+    fun chooseShowWeather(on: Boolean) {
+        showWeather = on
+        app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit { putBoolean("show_weather", on) }
+    }
+
+    fun chooseIconLibrary(on: Boolean) {
+        iconLibrary = on
+        app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit { putBoolean("icon_library", on) }
+        IconLibrary.changed()
+    }
+
+    fun chooseScreensaverClock(on: Boolean) {
+        screensaverClock = on
+        app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit { putBoolean("screensaver_clock", on) }
     }
 
     fun chooseBackStartsScreensaver(on: Boolean) {

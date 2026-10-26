@@ -203,6 +203,7 @@
   .grab { width: 36px; height: 5px; border-radius: 3px; background: var(--tertiary); margin: 0 auto 14px; }
   .sheet .pic { border-radius: 12px; overflow: hidden; aspect-ratio: 16 / 9; background: var(--fill); width: 62%; margin: 0 auto; }
   .sheet .pic img { display: block; width: 100%; height: 100%; object-fit: cover; }
+  .item .ithumb { width: 64px; aspect-ratio: 16 / 9; border-radius: 6px; object-fit: cover; margin-right: 12px; flex: none; background: var(--fill); }
   .sheet h3 { text-align: center; font-size: 17px; font-weight: 600; margin: 12px 0 2px; }
   .sheet .meta { text-align: center; font-size: 13px; color: var(--secondary); margin: 0 0 16px; }
   .sheet .list { background: var(--card); }
@@ -256,7 +257,10 @@
     <button class="item" role="radio" data-mode="videos"><span class="txt"><span data-i18n="ss_videos"></span><span class="sub" data-i18n="hint_videos"></span></span><svg class="tick" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></button>
   </div>
   <p class="foot" id="ssFoot"></p>
-  <div id="videos" hidden>
+  <div class="list" id="ssTimeBox" style="margin-top:10px">
+    <label class="item"><span class="txt"><span data-i18n="sw_saver_time"></span><span class="sub" data-i18n="sw_saver_time_sub"></span></span><input class="switch" type="checkbox" id="swSaverTime" data-setting="screensaverClock"></label>
+  </div>
+  <div id="videos">
     <h2 data-i18n="videos_h"></h2>
     <div class="list" id="videoList"></div>
     <div class="list" style="margin-top:10px">
@@ -279,6 +283,7 @@
 
   <h2 data-i18n="weather"></h2>
   <div class="list">
+    <label class="item"><span class="txt" data-i18n="sw_weather"></span><input class="switch" type="checkbox" id="swWeather" data-setting="showWeather"></label>
     <div class="item wx"><b id="wxNow">—</b><span id="wxPlace"></span></div>
     <form class="item field" id="cityForm">
       <input id="city" type="text" data-i18n-placeholder="city_ph" enterkeyhint="done" autocomplete="off">
@@ -327,8 +332,8 @@ let state = null, stateJson = '';
 
 // The language: ?lang=ru in the address, else the one picked under More (kept on the phone), else the
 // first of the phone's preferred languages that has a table, else English. zh-HK, zh-TW and zh-Hant
-// use Traditional Chinese; other zh locales keep Simplified Chinese. Keys are in KEYS, one array per language.
-const KEYS = ["screensaver", "screensaver_short", "ss_aerial", "ss_photos", "ss_clock", "focus", "focus_high", "focus_standard", "weather", "city_ph", "set", "upload_label", "feedback_h", "feedback_hint", "diag_show", "diag_copy", "diag_github", "hint_aerial", "hint_photos", "hint_clock", "g_live", "g_live_sub", "g_daily", "g_daily_sub", "g_photo", "g_builtin", "g_auto", "toast_wallpaper", "aria_delete", "confirm_delete", "wx_clear", "wx_partlycloudy", "wx_cloudy", "wx_fog", "wx_rain", "wx_snow", "wx_thunder", "wx_chosen", "wx_auto_btn", "toast_auto", "wx_guessed", "wx_none", "tag_source", "aria_rename", "toast_renamed", "toast_name_reset", "toast_rename_fail", "aria_reset_icon", "toast_icon_reset", "focus_hint_standard", "focus_hint_high", "daily_title", "daily_caption", "rotate_title", "rotate_caption", "empty_photos", "add_second", "toast_tv_updated", "sending_n", "toast_added", "toast_no_photos", "toast_send_fail", "toast_city_set", "toast_city_nf", "toast_set_fail", "toast_sending_icon", "toast_icon_set", "toast_icon_bad", "diag_collecting", "toast_diag_fail", "toast_copied", "toast_copy_manual", "language", "hint_follows", "ss_videos", "hint_videos", "videos_h", "videos_upload", "videos_hint", "videos_empty", "confirm_video_delete", "toast_videos_added", "toast_video_bad", "sending_video", "hint_system", "tab_home", "tab_more", "current_wp", "cancel", "save", "name_ph", "rename_hint", "change_icon", "this_tv", "folder_count", "folder_ph", "inputs_h", "inputs_hint", "rename_hint_app", "was_named", "arrange_hint", "arrange_unready", "hidden_h", "hidden_none", "hidden_locked", "show_app", "hide_app", "to_folder", "new_folder", "out_of_folder", "ungroup", "ungroup_confirm", "folder_hint", "toast_hidden", "toast_shown", "toast_in_folder", "toast_out_folder", "toast_ungrouped", "tab_looks", "looks_title", "show_on_home", "source_device", "source_plain", "source_device_hint", "tv_model"];
+// use Traditional Chinese; other zh locales keep Simplified Chinese. Keys are in KEYS, one array of texts per language.
+const KEYS = ["screensaver", "screensaver_short", "ss_aerial", "ss_photos", "ss_clock", "focus", "focus_high", "focus_standard", "weather", "city_ph", "set", "upload_label", "feedback_h", "feedback_hint", "diag_show", "diag_copy", "diag_github", "hint_aerial", "hint_photos", "hint_clock", "g_live", "g_live_sub", "g_daily", "g_daily_sub", "g_photo", "g_builtin", "g_auto", "toast_wallpaper", "aria_delete", "confirm_delete", "wx_clear", "wx_partlycloudy", "wx_cloudy", "wx_fog", "wx_rain", "wx_snow", "wx_thunder", "wx_chosen", "wx_auto_btn", "toast_auto", "wx_guessed", "wx_none", "tag_source", "aria_rename", "toast_renamed", "toast_name_reset", "toast_rename_fail", "aria_reset_icon", "toast_icon_reset", "focus_hint_standard", "focus_hint_high", "daily_title", "daily_caption", "rotate_title", "rotate_caption", "empty_photos", "add_second", "toast_tv_updated", "sending_n", "toast_added", "toast_no_photos", "toast_send_fail", "toast_city_set", "toast_city_nf", "toast_set_fail", "toast_sending_icon", "toast_icon_set", "toast_icon_bad", "diag_collecting", "toast_diag_fail", "toast_copied", "toast_copy_manual", "language", "hint_follows", "ss_videos", "hint_videos", "videos_h", "videos_upload", "videos_hint", "videos_empty", "confirm_video_delete", "toast_videos_added", "toast_video_bad", "sending_video", "hint_system", "tab_home", "tab_more", "current_wp", "cancel", "save", "name_ph", "rename_hint", "change_icon", "this_tv", "folder_count", "folder_ph", "inputs_h", "inputs_hint", "rename_hint_app", "was_named", "arrange_hint", "arrange_unready", "hidden_h", "hidden_none", "hidden_locked", "show_app", "hide_app", "to_folder", "new_folder", "out_of_folder", "ungroup", "ungroup_confirm", "folder_hint", "toast_hidden", "toast_shown", "toast_in_folder", "toast_out_folder", "toast_ungrouped", "tab_looks", "looks_title", "show_on_home", "source_device", "source_plain", "source_device_hint", "tv_model", "sw_always", "sw_always_sub", "sw_weather", "sw_saver_time", "sw_saver_time_sub", "g_source_sub", "icon_h", "icon_library", "icon_own", "icon_custom", "toast_icon_picked"];
 const TEXTS = {
  "zh": [
   "屏幕保护程序",
@@ -351,8 +356,8 @@ const TEXTS = {
   "播放 Apple TV 航拍影片，画面会标出所在的地点。",
   "轮播每日精选和你的照片。",
   "大号时钟，配合当前壁纸。",
-  "航拍",
-  "停在主屏幕 10 秒后，壁纸播放 Apple TV 的航拍；按任意键停在当前画面",
+  "动态",
+  "航拍和你的视频。默认在主屏幕停 10 秒后播放，按键停在当前画面。",
   "每日精选",
   "每天自动更新的风景摄影",
   "我的照片",
@@ -407,9 +412,9 @@ const TEXTS = {
   "还没选过，跟随壁纸：航拍壁纸配航拍，其他壁纸配照片，并从这张壁纸开始。选一个就固定下来。",
   "视频",
   "离线轮播已添加的视频；没有可播放的视频时显示照片。",
-  "屏保视频",
+  "我的视频",
   "添加视频",
-  "MP4 / MOV，建议 1080p H.264。每段最多 200 MB，总共 512 MB。",
+  "可以当屏保，也可以在「动态」壁纸里选。MP4 / MOV，建议 1080p H.264。每段最多 200 MB，总共 512 MB。",
   "还没有视频，屏保暂时显示照片。",
   "删除“{name}”？",
   "视频：添加 {n} 段，失败 {failed} 段",
@@ -455,7 +460,18 @@ const TEXTS = {
   "接入的设备",
   "默认",
   "选一个设备，电视上这个信号源的图标会换成它的样子，名字也跟着变；自己起的名字会被替换。",
-  "型号"
+  "型号",
+  "一直播放",
+  "按键也不停，背景压暗一点；进入下面的 App 时停下。",
+  "在主屏幕显示天气",
+  "屏保显示时间",
+  "航拍和照片屏保。时间和地名会不时挪一点位置，避免烧屏。",
+  "信号源的实时画面当背景，没有声音。往下选 App 时换成磨砂背景。",
+  "图标",
+  "精选图",
+  "App 自带",
+  "我换的图片",
+  "已换图标"
  ],
  "zh-Hant": [
   "螢幕保護程式",
@@ -478,8 +494,8 @@ const TEXTS = {
   "播放 Apple TV 航拍影片，畫面會標示拍攝地點。",
   "輪播每日精選和你的照片。",
   "在目前的背景圖片上顯示大時鐘。",
-  "航拍",
-  "停留在主畫面 10 秒後，背景圖片會播放 Apple TV 航拍影片；按任意鍵可停在目前畫面",
+  "動態",
+  "航拍和你的影片。預設在主畫面停留 10 秒後播放，按鍵停在目前畫面。",
   "每日精選",
   "每天自動更新的風景照片",
   "我的照片",
@@ -534,9 +550,9 @@ const TEXTS = {
   "尚未選擇，會跟隨背景圖片：航拍背景圖片配航拍影片，其他背景圖片配照片，並從目前的背景圖片開始。選擇一種後便會固定使用。",
   "影片",
   "離線輪播已加入的影片；沒有可播放的影片時顯示照片。",
-  "螢幕保護程式影片",
+  "我的影片",
   "加入影片",
-  "MP4 / MOV，建議使用 1080p H.264。每段最多 200 MB，合共 512 MB。",
+  "可以作為螢幕保護程式，也可以在「動態」背景圖片中選擇。MP4 / MOV，建議使用 1080p H.264。每段最多 200 MB，合共 512 MB。",
   "尚未有影片，螢幕保護程式暫時顯示照片。",
   "刪除「{name}」？",
   "影片：已加入 {n} 段，失敗 {failed} 段",
@@ -582,7 +598,18 @@ const TEXTS = {
   "連接的裝置",
   "預設",
   "選擇裝置後，電視上這個訊號來源的圖示和名稱會跟著變；你自行設定的名稱會被取代。",
-  "型號"
+  "型號",
+  "一直播放",
+  "按鍵也不停，背景稍微壓暗；進入下方的 App 時停下。",
+  "在主畫面顯示天氣",
+  "螢幕保護程式顯示時間",
+  "航拍和照片螢幕保護程式。時間和地名會不時挪動一點位置，避免螢幕烙印。",
+  "訊號來源的即時畫面作為背景，沒有聲音。往下選擇 App 時換成磨砂背景。",
+  "圖示",
+  "精選圖",
+  "App 自帶",
+  "我更換的圖片",
+  "已更換圖示"
  ],
  "en": [
   "Screensaver",
@@ -605,8 +632,8 @@ const TEXTS = {
   "Plays Apple TV’s aerial films, with the place named on screen.",
   "Cycles through the daily photos and yours.",
   "A big clock over the current wallpaper.",
-  "Aerial",
-  "After 10 seconds on Home, the wallpaper plays Apple TV’s aerial films; press any key to stop on the current frame",
+  "Moving",
+  "Aerial films and your own videos. They start after 10 seconds still on Home and stop on the frame showing at a key.",
   "Daily Photos",
   "Landscape photography, updated every day",
   "My Photos",
@@ -661,9 +688,9 @@ const TEXTS = {
   "Not chosen yet, so it follows the wallpaper: aerial films with the aerial wallpaper, photos with a picture, starting from that picture. Choose one to keep it.",
   "Videos",
   "Loops your videos offline; shows photos when none can play.",
-  "Screensaver videos",
+  "My videos",
   "Add videos",
-  "MP4 / MOV; 1080p H.264 recommended. Up to 200 MB each, 512 MB in total.",
+  "For the screensaver, or as a moving wallpaper. MP4 / MOV, 1080p H.264 recommended. Up to 200 MB each, 512 MB in all.",
   "No videos yet; the screensaver shows photos until you add some.",
   "Delete “{name}”?",
   "Videos: {n} added, {failed} failed",
@@ -709,7 +736,18 @@ const TEXTS = {
   "Connected Device",
   "Default",
   "Pick a device and the tile on the TV takes its look and its name; a name you typed is replaced.",
-  "Model"
+  "Model",
+  "Keep playing",
+  "Keys do not stop it, and it is shaded a little; it stops when you go down to the apps.",
+  "Weather on Home",
+  "Time on the screensaver",
+  "Aerial and photo screensavers. The time and place name move a little now and then, so nothing burns in.",
+  "An input's live picture behind Home, without sound. Going down to the apps, it gives way to a frosted background.",
+  "Picture",
+  "Ready-made",
+  "From the App",
+  "My Picture",
+  "Picture changed"
  ],
  "ru": [
   "Заставка",
@@ -732,8 +770,8 @@ const TEXTS = {
   "Воспроизводит аэросъёмку Apple TV, на экране указано место.",
   "Сменяются фото дня и ваши фото.",
   "Большие часы поверх текущих обоев.",
-  "Аэросъёмка",
-  "После 10 секунд на главном экране обои воспроизводят аэросъёмку Apple TV; нажмите любую кнопку, чтобы остановиться на текущем кадре",
+  "Движущиеся",
+  "Аэросъёмка и ваши видео. Запускаются через 10 секунд покоя на главном экране и останавливаются на текущем кадре по кнопке.",
   "Фото дня",
   "Пейзажная фотография, обновляется каждый день",
   "Мои фото",
@@ -788,9 +826,9 @@ const TEXTS = {
   "Пока не выбрано, поэтому следует за обоями: аэросъёмка с обоями аэросъёмки, фото с картинкой, начиная с неё. Выберите, чтобы закрепить.",
   "Видео",
   "Видео повторяются без сети; если они недоступны, показываются фото.",
-  "Видео для заставки",
+  "Мои видео",
   "Добавить видео",
-  "MP4 / MOV; рекомендуем 1080p H.264. До 200 МБ на файл, всего 512 МБ.",
+  "Для заставки или как движущиеся обои. MP4 / MOV, лучше 1080p H.264. До 200 МБ каждое, всего 512 МБ.",
   "Видео пока нет; до их добавления заставка показывает фото.",
   "Удалить «{name}»?",
   "Видео: добавлено {n}, не удалось {failed}",
@@ -836,7 +874,18 @@ const TEXTS = {
   "Подключённое устройство",
   "По умолчанию",
   "Выберите устройство — плитка на телевизоре примет его вид и название; введённое вами название заменится.",
-  "Модель"
+  "Модель",
+  "Играть всегда",
+  "Кнопки не останавливают, фон чуть затемнён; останавливается у приложений ниже.",
+  "Погода на главном экране",
+  "Время на заставке",
+  "Заставки с аэросъёмкой и фото. Время и название места иногда слегка сдвигаются, чтобы экран не выгорал.",
+  "Живая картинка входа за главным экраном, без звука. Когда вы переходите к приложениям ниже, фон становится матовым.",
+  "Картинка",
+  "Готовая",
+  "Из приложения",
+  "Моя картинка",
+  "Картинка изменена"
  ],
  "uk": [
   "Заставка",
@@ -859,8 +908,8 @@ const TEXTS = {
   "Відтворює аерозйомку Apple TV, на екрані вказано місце.",
   "Змінюються фото дня та ваші фото.",
   "Великий годинник поверх поточних шпалер.",
-  "Аерозйомка",
-  "Після 10 секунд на головному екрані шпалери відтворюють аерозйомку Apple TV; натисніть будь-яку кнопку, щоб зупинитися на поточному кадрі",
+  "Рухомі",
+  "Аерозйомка і ваші відео. Запускаються через 10 секунд спокою на головному екрані і зупиняються на поточному кадрі за кнопкою.",
   "Фото дня",
   "Пейзажна фотографія, оновлюється щодня",
   "Мої фото",
@@ -915,9 +964,9 @@ const TEXTS = {
   "Ще не вибрано, тож відповідає шпалерам: аерозйомка зі шпалерами аерозйомки, фото з картинкою, починаючи з неї. Виберіть, щоб закріпити.",
   "Відео",
   "Відео повторюються без мережі; якщо вони недоступні, показуються фото.",
-  "Відео для заставки",
+  "Мої відео",
   "Додати відео",
-  "MP4 / MOV; радимо 1080p H.264. До 200 МБ на файл, разом 512 МБ.",
+  "Для заставки або як рухомі шпалери. MP4 / MOV, краще 1080p H.264. До 200 МБ кожне, загалом 512 МБ.",
   "Відео поки немає; доки їх не додано, заставка показує фото.",
   "Видалити «{name}»?",
   "Відео: додано {n}, не вдалося {failed}",
@@ -963,7 +1012,18 @@ const TEXTS = {
   "Підключений пристрій",
   "Типово",
   "Виберіть пристрій — плитка на телевізорі набуде його вигляду й назви; введену вами назву буде замінено.",
-  "Модель"
+  "Модель",
+  "Грати завжди",
+  "Кнопки не зупиняють, тло трохи затемнене; зупиняється біля застосунків нижче.",
+  "Погода на головному екрані",
+  "Час на заставці",
+  "Заставки з аерозйомкою і фото. Час і назва місця іноді трохи зсуваються, щоб екран не вигорав.",
+  "Жива картинка входу за головним екраном, без звуку. Коли ви переходите до застосунків нижче, тло стає матовим.",
+  "Зображення",
+  "Готове",
+  "Із застосунку",
+  "Моє зображення",
+  "Зображення змінено"
  ],
  "kk": [
   "Экран қорғаушы",
@@ -986,8 +1046,8 @@ const TEXTS = {
   "Apple TV аэрожиынын ойнатады, экранда орын көрсетіледі.",
   "Күннің фотолары мен өз фотоларыңыз кезектеседі.",
   "Ағымдағы түсқағаз үстіндегі үлкен сағат.",
-  "Аэрожиын",
-  "Басты экранда 10 секунд тұрғаннан кейін түсқағаз Apple TV аэрожиынын ойнатады; ағымдағы кадрда тоқтау үшін кез келген түймені басыңыз",
+  "Қозғалмалы",
+  "Аэрожиын және өз бейнелеріңіз. Басты экранда 10 секунд тыныштықтан кейін басталып, түймені басқанда ағымдағы кадрда тоқтайды.",
   "Күннің фотолары",
   "Пейзаждық фотография, күн сайын жаңартылады",
   "Менің фотоларым",
@@ -1042,9 +1102,9 @@ const TEXTS = {
   "Әлі таңдалмаған, сондықтан түсқағазға ілеседі: аэрожиын түсқағазымен аэрожиын, сурет түсқағазымен фотолар, сол суреттен бастап. Бекіту үшін біреуін таңдаңыз.",
   "Бейне",
   "Бейнелер интернетсіз қайталанады; ойнатылмаса, фотолар көрсетіледі.",
-  "Экран сақтағыш бейнелері",
+  "Менің бейнелерім",
   "Бейне қосу",
-  "MP4 / MOV; 1080p H.264 ұсынылады. Әр файл 200 МБ-қа дейін, барлығы 512 МБ.",
+  "Экран қорғауышқа немесе қозғалмалы тұсқағаз ретінде. MP4 / MOV, 1080p H.264 ұсынылады. Әрқайсысы 200 МБ дейін, барлығы 512 МБ.",
   "Бейне әлі жоқ; қосылғанша экран сақтағыш фотоларды көрсетеді.",
   "«{name}» жойылсын ба?",
   "Бейне: {n} қосылды, {failed} сәтсіз",
@@ -1090,7 +1150,18 @@ const TEXTS = {
   "Қосылған құрылғы",
   "Әдепкі",
   "Құрылғыны таңдасаңыз, теледидардағы плитка оның түрі мен атауын алады; өзіңіз жазған атау ауыстырылады.",
-  "Модель"
+  "Модель",
+  "Әрдайым ойнату",
+  "Түймелер тоқтатпайды, фон сәл күңгірт; төмендегі қолданбаларда тоқтайды.",
+  "Басты экранда ауа райы",
+  "Экран қорғауышта уақыт",
+  "Аэрожиын және фото қорғауыштары. Экран күймес үшін уақыт пен орын атауы анда-санда сәл жылжиды.",
+  "Кірістің тірі суреті басты экран артында, дыбыссыз. Төмендегі қолданбаларға өткенде күңгірт фонға ауысады.",
+  "Сурет",
+  "Дайын",
+  "Қолданбадан",
+  "Менің суретім",
+  "Сурет өзгертілді"
  ]
 };
 const LANGS = Object.keys(TEXTS);
@@ -1140,7 +1211,8 @@ const groups = [
   ['daily', t('g_daily'), t('g_daily_sub')],
   ['photo', t('g_photo'), ''],
   ['builtin', t('g_builtin'), ''],
-  ['auto', t('g_auto'), '']
+  ['auto', t('g_auto'), ''],
+  ['source', t('inputs_h'), t('g_source_sub')]
 ];
 const ICON = {
   check: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
@@ -1299,7 +1371,8 @@ function renderWallpapers() {
   $('#heroTitle').textContent = titleOf(state.selected);
   const root = $('#sections'); root.replaceChildren();
   for (const [kind, title, sub] of groups) {
-    let list = state.wallpapers.filter(w => w.kind === kind);
+    // Moving: the aerial films and the owner's videos.
+    let list = state.wallpapers.filter(w => w.kind === kind || (kind === 'live' && w.kind === 'video'));
     if (kind === 'daily' && list.length) list = [{ id: state.latestDaily, kind: 'daily', title: t('daily_title'), caption: t('daily_caption') }, ...list];
     // Two or more photos: one a day, as on the TV (#27, #194).
     if (kind === 'photo' && list.length > 1) list = [{ id: state.rotatePhotos, kind: 'photos', title: t('rotate_title'), caption: t('rotate_caption') }, ...list];
@@ -1318,6 +1391,15 @@ function renderWallpapers() {
     list.forEach(w => g.appendChild(card(w)));
     root.appendChild(g);
     if (sub) root.appendChild(el('p', 'foot', sub));
+    // Whether keys stop a moving wallpaper; only for one that moves, as on the TV.
+    if (kind === 'live' && (state.selected === 'aerial:live' || state.selected === 'videos:mine')) {
+      const l = el('div', 'list'); l.style.marginTop = '10px';
+      const row = el('label', 'item');
+      const txt = el('span', 'txt', t('sw_always')); txt.appendChild(el('span', 'sub', t('sw_always_sub')));
+      const sw = el('input', 'switch'); sw.type = 'checkbox'; sw.checked = !!state.wallpaperAlwaysMoves; sw.dataset.setting = 'wallpaperAlwaysMoves';
+      sw.onchange = () => setting(sw);
+      row.append(txt, sw); l.appendChild(row); root.appendChild(l);
+    }
     if (kind === 'photo' && list.length === 1) root.appendChild(el('p', 'foot', t('add_second')));
   }
 }
@@ -1340,7 +1422,9 @@ function renderScreensaver() {
   document.querySelectorAll('#ss [data-mode]').forEach(b => b.setAttribute('aria-checked', b.dataset.mode === state.screensaver ? 'true' : 'false'));
   $('#ssFoot').textContent = state.screensaverFollows ? t('hint_follows') : state.screensaver === 'system' ? hints.system : '';
   $('#ssFoot').hidden = !$('#ssFoot').textContent;
-  $('#videos').hidden = state.screensaver !== 'videos';
+  // The time only over the aerial and photo screensavers; the clock one is its clock.
+  $('#ssTimeBox').hidden = state.screensaver !== 'aerial' && state.screensaver !== 'photos';
+  $('#swSaverTime').checked = !!state.screensaverClock;
   const list = $('#videoList'); list.replaceChildren();
   const videos = state.videos || [];
   if (!videos.length) { const row = el('div', 'item'); row.appendChild(el('span', 'txt', t('videos_empty'))).style.color = 'var(--secondary)'; list.appendChild(row); }
@@ -1383,6 +1467,7 @@ $('#videoFile').onchange = async e => {
 /* More tab: focus style and weather. */
 const weatherNames = { clear: t('wx_clear'), partlycloudy: t('wx_partlycloudy'), cloudy: t('wx_cloudy'), fog: t('wx_fog'), rain: t('wx_rain'), snow: t('wx_snow'), thunder: t('wx_thunder') };
 function renderMore() {
+  $('#swWeather').checked = state.showWeather !== false;
   document.querySelectorAll('#focus [data-style]').forEach(b => b.setAttribute('aria-checked', b.dataset.style === state.focusStyle ? 'true' : 'false'));
   const w = state.weather || {};
   $('#wxNow').textContent = w.celsius !== undefined ? `${w.celsius}° ${weatherNames[w.kind] || ''}` : '—';
@@ -1416,6 +1501,17 @@ function renderInputs() {
     row.append(txt, sw); list.appendChild(row);
   }
 }
+/* On/off settings: data-setting is the key the TV knows it by. */
+async function setting(sw) {
+  const on = sw.checked; sw.disabled = true;
+  try {
+    const next = await api('api/setting', { key: sw.dataset.setting, on: on ? '1' : '0' });
+    if (!next.saved) throw new Error('not saved');
+    take(next); toast(t('toast_tv_updated'));
+  } catch (e) { sw.checked = !on; toast(t('toast_set_fail')); }
+  sw.disabled = false;
+}
+['#swSaverTime', '#swWeather'].forEach(id => $(id).onchange = () => setting($(id)));
 document.querySelectorAll('#focus [data-style]').forEach(b => b.onclick = async () => {
   if (b.dataset.style === state.focusStyle) return;
   try { take(await api('api/focus', { style: b.dataset.style })); toast(t('toast_tv_updated')); } catch (e) { toast(t('toast_set_fail')); }
@@ -1642,6 +1738,33 @@ function tileSheet(e, inFolder, hidden) {
       b.insertAdjacentHTML('beforeend', ICON.chev);
       b.onclick = () => deviceChooser(a, e);
       il.appendChild(b);
+    }
+    // Where the picture comes from, when the icon library has one for this app: its picture,
+    // the app's own art, or the one sent from this phone.
+    if (!a.source && a.library) {
+      const choices = [
+        { pick: 'library', label: t('icon_library'), src: `${base}library/${encodeURIComponent(a.key)}?v=${a.stamp}` },
+        { pick: 'own', label: t('icon_own'), src: `${base}tile/${encodeURIComponent(a.key)}?art=own&v=${a.stamp}` },
+      ];
+      if (a.custom) choices.push({ pick: 'custom', label: t('icon_custom'), src: `${base}tile/${encodeURIComponent(a.key)}?v=${a.stamp}` });
+      const cl = el('div', 'list'); cl.setAttribute('role', 'radiogroup'); cl.setAttribute('aria-label', t('icon_h'));
+      il.before(cl); cl.style.marginBottom = '10px';
+      for (const c of choices) {
+        const b = el('button', 'item'); b.setAttribute('role', 'radio'); b.setAttribute('aria-checked', String(a.icon === c.pick));
+        const img = el('img', 'ithumb'); img.alt = ''; img.src = c.src;
+        b.append(img, el('span', 'txt', c.label));
+        b.insertAdjacentHTML('beforeend', ICON.tick);
+        if (c.pick !== 'custom') b.onclick = async () => {
+          closeSheet();
+          if (a.icon === c.pick) return;
+          try {
+            const next = await api('api/icon/pick', { app: a.key, pick: c.pick });
+            if (!next.saved) throw new Error('not saved');
+            take(next); toast(t('toast_icon_picked'));
+          } catch (err) { toast(t('toast_set_fail')); }
+        };
+        cl.appendChild(b);
+      }
     }
     // The picker opens from this tap, so iOS treats it as the user's own gesture.
     action(il, t('change_icon'), 'tint', () => { iconFor = a; $('#iconFile').click(); closeSheet(); });

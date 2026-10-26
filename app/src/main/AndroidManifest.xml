@@ -57,6 +57,10 @@
              the picture panel through SkySetting's exported HalfScreenService; without this the
              Android 11 visibility filter hides the service. -->
         <package android:name="com.skyworth.setting" />
+        <!-- SystemProbe.openInputPicker: older Coocaa firmware's own source dialog. -->
+        <intent>
+            <action android:name="coocaa.intent.action.SOURCE_DIALOG" />
+        </intent>
     </queries>
 
     <!-- largeHeap: up to Android 7 bitmaps live on the Java heap, and LeTV X3-55 Pro (Android 5.0.1)

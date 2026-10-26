@@ -12,6 +12,7 @@ import app.orchard.tv.apps.FOLDER_KEY_PREFIX
 import app.orchard.tv.apps.AppEntry
 import app.orchard.tv.apps.AppNames
 import app.orchard.tv.apps.CustomIcons
+import app.orchard.tv.apps.IconLibrary
 import app.orchard.tv.apps.SourceDevice
 import app.orchard.tv.apps.SourceLooks
 import app.orchard.tv.apps.TileArtFactory
@@ -68,6 +69,18 @@ class PhoneServer private constructor(private val context: Context, private val 
                     onMain { Wallpapers.chooseScreensaver(mode) }
                     json(state())
                 }
+                session.method == Method.POST && path == "/api/setting" -> {
+                    // The few on/off settings the phone page shows, as Personalize does.
+                    val f = form(session)
+                    val on = f["on"] == "1"
+                    val known = when (f["key"]) {
+                        "wallpaperAlwaysMoves" -> { onMain { AerialSettings.chooseWallpaperAlwaysMoves(on) }; true }
+                        "showWeather" -> { onMain { AerialSettings.chooseShowWeather(on) }; true }
+                        "screensaverClock" -> { onMain { AerialSettings.chooseScreensaverClock(on) }; true }
+                        else -> false
+                    }
+                    json(state().put("saved", known))
+                }
                 session.method == Method.POST && path == "/api/focus" -> {
                     val style = FocusStyle.of(form(session)["style"])
                     onMain { AerialSettings.chooseFocusStyle(style) }
@@ -82,9 +95,11 @@ class PhoneServer private constructor(private val context: Context, private val 
                 session.method == Method.POST && path == "/api/videos/upload" -> video(session)
                 session.method == Method.POST && path == "/api/videos/delete" -> {
                     val removed = ScreensaverVideos.delete(context, form(session)["id"].orEmpty())
+                    if (removed) onMain { Wallpapers.videosChanged() }
                     json(state().put("removed", removed))
                 }
-                path.startsWith("/tile/") -> tile(java.net.URLDecoder.decode(path.removePrefix("/tile/"), "UTF-8"))
+                path.startsWith("/tile/") -> tile(java.net.URLDecoder.decode(path.removePrefix("/tile/"), "UTF-8"), own = session.parameters["art"]?.firstOrNull() == "own")
+                path.startsWith("/library/") -> libraryPicture(java.net.URLDecoder.decode(path.removePrefix("/library/"), "UTF-8"))
                 session.method == Method.POST && path == "/api/icon" -> icon(session)
                 session.method == Method.POST && path == "/api/source/name" -> {
                     val f = form(session)
@@ -131,6 +146,26 @@ class PhoneServer private constructor(private val context: Context, private val 
                     if (known && name.isNotEmpty() && rename != null) runBlocking(Dispatchers.Main) { rename(id, name) }
                     json(state().put("saved", known && name.isNotEmpty() && rename != null))
                 }
+                session.method == Method.POST && path == "/api/icon/pick" -> {
+                    // The library's picture or the app's own art for one app; either replaces a
+                    // picture sent from the phone.
+                    val f = form(session)
+                    val pkg = f["app"].orEmpty()
+                    val pick = when (f["pick"]) {
+                        "library" -> IconLibrary.Pick.Library
+                        "own" -> IconLibrary.Pick.Own
+                        else -> null
+                    }
+                    val ok = installed(pkg) && pick != null && (pick != IconLibrary.Pick.Library || IconLibrary.has(pkg))
+                    if (ok) {
+                        CustomIcons.clear(pkg)
+                        // What Personalize picks for every app anyway is kept as no pick, so the app
+                        // follows Personalize again.
+                        IconLibrary.choose(pkg, pick.takeIf { (it == IconLibrary.Pick.Library) != AerialSettings.iconLibrary })
+                        runBlocking(Dispatchers.Main) { CustomIcons.changed(); IconLibrary.changed() }
+                    }
+                    json(state().put("saved", ok))
+                }
                 session.method == Method.POST && path == "/api/icon/reset" -> {
                     val pkg = form(session)["app"].orEmpty()
                     if (installed(pkg)) { CustomIcons.clear(pkg); onMain { CustomIcons.changed() } }
@@ -172,6 +207,9 @@ class PhoneServer private constructor(private val context: Context, private val 
                 ScreensaverVideos.all(context).forEach { put(JSONObject().put("id", it.id).put("name", it.name)) }
             })
             .put("focusStyle", AerialSettings.focusStyle.key)
+            .put("wallpaperAlwaysMoves", AerialSettings.wallpaperAlwaysMoves)
+            .put("showWeather", AerialSettings.showWeather)
+            .put("screensaverClock", AerialSettings.screensaverClock)
             .put("wallpapers", list)
             .put("apps", JSONArray().apply {
                 // Pinned inputs first, then apps by the name Home shows. [default] is the name a
@@ -187,8 +225,16 @@ class PhoneServer private constructor(private val context: Context, private val 
                         .put("source", true).put("port", src.label).put("name", look?.name ?: "").put("device", look?.device?.key ?: "").put("look", look.hashCode()))
                 }
                 apps.forEach { (a, label) ->
+                    // [icon] is where the tile's picture comes from now; [library] whether the icon
+                    // library has one for this app, which the phone can pick instead.
+                    val icon = when {
+                        CustomIcons.has(a.key) -> "custom"
+                        IconLibrary.has(a.key) && IconLibrary.uses(a.key) -> "library"
+                        else -> "own"
+                    }
                     put(JSONObject().put("key", a.key).put("label", label).put("default", a.label).put("name", AppNames.of(a.key) ?: "")
-                        .put("custom", CustomIcons.has(a.key)).put("stamp", CustomIcons.stamp(a.key)))
+                        .put("custom", CustomIcons.has(a.key)).put("library", IconLibrary.has(a.key)).put("icon", icon)
+                        .put("stamp", CustomIcons.stamp(a.key) + IconLibrary.stamp(a.key) + icon.hashCode()))
                 }
             })
             .put("layout", layoutState())
@@ -219,8 +265,9 @@ class PhoneServer private constructor(private val context: Context, private val 
     private fun layoutState(): JSONObject {
         fun tile(e: AppEntry) = JSONObject().put("key", e.key).put("label", e.label)
             .put("kind", when { e.folder != null -> "folder"; e.source != null -> "source"; else -> "app" })
-            // Folder and input art changes without a picture from the phone (contents, chosen device).
-            .put("stamp", if (e.folder != null || e.source != null) e.art.hashCode().toLong() else CustomIcons.stamp(e.key))
+            // Folder and input art changes without a picture from the phone (contents, chosen
+            // device), an app's with the icon library too.
+            .put("stamp", if (e.folder != null || e.source != null) e.art.hashCode().toLong() else CustomIcons.stamp(e.key) + IconLibrary.stamp(e.key))
             .apply { e.folder?.let { put("id", it.id) }; e.source?.let { put("port", it.label) } }
         val folders = JSONObject()
         AppCatalog.folderApps.forEach { (id, apps) -> folders.put(id, JSONArray().apply { apps.forEach { put(tile(it)) } }) }
@@ -265,14 +312,25 @@ class PhoneServer private constructor(private val context: Context, private val 
     private fun installed(pkg: String) =
         pkg.isNotEmpty() && (AppCatalog.loaded.any { it.key == pkg } || AppCatalog.pinnedSources.any { it.key == pkg })
 
-    private fun tile(pkg: String): Response {
+    /** The tile as Home shows it; with [own], as the app's own art would draw it. */
+    private fun tile(pkg: String, own: Boolean = false): Response {
         val app = (AppCatalog.pinnedSources + AppCatalog.loaded + AppCatalog.folders).firstOrNull { it.key == pkg } ?: return text(Response.Status.NOT_FOUND, "")
-        val bmp = TileArtFactory.flatten(app.art)
+        val art = if (own && app.source == null && app.folder == null) AppCatalog.ownArt(context, app) ?: app.art else app.art
+        val bmp = TileArtFactory.flatten(art)
         val out = ByteArrayOutputStream()
         bmp.compress(Bitmap.CompressFormat.JPEG, 85, out)
         bmp.recycle()
         val bytes = out.toByteArray()
         return newFixedLengthResponse(Response.Status.OK, "image/jpeg", ByteArrayInputStream(bytes), bytes.size.toLong()).apply {
+            addHeader("Cache-Control", "max-age=600")
+        }
+    }
+
+    /** The icon library's picture of an app, as downloaded. */
+    private fun libraryPicture(pkg: String): Response {
+        val f = IconLibrary.file(pkg) ?: return text(Response.Status.NOT_FOUND, "")
+        val type = if (f.name.endsWith(".png")) "image/png" else "image/jpeg"
+        return newFixedLengthResponse(Response.Status.OK, type, f.inputStream(), f.length()).apply {
             addHeader("Cache-Control", "max-age=600")
         }
     }
@@ -326,6 +384,7 @@ class PhoneServer private constructor(private val context: Context, private val 
         val path = files["video"] ?: return text(Response.Status.BAD_REQUEST, "no video")
         val name = session.parameters["video"]?.firstOrNull().orEmpty()
         val saved = ScreensaverVideos.add(context, File(path), name) != null
+        if (saved) onMain { Wallpapers.videosChanged() }
         return json(state().put("saved", saved))
     }
 

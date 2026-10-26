@@ -57,7 +57,18 @@ object SystemProbe {
 
     fun network(context: Context): NetworkStatus {
         val cm = context.getSystemService<ConnectivityManager>() ?: return NetworkStatus()
-        val caps = cm.getNetworkCapabilities(cm.currentNetwork() ?: return NetworkStatus()) ?: return NetworkStatus()
+        var caps = cm.getNetworkCapabilities(cm.currentNetwork() ?: return NetworkStatus()) ?: return NetworkStatus()
+        // Under a VPN the default network is the VPN's, which carries no Wi-Fi or Ethernet
+        // transport on Android 8, and was shown as Ethernet over Wi-Fi (Hisense H55E9A, issue #435).
+        if (caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN) &&
+            !caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) && !caps.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)
+        ) {
+            caps = runCatching { cm.allNetworks.mapNotNull { cm.getNetworkCapabilities(it) } }.getOrDefault(emptyList())
+                .firstOrNull {
+                    !it.hasTransport(NetworkCapabilities.TRANSPORT_VPN) &&
+                        (it.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) || it.hasTransport(NetworkCapabilities.TRANSPORT_WIFI))
+                } ?: caps
+        }
         return when {
             caps.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) -> NetworkStatus(NetKind.Ethernet)
             caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> {
@@ -334,8 +345,15 @@ object SystemProbe {
             }.getOrNull() != null
             if (shown) return true
         }
-        val intent = tclInputPanel(context) ?: return false
-        return runCatching { context.startService(intent) }.getOrNull() != null
+        tclInputPanel(context)?.let { intent ->
+            if (runCatching { context.startService(intent) }.getOrNull() != null) return true
+        }
+        // Older Coocaa firmware (Skyworth 5H51S_N6 and 8A20 V8E, Android 5.1) keeps its inputs in
+        // the TV middleware with no provider, but any app may open its source dialog, which the
+        // remote's input key also shows (issues #519, #582, tried by both reporters with adb).
+        val coocaa = Intent("coocaa.intent.action.SOURCE_DIALOG").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        if (runCatching { pm.resolveActivity(coocaa, 0) }.getOrNull() == null) return false
+        return runCatching { context.startActivity(coocaa) }.isSuccess
     }
 
     /**
@@ -479,7 +497,27 @@ object SystemProbe {
                     intent = intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
                 )
             }
+            .let { tunersApart(context, it) }
             .sortedWith(compareBy({ it.kind.ordinal }, { it.label }))
+    }
+
+    /**
+     * Two tuners under one name, told apart by their services: Sony BRAVIA 4K AE2 (Android 14) has
+     * a DVB tuner and MediaTek's analog one, both labelled 电视, and listed two the same (issue #433).
+     */
+    private fun tunersApart(context: Context, sources: List<TvSource>): List<TvSource> {
+        val shared = sources.filter { it.kind == SourceKind.Tuner }.groupBy { it.label }.filterValues { it.size > 1 }.keys
+        if (shared.isEmpty()) return sources
+        return sources.map { source ->
+            if (source.kind != SourceKind.Tuner || source.label !in shared) return@map source
+            val service = source.id.substringBefore("/HW").lowercase()
+            when {
+                "analog" in service || "atv" in service -> source.copy(label = context.getString(R.string.input_antenna))
+                "dvb" in service || "dtv" in service || "dtmb" in service || "digital" in service ->
+                    source.copy(label = context.getString(R.string.input_digital))
+                else -> source
+            }
+        }
     }
 
     /**

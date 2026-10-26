@@ -129,6 +129,10 @@
     <string name="st_names_focused">只显示选中的</string>
     <string name="st_names_all">全部显示</string>
     <string name="st_names_hint">每个 App 下面都显示名称，或者像 Apple TV 一样只显示选中的。全部显示时，第一排的名称也显示在玻璃底板里。</string>
+    <string name="st_icon_library">App 图标</string>
+    <string name="st_icon_library_on">精选图</string>
+    <string name="st_icon_library_off">App 自带</string>
+    <string name="st_icon_library_hint">热门 App 用现成的精选图，只下载这台电视上装了的 App。关掉后，磁贴都从 App 自带的横幅或图标生成。你在手机上换的图片始终优先。</string>
     <string name="ss_kind">类型</string>
     <string name="wp_weather_city">位置</string>
     <string name="st_home_standard">双排</string>
@@ -230,4 +234,12 @@
     <string name="ss_videos_hint">扫码从手机添加 MP4 或 MOV 视频，离线轮播；没有可播放的视频时显示照片。</string>
     <string name="ss_system">系统内置</string>
     <string name="ss_system_hint">用电视自带的屏保（比如小米的那些画面），Aerial 不再显示自己的屏保。</string>
+    <string name="wp_videos_note">你从手机发来的视频，静音、一个接一个播放。和航拍一样会动，按键时停在当前画面。</string>
+    <string name="wp_source_note">这个信号源的实时画面，没有声音，打开这个信号源才有声音。往下选 App 时换成磨砂背景；没有画面时显示深色背景。</string>
+    <string name="st_play">播放</string>
+    <string name="st_play_still">静止时</string>
+    <string name="st_play_always">一直</string>
+    <string name="st_play_hint">静止时：在第一排停 10 秒后播放，按键停下。一直：按键不停，背景压暗一点；进入下面的 App 时停下。</string>
+    <string name="ss_show_time">时间</string>
+    <string name="ss_show_time_hint">航拍和照片屏保上的时间。时间和地名会不时挪一点位置，避免烧屏。</string>
 </resources>

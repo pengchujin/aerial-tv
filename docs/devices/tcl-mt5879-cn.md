@@ -82,8 +82,10 @@ TCL 手机 App 有一个「把手机里的 APK 推到电视」的功能。电视
 ## 音量与亮度
 
 - 音量：写功放的是 SystemUI 里的 `tsdkNative.setVolumeForDevice`。1.40 以前以为它只在显示音量条时才执行，所以控制中心的滑块带 `AudioManager.FLAG_SHOW_UI`，TCL 的音量条会同时弹出来（#288）。2026-10-23 在这台电视上复测：不带这个标志调音量，SystemUI 照样调用 `setVolumeForDevice`（`value = 27`，`ret=0`），也不弹音量条；TCL 75V2（m7221）的报告人测的也一样。1.41 起控制中心的滑块不带标志，只有守护代替按住的音量键连续调时还带（和按键本身一样弹 TCL 的音量条）。
-- 亮度：TCL 的画质 SDK `com.tcl.tvmanager.TTvPictureManager` 在这台电视的 boot classpath 里（`/product/framework/com.tcl.tvmanager.jar`），但 `getGraphicBacklight()` 在屏幕亮着时返回 0，不是真正的背光，所以这台电视仍然打开 TCL 的图像面板。75V2 上它返回实际值，1.41 起那里控制中心有亮度滑块（#363）。
-- 亮度：标准的 `screen_brightness` 被忽略，背光走 TCL 私有的 `tvos.tv.picture.TPictureManager` / `com.tcl.tv.pq.TvBacklightManager`。控制中心的「亮度」改为打开 TCL 的侧边设置面板：`startService(Intent("com.tcl.settings.SHOW_WINDOW").setPackage("com.tcl.settings"))`，打开后默认就在「图像」页，第一项是亮度。
+- 亮度：标准的 `screen_brightness` 被忽略（2026-10-25 读数 78，拖 TCL 的滑块时不变）。控制中心的「亮度」打开 TCL 的侧边设置面板：`startService(Intent("com.tcl.settings.SHOW_WINDOW").setPackage("com.tcl.settings"))`，打开后默认就在「图像」页，第一项是亮度。户主更喜欢这样：不弹 TCL 的亮度条。
+- 亮度：TCL 自己怎么调（2026-10-25 抓日志，户主用遥控器快捷键和 TCL 面板各拖了一轮）：两条路都由 `com.tcl.settings` 的 `PictureImpl` 调 `TTvPictureManager.setBacklight(int)`，即视频背光 `grp_video_backlight`（`sita.video: tos_picture_set_backlight e_mode=0`），刻度 0–100，当时在 16–27 之间。快捷键先经 system_server 的 `TclShortCutKeyManager.adjustBrightness`，再 `startService` 给 TCL 设置（`ITEM=picture_backlight`, `MOTION=DOWN/UP`, `MOTION_VALUE=1`），会弹 TCL 的亮度条。TCL 设置里另一套 `PictureForTROM5Impl`（`com.tcl.tv.pq.TvBacklightManager`，binder 服务 `tcl_tv_display`）在这台不用，服务列表里没有 `tcl_tv_display`。
+- 亮度：第三方程序调不了。`com.tcl.tvmanager.TTvPictureManager` 在 boot classpath 里（`/product/framework/com.tcl.tvmanager.jar`），任何进程都能调，但在 `com.tcl.settings` 以外的进程里（Aerial 的 1.48-guard、shell 的 `app_process`）：`getBacklight()` / `getGraphicBacklight()` / `getBrightness()` 都返回 0，`tsdkNative` 记 `ret=0`，`sitatvservice` 那边没有任何 `tos_picture_get_*` 记录；`setBacklight(23)` 返回成功（`tos_ret=0`），但同样没有 `tos_picture_set_backlight`，背光没动。也就是说，固件把非 TCL 进程的请求在本地挡掉了，而且不报错。所以 Aerial 不显示滑块（`TclPicture.backlight` 只在读数 1–100 时用）。75V2（m7221，Android 8）上同一个 SDK 第三方能读写，1.41 起那里有滑块，报告人已验证（#363）。
+- 亮度：唯一能让第三方改亮度的办法是像快捷键那样 `startService` 给 TCL 设置，但每次都弹 TCL 的亮度条，所以没做。
 
 ## 信号源
 

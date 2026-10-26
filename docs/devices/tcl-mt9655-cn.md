@@ -91,3 +91,9 @@ HTTP 服务日志里完全没有来自电视的请求（本机 macOS 防火墙�
 1. MT9655 平台是否有别的 ADB 入口？工厂菜单那条路径开出的是不是传统 adbd（明文 5555 + 弹窗授权）？
 2. 完全没有 ADB 时，`guard` flavor 是否还有其他接管 HOME 的可能（不依赖无障碍）？
 3. 需要我补哪些 logcat / `dumpsys` 才能定位授权通道？
+
+## 4K 界面（TCL 75Q10L，#607，作者 @waverjiang 的排查，Android 14）
+
+- `wm size` 是 1920×1080 / 320dpi，`dumpsys display` 的 real 也是 1920×1080，`ro.odm.tcl.panel_resolution` = 3840x2160，`ro.feature.graphics_4kui=true`。
+- TCL 自家桌面 `com.tcl.cyberui` 拿到 3840×2160 的缓冲加 0.5 的图层缩放，HWC 1:1 送显；第三方（Aerial）是 1080p 缓冲被放大，文字发虚。`framework.jar` 里有 `isUhdActivity` / `updateUhdActivityList`、`TCL_4KUI_WINDOW_SCALE` 等，像是系统服务按名单给窗口下发 4K 缓冲。`wm size 3840x2160` 和 `display_size_forced` 都被框架拦掉。
+- 显示模式是 1080p，所以 1.51 的 4K 画布（`UhdCanvas`）不会自动打开。之后改成按 `ro.feature.graphics_4kui` 判断（#645），面板尺寸用 `panel_resolution` 算出 2 倍，这台会自动打开；`--ez uhd_canvas false` 可关。HWC 会不会像对 TCL 桌面那样把这一层 1:1 送到面板，待作者实测；名单接口能否给第三方用，待看 framework.jar / services.jar。

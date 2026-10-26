@@ -39,8 +39,11 @@ object TileDiskCache {
         dir = File(context.cacheDir, "tiles").apply { mkdirs() }
     }
 
+    /** Bumped when tiles are drawn differently, so a build with the same version code redraws them. */
+    private const val ART = 3
+
     fun key(stamp: Long): String =
-        "$stamp|${TileArtFactory.W}|${TileArtFactory.unified}|${Locale.getDefault().toLanguageTag()}|${BuildConfig.VERSION_CODE}"
+        "$stamp|${TileArtFactory.W}|${TileArtFactory.unified}|${Locale.getDefault().toLanguageTag()}|${BuildConfig.VERSION_CODE}|$ART"
 
     private fun file(pkg: String) = File(dir, "$pkg.tile")
 

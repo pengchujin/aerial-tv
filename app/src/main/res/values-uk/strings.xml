@@ -122,6 +122,10 @@
     <string name="st_names_focused">Вибраний застосунок</string>
     <string name="st_names_all">Усі застосунки</string>
     <string name="st_names_hint">Назви під кожним застосунком або лише під вибраним, як на Apple TV.</string>
+    <string name="st_icon_library">Зображення застосунків</string>
+    <string name="st_icon_library_on">Готові</string>
+    <string name="st_icon_library_off">Із застосунку</string>
+    <string name="st_icon_library_hint">Для популярних застосунків — готові зображення з сайту Aerial, лише для застосунків на цьому телевізорі. Якщо вимкнути, плитки малюються з банера або значка застосунку. Зображення, вибране з телефона, завжди має перевагу.</string>
     <string name="ss_kind">Вигляд</string>
     <string name="wp_weather_city">Місцезнаходження</string>
     <string name="st_home_standard">Два ряди</string>
@@ -223,4 +227,12 @@
     <string name="ss_videos_hint">Додайте MP4 або MOV зі сторінки на телефоні. Перегляд без мережі; якщо відео недоступні, показуються фото.</string>
     <string name="ss_system">Системна</string>
     <string name="ss_system_hint">Заставка самого телевізора, як задумав виробник (наприклад, картини Xiaomi). Aerial свою не показує.</string>
+    <string name="wp_videos_note">Ваші відео, надіслані з телефона: без звуку, одне за одним. Рухаються як аерозйомка і зупиняються на поточному кадрі.</string>
+    <string name="wp_source_note">Жива картинка цього входу за головним екраном, без звуку; звук є, якщо відкрити сам вхід. Біля застосунків нижче тло стає матовим. Поки картинки немає, видно темне тло.</string>
+    <string name="st_play">Відтворення</string>
+    <string name="st_play_still">У спокої</string>
+    <string name="st_play_always">Завжди</string>
+    <string name="st_play_hint">У спокої: через 10 секунд на верхньому ряду; будь-яка кнопка зупиняє. Завжди: кнопки не зупиняють, тло трохи затемнене; зупиняється, коли ви переходите до застосунків нижче.</string>
+    <string name="ss_show_time">Час</string>
+    <string name="ss_show_time_hint">Час на заставках з аерозйомкою і фото. Час і назва місця час від часу трохи зсуваються, щоб екран не вигорав.</string>
 </resources>

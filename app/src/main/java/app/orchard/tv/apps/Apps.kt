@@ -359,6 +359,33 @@ object AppCatalog {
         label to art
     }.getOrNull()
 
+    /**
+     * The app's banner. Banner first: it is the artwork the app designed for a TV. ActivityInfo
+     * falls back to the application's banner by itself. A "banner" that is not wide is the app's
+     * square icon declared again (遥遥电视助手 on Xiaomi MiTV-MFTR0); covering the tile with it
+     * blows the logo up past the edges.
+     */
+    private fun banner(pm: PackageManager, info: ActivityInfo, leanback: Boolean): android.graphics.drawable.Drawable? =
+        (if (leanback) densest(pm, info, info.bannerResource) ?: runCatching { info.loadBanner(pm) }.getOrNull() else null)
+            ?.takeIf { it.intrinsicWidth >= it.intrinsicHeight * 4 / 3 }
+
+    /** The tile drawn from the app's own art: its recipe's glyph, its banner, or its icon. */
+    private fun fromApp(pm: PackageManager, info: ActivityInfo, banner: android.graphics.drawable.Drawable?, recipe: TileRecipe?): TileArt = when {
+        recipe?.glyph != null -> TileArtFactory.glyphTile(recipe.top ?: 0, recipe.bottom ?: 0, recipe.glyph)
+        banner != null && recipe?.useIcon != true -> TileArtFactory.fromBanner(banner)
+        else -> TileArtFactory.fromIcon(densest(pm, info, info.iconResource) ?: info.loadIcon(pm), recipe)
+    }
+
+    /**
+     * The tile [entry] would get from its own art, without a picture from the phone or the icon
+     * library: for the phone page to show beside the library's. Off the main thread.
+     */
+    fun ownArt(context: Context, entry: AppEntry): TileArt? = runCatching {
+        val pm = context.packageManager
+        val info = pm.getActivityInfo(entry.component, 0)
+        fromApp(pm, info, banner(pm, info, entry.leanback), TileRecipes.of(entry.packageName))
+    }.getOrNull()
+
     private fun entry(
         pm: PackageManager, info: ActivityInfo, leanback: Boolean, byCategory: Map<String, SystemTile>,
         stockHome: Boolean = false, later: Boolean = false,
@@ -367,7 +394,7 @@ object AppCatalog {
         // A picture chosen on the phone page changes the tile as much as an update does.
         // Drawn as the stock launcher or not is part of it too: the same package can be either.
         val stamp = runCatching { pm.getPackageInfo(pkg, 0).lastUpdateTime }.getOrDefault(0L) + CustomIcons.stamp(pkg) +
-            if (stockHome) 1 else 0
+            IconLibrary.stamp(pkg) + if (stockHome) 1 else 0
         val system = (info.applicationInfo.flags and ApplicationInfo.FLAG_SYSTEM) != 0
         val inMemory = synchronized(cache) { cache[pkg] }?.takeIf { it.stamp == stamp && it.width == TileArtFactory.W }
         if (inMemory == null && later) {
@@ -386,17 +413,15 @@ object AppCatalog {
             art = cached.art
         } else {
             label = runCatching { info.loadLabel(pm).toString().trim() }.getOrDefault("").ifEmpty { pkg }
-            // Banner first: it is the artwork the app designed for a TV. ActivityInfo falls back
-            // to the application's banner by itself.
-            // A "banner" that is not wide is the app's square icon declared again (遥遥电视助手 on
-            // Xiaomi MiTV-MFTR0); covering the tile with it blows the logo up past the edges.
-            val banner = (if (leanback) densest(pm, info, info.bannerResource) ?: runCatching { info.loadBanner(pm) }.getOrNull() else null)
-                ?.takeIf { it.intrinsicWidth >= it.intrinsicHeight * 4 / 3 }
+            val banner = banner(pm, info, leanback)
             // A launcher declared only as a Home has an icon for phones at best (TCL's cyberui: the
             // default robot), so it is drawn as Aerial's own.
             val own = if (stockHome) SystemTile.Home
                 else if (system) SYSTEM_TILES[pkg] ?: byCategory[pkg]?.takeIf { banner == null } else null
             val custom = CustomIcons.load(pkg)
+            // Aerial's own tiles for the firmware's apps keep their look; any other app's
+            // ready-made picture comes before what Aerial would draw from its banner or icon.
+            val library = if (custom == null && (own == null || IconLibrary.pick(pkg) == IconLibrary.Pick.Library)) IconLibrary.load(pkg) else null
             val recipe = TileRecipes.of(pkg)
             // A tile that cannot be drawn used to drop the app from Home altogether, without a word
             // in the log (com.fongmi.androidtv on TCL MT5879, issue #415). Its icon then, or
@@ -404,10 +429,9 @@ object AppCatalog {
             art = runCatching {
                 when {
                     custom != null -> TileArtFactory.fromBanner(android.graphics.drawable.BitmapDrawable(android.content.res.Resources.getSystem(), custom))
+                    library != null -> TileArtFactory.fromBanner(android.graphics.drawable.BitmapDrawable(android.content.res.Resources.getSystem(), library))
                     own != null -> TileArtFactory.forSystem(own)
-                    recipe?.glyph != null -> TileArtFactory.glyphTile(recipe.top ?: 0, recipe.bottom ?: 0, recipe.glyph)
-                    banner != null && recipe?.useIcon != true -> TileArtFactory.fromBanner(banner)
-                    else -> TileArtFactory.fromIcon(densest(pm, info, info.iconResource) ?: info.loadIcon(pm), recipe)
+                    else -> fromApp(pm, info, banner, recipe)
                 }
             }.recoverCatching {
                 Log.w(TAG, "could not draw the tile of $pkg; using its icon", it)

@@ -57,10 +57,41 @@
 - 自带屏保的入口：`com.xiaomi.mitv.hyper.screensaver/.MainActivity` 就是屏保本身。系统由受保护广播交给 `MainReceiver`，它再带 `show_saver_list=false`、`show_widget_view=false`、`Source` 启动 `MainActivity`；不带这两个 extra 直接打开，屏保上会盖着样式选择列表（还有广告）。1.42 个性化的「系统内置」：按返回就这样打开它，计时交给小米自己（`screen_saver_timeout`），这时 Aerial 不保持常亮。实测返回键打开的是没有列表的屏保，返回回到 Aerial；停在 Aerial 60 秒后小米屏保自己出来（这台当时 `screen_saver_timeout=60000`）。屏保 3.04.115（2026-10-24）。
 - 1.38 加了「从不」以后，选「从不」时 Aerial 不启动屏保，8 分钟后小米的屏保照样出现在 Aerial 上，户主以为屏保「跳回了小米自带的」（2026-10-23，户主的这台就设成了「从不」）。1.42 起选「从不」且 `screen_off_timeout` 是无限（这台是 2147483647）时，Aerial 在前台就保持 `FLAG_KEEP_SCREEN_ON`，日志里有 `setKeepScreenOnFlag KeepScreenOn:true`，户主确认小米屏保不再出来。
 
+## 按住音量键不连发（Android 12+ 已修，未发版；#632 #460 #335）
+
+- 现象：Aerial 在前台时按住遥控器音量键只调一格，回到 PatchWall 或别的 App 正常。#632 是小米 S Pro 2026（1.49、1.50），#460 #335 是 MFTP0（Android 9，守护一直开着过滤，所以哪里都不连发）。
+- 起因：1.42 的 2e97ba4 让 Android 12+ 的守护在 Aerial 前台时开无障碍按键过滤，好在系统之前拿走主页键，不再先闪一下 PatchWall。1.36–1.41 在 Android 12+ 不过滤，按住能连发。Android 11 及以下一直要过滤，不然主页键回 Aerial 要等约 5 秒。
+- 2026-10-26 在 MFTR0（1.52，`uinput` 按住 1.5 秒）上看到的：过滤开着时日志只有一次 `interceptKeyTi ... repeatCount=0` 加 `xmHandleVolumeKey() mode 1`，和一次抬起 `mode 2`，没有任何连发；守护的 `onKeyEvent` 和 Aerial 的 `dispatchKeyEvent` 都收不到音量键。`dumpsys accessibility` 里开着的是 `KeyboardInterceptor`。推测（按 AOSP 的 KeyboardInterceptor，没有看小米源码）：过滤器先问策略 `interceptKeyBeforeDispatching`，小米在这里调了音量并返回「已处理」，过滤器就丢掉这个键，键不进 InputDispatcher，也就没有连发。2026-10-24 测过：不过滤时按住 1.5 秒 1→6。
+- 试过、不行的：守护在「按下后到了连发时间、音量只动了一格」时自己连调（照 TCL 的做法）。守护根本收不到音量键，这段代码没有被执行到，已撤回。
+- 只关掉 Aerial 前台时的过滤，连发是回来了，但主页键闪 PatchWall 也回来了。不要为了修一个把另一个带回来；下面「onPause 拉回」是两个都保住的做法。
+- 不可行的方向：
+  - 只在可能按主页键之前开过滤：没有可靠的提前信号。
+  - 由 App 自己连发：连发由 InputDispatcher 生成，被丢掉的键到不了那里；App 又拿不到物理按键的状态（没有公开 API），守护和 Aerial 都不知道键还按着没有。
+
+### 2026-10-26 实测：不过滤时怎样不闪 PatchWall
+
+测试包（不进版本库）用 `settings global aerial_test_*` 开关切换做法，`uinput` 按主页键。录屏在这台上每秒只有约 1 帧，`screencap` 一张要 1.7 秒，perfetto 也没有图层轨迹的数据源，都看不出几百毫秒的闪烁。改用 `dumpsys SurfaceFlinger --frametimeline -all`（最近 64 个显示帧，每帧哪些图层有新 buffer 或事务）：把 PatchWall 的任务层（`Task=1#47`）有没有事务变动，当作它有没有被提到 Aerial 上面。这是推断，没有人眼看过。
+
+- **默认的不过滤做法**（等 PatchWall 的窗口事件再拉回）：抬起主页键后约 6–9ms 守护收到 `homekey` 广播，约 40ms PatchWall 启动，约 220–370ms 守护才看到 PatchWall 的窗口事件，386–518ms Aerial 恢复。3 次都有 PatchWall 任务层的变动（各 4 次），就是那一下闪。
+- **悬浮窗挡住：不行，而且更糟。** 收到 `homekey` 时由守护加一层 `TYPE_ACCESSIBILITY_OVERLAY` 黑色全屏遮罩，遮罩在 PatchWall 启动前就画出来了。但小米的 system_server 每次都在切到 PatchWall 时 `Force stopping app.orchard.tv ... from pid 566`（2 次都是），Aerial 被杀掉，PatchWall 留在前台，要等复活机制再拉回来。`TYPE_APPLICATION_OVERLAY` 没有再试。
+- **广播后定时拉回：不稳。** 广播后 1ms 就拉回，比 PatchWall 启动还早，PatchWall 反而盖在 Aerial 上面约 1.3 秒，直到重查才拉回；50–110ms 后拉回时，PatchWall 的任务层没动。但主线程的延迟和 PatchWall 的启动时间每次都不一样，定时器靠运气。
+- **Aerial `onPause` 时拉回：逐帧记录里 5 次都没闪，户主在电视前看也不闪（疯狂连按除外，见下一节）。** 守护记下 Aerial 在前台时收到 `homekey` 广播的时间；随后 1 秒内 Aerial 的 `MainActivity.onPause`（即 `HomeGuardService.onAerialPaused`）被调用时，马上 `goHome()`。onPause 在抬键后 31–76ms，正好在 PatchWall 启动之后、被提到前面之前。5 次里 PatchWall 的任务层都没有变动（只在后台画了 1–2 帧），Aerial 在 123–290ms 内恢复。
+- 同一做法下，Aerial 在前台不过滤，按住音量能连发：音量加 1.5 秒收到 18 次按键，音量减 12 次。
+- 顺带发现：这台现在按一下音量键、或者控制中心滑块走一格，音量都变 2 格。日志里 Aerial 的 `adjustStreamVolume` 只调了 1 格，随后 `HdmiCecLocalDeviceTv: setStreamVolume xm_volume` 把音量改成 HDMI ARC 音响回报的值。这台现在从 ARC 出声，音响有自己的步进，所以有些值（比如 18）用按键或滑块调不到。过滤开着和关着都一样，不是 Aerial 造成的。
+- 测试补丁没有进版本库，`aerial_test_*` 设置都删了。
+
+### 已修：小米 Android 12+ 在 Aerial 前台时不过滤，onPause 时拉回（2026-10-26，未发版）
+
+`HomeGuardService.backOnPause`：有 `com.mitv.tvhome` 且 Android 12+ 时，Aerial 在前台也不过滤按键，音量键交给小米，按住就能连发。守护在 Aerial 前台时（或刚把它拉回、还在路上时）收到 `homekey` 广播，就记下时间；400ms 内 Aerial 进入 `onPause`，就马上 `goHome()`。两次广播间隔不到 600ms 算连按两下，等 Aerial 回来再打开最近任务，保留 1.52 由过滤器做的功能（#335）。按广播计时是因为 Aerial 正在回来时广播会晚到：按键间隔 120ms，广播间隔 350ms 以上。Android 11 及以下（MFTP0，#460）和其他品牌都不变：Android 11 及以下主页键之后系统会挡住后台启动 5 秒，onPause 时拉不回来。
+
+在 MFTR0 上测（standard release）：
+- `uinput`：单按 7 次、连按 5 次（含间隔 120ms 的快速连按），frametimeline 里 PatchWall 的任务层都没被提上来，连按都打开了最近任务；按住主页键是小米的任务中心，守护不干预；按住音量 1.5 秒，音量加 16 次、音量减 12 次连发；从 Aerial 打开云视听极光不会被拉回，在云视听极光里按主页键照旧回到 Aerial。
+- 户主在电视前看：正常速度按主页键不闪，按住音量能连发。疯狂连按主页键会闪一下 PatchWall，换回正式的 1.52 也一样，不是这个改动带来的。
+
 ## 其他
 
 - 背光：`Settings.Global picture_backlight`（0–100），改了以后 `tvmenusettingsservice` 会立即应用。需要 `WRITE_SECURE_SETTINGS`。
-- 音量：普通的 `adjustStreamVolume` 就能生效。音量键在过滤器之前就被小米处理了，守护的 `onKeyEvent` 收不到；但只要无障碍过滤开着（Aerial 在前台时），按住音量键只调一格、不连发，关掉过滤就连发（2026-10-24 用 `uinput` 测：不过滤时按住 1.5 秒 1→6，过滤时只加 1）。MFTP0（Android 9）一直开着过滤，所以哪里都不连发（#460 #335）。
+- 音量：普通的 `adjustStreamVolume` 就能生效。按住音量键不连发见上一节。
 - 信号源：HW5/6/7 = HDMI 1/2/3（HDMI 2 是 eARC），HW8 是不存在的第 4 个口（已隐藏）；HW2 = AV，HW1 = ATV，HW0 = DTMB。切换用 `com.xiaomi.mitv.tvplayer` 的 Intent（参考 tv-vibehack 仓库的设备笔记）。CEC 的 OSD 名（如「Apple TV」）只有系统权限能读，第三方 App 拿到的是 `Playback_1`。
 - 设置：`com.xiaomi.mitv.settings/.entry.MainActivity`；Wi-Fi：`.wifi.MitvWifiActivity`。
 - 截图：`adb shell screencap -p /data/local/tmp/x.png` 再 `adb pull`（直接 `exec-out` 在部分小米机型上会坏）。视频画面能截到。

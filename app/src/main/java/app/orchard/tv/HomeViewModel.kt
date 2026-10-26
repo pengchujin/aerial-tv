@@ -16,6 +16,7 @@ import app.orchard.tv.apps.AppEntry
 import app.orchard.tv.apps.AppNames
 import app.orchard.tv.apps.LayoutOps
 import app.orchard.tv.apps.CustomIcons
+import app.orchard.tv.apps.IconLibrary
 import app.orchard.tv.apps.SourceLooks
 import app.orchard.tv.apps.FOLDER_KEY_PREFIX
 import app.orchard.tv.apps.SOURCE_KEY_PREFIX
@@ -29,6 +30,7 @@ import app.orchard.tv.system.Brightness
 import app.orchard.tv.system.DiagLog
 import app.orchard.tv.system.HomeStatus
 import app.orchard.tv.system.NetworkStatus
+import app.orchard.tv.system.SourceKind
 import app.orchard.tv.system.SystemProbe
 import app.orchard.tv.system.TvSource
 import app.orchard.tv.system.VolumeStatus
@@ -36,6 +38,7 @@ import app.orchard.tv.ui.home.PinMode
 import app.orchard.tv.ui.home.ScreensaverSkips
 import app.orchard.tv.ui.home.TileFaces
 import app.orchard.tv.ui.theme.canvasDensity
+import app.orchard.tv.wallpaper.Wallpapers
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
@@ -129,6 +132,8 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
         reload()
         // A tile picture set or removed from the phone page.
         viewModelScope.launch { snapshotFlow { CustomIcons.version }.drop(1).collect { reload() } }
+        // Library pictures that arrived, or the library turned on or off.
+        viewModelScope.launch { snapshotFlow { IconLibrary.version }.drop(1).collect { reload() } }
         offerSetupOnce()
         // An input's device or name, chosen from its tile's menu or the phone page.
         viewModelScope.launch { snapshotFlow { SourceLooks.all }.drop(1).collect { if (loaded) arrange() } }
@@ -210,6 +215,15 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
                 prepareFaces()
                 DiagLog.i("$waiting more tiles in ${SystemClock.uptimeMillis() - rest} ms")
             }
+            refreshIconLibrary()
+        }
+    }
+
+    /** Ready-made pictures for the apps just loaded, in the background; Home reloads when some arrive. */
+    private fun refreshIconLibrary() {
+        val installed = all.mapTo(HashSet()) { it.packageName }
+        viewModelScope.launch {
+            if (IconLibrary.refresh(installed)) IconLibrary.changed()
         }
     }
 
@@ -267,6 +281,12 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
         val pinned = sources.filter { it.id in AerialSettings.pinnedSources }.map { sourceEntry(context, it) }
         AppCatalog.pinnedSources = pinned
         AppCatalog.sources = sources
+        // The inputs Android itself lists can play behind Home through a TvView; the ones Aerial
+        // makes up for TCL, Skyworth and the like open only in the maker's own player.
+        Wallpapers.setSources(
+            sources.filter { (it.kind == SourceKind.Hdmi || it.kind == SourceKind.DisplayPort) && '/' in it.id }
+                .map { it.id to (it.deviceName?.let { d -> "${it.label} · $d" } ?: it.label) },
+        )
         // Names typed on the phone page stand in for the apps' own, everywhere Home shows one.
         val named = all.map { e -> AppNames.of(e.key)?.let { e.copy(label = it) } ?: e }
         val arrangement = store.arrange(named + pinned) { folder, inside ->

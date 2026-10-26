@@ -122,6 +122,10 @@
     <string name="st_names_focused">Таңдалған қолданба</string>
     <string name="st_names_all">Барлық қолданбалар</string>
     <string name="st_names_hint">Атаулар әр қолданбаның астында немесе тек таңдалғанның астында, Apple TV сияқты.</string>
+    <string name="st_icon_library">Қолданба суреттері</string>
+    <string name="st_icon_library_on">Дайын</string>
+    <string name="st_icon_library_off">Қолданбадан</string>
+    <string name="st_icon_library_hint">Танымал қолданбаларға Aerial сайтынан дайын суреттер жүктеледі, тек осы теледидардағы қолданбаларға. Өшірсеңіз, тақтайшалар қолданбаның баннері не белгішесінен салынады. Телефоннан таңдаған сурет әрқашан бірінші.</string>
     <string name="ss_kind">Түрі</string>
     <string name="wp_weather_city">Орналасқан жер</string>
     <string name="st_home_standard">Екі қатар</string>
@@ -223,4 +227,12 @@
     <string name="ss_videos_hint">Телефон бетінен MP4 немесе MOV қосыңыз. Интернетсіз ойнатылады; бейне болмаса, фотолар көрсетіледі.</string>
     <string name="ss_system">Жүйелік</string>
     <string name="ss_system_hint">Теледидардың өз экран сақтағышы (мысалы, Xiaomi суреттері). Aerial өзінікін көрсетпейді.</string>
+    <string name="wp_videos_note">Телефоннан жіберілген өз бейнелеріңіз: дыбыссыз, бірінен соң бірі. Аэрожиын сияқты қозғалады және ағымдағы кадрда тоқтайды.</string>
+    <string name="wp_source_note">Осы кірістің басты экран артындағы тірі суреті, дыбыссыз; дыбыс үшін кірістің өзін ашыңыз. Төмендегі қолданбаларда күңгірт фонға ауысады. Сурет жоқ кезде қараңғы фон көрінеді.</string>
+    <string name="st_play">Ойнату</string>
+    <string name="st_play_still">Тыныштықта</string>
+    <string name="st_play_always">Әрдайым</string>
+    <string name="st_play_hint">Тыныштықта: жоғарғы қатарда 10 секундтан кейін; кез келген түйме тоқтатады. Әрдайым: түймелер тоқтатпайды, фон сәл күңгірттенеді; төмендегі қолданбаларға өткенде тоқтайды.</string>
+    <string name="ss_show_time">Уақыт</string>
+    <string name="ss_show_time_hint">Аэрожиын және фото экран қорғауыштарындағы уақыт. Экран күйіп қалмас үшін уақыт пен орын атауы анда-санда сәл жылжиды.</string>
 </resources>

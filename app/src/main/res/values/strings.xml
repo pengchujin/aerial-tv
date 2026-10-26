@@ -130,6 +130,10 @@
     <string name="st_names_focused">Selected App</string>
     <string name="st_names_all">All Apps</string>
     <string name="st_names_hint">Names under every app, or only under the selected one, as on Apple TV. With every name shown, the top row\'s names sit on its glass plate too.</string>
+    <string name="st_icon_library">App Pictures</string>
+    <string name="st_icon_library_on">Ready-made</string>
+    <string name="st_icon_library_off">From the App</string>
+    <string name="st_icon_library_hint">Popular apps get a ready-made picture from Aerial\'s website, downloaded only for the apps on this TV. Off, every tile is drawn from the app\'s own banner or icon. A picture you chose on your phone always comes first.</string>
     <string name="ss_kind">Style</string>
     <string name="wp_weather_city">Location</string>
     <string name="st_home_standard">Two Rows</string>
@@ -231,4 +235,12 @@
     <string name="ss_videos_hint">Add MP4 or MOV films from the phone page. Plays offline; photos are shown when no film can play.</string>
     <string name="ss_system">System</string>
     <string name="ss_system_hint">The TV\'s own screensaver, as it came with the TV (Xiaomi\'s pictures, for one). Aerial shows none of its own.</string>
+    <string name="wp_videos_note">Your own videos, sent from the phone, silent and one after another. They move like the aerial films and stop on the frame showing.</string>
+    <string name="wp_source_note">This input\'s live picture behind Home, without sound; open the input for sound. Going down to the apps, it gives way to a frosted background. A dark picture shows while the input has nothing to show.</string>
+    <string name="st_play">Playing</string>
+    <string name="st_play_still">When still</string>
+    <string name="st_play_always">Always</string>
+    <string name="st_play_hint">When still: after 10 seconds on the top row; a key stops it. Always: keys do not stop it, and it is shaded a little; it stops when you go down to the apps.</string>
+    <string name="ss_show_time">Time</string>
+    <string name="ss_show_time_hint">The time over the aerial and photo screensavers. The time and place name move a little now and then, so nothing stays on the same pixels.</string>
 </resources>

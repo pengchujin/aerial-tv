@@ -27,6 +27,7 @@ import androidx.media3.common.VideoSize
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.ExoPlayer
+import app.orchard.tv.ui.components.FilmSlot
 import app.orchard.tv.system.DiagLog
 import app.orchard.tv.wallpaper.ScreensaverVideo
 import app.orchard.tv.wallpaper.ScreensaverVideos
@@ -117,8 +118,8 @@ private fun LocalFilms(films: List<ScreensaverVideo>, steps: SharedFlow<Int>, on
     Box(Modifier.fillMaxSize()) {
         AndroidView(
             modifier = Modifier.align(Alignment.Center).aspectRatio(aspect),
-            factory = { ctx -> SurfaceView(ctx).also { player.setVideoSurfaceView(it) } },
-            onRelease = { player.clearVideoSurfaceView(it) },
+            factory = { ctx -> FilmSlot(ctx).also { player.setVideoSurfaceView(it.surface) } },
+            onRelease = { player.clearVideoSurfaceView(it.surface) },
         )
     }
 }

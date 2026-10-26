@@ -235,3 +235,87 @@ footer a { color: var(--muted); }
   .tabs[data-tabs="method"] { display: flex; flex-wrap: wrap; }
   .tabs[data-tabs="method"] button { flex: 1 1 auto; justify-content: center; padding: 8px 10px; }
 }
+
+/* voices: posts from Weibo, X and Xiaohongshu, one stack of cards per platform */
+nav .links a[aria-current] { color: var(--text); }
+.voices-hero { text-align: center; padding: 96px 0 8px; }
+.voices { padding-top: 56px; overflow-x: clip; }  /* a thrown card must not widen the page */
+.decks { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 48px 40px; }
+.deck-col { width: 100%; max-width: 380px; margin: 0 auto; display: flex; flex-direction: column; }
+.deck-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.deck-count { color: var(--dim); font-size: 13px; font-variant-numeric: tabular-nums; }
+.pf { display: inline-flex; align-items: center; height: 26px; padding: 0 12px; border-radius: 980px; font-size: 13px; font-weight: 600; letter-spacing: .02em; }
+.pf.weibo { background: rgba(230,22,45,.16); color: #ff6b7a; }
+.pf.x { background: rgba(255,255,255,.1); color: var(--text); }
+.pf.xhs { background: rgba(255,36,66,.16); color: #ff7088; }
+
+/* All cards share one grid cell, so the deck is as tall as its longest card and every card
+   matches it. The cards behind peek out above the top one; room for two of them sits above. */
+.deck { flex: 1; display: grid; margin-top: 32px; outline: none; touch-action: pan-y; }
+.deck:focus-visible .vcard[data-p="0"] { box-shadow: 0 0 0 2px var(--accent), 0 24px 60px rgba(0,0,0,.55); }
+.vcard {
+  grid-area: 1 / 1; position: relative; display: flex; flex-direction: column; gap: 14px; padding: 20px 20px 16px;
+  background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
+  box-shadow: 0 24px 60px rgba(0,0,0,.55); transform-origin: 50% 100%;
+  transition: transform .42s var(--ease), opacity .3s ease; user-select: none; -webkit-user-select: none; cursor: pointer;
+}
+/* Cards further back go darker, so the stack reads as depth rather than clutter. */
+.vcard::after { content: ""; position: absolute; inset: -1px; border-radius: inherit; background: #000; opacity: 0; pointer-events: none; transition: opacity .42s var(--ease); }
+.vcard[data-p="0"] { transform: none; }
+.vcard[data-p="1"] { transform: translate(-8px, -16px) rotate(-3deg) scale(.95); }
+.vcard[data-p="1"]::after { opacity: .22; }
+.vcard[data-p="2"], .vcard[data-p="3"] { transform: translate(10px, -30px) rotate(3.2deg) scale(.9); }
+.vcard[data-p="2"]::after { opacity: .42; }
+.vcard[data-p="3"] { opacity: 0; }
+@media (hover: hover) and (pointer: fine) {
+  .deck:hover .vcard[data-p="1"] { transform: translate(-16px, -19px) rotate(-4deg) scale(.95); }
+  .deck:hover .vcard[data-p="2"] { transform: translate(18px, -34px) rotate(4.5deg) scale(.9); }
+}
+/* Leaving: the top card is thrown to one side, then tucked in at the back. */
+.vcard.out-r { transform: translate(72%, 10px) rotate(9deg) !important; transition-duration: .22s; }
+.vcard.out-l { transform: translate(-72%, 10px) rotate(-9deg) !important; transition-duration: .22s; }
+.vcard.dragging { transition: none; }
+.vcard img { -webkit-user-drag: none; }
+
+.vcard header { display: flex; align-items: center; gap: 12px; }
+.vcard .avatar { width: 40px; height: 40px; border-radius: 50%; flex: none; background: var(--card-2); }
+.vcard .who { min-width: 0; display: flex; flex-direction: column; line-height: 1.3; }
+.vcard .who b { font-size: 15px; font-weight: 600; }
+.vcard .who span { color: var(--dim); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vcard .q {
+  flex: none; margin: 0; color: #e8e8ed; font-size: 16px; line-height: 1.65;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 11; overflow: hidden;
+}
+.vcard.has-pic .q { -webkit-line-clamp: 5; }
+.vcard .q.big { font-size: 22px; line-height: 1.5; letter-spacing: -.01em; font-weight: 500; color: var(--text); -webkit-line-clamp: 9; }
+.vcard .pic { flex: none; aspect-ratio: 16 / 9; border-radius: 12px; overflow: hidden; background: #000; }
+.vcard .pic img { width: 100%; height: 100%; object-fit: cover; }
+.vcard footer { display: flex; align-items: center; justify-content: space-between; font-size: 13px; line-height: 1.4; margin-top: auto; padding: 2px 0 0; border: 0; color: inherit; }
+.vcard .stat { color: var(--dim); }
+.vcard footer a { color: var(--muted); padding: 4px 0; }
+.vcard footer a:hover { color: var(--text); text-decoration: none; }
+
+.deck-nav { display: flex; justify-content: center; gap: 12px; margin-top: 22px; }
+.deck-nav button {
+  appearance: none; width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; cursor: pointer;
+  color: var(--muted); background: transparent; border: 1px solid var(--line);
+  transition: color .2s ease, border-color .2s ease, transform .15s var(--ease);
+}
+.deck-nav button:hover { color: var(--text); border-color: rgba(255,255,255,.22); }
+.deck-nav button:active { transform: scale(.94); }
+
+.voices-cta { text-align: center; }
+.voices-cta .lede { margin-top: 18px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .vcard { transition: opacity .2s ease; }
+  .vcard.out-r, .vcard.out-l { transform: none !important; opacity: 0; }
+}
+@media (max-width: 860px) {
+  .voices-hero { padding-top: 64px; }
+  .voices { padding-top: 40px; }
+  .decks { gap: 56px; }
+}
+@media (max-width: 400px) {
+  .vcard .q.big { font-size: 20px; }
+}

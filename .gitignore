@@ -13,6 +13,7 @@ local/
 site/download/
 site/tools/
 site/install.sh
+site/icons/
 
 # Wrangler state and the account cache (account id, e-mail).
 .wrangler/

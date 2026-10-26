@@ -7,6 +7,7 @@ import app.orchard.tv.apps.TileSheet
 import app.orchard.tv.settings.AerialSettings
 import app.orchard.tv.system.DiagLog
 import app.orchard.tv.update.Updates
+import app.orchard.tv.ui.components.UhdCanvas
 import app.orchard.tv.wallpaper.ScreensaverMode
 import app.orchard.tv.wallpaper.Wallpapers
 import kotlinx.coroutines.launch
@@ -61,6 +62,11 @@ class ConfigReceiver : BroadcastReceiver() {
         if (intent.hasExtra("diag")) DiagLog.setEnabled(context, intent.getBooleanExtra("diag", false))
         for (key in listOf("mode_switch", "soft_layer")) {
             if (intent.hasExtra(key)) DiagLog.setOption(context, key, intent.getBooleanExtra(key, false))
+        }
+        // ... --ez uhd_canvas true|false / --es uhd_canvas auto   (Home at the panel's resolution,
+        //                                 see UhdCanvas; applies the next time Home starts)
+        if (intent.hasExtra("uhd_canvas")) {
+            UhdCanvas.choose(context, intent.extras?.get("uhd_canvas") as? Boolean)
         }
         if (intent.hasExtra("update_test")) {
             Updates.testApk = if (intent.getBooleanExtra("update_test", false)) {

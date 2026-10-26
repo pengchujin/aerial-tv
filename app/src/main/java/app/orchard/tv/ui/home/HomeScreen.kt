@@ -150,9 +150,10 @@ private class GridMetrics(screenW: Dp, screenH: Dp, oneRow: Boolean, plateNames:
     /**
      * Top of the large clock: just under the status pill, left or right, in both layouts, as on the
      * lock screen. Hung from the row it floated mid-screen in one-row mode and pressed on the plate
-     * in two-row mode; up here the middle of the screen stays the wallpaper's.
+     * in two-row mode; up here the middle of the screen stays the wallpaper's. This is the date's
+     * cap top: the clock's lines are boxed to their capitals.
      */
-    val clockY = 74.dp
+    val clockY = 80.dp
 
     /** Where a row rests once you go down into the grid: the row above stays in view. */
     val restY = screenH * 0.37f
@@ -173,6 +174,9 @@ private class GridMetrics(screenW: Dp, screenH: Dp, oneRow: Boolean, plateNames:
 
 /** How long the screensaver waits for the wallpaper's film to move before playing its own. */
 private const val FILM_SAVER_WAIT_MS = 10_000L
+
+/** How long the large clock's time takes back from the screensaver's corner (ShelfClock waits for it). */
+internal const val CLOCK_BACK_MS = 1000
 
 /** How long Control Center takes to come in before a picture of Home stands in for it. */
 private const val HOME_SHOT_AFTER_MS = 450L
@@ -292,6 +296,17 @@ fun HomeScreen(
             // A key woke it: Home comes back at once and settles in, the way it went. At 380 ms the
             // apps' part of it (60% of the way) was over in a blink and read as a cut (issue #357).
             else -> toSaver.animateTo(0f, tween(650, easing = Motion.EaseOut))
+        }
+    }
+    // The large clock's time goes back the way it came, at half the pace. On Home's 650 ms ease-out
+    // it was most of the way back in two or three frames (Xiaomi MiTV-MFTR0: 45-57 ms a frame as it
+    // wakes) and leapt; out of the corner and back are one motion run both ways.
+    val clockToSaver = remember { Animatable(0f) }
+    LaunchedEffect(carrying) {
+        when {
+            reduced -> clockToSaver.snapTo(if (carrying) 1f else 0f)
+            carrying -> clockToSaver.animateTo(1f, tween(2000, easing = Motion.EaseInOut))
+            else -> clockToSaver.animateTo(0f, tween(CLOCK_BACK_MS, easing = Motion.EaseInOut))
         }
     }
 
@@ -506,19 +521,35 @@ fun HomeScreen(
                     (metrics.topRowY + metrics.tileH + PlatePadV + metrics.firstGap).toPx(),
                 )
             }
-            // The aerial wallpaper's film, under everything; it moves only on a still top row.
-            if (Wallpapers.selectedId == Wallpapers.LIVE) {
-                LiveWallpaper(
-                    moving = vm.resumed && overlay == Overlay.None && !vm.screensaverVisible && !pastShelf &&
-                        focusedRow == 0 && moving == null,
+            // A moving wallpaper's film, under everything; it moves only on the top row with
+            // nothing over it, and there only once Home is still unless set to keep moving.
+            val filmMoves = vm.resumed && overlay == Overlay.None && !vm.screensaverVisible && !pastShelf &&
+                focusedRow == 0 && moving == null
+            val sourceInput = Wallpapers.sourceInput
+            when {
+                Wallpapers.selectedId == Wallpapers.LIVE -> LiveWallpaper(
+                    moving = filmMoves,
                     keep = vm.resumed && (!vm.screensaverVisible || filmSaver),
                     lastInputAt = vm.lastInputAt,
                     cover = filmCover,
                     hold = filmSaver && vm.resumed,
-                    standIn = overlay == Overlay.None,
+                    // Control Center and Personalize leave Home sharp (dimmed, or above the sheet):
+                    // the paused film stays. Swapped for its picture there, the background jumped
+                    // (another plane and processing; a key frame a second off where the exact
+                    // frame did not decode, Xiaomi MiTV-MFTR0 and TCL MT5879).
+                    standIn = overlay == Overlay.None || overlay is Overlay.ControlCenter || overlay is Overlay.Wallpaper,
                     live = liveFilm,
                 )
+                Wallpapers.selectedId == Wallpapers.VIDEOS -> VideoWallpaper(
+                    moving = filmMoves,
+                    keep = vm.resumed && !vm.screensaverVisible,
+                    lastInputAt = vm.lastInputAt,
+                    cover = filmCover,
+                )
+                sourceInput != null -> SourceWallpaper(sourceInput, show = vm.resumed && !vm.screensaverVisible, cover = filmCover)
             }
+            // Another wallpaper chosen: nothing shows through until the new one has a frame.
+            LaunchedEffect(Wallpapers.selectedId) { filmCover.snapTo(0f) }
             HomeBackground(
                 // The chosen wallpaper; in "Follow App" mode, light from the focused app.
                 backdrop = Wallpapers.backdrop ?: ambientApp?.art?.backdrop,
@@ -527,8 +558,13 @@ fun HomeScreen(
                 scroll = { scroll.value },
                 collapse = collapsePx,
                 cover = { filmCover.value },
+                // A film kept moving, or an input's picture, gets the shade a picture has, so the
+                // top row reads over it without the plate. In the grid both give way to the
+                // frosted picture, as any wallpaper does (an input's picture cannot be blurred).
+                shadeMoving = AerialSettings.wallpaperAlwaysMoves || sourceInput != null,
                 filmStopped = { filmStopped },
                 toSaver = { toSaver.value },
+                filmGlass = (Wallpapers.filmFrost ?: Wallpapers.frosted).takeIf { Wallpapers.moves() && Wallpapers.backdrop != null },
                 saverImage = saverImage,
                 saverReveal = { saverReveal.value },
                 saverPush = { saverPush.value },
@@ -561,7 +597,9 @@ fun HomeScreen(
                             .padding(horizontal = metrics.margin)
                             .padding(top = metrics.clockY)
                             .graphicsLayer { alpha = 1f - (scroll.value / collapsePx * 1.6f).coerceIn(0f, 1f) },
-                        toSaver = { toSaver.value },
+                        toSaver = { clockToSaver.value },
+                        saving = vm.screensaverVisible,
+                        away = carrying,
                     )
                 } else if (!clockRight) {
                     CornerClock(
@@ -570,6 +608,7 @@ fun HomeScreen(
                             .padding(start = metrics.margin, top = 28.dp)
                             .graphicsLayer { alpha = 1f - (scroll.value / collapsePx * 1.6f).coerceIn(0f, 1f) },
                         toSaver = { toSaver.value },
+                        saving = vm.screensaverVisible,
                     )
                 }
 
@@ -683,6 +722,7 @@ fun HomeScreen(
                         .padding(end = 14.dp)
                         .graphicsLayer { alpha = 1f - (scroll.value / collapsePx * 1.6f).coerceIn(0f, 1f) },
                     toSaver = { toSaver.value },
+                    saving = vm.screensaverVisible,
                 )
             }
             StatusPill(

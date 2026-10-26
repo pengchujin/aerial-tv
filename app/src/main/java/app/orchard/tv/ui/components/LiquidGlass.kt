@@ -5,6 +5,10 @@ import android.graphics.LinearGradient
 import android.graphics.Matrix
 import android.graphics.Paint
 import android.graphics.Shader
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -38,6 +42,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.graphics.createBitmap
 import app.orchard.tv.settings.AerialSettings
 import app.orchard.tv.ui.theme.Palette
+import app.orchard.tv.ui.theme.Motion
 import app.orchard.tv.wallpaper.Wallpapers
 import kotlin.math.roundToInt
 
@@ -54,7 +59,7 @@ import kotlin.math.roundToInt
  * rounded rect, which holds it.
  */
 fun Modifier.liquidGlass(corner: Dp, bottomCorners: Boolean = true): Modifier = composed {
-    val frost = Wallpapers.frosted.takeIf { Wallpapers.backdrop != null }
+    val (frost, under, swap) = rememberFrostSwap(Wallpapers.frosted.takeIf { Wallpapers.backdrop != null })
     var at by remember { mutableStateOf(Offset.Zero) }
     var root by remember { mutableStateOf(IntSize.Zero) }
     val shape = if (bottomCorners) RoundedCornerShape(corner) else RoundedCornerShape(topStart = corner, topEnd = corner)
@@ -68,6 +73,7 @@ fun Modifier.liquidGlass(corner: Dp, bottomCorners: Boolean = true): Modifier = 
         .clip(shape)
         .drawWithCache {
             val shader = frost?.let { BitmapShader(it.asAndroidBitmap(), Shader.TileMode.CLAMP, Shader.TileMode.CLAMP) }
+            val underShader = under?.let { BitmapShader(it.asAndroidBitmap(), Shader.TileMode.CLAMP, Shader.TileMode.CLAMP) }
             val radius = corner.toPx()
             val w = size.width.roundToInt().coerceAtLeast(1)
             val h = size.height.roundToInt().coerceAtLeast(1)
@@ -84,23 +90,65 @@ fun Modifier.liquidGlass(corner: Dp, bottomCorners: Boolean = true): Modifier = 
                     // see-through and showed the tiles under the Personalize sheet.
                     drawImage(flat, dstSize = IntSize(w, h), colorFilter = ColorFilter.tint(liteGlass(frost)))
                 } else {
-                    shader.setLocalMatrix(Matrix().apply {
-                        setScale(root.width.toFloat() / frost.width, root.height.toFloat() / frost.height)
+                    fun place(s: BitmapShader, image: ImageBitmap) = s.setLocalMatrix(Matrix().apply {
+                        setScale(root.width.toFloat() / image.width, root.height.toFloat() / image.height)
                         postTranslate(-at.x, -at.y)
                     })
+                    place(shader, frost)
+                    val t = swap()
                     // The outline is drawn first in a layer of the panel's size and the glass kept
                     // where it lies. One shader per draw: a ComposeShader of the glass and the mask
                     // (1.27-1.30) came out an opaque dark slab on Xiaomi MiTV-ASTP0 (Android 9,
                     // Mali-G31), and before Android 9 hardware drawing cannot compose two bitmaps.
                     drawContext.canvas.saveLayer(Rect(Offset.Zero, size), ComposePaint())
                     drawImage(flat, dstSize = IntSize(w, h))
-                    drawRect(brush, colorFilter = PanelTint, blendMode = BlendMode.SrcIn)
+                    if (underShader != null && under != null && t < 1f) {
+                        // A new frosted picture fades in over the old within the outline.
+                        place(underShader, under)
+                        drawRect(ShaderBrush(underShader), colorFilter = PanelTint, blendMode = BlendMode.SrcIn)
+                        drawRect(brush, alpha = t, colorFilter = PanelTint, blendMode = BlendMode.SrcAtop)
+                    } else {
+                        drawRect(brush, colorFilter = PanelTint, blendMode = BlendMode.SrcIn)
+                    }
                     drawContext.canvas.restore()
                 }
                 drawGlassEdge(size, radius, bottomCorners)
             }
         }
 }
+
+/**
+ * The frosted wallpaper as glass and backdrops show it: a new one fades in over the last
+ * ([FROST_SWAP_MS]) rather than cutting to it. A moving film that stops gives Home its frosted
+ * picture in two or three steps (a small frame, then the exact one, LiveWallpaper), and with a
+ * panel up each cut was a jump in its glass (Xiaomi MiTV-MFTR0, TCL MT5879). Returns the picture,
+ * the one under it while it fades in, and how far it has (0 to 1).
+ */
+@Composable
+internal fun rememberFrostSwap(frost: ImageBitmap?): Triple<ImageBitmap?, ImageBitmap?, () -> Float> {
+    var shown by remember { mutableStateOf(frost) }
+    var under by remember { mutableStateOf<ImageBitmap?>(null) }
+    val swap = remember { Animatable(1f) }
+    LaunchedEffect(frost) {
+        if (frost === shown) return@LaunchedEffect
+        val old = shown
+        shown = frost
+        // From nothing, or to nothing: it simply takes over.
+        if (old == null || frost == null) {
+            under = null
+            swap.snapTo(1f)
+            return@LaunchedEffect
+        }
+        // Mid-fade, the one further in stays under the next.
+        under = if (swap.value > 0.5f) old else under ?: old
+        swap.snapTo(0f)
+        swap.animateTo(1f, tween(FROST_SWAP_MS, easing = Motion.EaseOut))
+        under = null
+    }
+    return Triple(shown, under, { swap.value })
+}
+
+private const val FROST_SWAP_MS = 450
 
 /**
  * The lit edge of a piece of glass: a sheen inside the top, and a rim bright where light falls on

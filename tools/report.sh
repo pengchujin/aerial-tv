@@ -42,6 +42,10 @@ MODEL=$(sh_ getprop ro.product.model)
 OUT="aerial-report-$(printf '%s' "${MODEL:-tv}" | tr -c 'A-Za-z0-9._-' '_').md"
 HOME_INTENT=(-a android.intent.action.MAIN -c android.intent.category.HOME)
 
+# From here a command the TV lacks or a grep that finds nothing is part of the report, not the end
+# of it: `cmd role` (before Android 10, and XGIMI's Android 11) and an empty tv_input stopped the
+# script halfway (issues #311, #454, #551).
+set +e
 {
   echo "### adb report"
   echo
