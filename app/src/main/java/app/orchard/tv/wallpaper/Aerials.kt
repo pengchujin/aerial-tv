@@ -1,6 +1,7 @@
 package app.orchard.tv.wallpaper
 
 import android.content.Context
+import app.orchard.tv.locale.ChineseLocale
 import app.orchard.tv.settings.AerialSettings
 import android.media.MediaCodecInfo
 import android.media.MediaCodecList
@@ -115,20 +116,38 @@ object AerialFormats {
 object Aerials {
     @Volatile
     private var cache: List<Aerial>? = null
+    @Volatile
+    private var cachedLocale: Locale? = null
 
-    fun all(context: Context): List<Aerial> = cache ?: synchronized(this) {
-        cache ?: load(context).also { cache = it }
+    fun all(context: Context): List<Aerial> {
+        val locale = Locale.getDefault()
+        if (cachedLocale == locale) cache?.let { return it }
+        return synchronized(this) {
+            if (cachedLocale == locale && cache != null) cache!!
+            else load(context, locale).also {
+                cache = it
+                cachedLocale = locale
+            }
+        }
     }
 
-    private fun load(context: Context): List<Aerial> {
-        val zh = Locale.getDefault().language == "zh"
+    internal fun load(context: Context, locale: Locale): List<Aerial> {
+        val zh = locale.language == "zh"
+        val traditional = ChineseLocale.isTraditional(locale)
+        // The overlay is optional: missing or corrupt data falls back to the original Chinese.
+        val traditionalVideos = if (traditional) runCatching {
+            JSONObject(context.assets.open("aerials-zh-Hant.json").bufferedReader().use { it.readText() })
+                .optJSONObject("videos")
+        }.getOrNull() else null
         val root = JSONObject(context.assets.open("aerials.json").bufferedReader().use { it.readText() })
         val arr = root.getJSONArray("videos")
         return (0 until arr.length()).map { i ->
             val o = arr.getJSONObject(i)
+            val id = o.getString("id")
             val caps = o.getJSONArray("captions")
+            val translated = traditionalVideos?.optJSONArray(id)?.takeIf { it.length() == caps.length() }
             Aerial(
-                id = o.getString("id"),
+                id = id,
                 label = o.getString("label"),
                 category = o.getString("category"),
                 url = o.getString("url"),
@@ -136,7 +155,11 @@ object Aerials {
                 dolbyVision = o.optString("dv").ifEmpty { o.getString("url") },
                 captions = (0 until caps.length()).map { j ->
                     val c = caps.getJSONArray(j)
-                    c.getInt(0) to (if (zh) c.getString(1) else c.getString(2)).replace(' ', ' ')
+                    val candidate = translated?.optJSONArray(j)?.takeIf {
+                        it.length() == 2 && it.optInt(0, -1) == c.getInt(0)
+                    }?.optString(1)?.takeIf { it.isNotBlank() }
+                    c.getInt(0) to (candidate ?: if (zh) c.getString(1) else c.getString(2))
+                        .replace(' ', ' ')
                 },
             )
         }

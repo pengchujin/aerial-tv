@@ -15,6 +15,7 @@ import androidx.core.content.edit
 import app.orchard.tv.ui.components.UhdCanvas
 import app.orchard.tv.BuildConfig
 import app.orchard.tv.guard.GuardSetup
+import app.orchard.tv.locale.ChineseLocale
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -140,14 +141,23 @@ object Wallpapers {
 
     private var backdropJob: Job? = null
     private var started = false
+    private var labelLocale = ""
 
     /** The UI's size in pixels. Pictures are decoded to it: 1080p on most TVs, 4K where the UI is. */
     var screenW = 1920; private set
     var screenH = 1080; private set
 
     fun init(context: Context) {
-        if (started) return
+        val locale = Locale.getDefault().toLanguageTag()
+        if (started) {
+            if (labelLocale != locale) {
+                labelLocale = locale
+                rebuildList()
+            }
+            return
+        }
         started = true
+        labelLocale = locale
         app = context.applicationContext
         // Home drawn at the panel's size (UhdCanvas) gets pictures of that size.
         val scale = UhdCanvas.scale(context)
@@ -489,13 +499,20 @@ object Wallpapers {
     private fun rebuildList() {
         val daily = readDailyIndex().map { Wallpaper("daily:${it.first}", WallpaperKind.Daily, it.second, it.third) }
         val zh = Locale.getDefault().language == "zh"
-        val builtins = Gradients.presets.map { Wallpaper("grad:${it.key}", WallpaperKind.Builtin, if (zh) it.nameZh else it.nameEn) }
+        val hant = ChineseLocale.isTraditional(Locale.getDefault())
+        val builtins = Gradients.presets.map {
+            Wallpaper("grad:${it.key}", WallpaperKind.Builtin, when {
+                hant -> it.nameHant
+                zh -> it.nameZh
+                else -> it.nameEn
+            })
+        }
         val photos = (photoDir.listFiles { f -> f.extension == "jpg" } ?: emptyArray())
             .sortedByDescending { it.lastModified() }
             .map { Wallpaper("photo:${it.nameWithoutExtension}", WallpaperKind.Photo, if (zh) "我的照片" else "My Photo") }
-        val auto = Wallpaper(AUTO, WallpaperKind.Auto, if (zh) "跟随 App" else "Follow App")
+        val auto = Wallpaper(AUTO, WallpaperKind.Auto, if (hant) "跟隨 App" else if (zh) "跟随 App" else "Follow App")
         val live = Wallpaper(LIVE, WallpaperKind.Live, if (zh) "航拍" else "Aerial")
-        val videos = if (ScreensaverVideos.all(app).isNotEmpty()) listOf(Wallpaper(VIDEOS, WallpaperKind.Video, if (zh) "我的视频" else "My Videos")) else emptyList()
+        val videos = if (ScreensaverVideos.all(app).isNotEmpty()) listOf(Wallpaper(VIDEOS, WallpaperKind.Video, if (hant) "我的影片" else if (zh) "我的视频" else "My Videos")) else emptyList()
         val inputs = sources.map { (id, name) -> Wallpaper(SOURCE_PREFIX + id, WallpaperKind.Source, name) }
         items = listOf(live) + videos + daily + builtins + photos + auto + inputs
     }
