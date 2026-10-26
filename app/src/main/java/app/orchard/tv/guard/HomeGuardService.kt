@@ -2,6 +2,7 @@ package app.orchard.tv.guard
 
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.AccessibilityServiceInfo
+import android.app.ActivityManager
 import android.app.AppOpsManager
 import android.app.usage.UsageEvents
 import android.app.usage.UsageStatsManager
@@ -57,6 +58,9 @@ class HomeGuardService : AccessibilityService() {
     /** HOME activities that are not ours: package to class names. Refreshed on every connect. */
     private var stockHomes: Map<String, Set<String>> = emptyMap()
 
+    /** When the guard last stopped a stock launcher's process, per package. */
+    private val lastKilledAt = HashMap<String, Long>()
+
     /** Set when the user opens the stock launcher on purpose from Aerial's grid. */
     private var allowStockUntil = 0L
 
@@ -110,6 +114,19 @@ class HomeGuardService : AccessibilityService() {
             // Its home screen only, as for window changes: PatchWall's children's mode, opened
             // from its tile, is in the same package and stays.
             val (pkg, cls) = window
+            // A stock launcher's screen that is not its home screen: PatchWall's BootActivity —
+            // the boot ad — among them, which the guard would otherwise let play for its full
+            // length (issue #318). Only a real boot starts it, so inside the boot window
+            // stopping the process ends the ad on the spot; visits to the launcher's other
+            // screens later are left alone. Other packages (Aerial itself among them) fall
+            // through to the check below, which ignores them.
+            if (pkg in stockHomes && cls !in stockHomes.getValue(pkg)) {
+                if (SystemClock.elapsedRealtime() < BOOT_WINDOW_MS) {
+                    Log.i(TAG, "stock launcher $pkg showing $cls after boot; stopping it")
+                    killStockHome(pkg)
+                }
+                return
+            }
             if (cls !in stockHomes[pkg].orEmpty()) return
             foregroundTakenAt = at
             if (SystemClock.uptimeMillis() - broughtBackAt < 1_000) return
@@ -948,6 +965,31 @@ class HomeGuardService : AccessibilityService() {
         }.onFailure { Log.w(TAG, "could not bring Aerial Home to the front", it) }
     }
 
+    /**
+     * Stops the stock launcher's process, where the firmware lets us. PatchWall's BootActivity
+     * covers Aerial some 20 s into every boot on Mi TV 4 (Android 6, issue #318); stopping the
+     * process mid-ad ends the ad right there, and the relaunch the player framework forces a
+     * couple of seconds later does not replay it — only a real boot does.
+     *
+     * The firmware grants FORCE_STOP_PACKAGES to no third-party app (Mi TV 4: "not a changeable
+     * permission type"), so the closest any app gets is killing background processes, which only
+     * works once the launcher is no longer in front: cover it with Aerial first, then kill.
+     */
+    private fun killStockHome(pkg: String) {
+        val now = SystemClock.uptimeMillis()
+        if (now - (lastKilledAt[pkg] ?: Long.MIN_VALUE / 2) < KILL_THROTTLE_MS) return
+        lastKilledAt[pkg] = now
+        Log.i(TAG, "stock launcher $pkg showing its boot ad; covering it and killing the process")
+        goHome()
+        handler.postDelayed({
+            runCatching {
+                val am = getSystemService<ActivityManager>() ?: return@runCatching
+                am.killBackgroundProcesses(pkg)
+                Log.i(TAG, "killed background processes of $pkg")
+            }.onFailure { Log.w(TAG, "could not kill $pkg", it) }
+        }, KILL_DELAY_MS)
+    }
+
     companion object {
         private const val TAG = "AerialGuard"
         private const val BOOT_WINDOW_MS = 3 * 60 * 1000L
@@ -956,6 +998,8 @@ class HomeGuardService : AccessibilityService() {
         private val BOOT_RECHECKS_MS = listOf(30_000L, 45_000L)
         private const val DEAF_AFTER_MS = 20_000L
         private const val FOREGROUND_POLL_MS = 1_000L
+        private const val KILL_THROTTLE_MS = 3_000L
+        private const val KILL_DELAY_MS = 2_500L
         private const val FOREGROUND_LOOKBACK_MS = 10_000L
         /** How far back to look for the front when no window has been seen; see frontByUsage. */
         private const val UNKNOWN_FRONT_LOOKBACK_MS = 6 * 60 * 60 * 1000L
