@@ -40,7 +40,7 @@
 - **用手机整理**：扫电视上的二维码，手机上就是和电视一样的图标网格：按住拖动排序，点一下改名、换图标、放进文件夹或隐藏，也能把 HDMI 等信号源加到主屏幕。
 - **控制中心**：在第一排按上键到右上角打开，有信号源、网络、设置、音量、亮度和个性化。
 - **屏保**：Apple TV 的 114 段航拍影片，电视支持时播 4K 或 4K 杜比视界，也可以换成照片、时钟或从手机添加的本地视频（[说明](docs/SCREENSAVER_VIDEOS.md)）。
-- **壁纸**：必应每日精选、14 张内置壁纸、用手机扫码传的照片，或者航拍：停在主屏幕 10 秒后在磁贴后面播放，按任意键停在当前画面。
+- **壁纸**：必应每日精选、14 张内置壁纸、按需下载的任天堂壁纸、用手机扫码传的照片，或者航拍：停在主屏幕 10 秒后在磁贴后面播放，按任意键停在当前画面。
 - **个性化**：单排或双排、时钟大小和位置、App 名称、焦点样式、按键声音，都能改。
 
 <p align="center">
@@ -279,4 +279,4 @@ BUILD=1 KEEP_ADB=1 TV=<电视IP> tools/install.sh
 
 [MIT](LICENSE)。Inter 字体使用 [SIL Open Font License](FONT-LICENSE-OFL.txt)。天气用的国内城市表来自 [GeoNames](https://www.geonames.org)（CC BY 4.0），天气数据来自 [Open-Meteo](https://open-meteo.com)。
 
-Aerial 是独立的开源项目，与 Apple、小米、TCL 等公司无关。航拍影片版权归 Apple，由 Apple 的服务器直接播放；每日精选图片来自必应。
+Aerial 是独立的开源项目，与 Apple、任天堂、小米、TCL 等公司无关。航拍影片版权归 Apple，由 Apple 的服务器直接播放；每日精选图片来自必应。任天堂壁纸由用户选择后从[任天堂香港](https://www.nintendo.com/hk/topics/article/a_200513_01_sc.html)或 [Play Nintendo](https://play.nintendo.com/media/wallpapers/) 下载到电视，版权归各权利人。Play Nintendo 的[网站条款](https://www.nintendo.com/us/terms-of-use/)限制第三方应用和自动访问，项目尚未取得专项许可；任天堂香港的[使用条款](https://www.nintendo.com/zh-hans-hk/about_hp.html)亦对素材使用作出规定。

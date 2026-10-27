@@ -244,4 +244,15 @@
     <string name="st_play_hint">静止时：在第一排停 10 秒后播放，按键停下。一直：按键不停，背景压暗一点；进入下面的 App 时停下。</string>
     <string name="ss_show_time">时间</string>
     <string name="ss_show_time_hint">航拍和照片屏保上的时间。时间和地名会不时挪一点位置，避免烧屏。</string>
+    <string name="wp_nintendo_peach">碧姬公主：表演时刻！</string>
+    <string name="wp_nintendo_animal_crossing">动物森友会：傅达与傅珂</string>
+    <string name="wp_nintendo_pokemon">宝可梦 剑／盾</string>
+    <string name="wp_nintendo_download">下载</string>
+    <string name="wp_nintendo_downloading">正在下载…</string>
+    <string name="wp_nintendo_failed">下载失败，按确认键重试。</string>
+    <string name="wp_nintendo_note">任天堂官方壁纸。按确认键下载并保存在电视上，供个人使用。</string>
+    <string name="wp_nintendo_mario_kart">马力欧赛车 8 豪华版</string>
+    <string name="wp_nintendo_zelda">塞尔达传说：旷野之息</string>
+    <string name="wp_nintendo_animal_crossing_hk">集合啦！动物森友会</string>
+    <string name="wp_nintendo_kirby">星之卡比：新星同盟</string>
 </resources>

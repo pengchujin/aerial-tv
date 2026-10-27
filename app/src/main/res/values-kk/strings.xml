@@ -237,4 +237,15 @@
     <string name="st_play_hint">Тыныштықта: жоғарғы қатарда 10 секундтан кейін; кез келген түйме тоқтатады. Әрдайым: түймелер тоқтатпайды, фон сәл күңгірттенеді; төмендегі қолданбаларға өткенде тоқтайды.</string>
     <string name="ss_show_time">Уақыт</string>
     <string name="ss_show_time_hint">Аэрожиын және фото экран қорғауыштарындағы уақыт. Экран күйіп қалмас үшін уақыт пен орын атауы анда-санда сәл жылжиды.</string>
+    <string name="wp_nintendo_peach">Princess Peach: Showtime!</string>
+    <string name="wp_nintendo_animal_crossing">Animal Crossing: Блэзерс пен Селеста</string>
+    <string name="wp_nintendo_pokemon">Pokémon Sword және Shield</string>
+    <string name="wp_nintendo_download">Жүктеу</string>
+    <string name="wp_nintendo_downloading">Жүктелуде…</string>
+    <string name="wp_nintendo_failed">Жүктелмеді. Қайталау үшін басыңыз.</string>
+    <string name="wp_nintendo_note">Nintendo тұсқағазы. Жеке пайдалану үшін теледидарға жүктеп, сақтау үшін басыңыз.</string>
+    <string name="wp_nintendo_mario_kart">Mario Kart 8 Deluxe</string>
+    <string name="wp_nintendo_zelda">The Legend of Zelda: Breath of the Wild</string>
+    <string name="wp_nintendo_animal_crossing_hk">Animal Crossing: New Horizons</string>
+    <string name="wp_nintendo_kirby">Kirby Star Allies</string>
 </resources>

@@ -34,7 +34,7 @@ import java.net.URL
 import java.util.Locale
 import kotlin.math.roundToInt
 
-enum class WallpaperKind { Daily, Builtin, Photo, Auto, Live, Video, Source }
+enum class WallpaperKind { Daily, Builtin, Photo, Nintendo, Auto, Live, Video, Source }
 
 data class Wallpaper(
     val id: String,
@@ -97,6 +97,7 @@ object Wallpapers {
     private val prefs by lazy { app.getSharedPreferences("wallpaper", Context.MODE_PRIVATE) }
     private val dailyDir by lazy { File(app.filesDir, "daily").apply { mkdirs() } }
     private val photoDir by lazy { File(app.filesDir, "photos").apply { mkdirs() } }
+    private val nintendoDir by lazy { File(app.filesDir, "nintendo").apply { mkdirs() } }
     private val liveFrame by lazy { File(app.filesDir, "live-frame.jpg") }
     private val videoFrame by lazy { File(app.filesDir, "video-frame.jpg") }
 
@@ -107,6 +108,10 @@ object Wallpapers {
 
     var items by mutableStateOf<List<Wallpaper>>(emptyList()); private set
     var selectedId by mutableStateOf(LATEST_DAILY); private set
+    var nintendoDownloading by mutableStateOf<String?>(null); private set
+    var nintendoFailed by mutableStateOf<String?>(null); private set
+    var nintendoRevision by mutableStateOf(0); private set
+    private var choiceSerial = 0
     /** The screensaver the owner chose; null while it follows the wallpaper ([screensaver]). */
     private var chosenScreensaver by mutableStateOf<ScreensaverMode?>(ScreensaverMode.Aerial)
 
@@ -211,13 +216,36 @@ object Wallpapers {
             f.isFile && f.lastModified() < before &&
                 (f.name.startsWith("upload") || f.name.startsWith("icon") || f.name.startsWith("NanoHTTPD-"))
         }?.forEach { val kb = it.length() / 1024; if (it.delete()) Log.i(TAG, "removed a stale upload, $kb KB") }
+        // An interrupted Nintendo download can leave a temporary archive or picture in its folder.
+        nintendoDir.listFiles { f -> f.isFile && f.name.startsWith("nintendo-") && f.lastModified() < before }
+            ?.forEach { it.delete() }
     }
 
     fun select(id: String) {
+        val nintendo = NintendoWallpapers.pictures.firstOrNull { it.id == id }
+        if (nintendo != null && NintendoWallpapers.file(nintendoDir, id)?.exists() != true) {
+            if (nintendoDownloading != null) return
+            val serial = ++choiceSerial
+            nintendoDownloading = id
+            nintendoFailed = null
+            scope.launch {
+                val saved = withContext(Dispatchers.IO) { NintendoWallpapers.download(nintendoDir, nintendo) }
+                nintendoDownloading = null
+                if (saved) {
+                    nintendoRevision++
+                    if (serial == choiceSerial) select(id)
+                } else if (serial == choiceSerial) nintendoFailed = id
+            }
+            return
+        }
+        ++choiceSerial
+        nintendoFailed = null
         selectedId = id
         prefs.edit { putString("selected", id) }
         rebuildBackdrop()
     }
+
+    fun nintendoSaved(id: String) = NintendoWallpapers.file(nintendoDir, id)?.exists() == true
 
     /**
      * A new install's screensaver follows the wallpaper. One that was already in use when that came
@@ -277,13 +305,14 @@ object Wallpapers {
     private fun fileFor(w: Wallpaper): File? = when (w.kind) {
         WallpaperKind.Daily -> File(dailyDir, w.id.removePrefix("daily:") + ".jpg")
         WallpaperKind.Photo -> File(photoDir, w.id.removePrefix("photo:") + ".jpg")
+        WallpaperKind.Nintendo -> NintendoWallpapers.file(nintendoDir, w.id)
         else -> null
     }
 
     /** Full picture at [w]×[h] without shading, for the photo screensaver. Call off the main thread. */
     fun picture(wp: Wallpaper, w: Int, h: Int): Bitmap? = when (wp.kind) {
         WallpaperKind.Builtin -> Gradients.byKey(wp.id.removePrefix("grad:"))?.let { Gradients.render(it, w, h) }
-        WallpaperKind.Daily, WallpaperKind.Photo -> fileFor(wp)?.takeIf { it.exists() }?.let { Images.decodeCover(it, w, h) }
+        WallpaperKind.Daily, WallpaperKind.Photo, WallpaperKind.Nintendo -> fileFor(wp)?.takeIf { it.exists() }?.let { Images.decodeCover(it, w, h) }
         WallpaperKind.Auto -> null
         // Until a film has stopped on a frame, the first built-in stands in.
         WallpaperKind.Live -> liveFrame.takeIf { it.exists() }?.let { Images.decodeCover(it, w, h) }
@@ -354,7 +383,7 @@ object Wallpapers {
     /** Changes with the picture behind [wp], the screen size, and Aerial's version (the baking may change). */
     private fun bakedKey(wp: Wallpaper): String {
         val stamp = when (wp.kind) {
-            WallpaperKind.Daily, WallpaperKind.Photo -> fileFor(wp)?.lastModified() ?: 0L
+            WallpaperKind.Daily, WallpaperKind.Photo, WallpaperKind.Nintendo -> fileFor(wp)?.lastModified() ?: 0L
             WallpaperKind.Live -> liveFrame.lastModified()
             WallpaperKind.Video -> if (videoFrameIsOf(wp.id)) videoFrame.lastModified() else 0L
             else -> 0L
@@ -570,6 +599,7 @@ object Wallpapers {
         val daily = readDailyIndex().map { Wallpaper("daily:${it.first}", WallpaperKind.Daily, it.second, it.third) }
         val zh = Locale.getDefault().language == "zh"
         val builtins = Gradients.presets.map { Wallpaper("grad:${it.key}", WallpaperKind.Builtin, if (zh) it.nameZh else it.nameEn) }
+        val nintendo = NintendoWallpapers.pictures.map { Wallpaper(it.id, WallpaperKind.Nintendo, app.getString(it.title), it.credit) }
         val photos = (photoDir.listFiles { f -> f.extension == "jpg" } ?: emptyArray())
             .sortedByDescending { it.lastModified() }
             .map { Wallpaper("photo:${it.nameWithoutExtension}", WallpaperKind.Photo, if (zh) "我的照片" else "My Photo") }
@@ -581,7 +611,7 @@ object Wallpapers {
             listOf(Wallpaper(VIDEOS, WallpaperKind.Video, if (zh) "我的视频 · 轮播" else "My Videos, In Turn")) +
                 films.map { Wallpaper(VIDEO_PREFIX + it.id, WallpaperKind.Video, it.name.substringBeforeLast('.').ifBlank { it.name }) }
         val inputs = sources.map { (id, name) -> Wallpaper(SOURCE_PREFIX + id, WallpaperKind.Source, name) }
-        items = listOf(live) + videos + daily + builtins + photos + auto + inputs
+        items = listOf(live) + videos + daily + builtins + nintendo + photos + auto + inputs
     }
 
     // ---- daily photos ----

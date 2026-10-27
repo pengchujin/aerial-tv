@@ -194,7 +194,7 @@ class PhoneServer private constructor(private val context: Context, private val 
     private fun state(): JSONObject {
         val list = JSONArray()
         val selected = Wallpapers.selectedId
-        Wallpapers.items.forEach { w ->
+        Wallpapers.items.filter { it.kind != WallpaperKind.Nintendo || Wallpapers.nintendoSaved(it.id) }.forEach { w ->
             list.put(JSONObject().put("id", w.id).put("kind", w.kind.name.lowercase()).put("title", w.title).put("caption", w.caption ?: ""))
         }
         return JSONObject()

@@ -237,4 +237,15 @@
     <string name="st_play_hint">В покое: через 10 секунд на верхнем ряду; любая кнопка останавливает. Всегда: кнопки не останавливают, фон чуть затемнён; останавливается, когда вы переходите к приложениям ниже.</string>
     <string name="ss_show_time">Время</string>
     <string name="ss_show_time_hint">Время на заставках с аэросъёмкой и фото. Время и название места время от времени слегка сдвигаются, чтобы не выгорал экран.</string>
+    <string name="wp_nintendo_peach">Princess Peach: Showtime!</string>
+    <string name="wp_nintendo_animal_crossing">Animal Crossing: Блэзерс и Селеста</string>
+    <string name="wp_nintendo_pokemon">Pokémon Sword и Shield</string>
+    <string name="wp_nintendo_download">Скачать</string>
+    <string name="wp_nintendo_downloading">Загрузка…</string>
+    <string name="wp_nintendo_failed">Не удалось скачать. Нажмите для повтора.</string>
+    <string name="wp_nintendo_note">Обои Nintendo. Нажмите, чтобы скачать и сохранить на телевизоре для личного использования.</string>
+    <string name="wp_nintendo_mario_kart">Mario Kart 8 Deluxe</string>
+    <string name="wp_nintendo_zelda">The Legend of Zelda: Breath of the Wild</string>
+    <string name="wp_nintendo_animal_crossing_hk">Animal Crossing: New Horizons</string>
+    <string name="wp_nintendo_kirby">Kirby Star Allies</string>
 </resources>

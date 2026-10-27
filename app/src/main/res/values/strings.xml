@@ -245,4 +245,15 @@
     <string name="st_play_hint">When still: after 10 seconds on the top row; a key stops it. Always: keys do not stop it, and it is shaded a little; it stops when you go down to the apps.</string>
     <string name="ss_show_time">Time</string>
     <string name="ss_show_time_hint">The time over the aerial and photo screensavers. The time and place name move a little now and then, so nothing stays on the same pixels.</string>
+    <string name="wp_nintendo_peach">Princess Peach: Showtime!</string>
+    <string name="wp_nintendo_animal_crossing">Animal Crossing: Blathers &amp; Celeste</string>
+    <string name="wp_nintendo_pokemon">Pokémon Sword &amp; Shield</string>
+    <string name="wp_nintendo_download">Download</string>
+    <string name="wp_nintendo_downloading">Downloading…</string>
+    <string name="wp_nintendo_failed">Download failed. Press to try again.</string>
+    <string name="wp_nintendo_note">Nintendo wallpaper. Press to download and save it on this TV for personal use.</string>
+    <string name="wp_nintendo_mario_kart">Mario Kart 8 Deluxe</string>
+    <string name="wp_nintendo_zelda">The Legend of Zelda: Breath of the Wild</string>
+    <string name="wp_nintendo_animal_crossing_hk">Animal Crossing: New Horizons</string>
+    <string name="wp_nintendo_kirby">Kirby Star Allies</string>
 </resources>

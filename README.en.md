@@ -40,7 +40,7 @@ Made for Xiaomi, TCL, Skyworth, Sony and other TVs sold in China, and runs on bo
 - **Arrange from your phone**: scan the code on the TV and your phone shows Home as the TV lays it out. Drag tiles into place; tap one to rename it, change its icon, put it in a folder or hide it; add HDMI and other inputs to Home.
 - **Control Center**: press Up from the top row to the top right. Inputs, network, settings, volume, brightness and Personalize.
 - **Screensaver**: Apple TV's 114 aerial films, in 4K or 4K Dolby Vision where the TV supports it, your photos, a clock, or local videos sent from your phone ([guide, Chinese](docs/SCREENSAVER_VIDEOS.md)).
-- **Wallpaper**: Bing's photo of the day, fourteen built-ins, photos you upload by scanning a code with your phone, or aerial films that play behind the apps after ten still seconds on Home and stop on the frame showing at any key.
+- **Wallpaper**: Bing's photo of the day, fourteen built-ins, Nintendo wallpapers downloaded on request, photos you upload by scanning a code with your phone, or aerial films that play behind the apps after ten still seconds on Home and stop on the frame showing at any key.
 - **Personalize**: one or two rows, clock size and corner, app names, focus style and key sounds.
 
 <p align="center">
@@ -281,4 +281,4 @@ See [ARCHITECTURE.md](docs/ARCHITECTURE.md) for the code, [HANDOFF.md](docs/HAND
 
 [MIT](LICENSE). The Inter font is under the [SIL Open Font License](FONT-LICENSE-OFL.txt). The list of Chinese cities for the weather is from [GeoNames](https://www.geonames.org) (CC BY 4.0), the weather from [Open-Meteo](https://open-meteo.com).
 
-Aerial is an independent open-source project, not affiliated with Apple, Xiaomi, TCL or any other company. The aerial films belong to Apple and play from Apple's servers; the photo of the day comes from Bing.
+Aerial is an independent open-source project, not affiliated with Apple, Nintendo, Xiaomi, TCL or any other company. The aerial films belong to Apple and play from Apple's servers; the photo of the day comes from Bing. Nintendo wallpapers are downloaded to the TV from [Nintendo Hong Kong](https://www.nintendo.com/hk/topics/article/a_200513_01.html) or [Play Nintendo](https://play.nintendo.com/media/wallpapers/) when chosen and belong to their respective rights holders. Play Nintendo's [terms](https://www.nintendo.com/us/terms-of-use/) restrict third-party apps and automated access; the project has not obtained specific permission. [Nintendo Hong Kong's terms](https://www.nintendo.com/hk/about_hp.html) also govern use of its material.

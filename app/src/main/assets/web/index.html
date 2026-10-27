@@ -1295,7 +1295,7 @@ function renderWallpapers() {
   const root = $('#sections'); root.replaceChildren();
   for (const [kind, title, sub] of groups) {
     // Moving: the aerial films and the owner's videos.
-    let list = state.wallpapers.filter(w => w.kind === kind || (kind === 'live' && w.kind === 'video'));
+    let list = state.wallpapers.filter(w => w.kind === kind || (kind === 'live' && w.kind === 'video') || (kind === 'builtin' && w.kind === 'nintendo'));
     // Each video on its own; the card that plays them in turn only for two or more (#762), as on the TV.
     if (kind === 'live' && list.filter(w => w.kind === 'video').length < 3 && state.selected !== 'videos:mine') list = list.filter(w => w.id !== 'videos:mine');
     if (kind === 'daily' && list.length) list = [{ id: state.latestDaily, kind: 'daily', title: t('daily_title'), caption: t('daily_caption') }, ...list];

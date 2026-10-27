@@ -352,12 +352,13 @@ private fun WallpaperRows() {
             if (photos.size > 1) add(Wallpaper(Wallpapers.ROTATE_PHOTOS, WallpaperKind.Photo, rotateTitle))
             addAll(photos)
             addAll(items.filter { it.kind == WallpaperKind.Builtin && (it.id in Wallpapers.FEATURED_BUILTINS || it.id == selected) })
+            addAll(items.filter { it.kind == WallpaperKind.Nintendo })
             addAll(items.filter { it.kind == WallpaperKind.Auto })
             // The inputs' pictures last: a choice for a home with a set-top box, not the usual one.
             addAll(items.filter { it.kind == WallpaperKind.Source })
         }
     }
-    var note by remember { mutableStateOf<String?>(null) }
+    var focusedId by remember { mutableStateOf<String?>(null) }
     // A row clips to its bounds, and the focused card grows by 8%: room on the left for that,
     // with the row moved back by as much so the cards still line up with the titles.
     LazyRow(
@@ -366,18 +367,22 @@ private fun WallpaperRows() {
         contentPadding = PaddingValues(start = 14.dp, end = 24.dp, top = 6.dp, bottom = 4.dp),
     ) {
         items(list, key = { it.id }) { wp ->
-            val hint = wallpaperNote(wp)
-            WallpaperCard(wp, if (wp === list.first()) first else null, onFocused = { note = hint })
+            WallpaperCard(wp, if (wp === list.first()) first else null, onFocused = { focusedId = wp.id })
         }
     }
     Box(Modifier.height(42.dp).padding(start = 4.dp, top = 8.dp)) {
-        note?.let { BasicText(it, style = Type.Caption.copy(color = Palette.TertiaryLabel), maxLines = 2, overflow = TextOverflow.Ellipsis) }
+        list.firstOrNull { it.id == focusedId }?.let { wallpaperNote(it) }?.let {
+            BasicText(it, style = Type.Caption.copy(color = Palette.TertiaryLabel), maxLines = 2, overflow = TextOverflow.Ellipsis)
+        }
     }
 }
 
 /** What a wallpaper card is, for the note under the row; null where its picture says it all. */
 @Composable
 private fun wallpaperNote(wp: Wallpaper): String? = when {
+    wp.kind == WallpaperKind.Nintendo && Wallpapers.nintendoDownloading != null -> stringResource(R.string.wp_nintendo_downloading)
+    wp.kind == WallpaperKind.Nintendo && Wallpapers.nintendoFailed == wp.id -> stringResource(R.string.wp_nintendo_failed)
+    wp.kind == WallpaperKind.Nintendo -> stringResource(R.string.wp_nintendo_note)
     wp.kind == WallpaperKind.Live -> stringResource(R.string.wp_live)
     wp.id == Wallpapers.VIDEOS -> stringResource(R.string.wp_videos_note)
     wp.kind == WallpaperKind.Video -> stringResource(R.string.wp_video_note)
@@ -393,7 +398,8 @@ private fun wallpaperNote(wp: Wallpaper): String? = when {
 @Composable
 private fun WallpaperCard(wp: Wallpaper, focusRequester: FocusRequester?, onFocused: () -> Unit) {
     val selected = Wallpapers.selectedId == wp.id
-    val thumb by produceState<ImageBitmap?>(null, wp.id, Wallpapers.items) {
+    val revision = if (wp.kind == WallpaperKind.Nintendo) Wallpapers.nintendoRevision else 0
+    val thumb by produceState<ImageBitmap?>(null, wp.id, Wallpapers.items, revision) {
         value = withContext(Dispatchers.Default) { Wallpapers.thumbnail(wp.id)?.asImageBitmap() }
     }
     Pressable(onClick = { Wallpapers.select(wp.id) }, focusRequester = focusRequester, focusedScale = 1.08f) { state ->
@@ -418,6 +424,13 @@ private fun WallpaperCard(wp: Wallpaper, focusRequester: FocusRequester?, onFocu
                     Canvas(Modifier.fillMaxSize()) {
                         drawImage(it, dstSize = IntSize(size.width.roundToInt(), size.height.roundToInt()), filterQuality = FilterQuality.Medium)
                     }
+                }
+                if (wp.kind == WallpaperKind.Nintendo && thumb == null) {
+                    BasicText(
+                        stringResource(if (Wallpapers.nintendoDownloading == wp.id) R.string.wp_nintendo_downloading else R.string.wp_nintendo_download),
+                        style = Type.Caption.copy(color = Palette.SecondaryLabel),
+                        modifier = Modifier.align(Alignment.Center).padding(8.dp),
+                    )
                 }
                 if (selected) {
                     Box(
