@@ -693,7 +693,7 @@ private fun Modifier.toSaverClock(progress: () -> Float, fontSize: TextUnit, cap
             translationX = p * (targetLeft - box.left + drift.x.toPx())
             translationY = p * (targetCapTop - s * capTop.toPx() - box.top + drift.y.toPx())
             // The screensaver shows no time: Home's goes as the screensaver comes.
-            if (!AerialSettings.screensaverClock) alpha = 1f - p
+            if (!AerialSettings.screensaverShowsClock) alpha = 1f - p
             // Its shadow lies outside the capBox: an offscreen buffer would cut it as it fades.
             compositingStrategy = CompositingStrategy.ModulateAlpha
         }

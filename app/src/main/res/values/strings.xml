@@ -245,4 +245,6 @@
     <string name="st_play_hint">When still: after 10 seconds on the top row; a key stops it. Always: keys do not stop it, and it is shaded a little; it stops when you go down to the apps.</string>
     <string name="ss_show_time">Time</string>
     <string name="ss_show_time_hint">The time over the aerial and photo screensavers. The time and place name move a little now and then, so nothing stays on the same pixels.</string>
+    <string name="ss_immersive">Immersive playback</string>
+    <string name="ss_immersive_hint">Hide time and captions over aerials, photos and videos; the chosen screensaver and timing stay the same.</string>
 </resources>

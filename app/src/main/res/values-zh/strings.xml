@@ -244,4 +244,6 @@
     <string name="st_play_hint">静止时：在第一排停 10 秒后播放，按键停下。一直：按键不停，背景压暗一点；进入下面的 App 时停下。</string>
     <string name="ss_show_time">时间</string>
     <string name="ss_show_time_hint">航拍和照片屏保上的时间。时间和地名会不时挪一点位置，避免烧屏。</string>
+    <string name="ss_immersive">沉浸播放</string>
+    <string name="ss_immersive_hint">航拍、照片和视频屏保隐藏时间和说明，播放内容与时间保持不变。</string>
 </resources>

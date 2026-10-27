@@ -264,8 +264,13 @@ fun WallpaperSheet(
                                 AerialSettings.aerialQuality, AerialSettings::chooseAerialQuality,
                             )
                         }
-                        // The clock screensaver is its clock, and the others show none.
-                        if (Wallpapers.screensaver == ScreensaverMode.Aerial || Wallpapers.screensaver == ScreensaverMode.Photos) Choices(
+                        // Clock is its own screensaver; the system one is controlled by the firmware.
+                        if (Wallpapers.screensaver != ScreensaverMode.Clock && Wallpapers.screensaver != ScreensaverMode.System) Choices(
+                            R.string.ss_immersive, stringResource(R.string.ss_immersive_hint), note,
+                            listOf(true to R.string.st_on, false to R.string.st_off),
+                            AerialSettings.screensaverImmersive, AerialSettings::chooseScreensaverImmersive,
+                        )
+                        if (!AerialSettings.screensaverImmersive && (Wallpapers.screensaver == ScreensaverMode.Aerial || Wallpapers.screensaver == ScreensaverMode.Photos)) Choices(
                             R.string.ss_show_time, stringResource(R.string.ss_show_time_hint), note,
                             listOf(true to R.string.st_on, false to R.string.st_off),
                             AerialSettings.screensaverClock, AerialSettings::chooseScreensaverClock,

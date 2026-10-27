@@ -237,9 +237,15 @@ private fun FilmCarry(film: LiveFilm, now: LocalDateTime, steps: SharedFlow<Int>
 /** Place name bottom-left, time top-right: how tvOS labels its screensaver. */
 @Composable
 private fun Labels(caption: String?, now: LocalDateTime, showTime: Boolean = true, timeFadeMs: Int = 2000) {
+    // Fade the whole overlay, including its text shading, without touching the picture underneath.
+    val labels by animateFloatAsState(
+        if (AerialSettings.screensaverImmersive) 0f else 1f,
+        tween(if (LocalReducedMotion.current) 0 else 600, easing = Motion.EaseOut), label = "saver-labels",
+    )
+    if (labels <= 0f) return
     // Fades in where Home's own clock has moved to, as the photos cover it.
     val time by animateFloatAsState(if (showTime) 1f else 0f, tween(timeFadeMs), label = "time")
-    Box(Modifier.fillMaxSize()) {
+    Box(Modifier.fillMaxSize().graphicsLayer { alpha = labels }) {
         Canvas(Modifier.fillMaxSize()) {
             // Just enough shade under the text to read it over bright sky or snow.
             drawRect(Brush.verticalGradient(0.7f to Color.Transparent, 1f to Color.Black.copy(alpha = 0.45f)))

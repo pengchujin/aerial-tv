@@ -78,6 +78,7 @@ class PhoneServer private constructor(private val context: Context, private val 
                         "wallpaperAlwaysMoves" -> { onMain { AerialSettings.chooseWallpaperAlwaysMoves(on) }; true }
                         "showWeather" -> { onMain { AerialSettings.chooseShowWeather(on) }; true }
                         "screensaverClock" -> { onMain { AerialSettings.chooseScreensaverClock(on) }; true }
+                        "screensaverImmersive" -> { onMain { AerialSettings.chooseScreensaverImmersive(on) }; true }
                         else -> false
                     }
                     json(state().put("saved", known))
@@ -210,6 +211,7 @@ class PhoneServer private constructor(private val context: Context, private val 
             .put("wallpaperAlwaysMoves", AerialSettings.wallpaperAlwaysMoves)
             .put("showWeather", AerialSettings.showWeather)
             .put("screensaverClock", AerialSettings.screensaverClock)
+            .put("screensaverImmersive", AerialSettings.screensaverImmersive)
             .put("wallpapers", list)
             .put("apps", JSONArray().apply {
                 // Pinned inputs first, then apps by the name Home shows. [default] is the name a
