@@ -62,6 +62,7 @@
     <string name="menu_uninstall">Uninstall</string>
     <string name="move_hint">Use the arrows to move · Press OK when done</string>
     <string name="move_hint_touch">Use the arrows or tap a spot to move · Press OK or tap the app when done</string>
+    <string name="shelf_open">Press OK to open · Hold for more</string>
 
     <string name="hidden_title">Hidden Apps</string>
     <string name="hidden_hint">Select an app to put it back on Home</string>

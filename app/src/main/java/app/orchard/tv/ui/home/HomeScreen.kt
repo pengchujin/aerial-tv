@@ -30,6 +30,7 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.BasicText
@@ -455,7 +456,6 @@ fun HomeScreen(
         )
         val maxScroll = with(density) { metrics.scrollFor(rows - 1, rows).toPx() }.coerceAtLeast(0f)
         LaunchedEffect(maxScroll) { scroll.updateBounds(0f, maxScroll) }
-        val pastShelf by remember(collapsePx) { derivedStateOf { scroll.value > collapsePx / 2 } }
         val decay = rememberSplineBasedDecay<Float>()
         LaunchedEffect(target, dragged) {
             if (dragged) return@LaunchedEffect
@@ -464,6 +464,8 @@ fun HomeScreen(
             // a row took about 300 ms to get 90% of the way and half a second to settle.
             else scroll.animateTo(target, spring(dampingRatio = 1f, stiffness = 280f))
         }
+
+        val pastShelf by remember(collapsePx) { derivedStateOf { scroll.value > collapsePx / 2 } }
 
         // The folder open, or under its app's menu.
         val openFolder = (overlay as? Overlay.Folder)?.id ?: (overlay as? Overlay.AppMenu)?.inFolder
@@ -498,6 +500,11 @@ fun HomeScreen(
         }
 
         val ambientApp = apps.getOrNull(focusedIndex) ?: apps.firstOrNull()
+
+        // The shelf band follows the grid's focus; with the status pill up it goes back to the
+        // clock, which is what that corner is for when nothing is selected. Shared with the pill
+        // below, which keeps the time off screen while the band is already showing it.
+        val shelfApp = apps.getOrNull(focusedIndex).takeUnless { pillFocused }
 
         val dragState = rememberDraggableState { delta ->
             dragged = true
@@ -620,16 +627,25 @@ fun HomeScreen(
                     ),
             ) {
                 val clockRight = AerialSettings.clockRight
-                // The large clock stands over the top row; the small one is the time and weather in
-                // one line, top left or beside the pill, so the wallpaper keeps the screen.
+                // The shelf band: idle it is the large clock over the top row, focused on an app it
+                // becomes that app's Top Shelf (issue #83). The small clock is the time and weather
+                // in one line, top left or beside the pill, so the wallpaper keeps the screen.
+                //
+                // Anchored at [metrics.clockY], the clock's own slot, so the idle state is where it
+                // was before the shelf: the band takes the clock's place rather than a place of its
+                // own. min, not a fixed height -- the clock keeps its natural height and position
+                // when nothing is focused, and the hero's 169dp panel is what sets the floor.
                 if (AerialSettings.largeClock) {
-                    ShelfClock(
+                    Shelf(
+                        app = shelfApp,
                         now = now,
                         alignEnd = clockRight,
                         modifier = Modifier
                             .align(if (clockRight) Alignment.TopEnd else Alignment.TopStart)
                             .padding(horizontal = metrics.margin)
                             .padding(top = metrics.clockY)
+                            .fillMaxWidth()
+                            .heightIn(min = 176.dp)
                             // No offscreen buffer while it fades: it would be the clock's capBox, and the
                             // Chinese, the icon and the shadows above and below it were cut off (#727).
                             .graphicsLayer {
@@ -738,9 +754,9 @@ fun HomeScreen(
         homeShot?.let { shot -> Canvas(Modifier.fillMaxSize()) { drawImage(shot) } }
         PanelBackdrop(Wallpapers.frosted.takeIf { Wallpapers.backdrop != null }, { backdropFrost }, { backdropVeil })
 
-        // The pill holds only the network and Control Center. The time joins it once the clock
-        // above the top row has scrolled away, so the screen never shows the time twice. The small
-        // clock on the right puts the time and weather just left of the pill.
+        // The pill holds only the network and Control Center, and the time once the band above the
+        // top row is not showing it, so the screen never shows the time twice. The small clock on
+        // the right puts the time and weather just left of the pill.
         Row(
             Modifier
                 .align(Alignment.TopEnd)
@@ -764,7 +780,15 @@ fun HomeScreen(
             StatusPill(
                 now = now,
                 network = vm.network,
-                showTime = if (dragged) pastShelf else inGrid,
+                // The band is the clock only while no app is focused (see the shelf above). With an
+                // app up there the time lives in the pill -- tvOS keeps the clock in the status
+                // corner for the same reason. Without the large clock the band is never the shelf,
+                // so the old "once past the band" rule stands.
+                showTime = if (!AerialSettings.largeClock) {
+                    if (dragged) pastShelf else inGrid
+                } else {
+                    shelfApp != null
+                },
                 enabled = gridEnabled && moving == null,
                 focusRequester = pillRequester,
                 modifier = Modifier

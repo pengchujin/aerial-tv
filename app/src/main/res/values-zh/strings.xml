@@ -61,6 +61,7 @@
     <string name="menu_uninstall">卸载</string>
     <string name="move_hint">用方向键移动 · 按确定键完成</string>
     <string name="move_hint_touch">用方向键移动，或点一下要放的位置 · 按确定键或点这个 App 完成</string>
+    <string name="shelf_open">按确定键打开 · 长按可移动或卸载</string>
 
     <string name="hidden_title">隐藏的 App</string>
     <string name="hidden_hint">选择一个 App 放回主屏幕</string>
