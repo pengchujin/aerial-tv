@@ -518,7 +518,6 @@ fun HomeScreen(
         // same picture and plate, and only the row after it goes into the grid (issue #633: the
         // grid's frosted picture flashed up on the way to an app in the second row).
         val inGrid = focusedRow >= if (oneRow) 1 else 2
-        val saverFadeOffscreen = remember { DiagLog.saverFadeOffscreen(appContext) }
         // With every name shown, the top row's go on its glass plate, which grows to hold them.
         val plateNames = AerialSettings.showAllNames && AerialSettings.homePlate
         val peek = AerialSettings.peekNextRow
@@ -754,6 +753,7 @@ fun HomeScreen(
                             spring(dampingRatio = 0.86f, stiffness = Spring.StiffnessMediumLow),
                             label = "slot",
                         )
+                        val saverFade = { ((toSaver.value - 0.05f * (index % columns)) / 0.6f).coerceIn(0f, 1f) }
                         AppTile(
                             app = app,
                             width = metrics.tileW,
@@ -761,6 +761,7 @@ fun HomeScreen(
                             focusRequester = requester(app.key),
                             enabled = gridEnabled,
                             moving = moving == app.key,
+                            opacity = { 1f - saverFade() },
                             appearDelayMs = (index * 28).coerceAtMost(320),
                             onFocused = {
                                 focusedKey = app.key
@@ -797,22 +798,17 @@ fun HomeScreen(
                             modifier = Modifier
                                 // Lifted on the shelf with the plate; the clock above stays put.
                                 .offset { slot.value - IntOffset(0, lift.roundToInt()) }
+                                // Into the screensaver, the apps go left to right, sinking a little.
+                                // Opacity lives in the tile's own layers: another layer around it dropped
+                                // the focus zoom and rounded clip on Android 9 (issue #725).
+                                .offset { IntOffset(0, (saverFade() * 18.dp.toPx()).roundToInt()) }
                                 .then(
                                     if (index >= hiddenFrom) Modifier.graphicsLayer {
                                         alpha = (scroll.value / collapsePx * 2.5f).coerceIn(0f, 1f)
                                         // No offscreen buffer: it would clip the focus frame to the tile.
                                         compositingStrategy = CompositingStrategy.ModulateAlpha
                                     } else Modifier,
-                                )
-                                // Into the screensaver, the apps go left to right, sinking a little.
-                                .graphicsLayer {
-                                    val f = ((toSaver.value - 0.05f * (index % columns)) / 0.6f).coerceIn(0f, 1f)
-                                    if (f > 0f) {
-                                        alpha = 1f - f
-                                        translationY = f * 18.dp.toPx()
-                                        compositingStrategy = if (saverFadeOffscreen) CompositingStrategy.Offscreen else CompositingStrategy.ModulateAlpha
-                                    }
-                                },
+                                ),
                             rowEnd = index % columns == columns - 1 || index == apps.lastIndex,
                             // On the glass plate only with every name shown (an earlier build showed
                             // the focused one alone there, but it sat oddly on the glass).
