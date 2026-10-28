@@ -76,6 +76,7 @@ import app.orchard.tv.R
 import app.orchard.tv.settings.AerialSettings
 import app.orchard.tv.apps.AppEntry
 import app.orchard.tv.ui.control.ControlCenter
+import app.orchard.tv.ui.wallpaper.WeatherCitySheet
 import app.orchard.tv.ui.wallpaper.WallpaperSheet
 import app.orchard.tv.wallpaper.AerialFormats
 import app.orchard.tv.wallpaper.ScreensaverMode
@@ -928,9 +929,15 @@ fun HomeScreen(
             onDismiss = { vm.overlay = Overlay.Wallpaper },
         )
 
+        WeatherCitySheet(
+            visible = overlay is Overlay.WeatherCity,
+            onDismiss = { vm.overlay = Overlay.Wallpaper },
+        )
+
         WallpaperSheet(
             visible = overlay is Overlay.Wallpaper,
             onDismiss = { vm.overlay = Overlay.ControlCenter() },
+            onPickCity = { vm.overlay = Overlay.WeatherCity },
             hiddenCount = vm.hiddenApps.size,
             onHiddenApps = { vm.whenUnlocked { vm.overlay = Overlay.HiddenApps } },
             onStartScreensaver = {

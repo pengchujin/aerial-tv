@@ -76,8 +76,8 @@
     <string name="wp_wallpaper">Wallpaper</string>
     <string name="wp_weather">Weather</string>
     <string name="wp_weather_none">No weather yet. It loads once the TV is online.</string>
-    <string name="wp_weather_guessed">Located from the network. If that is wrong, scan the code on the right to set your city.</string>
-    <string name="wp_weather_chosen">The city is set on your phone; scan the code on the right to change it.</string>
+    <string name="wp_weather_guessed">Located from the network; Choose beside it sets your city right here.</string>
+    <string name="wp_weather_chosen">The city is set; Choose beside it changes it here on the TV.</string>
     <string name="wx_clear">Clear</string>
     <string name="wx_partly_cloudy">Partly Cloudy</string>
     <string name="wx_cloudy">Cloudy</string>
@@ -135,6 +135,14 @@
     <string name="st_names_hint">Names under every app, or only under the selected one, as on Apple TV. With every name shown, the top row\'s names sit on its glass plate too.</string>
     <string name="ss_kind">Style</string>
     <string name="wp_weather_city">Location</string>
+    <string name="wp_weather_pick">Choose</string>
+    <string name="wc_title">Weather City</string>
+    <string name="wc_hint">Type a city\'s name in Chinese or as pinyin, then choose from the list.</string>
+    <string name="wc_search_hint">城市名或拼音, e.g. 商丘 or Shangqiu</string>
+    <string name="wc_none_found">No matching place in the list; try the Chinese name.</string>
+    <string name="wc_use_network">Follow the network</string>
+    <string name="wc_not_found">Could not set that place; check the network and try again.</string>
+    <string name="wc_choosing">Setting %s…</string>
     <string name="st_home_standard">Two Rows</string>
     <string name="st_home_one_row">One Row</string>
     <string name="st_home_layout_hint">One Row puts only the top row on screen, low down, so more of the wallpaper shows, a family photo say. Two Rows shows the top of the second row too. Press down for the rest.</string>

@@ -98,6 +98,7 @@ import kotlin.math.roundToInt
 fun WallpaperSheet(
     visible: Boolean,
     onDismiss: () -> Unit,
+    onPickCity: () -> Unit,
     hiddenCount: Int,
     onHiddenApps: () -> Unit,
     onStartScreensaver: () -> Unit,
@@ -300,7 +301,15 @@ fun WallpaperSheet(
                     Spacer(Modifier.height(22.dp))
                     SectionTitle(R.string.wp_weather)
                     Group(stringResource(if (Weather.chosen) R.string.wp_weather_chosen else R.string.wp_weather_guessed)) { note ->
-                        SettingRow(R.string.wp_weather_city, null, note, first = true) { WeatherValue() }
+                        SettingRow(R.string.wp_weather_city, null, note, first = true) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                WeatherValue()
+                                ActionChip(stringResource(R.string.wp_weather_pick), Glyph.ChevronRight, onPickCity)
+                            }
+                        }
                     }
 
                     // One row says what it is; a title over it would only repeat it.
