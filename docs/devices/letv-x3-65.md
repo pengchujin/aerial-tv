@@ -50,3 +50,30 @@ standard/guard 版、改不改包名都一样；强杀还会清空无障碍绑�
 改包名后完全稳定——两代 EUI 的内存管理器放行规则不同。
 
 卸载还原：`pm uninstall com.stv.tvhome`
+
+## Signal inputs: investigation and draft adapter (2026-10-28)
+
+On X3-65 / Android 5.0.1 / V2301RCN02C080080B06141S, Aerial 1.66's
+`list_sources` returns `[]`. The native exported player is
+`com.stv.signalsourcemanager/.MainActivity`; its port extra is the **string**
+`extraPort` (e.g. `HDMI 1`), not a MStar numeric input ordinal.
+
+Directly opening that activity on the tested device crashes in
+`SourceBase.enableSignalDesktop`: `DesktopManager.getEnabledDesktopTags()`
+returns null. This is a native-player failure, independent of the missing
+Aerial input enumeration. Do not advertise direct activity launch as a fix.
+
+The firmware's `framework-letv.jar` declares `letv.desktop.DesktopManager.get()`,
+`getSupportInput(): String[]`, `getEnabledDesktopTags(): String[]`, and
+`switchToSignalDesktop(String): boolean`. The draft LetvSources adapter reads
+that native port list, uses the native switch method, and refuses to switch
+if the desktop registry is null. It does not write desktop tags or change
+parental locks, and does not bundle proprietary firmware code.
+
+**Not verified:** calling these methods from an ordinary app, actual port
+switching, and Home/standby after switching. The proposed independent test APK
+was blocked by the execution policy before it ran. The Gradle wrapper also
+could not download its distribution (local proxy connection refused).
+This adapter must remain a draft until those checks pass; it is not a proven
+fix for the native null-registry failure. No development APK replaced the
+owner's signed Aerial installation.

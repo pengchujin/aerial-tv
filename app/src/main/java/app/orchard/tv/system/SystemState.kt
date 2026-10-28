@@ -337,7 +337,7 @@ object SystemProbe {
     }
 
     fun startSettingsIntent(context: Context, intent: Intent) {
-        if (HisenseSources.open(context, intent)) return
+        if (LetvSources.open(context, intent) || HisenseSources.open(context, intent)) return
         val activity = if (intent.component == XGIMI_SETTINGS) {
             val shown = runCatching { context.startService(intent) }.getOrNull() != null
             if (shown) return
@@ -518,6 +518,7 @@ object SystemProbe {
 
     /** Lists framework inputs first, then known manufacturer-specific input integrations. */
     fun sources(context: Context): List<TvSource> = frameworkSources(context)
+        .ifEmpty { LetvSources.load(context) }
         .ifEmpty { XgimiMstarSources.load(context) }
         .ifEmpty { xiaomiSources(context) }
         .ifEmpty { HisenseSources.load(context) }
