@@ -18,6 +18,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.content.getSystemService
 import android.util.Log
 import app.orchard.tv.dream.AerialDream
+import app.orchard.tv.system.DiagLog
 import app.orchard.tv.system.SystemScreensaver
 
 /**
@@ -455,10 +456,33 @@ object GuardSetup {
      */
     fun screensaverSettingChanged(context: Context) = keepScreensaver(context)
 
+    /**
+     * A persisted component override survives an APK update. On Skyworth 8N312_H5D the boot
+     * receiver was disabled even though the manifest enables it. Android 8's shell cannot
+     * change another app's component, but the owning app can clear its own override. Only do
+     * so after the owner has granted the ADB takeover permission, as for the guard itself.
+     */
+    private fun restoreBootReceiver(context: Context) {
+        val pm = context.packageManager
+        val component = ComponentName(context, BootReceiver::class.java)
+        runCatching {
+            val state = pm.getComponentEnabledSetting(component)
+            if (state == PackageManager.COMPONENT_ENABLED_STATE_DEFAULT ||
+                state == PackageManager.COMPONENT_ENABLED_STATE_ENABLED) return
+            pm.setComponentEnabledSetting(
+                component, PackageManager.COMPONENT_ENABLED_STATE_DEFAULT, PackageManager.DONT_KILL_APP,
+            )
+            DiagLog.i("revival: cleared disabled BootReceiver override (was $state)")
+        }.onFailure {
+            DiagLog.e("revival: could not restore BootReceiver", it)
+        }
+    }
+
     /** Returns whether Home Guard had been switched off and was put back. */
     fun ensureEnabled(context: Context): Boolean {
         ensureAdb(context)
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_SECURE_SETTINGS) != PackageManager.PERMISSION_GRANTED) return false
+        restoreBootReceiver(context)
         keepScreensaver(context)
         RevivalSync.ensure(context)
         if (standingOut(context)) { watchScreenOn(context); return false }

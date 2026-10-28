@@ -257,6 +257,10 @@ NanoHTTPD 监听 8790 端口，路径前缀是 8 位随机令牌（每次打开�
   → GuardSetup.ensureEnabled() → 守护重新启用 → onServiceConnected 判断为「刚被复活」→ 打开 Aerial
 ```
 
+通知服务的启动恢复不只依赖 `onListenerConnected`：`RevivalListener.onCreate` 也启动有限次数的检查，在服务创建后约 5、10、20、35、65、125 秒检查用户是否解锁、守护是否绑定，最后再等 5 秒确认。已绑定就停止；尚未解锁只等待，不读凭据存储；解锁广播即使丢失也会由下一次检查发现。重绑复用 `GuardSetup.rebindIfStalled`，保留其他无障碍服务，并遵守 `guard_off_in_standby`。窗口耗尽后不再轮询；较晚才收到解锁或通知连接回调时可以启动新窗口。服务销毁取消尚未执行的检查。
+
+`GuardSetup.ensureEnabled` 在确认户主已授予 `WRITE_SECURE_SETTINGS` 后，也会清除 Aerial 自己的 `BootReceiver` 禁用覆盖（不是修改别人的组件）。组件覆盖会跨 APK 更新保留；Android 8 的 ADB shell 不能改普通应用的单个组件，由应用自己恢复。恢复过程进 `DiagLog`；`adb shell dumpsys activity service app.orchard.tv/.guard.RevivalListener` 也打印重试状态和内存诊断，避免只能在首页已经打开后才能取日志。
+
 `allowStockLauncher`：用户从网格里主动打开原桌面时，1 小时内不拦截。
 
 电视的播放器（`com.tcl.tv`、`com.xiaomi.mitv.tvplayer`）即使声明了 HOME，也不算原桌面，除非它就是系统解析出来的 HOME：TCL 85G60E 把 `com.tcl.tv` 列为 HOME，每次切信号源都被守护当成原桌面拉回（#223，用户日志；家里的 TCL MT5879 没有这个 HOME，没有真机验证）。
