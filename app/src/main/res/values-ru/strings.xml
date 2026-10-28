@@ -316,4 +316,6 @@
     <string name="kids_blocked">«%s» здесь недоступно</string>
     <string name="kids_warn">Осталось %d мин</string>
     <string name="kids_warn_break">Перерыв через %d мин</string>
+    <string name="cc_power">Питание</string>
+    <string name="cc_power_unavailable">Не удалось открыть системное меню питания. Убедитесь, что Aerial Home Guard включён.</string>
 </resources>

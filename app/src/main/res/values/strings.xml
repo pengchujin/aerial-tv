@@ -324,4 +324,6 @@
     <string name="kids_blocked">%s is not allowed here</string>
     <string name="kids_warn">%d min of TV left</string>
     <string name="kids_warn_break">A break in %d min</string>
+    <string name="cc_power">Power</string>
+    <string name="cc_power_unavailable">Could not open the system power menu. Make sure Aerial Home Guard is enabled.</string>
 </resources>

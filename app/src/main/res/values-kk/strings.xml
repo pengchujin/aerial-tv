@@ -316,4 +316,6 @@
     <string name="kids_blocked">«%s» мұнда қолжетімсіз</string>
     <string name="kids_warn">%d мин қалды</string>
     <string name="kids_warn_break">%d минуттан кейін үзіліс</string>
+    <string name="cc_power">Қуат</string>
+    <string name="cc_power_unavailable">Жүйенің қуат мәзірін ашу мүмкін болмады. Aerial Home Guard қызметінің қосылғанын тексеріңіз.</string>
 </resources>
