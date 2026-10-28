@@ -263,6 +263,7 @@ object SystemProbe {
         val wired = listOfNotNull(Intent("com.xiaomi.mitv.settings.ETHERNET_SETTINGS").setPackage("com.xiaomi.mitv.settings").takeIf { ethernet })
         return allResolvable(
             context,
+            *listOfNotNull(hisenseNetworkSettingsIntent(context)).toTypedArray(),
             *wired.toTypedArray(),
             Intent("com.xiaomi.mitv.settings.WIFI_SETTINGS").setComponent(ComponentName("com.xiaomi.mitv.settings", "com.xiaomi.mitv.settings.wifi.MitvWifiActivity")),
             Intent(Intent.ACTION_MAIN).setComponent(ComponentName("com.android.tv.settings", "com.android.tv.settings.connectivity.NetworkActivity")),
@@ -275,6 +276,16 @@ object SystemProbe {
             Intent(Intent.ACTION_MAIN).setComponent(ComponentName("com.tcl.settings", "com.tcl.settings.ui.MainActivity")),
             WHALEY_SETTINGS,
         )
+    }
+
+    // Hisense H55E9A (Android 8): the OEM connection panel works, while the leftover AOSP
+    // NetworkActivity can crash in its subpages (#760). Other TVs keep their existing order.
+    private fun hisenseNetworkSettingsIntent(context: Context): Intent? {
+        val intent = Intent(Settings.ACTION_WIFI_SETTINGS).setComponent(
+            ComponentName("com.android.tv.settings", "com.hisense.systemsettings.MainActivity"),
+        )
+        val info = runCatching { context.packageManager.resolveActivity(intent, 0)?.activityInfo }.getOrNull()
+        return intent.takeIf { info != null && info.exported && info.enabled && info.applicationInfo.enabled }
     }
 
     private val XGIMI_SETTINGS = ComponentName("com.android.newsettings", "com.xgimi.newsettings.SettingService")

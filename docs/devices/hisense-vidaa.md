@@ -74,6 +74,28 @@ Vidda C1S 激光投影（VIDAA_TV，MT9669，Android 9，PR #545）：聚好看�
 - **验证边界**：电视原有 Aerial 1.50 与本机签名不同，没有覆盖安装或卸载原桌面，所以完整首页、控制中心和 Activity 生命周期仍需使用匹配签名的完整包回归。此次只确认实际检测代码及原有图标在诊断包中的行为。临时包和电视上的测试文件已清理，VPN 恢复关闭，未修改订阅、节点、路由配置或户主数据。
 - standard / guard release 构建通过；全量 `lintStandardRelease` 仍有 22 个非本次网络文件的错误（包括 `UhdCanvas` 的 API 兼容性、Media3 opt-in 等），未在此次修复中顺带修改。
 
+## 控制中心网络入口（H55E9A，#760）
+
+2026-10-28，在 H55E9A（Android 8.0.0 / SDK 26）确认：`com.android.tv.settings`
+同时包含 Android TV 的 `connectivity.NetworkActivity` 和海信自己的
+`com.hisense.systemsettings.MainActivity`。原来的候选顺序先打开前者；#760 的用户报告
+它的连接页或高级选项崩溃，海信自己的设置页能用。
+
+- 海信入口：`android.settings.WIFI_SETTINGS`，显式组件
+  `com.android.tv.settings/com.hisense.systemsettings.MainActivity`。从 Aerial 上方启动时，
+  截图确认直接弹出海信自己的 Wi-Fi 列表，不需要先在总设置中选择网络。
+- `SystemProbe` 和 Lite 的 `SystemIntents` 仅在该组件存在、启用且导出时优先使用它，
+  不按品牌名或 `VIDAA_TV` 型号判断。其他电视的候选顺序不变；完整版保留原有启动失败和闪退回退机制。
+- 自动化：88 项单元测试通过，新增 7 项覆盖海信优先级、未安装/未导出/禁用时的回退、
+  小米有线/无线优先级、TCL 标准 Wi-Fi action，以及实际启动 action 和通用设置入口不变。
+  standard、guard、Lite release 构建及 Lite lint 通过。
+- 普通应用权限验证：独立包名的 release 诊断包直接编译当前 `SystemProbe`，执行 speed 编译后，
+  系统日志确认由诊断包的普通应用 UID 发起上述显式 Wi-Fi action，海信设置页收到真实遥控器
+  返回键后回到诊断页。测试包及电视上的临时文件已清理，没有改变默认 HOME 或网络配置。
+- 验证边界：本机没有与电视上 Aerial 1.61 匹配的签名密钥，未覆盖安装或卸载原桌面。
+  完整控制中心点击流程、连接/更换 Wi-Fi 和高级选项未验证；#760 的另一台
+  85E5N Pro+（MT9653）以及 Android 4.x 的 Lite 尚未上机验证。
+
 ## 还原
 
 - `tools/restore.sh` 用 `settings global aerial_vt_home_pkg` 里记下的原值还原 `persist.vt.use_home_pkg`。1.15 及以前是手动改的属性，没有记原值：这时如果属性是 `app.orchard.tv` 且装有 `com.jamdeo.tv.vod`，就还原成聚好看（#40 的报告人发现的，2026-10-22 起）。
