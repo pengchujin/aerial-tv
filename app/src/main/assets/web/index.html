@@ -318,6 +318,19 @@
     </div>
     <p class="foot" data-i18n="videos_hint"></p>
   </div>
+
+  <h2>每日图源</h2>
+  <div class="list">
+    <label class="item field"><span class="txt">地址</span><input id="dailyHost" type="text" placeholder="192.168.1.10 或 nas.local" autocomplete="off"></label>
+    <label class="item field"><span class="txt">端口</span><input id="dailyPort" type="number" min="1" max="65535" value="8899"></label>
+    <label class="item field"><span class="txt">Token</span><input id="dailyToken" type="password" placeholder="可选" autocomplete="off"></label>
+    <button class="item tint center" id="dailySave">保存</button>
+  </div>
+  <div class="list" style="margin-top:10px">
+    <button class="item tint center" id="dailyProbe">探测局域网</button>
+    <button class="item center" id="dailyBing">恢复 Bing</button>
+  </div>
+  <p class="foot" id="dailyHint"></p>
 </section>
 
 <!-- More -->
@@ -1904,18 +1917,64 @@ function sortableGrid(grid, keys, onMove, onTap) {
   });
 }
 
+function renderDaily() {
+  const d = state.daily || {};
+  const host = $('#dailyHost');
+  if (host && document.activeElement !== host) host.value = d.host || '';
+  const port = $('#dailyPort');
+  if (port && document.activeElement !== port) port.value = d.port || 8899;
+  const token = $('#dailyToken');
+  if (token && document.activeElement !== token) token.value = d.token || '';
+  const hint = $('#dailyHint');
+  if (hint) hint.textContent = d.host
+    ? `当前：${d.host}:${d.port}`
+    : '默认使用 Bing；可填写局域网地址、端口和可选 Token，或点「探测局域网」。';
+}
+
 function render() {
   if (!state) return;
   // The page polls; skip the rebuild when nothing changed, so pictures do not flicker and taps are not lost.
   const json = JSON.stringify(state);
   if (json === stateJson) return;
   stateJson = json;
+  renderDaily();
   renderWallpapers();
   renderScreensaver();
   renderMore();
   renderInputs();
   renderArrange(false);
 }
+
+$('#dailySave').onclick = async () => {
+  const btn = $('#dailySave');
+  btn.disabled = true;
+  try {
+    const r = await api('api/daily/source', {
+      host: $('#dailyHost').value, port: $('#dailyPort').value, token: $('#dailyToken').value,
+    });
+    take(r);
+    toast(r.ok ? '已保存每日图源' : (r.error === 'host' ? '地址无效' : (r.error === 'port' ? '端口无效' : '服务器不可达或 Token 错误')));
+  } catch (e) { toast('保存失败'); }
+  finally { btn.disabled = false; }
+};
+
+$('#dailyProbe').onclick = async () => {
+  const btn = $('#dailyProbe');
+  btn.disabled = true; btn.textContent = '探测中…';
+  try {
+    const r = await api('api/daily/probe', {
+      host: $('#dailyHost').value, port: $('#dailyPort').value, token: $('#dailyToken').value,
+    });
+    take(r);
+    toast(r.ok ? '已找到并切换' : '未找到局域网图源');
+  } catch (e) { toast('探测失败'); }
+  finally { btn.disabled = false; btn.textContent = '探测局域网'; }
+};
+
+$('#dailyBing').onclick = async () => {
+  try { take(await api('api/daily/bing', {})); toast('已恢复 Bing'); }
+  catch (e) { toast('切换失败'); }
+};
 
 initLangSwitch();
 applyI18n();

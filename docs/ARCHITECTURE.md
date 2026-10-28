@@ -29,10 +29,11 @@ app/src/main/java/app/orchard/tv/
 │   ├── home/PinPad.kt       家长密码键盘（设置 / 解锁，遥控器数字键或屏幕键盘）
 │   ├── home/Screensaver.kt  屏保 UI：航拍（Media3 ExoPlayer，见 wallpaper/AerialStream.kt）/ 照片（Ken Burns）/ 时钟
 │   ├── control/ControlCenter.kt  控制中心：按钮、音量/亮度滑块、「个性化」入口、有新版本时的提示和升级说明页、底部版本号；信号源页（只负责切换）和信号源设置页（显示在主屏幕、开机时打开）
-│   └── wallpaper/WallpaperSheet.kt  个性化面板（壁纸、屏保和开始时间、焦点样式、家长密码、天气）+ 手机扫码卡片
+│   └── wallpaper/WallpaperSheet.kt  个性化面板（壁纸、每日图源、屏保和开始时间、焦点样式、家长密码、天气）+ 手机扫码卡片
 ├── wallpaper/
 │   ├── Wallpapers.kt        壁纸单例：来源（每日/内置/照片/照片每天换一张/跟随App）、选择、首页背景烘焙（结果存在 files/backdrop/，冷启动直接读回）、缩略图、上传
 │   ├── Gradients.kt         14 张 Mac 风格内置壁纸（山丘、沙丘、海、波浪、光晕），在电视上按实际分辨率画
+│   ├── DailySource.kt       每日图源设置（默认 Bing；可配局域网 host/port/token）、校验/健康检查/局域网探测
 │   ├── Images.kt            解码裁剪、首页压暗烘焙、抖动、box blur
 │   ├── Aerials.kt           读取 assets/aerials.json（Apple 航拍目录）；AerialFormats：这台电视能播哪档画质
 │   └── PhoneServer.kt       NanoHTTPD 手机配置页 + 二维码生成
