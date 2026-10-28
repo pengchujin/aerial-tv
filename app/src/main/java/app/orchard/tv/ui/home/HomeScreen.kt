@@ -559,6 +559,11 @@ fun HomeScreen(
             if (folderOpen) 1f else 0f,
             tween(320, easing = Motion.EaseOut), label = "backdrop-frost",
         )
+        // How far Personalize has risen over Home: the large clock gives way to the small one.
+        val personalize by animateFloatAsState(
+            if (overlay is Overlay.Wallpaper) 1f else 0f,
+            if (LocalReducedMotion.current) snap() else tween(380, easing = Motion.Drawer), label = "personalize",
+        )
         val backdropVeil by animateFloatAsState(
             if (ccOpen) 1f else 0f,
             tween(320, easing = Motion.EaseOut), label = "backdrop-veil",
@@ -724,20 +729,21 @@ fun HomeScreen(
                             // No offscreen buffer while it fades: it would be the clock's capBox, and the
                             // Chinese, the icon and the shadows above and below it were cut off (#727).
                             .graphicsLayer {
-                                alpha = 1f - (scroll.value / collapsePx * 1.6f).coerceIn(0f, 1f)
+                                alpha = (1f - (scroll.value / collapsePx * 1.6f).coerceIn(0f, 1f)) * largeClockLeft(personalize)
                                 compositingStrategy = CompositingStrategy.ModulateAlpha
                             },
                         toSaver = { clockToSaver.value },
                         saving = vm.screensaverVisible,
                         away = carrying,
                     )
-                } else if (!clockRight) {
+                }
+                if (!clockRight) {
                     CornerClock(
                         now = now,
                         modifier = Modifier
                             .padding(start = metrics.margin, top = 28.dp)
                             .graphicsLayer {
-                                alpha = 1f - (scroll.value / collapsePx * 1.6f).coerceIn(0f, 1f)
+                                alpha = (1f - (scroll.value / collapsePx * 1.6f).coerceIn(0f, 1f)) * smallClockShown(AerialSettings.largeClock, personalize)
                                 compositingStrategy = CompositingStrategy.ModulateAlpha
                             },
                         toSaver = { toSaver.value },
@@ -844,13 +850,13 @@ fun HomeScreen(
                 .graphicsLayer { alpha = if (overlay is Overlay.ControlCenter) 0f else 1f },
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            if (!AerialSettings.largeClock && AerialSettings.clockRight) {
+            if (AerialSettings.clockRight) {
                 CornerClock(
                     now = now,
                     modifier = Modifier
                         .padding(end = 14.dp)
                         .graphicsLayer {
-                            alpha = 1f - (scroll.value / collapsePx * 1.6f).coerceIn(0f, 1f)
+                            alpha = (1f - (scroll.value / collapsePx * 1.6f).coerceIn(0f, 1f)) * smallClockShown(AerialSettings.largeClock, personalize)
                             compositingStrategy = CompositingStrategy.ModulateAlpha
                         },
                     toSaver = { toSaver.value },
@@ -1052,3 +1058,13 @@ fun HomeScreen(
         )
     }
 }
+
+/**
+ * How far the small clock (the time and weather in one line) shows: always without the large one;
+ * with it, while Personalize is up over Home, coming in over the second half of the sheet's rise.
+ */
+internal fun smallClockShown(largeClock: Boolean, personalize: Float) =
+    if (!largeClock) 1f else ((personalize - 0.35f) / 0.65f).coerceIn(0f, 1f)
+
+/** How much of the large clock is left while Personalize rises: it goes in the first half. */
+internal fun largeClockLeft(personalize: Float) = (1f - personalize * 2f).coerceIn(0f, 1f)
