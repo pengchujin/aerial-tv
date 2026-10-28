@@ -56,6 +56,7 @@
     <string name="menu_uninstall">Удалить</string>
     <string name="move_hint">Стрелками перемещайте · по завершении нажмите OK</string>
     <string name="move_hint_touch">Стрелками или касанием выберите место · по завершении нажмите OK или коснитесь приложения</string>
+    <string name="shelf_open">Нажмите OK, чтобы открыть · Удерживайте для действий</string>
     <string name="hidden_title">Скрытые приложения</string>
     <string name="hidden_hint">Выберите приложение, чтобы вернуть его на главный экран</string>
     <string name="hidden_empty">Нет скрытых приложений</string>

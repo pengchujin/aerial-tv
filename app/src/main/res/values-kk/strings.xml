@@ -56,6 +56,7 @@
     <string name="menu_uninstall">Жою</string>
     <string name="move_hint">Жылжыту үшін көрсеткілерді пайдаланыңыз · аяқталғанда OK басыңыз</string>
     <string name="move_hint_touch">Орынды таңдау үшін көрсеткілерді пайдаланыңыз немесе түртіңіз · аяқталғанда OK басыңыз немесе қолданбаны түртіңіз</string>
+    <string name="shelf_open">Ашу үшін OK басыңыз · Әрекеттер үшін ұстап тұрыңыз</string>
     <string name="hidden_title">Жасырын қолданбалар</string>
     <string name="hidden_hint">Қолданбаны басты экранға қайтару үшін таңдаңыз</string>
     <string name="hidden_empty">Жасырын қолданбалар жоқ</string>
