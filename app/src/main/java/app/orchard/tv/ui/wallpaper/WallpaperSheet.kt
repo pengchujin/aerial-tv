@@ -61,6 +61,8 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import app.orchard.tv.R
 import app.orchard.tv.settings.AerialSettings
+import app.orchard.tv.settings.AppContentMode
+import app.orchard.tv.settings.NameMode
 import app.orchard.tv.settings.FocusStyle
 import app.orchard.tv.settings.UiSounds
 import app.orchard.tv.settings.Effects
@@ -185,9 +187,27 @@ fun WallpaperSheet(
                             AerialSettings.homePlate, AerialSettings::chooseHomePlate,
                         )
                         Choices(
+                            R.string.st_app_content, stringResource(R.string.st_app_content_hint), note,
+                            listOf(
+                                AppContentMode.OnUp to R.string.st_app_content_on,
+                                AppContentMode.Off to R.string.st_app_content_off,
+                                AppContentMode.Always to R.string.st_app_content_always,
+                            ),
+                            AerialSettings.appContentMode, AerialSettings::chooseAppContentMode,
+                        )
+                        if (AerialSettings.appContent) Choices(
+                            R.string.st_app_content_bg, stringResource(R.string.st_app_content_bg_hint), note,
+                            listOf(false to R.string.st_app_content_bg_blur, true to R.string.st_app_content_bg_posters),
+                            AerialSettings.appContentPosters, AerialSettings::chooseAppContentPosters,
+                        )
+                        Choices(
                             R.string.st_names, stringResource(R.string.st_names_hint), note,
-                            listOf(false to R.string.st_names_focused, true to R.string.st_names_all),
-                            AerialSettings.showAllNames, AerialSettings::chooseShowAllNames,
+                            listOf(
+                                NameMode.Focused to R.string.st_names_focused,
+                                NameMode.All to R.string.st_names_all,
+                                NameMode.HeroTitle to R.string.st_names_hero,
+                            ),
+                            AerialSettings.nameMode, AerialSettings::chooseNameMode,
                         )
                         // Apps taken off Home are kept with the rest of how Home looks.
                         SettingRow(R.string.st_hidden_apps, stringResource(R.string.st_hidden_apps_hint), note) {

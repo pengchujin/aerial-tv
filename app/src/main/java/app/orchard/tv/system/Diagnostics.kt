@@ -121,7 +121,7 @@ object Diagnostics {
         appendLine("Effects     ${AerialSettings.effects.key}, lite=${AerialSettings.lite}; ${DeviceClass.describe(context)}")
         appendLine("Compiled    ${compiled(context)}")
         appendLine("Frames      ${FrameStats.summary()}")
-        appendLine("Settings    focus=${AerialSettings.focusStyle.key} one_row=${AerialSettings.oneRowHome} columns=${AerialSettings.homeColumns} peek=${AerialSettings.peekNextRow} names=${AerialSettings.showAllNames} boot_source=${AerialSettings.bootSource != null} boot_app=${AerialSettings.bootApp}")
+        appendLine("Settings    focus=${AerialSettings.focusStyle.key} one_row=${AerialSettings.oneRowHome} columns=${AerialSettings.homeColumns} peek=${AerialSettings.peekNextRow} names=${AerialSettings.nameMode.key} boot_source=${AerialSettings.bootSource != null} boot_app=${AerialSettings.bootApp}")
         appendLine("            wallpaper=${app.orchard.tv.wallpaper.Wallpapers.selectedId.substringBefore('/')} always_moves=${AerialSettings.wallpaperAlwaysMoves} quality=${AerialSettings.aerialQuality.key} weather=${AerialSettings.showWeather} saver_clock=${AerialSettings.screensaverClock}")
         appendLine("```")
 

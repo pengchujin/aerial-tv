@@ -33,6 +33,9 @@
     <uses-permission android:name="android.permission.WRITE_SETTINGS"
         tools:ignore="ProtectedPermissions" />
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Home's shelf: other apps' watch-next and preview-channel programs in the TV provider
+         (shelf/Shelf.kt). Granted over ADB by tools/install.sh, never prompted. -->
+    <uses-permission android:name="android.permission.READ_TV_LISTINGS" />
     <!-- Which app is in front, where a launcher hides from accessibility (Xiaomi PatchWall on
          Android 6, issue #81); granted over ADB. -->
     <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS"

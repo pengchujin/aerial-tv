@@ -7,6 +7,7 @@ import android.os.SystemClock
 import android.view.KeyEvent as NativeKeyEvent
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
@@ -39,6 +40,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -53,6 +55,10 @@ import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.TileMode
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.layer.drawLayer
 import androidx.compose.ui.graphics.rememberGraphicsLayer
@@ -65,15 +71,23 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
+import androidx.compose.ui.unit.sp
 import app.orchard.tv.CcPage
 import app.orchard.tv.apps.SourceLooks
 import app.orchard.tv.HomeViewModel
 import app.orchard.tv.Overlay
 import app.orchard.tv.R
 import app.orchard.tv.settings.AerialSettings
+import app.orchard.tv.settings.AppContentMode
+import app.orchard.tv.shelf.Shelf
+import app.orchard.tv.shelf.ShelfImages
+import app.orchard.tv.shelf.ShelfItem
+import app.orchard.tv.settings.NameMode
 import app.orchard.tv.apps.AppEntry
 import app.orchard.tv.ui.control.ControlCenter
 import app.orchard.tv.ui.wallpaper.WallpaperSheet
@@ -82,13 +96,14 @@ import app.orchard.tv.wallpaper.ScreensaverMode
 import app.orchard.tv.wallpaper.Wallpapers
 import app.orchard.tv.ui.components.liquidGlass
 import app.orchard.tv.ui.theme.LocalReducedMotion
+import app.orchard.tv.ui.theme.Glyph
+import app.orchard.tv.ui.theme.GlyphIcon
+import androidx.compose.foundation.layout.size
 import app.orchard.tv.ui.theme.Motion
 import app.orchard.tv.ui.theme.Type
 import androidx.compose.runtime.snapshotFlow
 import app.orchard.tv.system.DiagLog
 import app.orchard.tv.system.SystemProbe
-import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.asImageBitmap
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.Dispatchers
@@ -224,6 +239,13 @@ private class GridMetrics(screenW: Dp, screenH: Dp, val columns: Int, oneRow: Bo
     val screenH = screenH
 
     /**
+     * App content above the top row (ShelfRow): the cards end 18dp above the top row's plate, under
+     * the selected program's title and summary (64dp, then 14dp to the cards).
+     */
+    val shelfCardH = 96.dp
+    val shelfRowY = topRowY - PlatePadV - 18.dp - shelfCardH - 14.dp - ShelfSummaryH
+
+    /**
      * How far the grid scrolls before the shelf has given way: the clock and the plate fade over
      * it, the grid's glass comes in, the film stops past half of it. The top row's way up to
      * [restY], but never less than half a row: two rows four a row sit as high as [restY] or
@@ -241,6 +263,13 @@ private class GridMetrics(screenW: Dp, screenH: Dp, val columns: Int, oneRow: Bo
 
     /** The rows on the shelf, over the plate: the top row, and in two-row mode the second too. */
     val shelfRows = if (oneRow) 1 else 2
+
+    /**
+     * How far the top row (and its plate) goes down while the shelf is up, to where it sits in one
+     * row with nothing peeking: the rows below are hidden then, and the room under it would be empty.
+     */
+    val shelfDrop = ((if (plate) screenH - tileH - (PlateMarginBottom + PlatePadV) - firstGap else screenH - tileH - 70.dp) - topRowY)
+        .coerceAtLeast(0.dp)
 
     fun slot(index: Int, onTop: Boolean): Pair<Dp, Dp> {
         val row = index / columns
@@ -275,6 +304,7 @@ private const val HOME_SHOT_EVERY_MS = 30_000L
 fun HomeScreen(
     vm: HomeViewModel,
     onLaunch: (AppEntry, Rect?) -> Unit,
+    onOpenShelfItem: (AppEntry, ShelfItem, Rect?) -> Unit,
     onOpen: (Intent) -> Unit,
     onAppInfo: (String) -> Unit,
     onUninstall: (String) -> Unit,
@@ -291,6 +321,7 @@ fun HomeScreen(
     val requesters = remember { HashMap<String, FocusRequester>() }
     fun requester(key: String) = requesters.getOrPut(key) { FocusRequester() }
     val pillRequester = remember { FocusRequester() }
+    val shelfRequester = remember { FocusRequester() }
     val appContext = LocalContext.current
     val firmwareInputPanel = remember {
         SystemProbe.tclInputPanel(appContext) != null || SystemProbe.coocaaInputPanel(appContext)
@@ -302,7 +333,19 @@ fun HomeScreen(
     var focusAfterOverlay by remember { mutableStateOf<String?>(null) }
     var indexAfterOverlay by remember { mutableStateOf(0) }
     var pillFocused by remember { mutableStateOf(false) }
+    // Where focus came from on its way to the status pill, the way to Control Center: up from a
+    // shelf, or up (or right, from the end of the top row) from an app. Down, Back and a closed
+    // Control Center all go back there.
+    var leavingShelf by remember { mutableStateOf(false) }
+    var pillFromShelf by remember { mutableStateOf(false) }
     var lastFocusedIndex by remember { mutableStateOf(0) }
+    // Focus is up on the shelf; focusedKey still names the app it belongs to.
+    var inShelf by remember { mutableStateOf(false) }
+    // Each app's selected card, so a shelf fading out keeps showing its own selection.
+    val shelfIndexes = remember { mutableStateMapOf<String, Int>() }
+    // Each app's tab (a channel of its shelf); a card is remembered per tab.
+    val shelfTabs = remember { mutableStateMapOf<String, Int>() }
+    fun shelfKey(pkg: String) = "$pkg#${shelfTabs[pkg] ?: 0}"
     val focusedIndex = apps.indexOfFirst { it.key == focusedKey }
     val columns = AerialSettings.homeColumns
     val focusedRow = if (pillFocused || focusedIndex < 0) 0 else focusedIndex / columns
@@ -387,6 +430,81 @@ fun HomeScreen(
             else -> toSaver.animateTo(0f, tween(650, easing = Motion.EaseOut))
         }
     }
+    // ---- The shelf: the focused top-row app's own programs (shelf/Shelf.kt) ----
+    // Which app's shelf is wanted: the top-row app under focus (or up on its shelf, or on the pill
+    // above it). Pinned TV inputs and folders have none.
+    val shelfPkg = if (AerialSettings.appContent && moving == null && focusedRow == 0) {
+        apps.getOrNull(focusedIndex)?.takeIf { it.source == null && it.folder == null }?.packageName
+    } else null
+    var shelf by remember { mutableStateOf<ShelfContent?>(null) }
+    // The shelf being left keeps drawing while it fades out: the last content of each app shown,
+    // and which app's is on screen. Keyed by app, so new data for the same app updates its row in
+    // place (focus stays on it) instead of cross-fading to a new one.
+    val shelfContents = remember { mutableStateMapOf<String, ShelfContent>() }
+    var shelfShown by remember { mutableStateOf<String?>(null) }
+    // The app whose shelf was last wanted; coming back to an app after another one starts its
+    // shelf at the first card, while a trip down into the grid and back keeps the selection.
+    var lastShelfPkg by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(shelfPkg, Shelf.version) {
+        if (shelfPkg == null) { shelf = null; return@LaunchedEffect }
+        // A short settle, so sweeping across the row does not flash every app's shelf on the
+        // way (motion on a frequent interaction); a first look at an app also waits for its query.
+        delay(if (Shelf.cached(shelfPkg) != null) 180L else 260L)
+        val items = Shelf.load(shelfPkg)
+        val next = items.takeIf { it.isNotEmpty() }?.let { ShelfContent(shelfPkg, it) }
+        if (next != null) {
+            if (shelfPkg != lastShelfPkg) {
+                shelfTabs[shelfPkg] = 0
+                shelfIndexes.keys.removeAll { it.startsWith("$shelfPkg#") }
+            }
+            shelfContents[shelfPkg] = next
+            shelfShown = shelfPkg
+        }
+        lastShelfPkg = shelfPkg
+        shelf = next
+    }
+    // Shelves for the whole top row are read once ahead, so moving along it never waits on a query.
+    LaunchedEffect(apps.take(columns).map { it.packageName }, Shelf.version, AerialSettings.appContent) {
+        if (AerialSettings.appContent) apps.take(columns).forEach { if (it.source == null && it.folder == null) Shelf.load(it.packageName) }
+    }
+    // The shelf is shown only while focus is up on it; on its app's tile an arrow says it is there.
+    // The shelf stays up, unfocused, while focus is on the pill it was left for.
+    // In "Always" it is up as soon as the app has one, with the cards dimmed until Up takes focus to them.
+    val shelfUp = shelf != null && (inShelf || pillFocused && pillFromShelf || AerialSettings.appContentMode == AppContentMode.Always)
+    // Back to where focus left for the pill: the shelf, or the app's tile.
+    fun returnFromPill() {
+        val key = focusedKey ?: return
+        val onShelf = pillFromShelf && shelf?.pkg == apps.firstOrNull { it.key == key }?.packageName
+        runCatching { if (onShelf) shelfRequester.requestFocus() else requester(key).requestFocus() }
+    }
+    val shelfIndex = shelf?.let { shelfIndexes[shelfKey(it.pkg)] } ?: 0
+    val shelfProgress by animateFloatAsState(
+        if (shelfUp) 1f else 0f,
+        // A whole-scene change: a little slower than focus, never bouncing.
+        if (reduced) snap() else spring(dampingRatio = 1f, stiffness = 140f),
+        label = "shelf",
+    )
+    // With posters chosen for the backdrop (Settings), it follows the selected card, after a settle.
+    val shelfPosters = AerialSettings.appContentPosters
+    val shelfImage = shelf?.takeIf { shelfUp && shelfPosters }?.let { c ->
+        val items = c.tabs[(shelfTabs[c.pkg] ?: 0).coerceIn(0, c.tabs.lastIndex)].items
+        items.getOrNull(shelfIndex)?.image ?: items.firstNotNullOfOrNull { it.image }
+    }
+    var shelfBackdrop by remember { mutableStateOf<ImageBitmap?>(null) }
+    LaunchedEffect(shelfImage) {
+        // Closing, the last poster stays to fade out with the shelf (ShelfPoster).
+        if (shelfImage == null) { if (shelfUp) shelfBackdrop = null; return@LaunchedEffect }
+        delay(220)
+        // A picture out of reach falls back to the wallpaper rather than keeping another card's.
+        shelfBackdrop = ShelfImages.backdrop(shelfImage)?.asImageBitmap()
+    }
+    // Focus cannot stay on a shelf that is going away.
+    LaunchedEffect(shelf == null) {
+        if (shelf == null && inShelf) {
+            inShelf = false
+            focusedKey?.let { runCatching { requester(it).requestFocus() } }
+        }
+    }
     // The large clock's time goes back the way it came, at half the pace. On Home's 650 ms ease-out
     // it was most of the way back in two or three frames (Xiaomi MiTV-MFTR0: 45-57 ms a frame as it
     // wakes) and leapt; out of the corner and back are one motion run both ways.
@@ -420,7 +538,7 @@ fun HomeScreen(
         val index = apps.indexOfFirst { it.key == focusedKey }
         // A tile that went while the overlay was up (hidden, put in a folder, a folder ungrouped)
         // leaves focus where it was.
-        if (pillFocused && focusedKey != null) runCatching { pillRequester.requestFocus() }
+        if (pillFocused && focusedKey != null) returnFromPill()
         else focusApp(if (index >= 0) index else if (wanted != null) indexAfterOverlay else lastFocusedIndex)
     }
     // A folder whose last app left closes.
@@ -456,6 +574,15 @@ fun HomeScreen(
     BackHandler(enabled = overlay == Overlay.None && moving == null) {
         // tvOS: Back from inside the grid returns to the top row; Back on the top row starts the
         // screensaver. A grid scrolled by touch counts as being inside it.
+        if (inShelf) {
+            focusedKey?.let { runCatching { requester(it).requestFocus() } }
+            return@BackHandler
+        }
+        // From the status pill, back to where it was reached from.
+        if (pillFocused && focusedKey != null) {
+            returnFromPill()
+            return@BackHandler
+        }
         val scrolled = dragged && scroll.value > 1f
         dragged = false
         // Handled even when that is turned off: unhandled, Back would close Home itself.
@@ -520,7 +647,7 @@ fun HomeScreen(
         val inGrid = focusedRow >= if (oneRow) 1 else 2
         val saverFadeOffscreen = remember { DiagLog.saverFadeOffscreen(appContext) }
         // With every name shown, the top row's go on its glass plate, which grows to hold them.
-        val plateNames = AerialSettings.showAllNames && AerialSettings.homePlate
+        val plateNames = AerialSettings.nameMode == NameMode.All && AerialSettings.homePlate
         val peek = AerialSettings.peekNextRow
         val hasPlate = AerialSettings.homePlate
         val largeClock = AerialSettings.largeClock
@@ -529,15 +656,18 @@ fun HomeScreen(
             GridMetrics(maxWidth, maxHeight, columns, oneRow, plateNames, peek, hasPlate, largeClock, clockRightNow)
         }
         val collapsePx = with(density) { metrics.collapse.toPx() }
+        val screenW = maxWidth
 
         // Into the grid as from one row: the first row whole at the top. Two rows go in a row
         // further down, from the second shelf row to the third, so they scroll a row less; scrolled
         // for the focused row itself, they opened on the first row cut in half under the pill.
         val target = with(density) { metrics.scrollFor(if (inGrid) focusedRow - (metrics.shelfRows - 1) else 0, rows).toPx() }
-        val lift by animateFloatAsState(
+        val liftUp by animateFloatAsState(
             with(density) { if (focusedRow > 0 && !inGrid) metrics.shelfLift.toPx() else 0f },
             if (reduced) snap() else spring(dampingRatio = 1f, stiffness = 280f), label = "shelf-lift",
         )
+        // Up for the second row, and down with the shelf (with its progress: the row, plate and shelf go together).
+        fun lift(): Float = liftUp - shelfProgress * with(density) { metrics.shelfDrop.toPx() }
         val maxScroll = with(density) { metrics.scrollFor(rows - 1, rows).toPx() }.coerceAtLeast(0f)
         LaunchedEffect(maxScroll) { scroll.updateBounds(0f, maxScroll) }
         val pastShelf by remember(collapsePx) { derivedStateOf { scroll.value > collapsePx / 2 } }
@@ -596,7 +726,7 @@ fun HomeScreen(
         // drawn cuts no hole in the window, so the paused film showed as the window's black
         // (Xiaomi MiTV-MFTR0, the aerial wallpaper under Control Center).
         val filmMoves = vm.resumed && overlay == Overlay.None && !vm.screensaverVisible && !pastShelf &&
-            !inGrid && moving == null
+            !inGrid && moving == null && !shelfUp
         val sourceInput = Wallpapers.sourceInput
         when {
             Wallpapers.selectedId == Wallpapers.LIVE -> LiveWallpaper(
@@ -672,8 +802,12 @@ fun HomeScreen(
             LaunchedEffect(clip) { Wallpapers.showClipGlass(clip) }
             val clipGlass = Wallpapers.clipGlass?.takeIf { it.first == clip }?.second
             HomeBackground(
-                // The chosen wallpaper; in "Follow App" mode, light from the focused app.
+                // The app's own picture while its shelf is up; else the chosen wallpaper, or in "Follow
+                // App" mode light from the focused app.
                 backdrop = Wallpapers.backdrop ?: ambientApp?.art?.backdrop,
+                shelfPoster = shelfBackdrop,
+                shelfPosters = shelfPosters,
+                shelfShow = { shelfProgress },
                 frosted = Wallpapers.frosted.takeIf { Wallpapers.backdrop != null },
                 plate = plate,
                 scroll = { scroll.value },
@@ -689,7 +823,7 @@ fun HomeScreen(
                 saverImage = saverImage,
                 saverReveal = { saverReveal.value },
                 saverPush = { saverPush.value },
-                lift = { lift },
+                lift = { lift() },
                 wallpaper = Wallpapers.selectedId,
                 glassAwaitsStop = Wallpapers.selectedId == Wallpapers.LIVE && clipGlass == null,
                 gridGlass = clipGlass,
@@ -707,6 +841,9 @@ fun HomeScreen(
                 // The large clock stands over the top row; the small one is the time and weather in
                 // one line, top left or beside the pill, so the wallpaper keeps the screen.
                 if (AerialSettings.largeClock) {
+                    // A shelf takes the large clock's place: it draws back toward its corner and
+                    // fades as the small one takes over there, on the shelf's own spring, so it
+                    // can turn around halfway when focus moves on.
                     ShelfClock(
                         now = now,
                         alignEnd = clockRight,
@@ -717,26 +854,92 @@ fun HomeScreen(
                             // No offscreen buffer while it fades: it would be the clock's capBox, and the
                             // Chinese, the icon and the shadows above and below it were cut off (#727).
                             .graphicsLayer {
-                                alpha = 1f - (scroll.value / collapsePx * 1.6f).coerceIn(0f, 1f)
+                                val p = shelfProgress
+                                transformOrigin = TransformOrigin(if (clockRight) 1f else 0f, 0f)
+                                scaleX = 1f - 0.45f * p
+                                scaleY = scaleX
+                                translationY = -(metrics.clockY - 28.dp).toPx() * 0.55f * p
+                                alpha = scrolledAway(scroll.value, collapsePx) * (1f - p * 1.7f).coerceIn(0f, 1f)
                                 compositingStrategy = CompositingStrategy.ModulateAlpha
                             },
                         toSaver = { clockToSaver.value },
                         saving = vm.screensaverVisible,
                         away = carrying,
                     )
-                } else if (!clockRight) {
+                }
+                // With two rows the shelf reaches the top of the screen: its tabs would meet the corner clock.
+                val clockClash = if (!oneRow && (shelf?.tabs?.size ?: 0) > 1) 1f else 0f
+                if (!clockRight && (!AerialSettings.largeClock || shelfProgress > 0.01f)) {
                     CornerClock(
                         now = now,
                         modifier = Modifier
                             .padding(start = metrics.margin, top = 28.dp)
                             .graphicsLayer {
-                                alpha = 1f - (scroll.value / collapsePx * 1.6f).coerceIn(0f, 1f)
+                                val p = smallClockShown(shelfProgress)
+                                alpha = scrolledAway(scroll.value, collapsePx) * p * (1f - clockClash * shelfProgress)
+                                translationY = (1f - p) * 10.dp.toPx()
                                 compositingStrategy = CompositingStrategy.ModulateAlpha
                             },
                         toSaver = { toSaver.value },
                         saving = vm.screensaverVisible,
                     )
                 }
+
+                shelfShown?.let { shownPkg ->
+                    // Composed while the app has a shelf, even closed, so Up has a row to focus.
+                    if (shelfProgress > 0.001f || shelf != null) {
+                        Crossfade(
+                            targetState = shownPkg,
+                            animationSpec = tween(if (reduced) 0 else 280, easing = Motion.EaseOut),
+                            modifier = Modifier
+                                .padding(top = metrics.shelfRowY)
+                                .graphicsLayer {
+                                    alpha = shelfProgress * scrolledAway(scroll.value, collapsePx)
+                                    translationY = (1f - shelfProgress) * 14.dp.toPx() - lift()
+                                },
+                            label = "shelf-app",
+                        ) { pkg ->
+                            val live = pkg == shelf?.pkg
+                            val content = shelfContents.getValue(pkg)
+                            ShelfRow(
+                                content = content,
+                                tab = shelfTabs[pkg] ?: 0,
+                                selected = shelfIndexes[shelfKey(pkg)] ?: 0,
+                                active = inShelf && live,
+                                focusRequester = if (live) shelfRequester else remember { FocusRequester() },
+                                enabled = gridEnabled && live,
+                                margin = metrics.margin,
+                                screenWidth = screenW,
+                                cardHeight = metrics.shelfCardH,
+                                shown = shelfProgress > 0.001f,
+                                onFocusChange = { focused -> if (pkg == shelf?.pkg) { inShelf = focused; if (focused) pillFocused = false } },
+                                onTab = { shelfTabs[pkg] = it },
+                                onSelect = { shelfIndexes[shelfKey(pkg)] = it },
+                                onOpen = { item, bounds ->
+                                    apps.firstOrNull { it.packageName == pkg }?.let { onOpenShelfItem(it, item, bounds) }
+                                },
+                                onExit = { focusedKey?.let { runCatching { requester(it).requestFocus() } } },
+                                onUp = { leavingShelf = true; runCatching { pillRequester.requestFocus() } },
+                            )
+                        }
+                    }
+                }
+
+                // An arrow over the focused tile says its app has a shelf: Up opens it.
+                val arrowApp = apps.getOrNull(focusedIndex)?.takeIf {
+                    shelf != null && !inShelf && !pillFocused && moving == null && gridEnabled &&
+                        AerialSettings.appContentMode != AppContentMode.Always &&
+                        focusedIndex < columns && shelf?.pkg == it.packageName
+                }
+                ShelfArrow(
+                    show = arrowApp != null,
+                    index = focusedIndex,
+                    slot = { metrics.slot(it, onTop = true) },
+                    tileW = metrics.tileW,
+                    plateV = PlatePadV,
+                    fade = { scrolledAway(scroll.value, collapsePx) * (1f - (toSaver.value * 2f).coerceIn(0f, 1f)) },
+                    onTap = { runCatching { shelfRequester.requestFocus() } },
+                )
 
                 // The rows below the shelf stay out of sight until Home scrolls to them: in one row
                 // unless set to peek; in two rows always, as the second row already shows there are more.
@@ -745,6 +948,36 @@ fun HomeScreen(
                     !peek -> columns
                     else -> Int.MAX_VALUE
                 }
+                // One big name above the grid for the focused app (CleanYourTV-style), in place of
+                // the labels under the tiles. Fades out as the grid scrolls up.
+                if (AerialSettings.nameMode == NameMode.HeroTitle) {
+                    val hero = apps.getOrNull(focusedIndex) ?: apps.firstOrNull()
+                    if (hero != null) {
+                        // With the app's shelf up, the name moves above it (above its tabs, when it has
+                        // any), out of the cards' way; where there is no room under the clock it fades out.
+                        val heroY = metrics.topRowY - 74.dp
+                        val shelfTop = metrics.shelfRowY - if ((shelf?.tabs?.size ?: 0) > 1) 44.dp else 0.dp
+                        val heroUp = shelfTop - 58.dp
+                        val roomAbove = heroUp + metrics.shelfDrop >= 56.dp
+                        BasicText(
+                            text = hero.label,
+                            style = Type.Title.copy(fontSize = 42.sp, letterSpacing = (-0.02).em),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier
+                                .align(Alignment.TopStart)
+                                .padding(start = metrics.margin, top = heroY)
+                                .graphicsLayer {
+                                    val p = shelfProgress.coerceIn(0f, 1f)
+                                    // Rises with the plate when Home lifts for the second row.
+                                    translationY = (if (roomAbove) -(heroY - heroUp).toPx() * p else 0f) - lift()
+                                    alpha = (1f - (scroll.value / collapsePx * 1.6f).coerceIn(0f, 1f)) * (if (roomAbove) 1f else 1f - p) *
+                                        (1f - (toSaver.value * 2f).coerceIn(0f, 1f))
+                                },
+                        )
+                    }
+                }
+
                 apps.forEachIndexed { index, app ->
                     key(app.key) {
                         val (x, y) = metrics.slot(index, onTop = !inGrid)
@@ -761,6 +994,7 @@ fun HomeScreen(
                             focusRequester = requester(app.key),
                             enabled = gridEnabled,
                             moving = moving == app.key,
+                            shelfOpen = inShelf && focusedKey == app.key,
                             appearDelayMs = (index * 28).coerceAtMost(320),
                             onFocused = {
                                 focusedKey = app.key
@@ -796,10 +1030,18 @@ fun HomeScreen(
                             },
                             modifier = Modifier
                                 // Lifted on the shelf with the plate; the clock above stays put.
-                                .offset { slot.value - IntOffset(0, lift.roundToInt()) }
+                                .offset { slot.value - IntOffset(0, lift().roundToInt()) }
+                                // Up from the top row goes to the app's shelf when it has one: its own
+                                // (not one still showing for the app just left) and not scrolled away.
+                                .focusProperties {
+                                    if (index < columns && shelf?.pkg == app.packageName && !pastShelf) up = shelfRequester
+                                }
                                 .then(
-                                    if (index >= hiddenFrom) Modifier.graphicsLayer {
-                                        alpha = (scroll.value / collapsePx * 2.5f).coerceIn(0f, 1f)
+                                    if (index >= columns) Modifier.graphicsLayer {
+                                        // The shelf up hides the rows below (a peeking or second row looked
+                                        // clumsy under it); they come back as it goes.
+                                        val away = 1f - shelfProgress.coerceIn(0f, 1f)
+                                        alpha = if (index >= hiddenFrom) (scroll.value / collapsePx * 2.5f).coerceIn(0f, 1f) * away else away
                                         // No offscreen buffer: it would clip the focus frame to the tile.
                                         compositingStrategy = CompositingStrategy.ModulateAlpha
                                     } else Modifier,
@@ -814,6 +1056,8 @@ fun HomeScreen(
                                     }
                                 },
                             rowEnd = index % columns == columns - 1 || index == apps.lastIndex,
+                            // Control Center is to the right of the top row: Up there belongs to the shelf.
+                            rowEndRight = pillRequester.takeIf { index < columns },
                             // On the glass plate only with every name shown (an earlier build showed
                             // the focused one alone there, but it sat oddly on the glass).
                             showName = plate == null || index >= columns * metrics.shelfRows || plateNames,
@@ -837,13 +1081,15 @@ fun HomeScreen(
                 .graphicsLayer { alpha = if (overlay is Overlay.ControlCenter) 0f else 1f },
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            if (!AerialSettings.largeClock && AerialSettings.clockRight) {
+            if (AerialSettings.clockRight && (!AerialSettings.largeClock || shelfProgress > 0.01f)) {
                 CornerClock(
                     now = now,
                     modifier = Modifier
                         .padding(end = 14.dp)
                         .graphicsLayer {
-                            alpha = 1f - (scroll.value / collapsePx * 1.6f).coerceIn(0f, 1f)
+                            val p = smallClockShown(shelfProgress)
+                            alpha = scrolledAway(scroll.value, collapsePx) * p
+                            translationY = (1f - p) * 10.dp.toPx()
                             compositingStrategy = CompositingStrategy.ModulateAlpha
                         },
                     toSaver = { toSaver.value },
@@ -857,16 +1103,17 @@ fun HomeScreen(
                 enabled = gridEnabled && moving == null,
                 focusRequester = pillRequester,
                 modifier = Modifier
-                    // Down goes back to the top-row tile Up came from, not to the nearest one,
-                    // which under the pill is the last of the row (issue #703).
-                    .focusProperties {
-                        val key = focusedKey
-                        if (key != null && apps.indexOfFirst { it.key == key } in 0 until columns) down = requester(key)
-                    }
                     .graphicsLayer {
                         alpha = 1f - (toSaver.value * 2f).coerceIn(0f, 1f)
                         // No offscreen buffer: it would cut the focused pill's 8% growth to a box.
                         compositingStrategy = CompositingStrategy.ModulateAlpha
+                    }
+                    // Down goes back to where the pill was reached from: the shelf, or the top-row tile Up came
+                    // from (issue #703), not to the nearest tile, which under the pill is the last of the row.
+                    .focusProperties {
+                        val key = focusedKey
+                        val shelfApp = apps.firstOrNull { it.key == key }?.packageName
+                        if (key != null && apps.indexOfFirst { it.key == key } in 0 until columns) down = if (pillFromShelf && shelf?.pkg == shelfApp) shelfRequester else requester(key)
                     },
                 onFocused = { gained ->
                     // The window hands its first focus to the top-most control; the top row is where Home starts.
@@ -875,6 +1122,8 @@ fun HomeScreen(
                             if (apps.isNotEmpty()) focusApp(0)
                         } else {
                             pillFocused = true
+                            pillFromShelf = leavingShelf
+                            leavingShelf = false
                         }
                     }
                 },
@@ -1045,3 +1294,13 @@ fun HomeScreen(
         )
     }
 }
+
+/** What is left of the clock as the grid scrolls up under the status pill. */
+private fun scrolledAway(scroll: Float, collapse: Float) = 1f - (scroll / collapse * 1.6f).coerceIn(0f, 1f)
+
+/**
+ * How far the small clock shows: always without the large one; with it, only while an app's shelf
+ * has taken the large clock's place, coming in over the second half of the shelf's spring.
+ */
+private fun smallClockShown(shelfProgress: Float) =
+    if (!AerialSettings.largeClock) 1f else ((shelfProgress - 0.35f) / 0.65f).coerceIn(0f, 1f)

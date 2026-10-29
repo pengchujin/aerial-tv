@@ -21,6 +21,20 @@ import java.security.MessageDigest
  * that motion is what the eye follows. With the D-pad remotes these TVs ship with, the icon only
  * grows, and owners lost track of it. High Contrast adds a white frame and is the default here.
  */
+/**
+ * Whether an app's own programs show above the top row: on Up (an arrow over the tile says they are
+ * there), not at all, or by themselves as you move to the app. Before this it was on or off.
+ */
+enum class AppContentMode(val key: String) {
+    OnUp("up"), Off("off"), Always("always");
+
+    companion object {
+        /** The mode stored, else what the on/off setting it replaced said (on or never set: on Up). */
+        fun of(key: String?, legacyOn: Boolean?): AppContentMode =
+            entries.firstOrNull { it.key == key } ?: if (legacyOn == false) Off else OnUp
+    }
+}
+
 enum class FocusStyle(val key: String) {
     Standard("standard"), HighContrast("high_contrast");
 
@@ -35,6 +49,19 @@ enum class FocusStyle(val key: String) {
  */
 enum class UiSounds(val key: String) {
     Tv("tv"), Aerial("aerial"), Off("off");
+
+    companion object {
+        fun of(key: String?) = entries.firstOrNull { it.key == key }
+    }
+}
+
+/**
+ * How app names show on Home: the focused app's under its tile (tvOS), every tile's, or one big
+ * title in the top-left corner of the grid (the older CleanYourTV-style launcher). The big title
+ * replaces the labels under the tiles.
+ */
+enum class NameMode(val key: String) {
+    Focused("focused"), All("all"), HeroTitle("hero");
 
     companion object {
         fun of(key: String?) = entries.firstOrNull { it.key == key }
@@ -114,6 +141,21 @@ object AerialSettings {
     /** The date and weather over a big clock above the top row, instead of one small line in the corner. */
     var largeClock by mutableStateOf(false); private set
 
+    /** Every app's name under its tile, or one big title above the grid (issue #28), the top row's on the glass plate too. */
+    var nameMode by mutableStateOf(NameMode.Focused); private set
+
+    /**
+     * Above the top row, the focused app's own programs (watch next and its channels) as a row of
+     * cards, as on Google TV and tvOS's top shelf. Apps that publish none keep the wallpaper.
+     */
+    var appContentMode by mutableStateOf(AppContentMode.OnUp); private set
+
+    /** Behind an open shelf: the wallpaper frosted, or the selected card's poster. */
+    var appContentPosters by mutableStateOf(false); private set
+
+    /** Whether any shelf shows. */
+    val appContent: Boolean get() = appContentMode != AppContentMode.Off
+
     /**
      * The moving wallpaper (aerial films, the owner's own videos) plays on the top row whatever the
      * keys do, under a little shade, rather than only once Home has sat still (issues #360, #456).
@@ -130,8 +172,6 @@ object AerialSettings {
      */
     var screensaverClock by mutableStateOf(true); private set
 
-    /** Every app's name under its tile, not only the focused one's (issue #28), the top row's on the glass plate too. */
-    var showAllNames by mutableStateOf(false); private set
 
     /** Back on Home's top row starts the screensaver, as on tvOS; off for homes where it gets pressed by accident (issue #94). */
     var backStartsScreensaver by mutableStateOf(true); private set
@@ -196,7 +236,9 @@ object AerialSettings {
         clockRight = prefs.getBoolean("clock_right", false)
         largeClock = prefs.getBoolean("large_clock", false)
         homePlate = prefs.getBoolean("home_plate", true)
-        showAllNames = prefs.getBoolean("show_all_names", false)
+        // Before this setting had three modes it was a boolean "show every name"; keep old installs.
+        nameMode = NameMode.of(prefs.getString("name_mode", null))
+            ?: if (prefs.getBoolean("show_all_names", false)) NameMode.All else NameMode.Focused
         wallpaperAlwaysMoves = prefs.getBoolean("wallpaper_always_moves", false)
         showWeather = prefs.getBoolean("show_weather", true)
         screensaverClock = prefs.getBoolean("screensaver_clock", true)
@@ -207,6 +249,11 @@ object AerialSettings {
             else -> UiSounds.Aerial
         }
         backStartsScreensaver = prefs.getBoolean("back_starts_screensaver", true)
+        appContentMode = AppContentMode.of(
+            prefs.getString("app_content_mode", null),
+            if (prefs.contains("app_content")) prefs.getBoolean("app_content", true) else null,
+        )
+        appContentPosters = prefs.getBoolean("app_content_posters", false)
         screensaverMinutes = prefs.getInt("screensaver_minutes", DEFAULT_SCREENSAVER_MINUTES)
         aerialQuality = AerialQuality.of(prefs.getString("aerial_quality", null))
         effects = Effects.of(prefs.getString("effects", null))
@@ -288,9 +335,27 @@ object AerialSettings {
         app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit { putBoolean("large_clock", on) }
     }
 
-    fun chooseShowAllNames(on: Boolean) {
-        showAllNames = on
-        app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit { putBoolean("show_all_names", on) }
+    fun chooseNameMode(mode: NameMode) {
+        nameMode = mode
+        app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit {
+            putString("name_mode", mode.key)
+            // Drop the old boolean so a downgrade to an older build still reads the right mode.
+            putBoolean("show_all_names", mode == NameMode.All)
+        }
+    }
+
+    fun chooseAppContentMode(mode: AppContentMode) {
+        appContentMode = mode
+        app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit {
+            putString("app_content_mode", mode.key)
+            // Kept so that an older build still reads on or off.
+            putBoolean("app_content", mode != AppContentMode.Off)
+        }
+    }
+
+    fun chooseAppContentPosters(on: Boolean) {
+        appContentPosters = on
+        app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit { putBoolean("app_content_posters", on) }
     }
 
     fun chooseWallpaperAlwaysMoves(on: Boolean) {

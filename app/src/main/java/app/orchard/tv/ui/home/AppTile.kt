@@ -90,6 +90,7 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import app.orchard.tv.settings.AerialSettings
 import app.orchard.tv.settings.FocusStyle
+import app.orchard.tv.settings.NameMode
 import app.orchard.tv.system.Sounds
 import app.orchard.tv.ui.components.isSelect
 import app.orchard.tv.ui.components.baked
@@ -111,6 +112,7 @@ import kotlin.math.roundToInt
 // D-pad remotes give no tilt to follow, so the lift itself has to read from across the room.
 private const val FOCUSED_SCALE = 1.15f
 private const val PRESSED_SCALE = 1.05f
+private const val SHELF_SCALE = 1.06f
 
 /**
  * A tile's rest bounds grown about their middle to its size when focused: where the launch
@@ -149,12 +151,16 @@ fun AppTile(
     moving: Boolean,
     /** Delay of the first-appearance stagger; null for no entrance (tiles in a folder that just opened). */
     appearDelayMs: Int?,
+    /** Focus is up on this app's shelf: the tile stays half lifted, so the shelf reads as its own. */
+    shelfOpen: Boolean = false,
     onFocused: () -> Unit,
     onClick: (Rect?) -> Unit,
     onLongPress: (Rect?) -> Unit,
     modifier: Modifier = Modifier,
     /** Last tile of its row: Right stops here instead of finding the status pill above (#211). */
     rowEnd: Boolean = false,
+    /** Where Right goes from the last tile of the top row instead of stopping: the status pill, the way to Control Center. */
+    rowEndRight: FocusRequester? = null,
     /** False on the glass plate: the top row shows no names there, as on tvOS 26. */
     showName: Boolean = true,
     /** The name sits on the glass plate, which ends just under it: it does not step down past the focus frame. */
@@ -185,6 +191,7 @@ fun AppTile(
             reduced -> 1f
             pressed -> PRESSED_SCALE
             focused || moving -> FOCUSED_SCALE
+            shelfOpen -> SHELF_SCALE
             else -> 1f
         },
         // Press answers immediately; focus settles on a spring so rapid D-pad presses retarget
@@ -194,7 +201,7 @@ fun AppTile(
         label = "tile-scale",
     )
     val lift by animateFloatAsState(
-        targetValue = if (focused || moving) 1f else 0f,
+        targetValue = if (focused || moving) 1f else if (shelfOpen) 0.45f else 0f,
         animationSpec = spring(dampingRatio = 1f, stiffness = 380f),
         label = "tile-lift",
     )
@@ -398,7 +405,7 @@ fun AppTile(
                         },
                     )
                 }
-                .focusProperties { if (rowEnd) right = FocusRequester.Cancel }
+                .focusProperties { if (rowEnd) right = rowEndRight ?: FocusRequester.Cancel }
                 .focusable(enabled),
         ) {
             Spacer(Modifier.fillMaxSize().drawWithCache {
@@ -519,9 +526,15 @@ fun AppTile(
                 .offset(y = height + 10.dp)
                 .requiredSize(width + 36.dp, 24.dp)
                 .graphicsLayer {
-                    // Only the focused app shows its name. With every name shown, the others stay a
-                    // little dimmer than the focused one.
-                    alpha = if (AerialSettings.showAllNames) 0.7f + 0.3f * lift else lift
+                    // Only the focused app shows its name, top row included (tvOS 26 hides it on
+                    // the glass, but people read that as a bug). With every name shown, the others
+                    // stay a little dimmer than the focused one. In HeroTitle mode the labels are
+                    // replaced by one big name above the grid, so none are drawn.
+                    alpha = when (AerialSettings.nameMode) {
+                        NameMode.All -> 0.7f + 0.3f * lift
+                        NameMode.HeroTitle -> 0f
+                        NameMode.Focused -> lift
+                    }
                     // Sits just under the lifted tile, and rises into place as it appears.
                     translationY = height.toPx() * (scale - 1f) / 2f - (1f - lift) * 6.dp.toPx() +
                         if (nameOnPlate) 0f else ring * ringIn * (RingGap + RingWidth).toPx() * scale

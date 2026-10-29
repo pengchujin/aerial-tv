@@ -8,8 +8,15 @@
      films over HTTP from the start (see AerialSaver), which is why cleartext stays allowed.
 
      The weather and location services use Let's Encrypt, whose root older TVs do not trust; they
-     serve the same over HTTP, and Weather falls back to that. -->
+     serve the same over HTTP, and Weather falls back to that.
+
+     Home's shelf shows pictures that other apps publish, and media servers on the owner's LAN
+     (Emby, Jellyfin, Plex) serve them over plain HTTP from a bare IP address, which no
+     domain-config can name. So cleartext is allowed by default. Aerial's own HTTP fallbacks are
+     the ones above (the screensaver films before Android 7, weather and location); everything
+     else it requests names https:// explicitly. -->
 <network-security-config>
+    <base-config cleartextTrafficPermitted="true" />
     <domain-config cleartextTrafficPermitted="true">
         <domain includeSubdomains="false">sylvan.apple.com</domain>
         <trust-anchors>
