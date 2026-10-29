@@ -292,7 +292,11 @@ class MainActivity : ComponentActivity() {
             }
         }
         if (fresh && firstStartSinceBoot()) openBootSource("boot")
-        if (intent.getBooleanExtra(EXTRA_WOKE, false)) openBootSource("brought back on wake")
+        if (intent.getBooleanExtra(EXTRA_WOKE, false)) idleHandler.postDelayed({
+            // Delayed so the home renders first: opening the boot app queries the package list on
+            // the main thread, which is slow right after boot on MiTV-MFTR0 (6.5 s+ once listed).
+            openBootSource("brought back on wake", force = true)
+        }, 3000)
         if (fromLocked) {
             // This window already went through onStart and onResume while locked (both returned
             // early) and the system will not call them again unless it stops and starts the
@@ -366,12 +370,12 @@ class MainActivity : ComponentActivity() {
      * Opens the input or app the owner wants the TV to start on, if any. Both list with the apps,
      * so wait for them a moment. Several routes may fire for one wake; the first wins.
      */
-    private fun openBootSource(reason: String) {
+    private fun openBootSource(reason: String, force: Boolean = false) {
         val id = AerialSettings.bootSource
         val pkg = AerialSettings.bootApp
         if (id == null && pkg == null) return
         if (SystemClock.elapsedRealtime() - bootSourceOpenedAt < 15_000) return
-        if (!BootOpen.due(this)) {
+        if (!force && !BootOpen.due(this)) {
             android.util.Log.i("Aerial", "$reason: already opened ${id ?: pkg} since the TV came on")
             return
         }
@@ -691,7 +695,9 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         if (locked) return
         DiagLog.i("onNewIntent ${intent.action}")
-        if (intent.getBooleanExtra(EXTRA_WOKE, false)) openBootSource("brought back on wake")
+        if (intent.getBooleanExtra(EXTRA_WOKE, false)) idleHandler.postDelayed({
+            openBootSource("brought back on wake", force = true)
+        }, 3000)
         if (intent.action == ACTION_PREVIEW_SCREENSAVER) {
             idleHandler.post { startScreensaver(asked = true) }
             return
