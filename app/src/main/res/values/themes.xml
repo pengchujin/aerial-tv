@@ -13,4 +13,13 @@
              first frame, which is the wallpaper baked at the last start. -->
         <item name="android:windowDisablePreview">true</item>
     </style>
+
+    <!-- A window over the app that asked: its own dimming is drawn by the sheet. -->
+    <style name="Theme.Aerial.Request" parent="android:Theme.DeviceDefault.NoActionBar">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:colorBackgroundCacheHint">@null</item>
+        <item name="android:windowFullscreen">true</item>
+        <item name="android:windowAnimationStyle">@null</item>
+    </style>
 </resources>

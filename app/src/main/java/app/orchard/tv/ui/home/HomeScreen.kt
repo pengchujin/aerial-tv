@@ -64,6 +64,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
@@ -75,6 +76,7 @@ import app.orchard.tv.HomeViewModel
 import app.orchard.tv.Overlay
 import app.orchard.tv.R
 import app.orchard.tv.settings.AerialSettings
+import app.orchard.tv.apps.AppDetails
 import app.orchard.tv.apps.AppEntry
 import app.orchard.tv.ui.control.ControlCenter
 import app.orchard.tv.ui.wallpaper.SheetCovers
@@ -283,6 +285,7 @@ fun HomeScreen(
     onUninstall: (String) -> Unit,
     onStartScreensaver: () -> Unit,
 ) {
+    val context = LocalContext.current
     val apps = vm.apps
     val overlay = vm.overlay
     val moving = vm.movingKey
@@ -980,7 +983,11 @@ fun HomeScreen(
                 closeMenu()
                 vm.hide(key)
             },
-            onInfo = { closeMenu(); onAppInfo(it) },
+            onInfo = { key ->
+                closeMenu()
+                // Firmware without an App Info screen (Xiaomi HyperOS, MiTV-MFTR0) gets Aerial's own.
+                if (AppDetails.hasSystemScreen(context)) onAppInfo(key) else vm.overlay = Overlay.AppInfo(key)
+            },
             onUninstall = { closeMenu(); onUninstall(it) },
             onUnpin = { key ->
                 closeMenu()
@@ -1022,6 +1029,21 @@ fun HomeScreen(
                 closeMenu()
             },
             onDismiss = { closeMenu() },
+        )
+
+        val infoKey = (overlay as? Overlay.AppInfo)?.packageName
+        AppInfoSheet(
+            pkg = infoKey,
+            removable = infoKey?.let { vm.entry(it)?.removable } == true,
+            onOpen = { key ->
+                vm.overlay = Overlay.None
+                vm.entry(key)?.let { onLaunch(it, null) }
+            },
+            onUninstall = { key ->
+                vm.overlay = Overlay.None
+                onUninstall(key)
+            },
+            onDismiss = { vm.overlay = Overlay.None },
         )
 
         HiddenAppsSheet(
