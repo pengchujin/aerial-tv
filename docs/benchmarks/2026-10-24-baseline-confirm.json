@@ -1,0 +1,113 @@
+{
+  "cold_process_launch_ms": {
+    "samples": [
+      686,
+      596,
+      579
+    ],
+    "median": 596,
+    "p95": 677.0
+  },
+  "scenarios": {
+    "navigation": {
+      "frames": 360,
+      "flags": {
+        "16": 360
+      },
+      "frame_p50_ms": 17.034,
+      "frame_p95_ms": 33.817,
+      "frame_p99_ms": 38.093,
+      "max_ms": 41.627836,
+      "over_16_67ms_percent": 51.67,
+      "swap_to_gpu_p50_ms": 8.874,
+      "swap_to_gpu_p95_ms": 11.586,
+      "platform_runs": [
+        {
+          "frames": 196,
+          "janky_frames": 5,
+          "p50_ms": 14,
+          "p95_ms": 32,
+          "p99_ms": 38,
+          "gpu_p95_ms": 12
+        },
+        {
+          "frames": 194,
+          "janky_frames": 4,
+          "p50_ms": 14,
+          "p95_ms": 20,
+          "p99_ms": 27,
+          "gpu_p95_ms": 11
+        },
+        {
+          "frames": 195,
+          "janky_frames": 6,
+          "p50_ms": 14,
+          "p95_ms": 31,
+          "p99_ms": 32,
+          "gpu_p95_ms": 12
+        }
+      ]
+    },
+    "panel": {
+      "frames": 181,
+      "flags": {
+        "16": 181
+      },
+      "frame_p50_ms": 18.652,
+      "frame_p95_ms": 71.803,
+      "frame_p99_ms": 110.95,
+      "max_ms": 112.863459,
+      "over_16_67ms_percent": 80.11,
+      "swap_to_gpu_p50_ms": 12.305,
+      "swap_to_gpu_p95_ms": 23.447,
+      "platform_runs": [
+        {
+          "frames": 62,
+          "janky_frames": 17,
+          "p50_ms": 18,
+          "p95_ms": 61,
+          "p99_ms": 109,
+          "gpu_p95_ms": 17
+        },
+        {
+          "frames": 61,
+          "janky_frames": 16,
+          "p50_ms": 18,
+          "p95_ms": 65,
+          "p99_ms": 113,
+          "gpu_p95_ms": 25
+        },
+        {
+          "frames": 61,
+          "janky_frames": 16,
+          "p50_ms": 18,
+          "p95_ms": 57,
+          "p99_ms": 113,
+          "gpu_p95_ms": 25
+        }
+      ]
+    }
+  },
+  "interactive_after_setup_ms": {
+    "samples": [
+      542,
+      538,
+      581
+    ],
+    "p50": 542.0,
+    "p95": 577.1
+  },
+  "idle": {
+    "frames": 2,
+    "flags": {
+      "16": 2
+    },
+    "frame_p50_ms": 12.882,
+    "frame_p95_ms": 15.488,
+    "frame_p99_ms": 15.72,
+    "max_ms": 15.777956,
+    "over_16_67ms_percent": 0.0,
+    "swap_to_gpu_p50_ms": 6.493,
+    "swap_to_gpu_p95_ms": 6.739
+  }
+}

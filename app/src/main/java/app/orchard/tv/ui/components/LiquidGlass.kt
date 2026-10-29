@@ -20,7 +20,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
@@ -31,7 +30,6 @@ import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.graphics.asAndroidPath
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.layer.CompositingStrategy
 import androidx.compose.ui.graphics.layer.drawLayer
 import androidx.compose.ui.graphics.toArgb
@@ -88,6 +86,9 @@ fun Modifier.liquidGlass(corner: Dp, bottomCorners: Boolean = true): Modifier = 
             val mask = smoothMask(w, h, radius, if (bottomCorners) radius else 0f)
             val brush = shader?.let { ShaderBrush(it) }
             val flat = mask.asImageBitmap()
+            val flatTint = ColorFilter.tint(Palette.Glass)
+            val matrix = Matrix()
+            val edge = glassEdge(w, h, radius, 1.2.dp.toPx(), bottomCorners)
             // The glass in a layer the GPU keeps: drawn again only when it moves or its picture
             // fades, not with every frame of what lies on it. Drawn each frame, the Personalize
             // sheet cost MiTV-MFTR0's GPU about 29 ms a frame while focus moved along its cards.
@@ -97,22 +98,22 @@ fun Modifier.liquidGlass(corner: Dp, bottomCorners: Boolean = true): Modifier = 
             var drawnT = -1f
             onDrawBehind {
                 if (shader == null || brush == null || root == IntSize.Zero) {
-                    drawImage(flat, dstSize = IntSize(w, h), colorFilter = ColorFilter.tint(Palette.Glass))
-                    drawGlassEdge(size, radius, bottomCorners)
+                    drawImage(flat, dstSize = IntSize(w, h), colorFilter = flatTint)
+                    drawImage(edge, dstSize = IntSize(w, h))
                 } else if (AerialSettings.lite) {
                     // Lite (AerialSettings.lite): one solid color, the frosted wallpaper's average as
                     // the glass would dim it, without the layer the glass needs every frame, which
                     // weak GPUs feel most while a panel slides in. Solid: the plain glass color is
                     // see-through and showed the tiles under the Personalize sheet.
                     drawImage(flat, dstSize = IntSize(w, h), colorFilter = ColorFilter.tint(liteGlass(frost)))
-                    drawGlassEdge(size, radius, bottomCorners)
+                    drawImage(edge, dstSize = IntSize(w, h))
                 } else {
                     val t = swap()
                     if (drawnAt != at || drawnRoot != root || drawnT != t) {
                         drawnAt = at
                         drawnRoot = root
                         drawnT = t
-                        fun place(s: BitmapShader, image: ImageBitmap) = s.setLocalMatrix(Matrix().apply {
+                        fun place(s: BitmapShader, image: ImageBitmap) = s.setLocalMatrix(matrix.apply {
                             setScale(root.width.toFloat() / image.width, root.height.toFloat() / image.height)
                             postTranslate(-at.x, -at.y)
                         })
@@ -131,7 +132,7 @@ fun Modifier.liquidGlass(corner: Dp, bottomCorners: Boolean = true): Modifier = 
                             } else {
                                 drawRect(brush, colorFilter = PanelTint, blendMode = BlendMode.SrcIn)
                             }
-                            drawGlassEdge(size, radius, bottomCorners)
+                            drawImage(edge, dstSize = IntSize(w, h))
                         }
                     }
                     drawLayer(glass)
@@ -172,17 +173,6 @@ internal fun rememberFrostSwap(frost: ImageBitmap?): Triple<ImageBitmap?, ImageB
 }
 
 private const val FROST_SWAP_MS = 450
-
-/**
- * The lit edge of a piece of glass: a sheen inside the top, and a rim bright where light falls on
- * it from the top left, faint along the sides, and catching again at the far corner.
- */
-private fun DrawScope.drawGlassEdge(size: Size, radius: Float, bottomCorners: Boolean) {
-    val w = size.width.roundToInt()
-    val h = size.height.roundToInt()
-    if (w <= 0 || h <= 0) return
-    drawImage(glassEdge(w, h, radius, 1.2.dp.toPx(), bottomCorners), dstSize = IntSize(w, h))
-}
 
 /** The lit edge of a [w]×[h] piece of glass at full strength, white with alpha; made once per size. */
 fun glassEdge(w: Int, h: Int, radius: Float, rim: Float, bottomCorners: Boolean = true): ImageBitmap =

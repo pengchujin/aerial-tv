@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- The account RevivalSync's sync adapter runs under. -->
 <account-authenticator xmlns:android="http://schemas.android.com/apk/res/android"
-    android:accountType="app.orchard.tv"
+    android:accountType="@string/revival_account_type"
     android:icon="@mipmap/ic_launcher"
     android:smallIcon="@mipmap/ic_launcher"
     android:label="@string/guard_name" />

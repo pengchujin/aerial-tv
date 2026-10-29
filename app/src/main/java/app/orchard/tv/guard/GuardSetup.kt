@@ -17,6 +17,7 @@ import android.provider.Settings
 import androidx.core.content.ContextCompat
 import androidx.core.content.getSystemService
 import android.util.Log
+import app.orchard.tv.BuildConfig
 import app.orchard.tv.dream.AerialDream
 import app.orchard.tv.system.DiagLog
 import app.orchard.tv.system.SystemScreensaver
@@ -219,6 +220,7 @@ object GuardSetup {
             context.getSystemService(UserManager::class.java).isUserUnlocked
 
     fun ensureAdb(context: Context) {
+        if (BuildConfig.PREVIEW) return
         if (adbDancing) return // the toggle below writes a 0 on purpose; nothing may undo it
         if (!isUserUnlocked(context) || !keepAdb(context)) return
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_SECURE_SETTINGS) != PackageManager.PERMISSION_GRANTED) return
@@ -312,6 +314,7 @@ object GuardSetup {
      * makes Android bind it again.
      */
     fun rebindIfStalled(context: Context) {
+        if (BuildConfig.PREVIEW) return
         if (HomeGuardService.isRunning) return
         rescanIfMissing(context)
         if (standingOut(context)) { watchScreenOn(context); return }
@@ -348,6 +351,7 @@ object GuardSetup {
      * out of the list and put back, as rebindIfStalled does.
      */
     fun restartAccessibility(context: Context) {
+        if (BuildConfig.PREVIEW) return
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_SECURE_SETTINGS) != PackageManager.PERMISSION_GRANTED) return
         val resolver = context.contentResolver
         if (Build.VERSION.SDK_INT > Build.VERSION_CODES.M) {
@@ -480,6 +484,7 @@ object GuardSetup {
 
     /** Returns whether Home Guard had been switched off and was put back. */
     fun ensureEnabled(context: Context): Boolean {
+        if (BuildConfig.PREVIEW) return false
         ensureAdb(context)
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_SECURE_SETTINGS) != PackageManager.PERMISSION_GRANTED) return false
         restoreBootReceiver(context)

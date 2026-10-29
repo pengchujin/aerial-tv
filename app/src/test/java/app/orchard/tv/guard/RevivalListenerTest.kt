@@ -38,6 +38,8 @@ class RevivalListenerTest {
 
     @Before
     fun enabledButUnboundGuard() {
+        // Preview intentionally cannot repair or enable the owner's guard.
+        org.junit.Assume.assumeFalse("Preview isolates guard setup", app.orchard.tv.BuildConfig.PREVIEW)
         shadowOf(RuntimeEnvironment.getApplication()).grantPermissions(Manifest.permission.WRITE_SECURE_SETTINGS)
         shadowOf(user).setUserUnlocked(true)
         Settings.Secure.putString(context.contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES, "$peer:$guard")

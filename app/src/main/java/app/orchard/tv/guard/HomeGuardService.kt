@@ -55,8 +55,8 @@ import app.orchard.tv.system.SystemProbe
  * foregroundCheck).
  *
  * Both only act while Aerial is not the resolved HOME app; once it is, the system does the work.
- * The service reads window-change events and, on those TVs, which app is in front; it never reads
- * screen content.
+ * The service reads window-change events and recent activity usage events when the window is
+ * unknown (continuously only up to Android 6); it never reads screen content.
  */
 class HomeGuardService : AccessibilityService() {
 
@@ -155,6 +155,10 @@ class HomeGuardService : AccessibilityService() {
             @Suppress("DEPRECATION")
             if (event.eventType == UsageEvents.Event.MOVE_TO_FOREGROUND && event.className != null) {
                 last = (event.packageName to event.className) to event.timeStamp
+            } else if (event.eventType == UsageEvents.Event.MOVE_TO_BACKGROUND &&
+                last?.first == (event.packageName to event.className)
+            ) {
+                last = null
             }
         }
         last

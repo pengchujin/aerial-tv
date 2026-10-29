@@ -123,7 +123,7 @@ object AppCatalog {
      */
     private val SYSTEM_TILES = mapOf(
         // Xiaomi MiTV-MFTR0
-        "com.xiaomi.mitv.settings" to SystemTile.Settings,
+        "com.xiaomi.mitv.settings" to SystemTile.TvSettings,
         "com.mitv.gallery" to SystemTile.Photos,
         "com.xiaomi.mitv.calendar" to SystemTile.Calendar,
         "com.xiaomi.tweather" to SystemTile.Weather,
@@ -154,7 +154,7 @@ object AppCatalog {
         CATEGORY_APPSTORE_LAUNCHER to SystemTile.Store,
     )
 
-    private class Cached(val stamp: Long, val width: Int, val label: String, val art: TileArt)
+    private class Cached(val key: String, val label: String, val art: TileArt)
     private val cache = HashMap<String, Cached>()
 
     /** The apps of the last load, for the phone page. */
@@ -250,7 +250,7 @@ object AppCatalog {
                 val home = info.packageName in stockHomes
                 val later = whole != null && info.packageName !in whole
                 async {
-                    runCatching { entry(pm, info, leanback, byCategory, home, later) }
+                    runCatching { entry(context, pm, info, leanback, byCategory, home, later) }
                         .onFailure { Log.w(TAG, "left ${info.packageName} out of Home", it) }
                         .getOrNull()?.let { if (home) it.copy(label = homeLabel) else it }
                 }
@@ -259,7 +259,10 @@ object AppCatalog {
             val now = android.os.SystemClock.uptimeMillis()
             lastTiming = longArrayOf(started, queried, now)
             loaded = it
-            TileDiskCache.keepOnly(it.mapTo(HashSet()) { app -> app.packageName })
+            val installed = it.mapTo(HashSet()) { app -> app.packageName }
+            // Package removal should release the corresponding artwork, not just its disk file.
+            synchronized(cache) { cache.keys.retainAll(installed) }
+            TileDiskCache.keepOnly(installed)
         }
     }
 
@@ -387,7 +390,7 @@ object AppCatalog {
     }.getOrNull()
 
     private fun entry(
-        pm: PackageManager, info: ActivityInfo, leanback: Boolean, byCategory: Map<String, SystemTile>,
+        context: Context, pm: PackageManager, info: ActivityInfo, leanback: Boolean, byCategory: Map<String, SystemTile>,
         stockHome: Boolean = false, later: Boolean = false,
     ): AppEntry {
         val pkg = info.packageName
@@ -395,16 +398,19 @@ object AppCatalog {
         // Drawn as the stock launcher or not is part of it too: the same package can be either.
         val stamp = runCatching { pm.getPackageInfo(pkg, 0).lastUpdateTime }.getOrDefault(0L) + CustomIcons.stamp(pkg) +
             IconLibrary.stamp(pkg) + if (stockHome) 1 else 0
+        // Offline library artwork must also be invalidated when the owner selects Own.
+        val cacheKey = TileDiskCache.key(stamp) +
+            if (pkg in BundledIcons.assets) "|bundled=${IconLibrary.uses(pkg)}" else ""
         val system = (info.applicationInfo.flags and ApplicationInfo.FLAG_SYSTEM) != 0
-        val inMemory = synchronized(cache) { cache[pkg] }?.takeIf { it.stamp == stamp && it.width == TileArtFactory.W }
+        val inMemory = synchronized(cache) { cache[pkg] }?.takeIf { it.key == cacheKey }
         if (inMemory == null && later) {
-            TileDiskCache.readHeader(pkg, TileDiskCache.key(stamp))?.let { (label, tint) ->
+            TileDiskCache.readHeader(pkg, cacheKey)?.let { (label, tint) ->
                 return AppEntry(pkg, label, ComponentName(pkg, info.name), leanback, !system, placeholder(tint))
             }
         }
         val cached = inMemory
-            ?: runCatching { TileDiskCache.read(pkg, TileDiskCache.key(stamp)) }.getOrNull()?.let { (label, art) ->
-                Cached(stamp, TileArtFactory.W, label, art).also { synchronized(cache) { cache[pkg] = it } }
+            ?: runCatching { TileDiskCache.read(pkg, cacheKey) }.getOrNull()?.let { (label, art) ->
+                Cached(cacheKey, label, art).also { synchronized(cache) { cache[pkg] = it } }
             }
         val label: String
         val art: TileArt
@@ -422,6 +428,7 @@ object AppCatalog {
             // Aerial's own tiles for the firmware's apps keep their look; any other app's
             // ready-made picture comes before what Aerial would draw from its banner or icon.
             val library = if (custom == null && (own == null || IconLibrary.pick(pkg) == IconLibrary.Pick.Library)) IconLibrary.load(pkg) else null
+            val bundled = if (custom == null && library == null && IconLibrary.uses(pkg)) BundledIcons.load(context, pkg) else null
             val recipe = TileRecipes.of(pkg)
             // A tile that cannot be drawn used to drop the app from Home altogether, without a word
             // in the log (com.fongmi.androidtv on TCL MT5879, issue #415). Its icon then, or
@@ -430,6 +437,7 @@ object AppCatalog {
                 when {
                     custom != null -> TileArtFactory.fromBanner(android.graphics.drawable.BitmapDrawable(android.content.res.Resources.getSystem(), custom))
                     library != null -> TileArtFactory.fromBanner(android.graphics.drawable.BitmapDrawable(android.content.res.Resources.getSystem(), library))
+                    bundled != null -> TileArtFactory.fromBanner(bundled)
                     own != null -> TileArtFactory.forSystem(own)
                     else -> fromApp(pm, info, banner, recipe)
                 }
@@ -439,9 +447,9 @@ object AppCatalog {
             }.recoverCatching {
                 Log.w(TAG, "could not draw the icon of $pkg either; using the default one", it)
                 TileArtFactory.fromIcon(pm.defaultActivityIcon, null)
-            }.getOrThrow()
-            synchronized(cache) { cache[pkg] = Cached(stamp, TileArtFactory.W, label, art) }
-            runCatching { TileDiskCache.write(pkg, TileDiskCache.key(stamp), label, art) }
+            }.also { bundled?.bitmap?.recycle() }.getOrThrow()
+            synchronized(cache) { cache[pkg] = Cached(cacheKey, label, art) }
+            runCatching { TileDiskCache.write(pkg, cacheKey, label, art) }
         }
         val removable = !system
         return AppEntry(pkg, label, ComponentName(pkg, info.name), leanback, removable, art)

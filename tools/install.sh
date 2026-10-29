@@ -323,6 +323,9 @@ if [ "$(adb shell settings get secure screensaver_enabled | tr -d '\r')" = 1 ]; 
   adb shell am broadcast -a "$PKG.CONFIG" -n "$PKG/.guard.ConfigReceiver" --ez own_screensaver true >/dev/null
   echo "Aerial's screensaver is now the TV's screensaver."
 fi
+# App-op writes are deferred; an immediate ADB reboot can lose these grants (MiTV-MFTR0).
+# Older firmware may not implement this command.
+adb shell appops write-settings >/dev/null 2>&1 || true
 if [ "${KEEP_ADB:-0}" = 1 ]; then
   adb shell am broadcast -a "$PKG.CONFIG" -n "$PKG/.guard.ConfigReceiver" --ez keep_adb true >/dev/null
   echo "Aerial will switch ADB debugging back on whenever the TV turns it off."
