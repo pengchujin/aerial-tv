@@ -33,6 +33,18 @@ object Palette {
     val FillStrong = Color(0x52787880)
     val Hairline = Color(0x1AFFFFFF)
     val Green = Color(0xFF30D158)
+
+    /** Control Center's Network button with Wi-Fi on: a light iOS system blue (white glyph reads on it). */
+    val NetworkOn = Color(0xFF4DA3FF)
+    /** The glyph on the focused (near-white) plate while the Network button is on: the system blue, darkened. */
+    val NetworkOnFocused = Color(0xFF0A6FD6)
+
+    /** The Source (signal source) button while any input has something plugged in or connected: a light yellow. */
+    val SourceConnected = Color(0xFFFFD95A)
+    /** The glyph on that yellow (white would not read on it), and on the focused plate, a darker gold. */
+    val SourceConnectedGlyph = Color(0xFF3A2F00)
+    val SourceConnectedFocused = Color(0xFFA67C00)
+
     val Orange = Color(0xFFFF9F0A)
     val Red = Color(0xFFFF453A)
 

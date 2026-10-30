@@ -74,7 +74,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import app.orchard.tv.CcPage
 import app.orchard.tv.BuildConfig
 import app.orchard.tv.HomeViewModel
@@ -83,17 +82,18 @@ import app.orchard.tv.R
 import app.orchard.tv.apps.SourceLooks
 import app.orchard.tv.settings.AerialSettings
 import app.orchard.tv.system.HomeStatus
-import app.orchard.tv.system.LaunchFallback
 import app.orchard.tv.system.NetKind
+import app.orchard.tv.system.NetworkStatus
 import app.orchard.tv.system.SourceKind
 import app.orchard.tv.system.Sounds
 import app.orchard.tv.system.SystemProbe
+import app.orchard.tv.ui.components.NetworkStatusIcon
+import app.orchard.tv.ui.components.PressState
 import app.orchard.tv.ui.components.Pressable
 import app.orchard.tv.ui.components.consumeTaps
 import app.orchard.tv.ui.components.dismissOnTap
 import app.orchard.tv.ui.components.liquidGlass
 import app.orchard.tv.ui.home.MenuRow
-import app.orchard.tv.ui.home.VpnBadge
 import app.orchard.tv.ui.home.dateText
 import app.orchard.tv.ui.home.timeText
 import app.orchard.tv.ui.theme.Glyph
@@ -120,6 +120,10 @@ fun ControlCenter(
     /** Draw the closed panel once, nearly transparent, so that its first opening is not its first draw (HomeScreen). */
     warm: Boolean = false,
 ) {
+    // The Wi-Fi radio as the Network button shows it; followed only while the main page is on screen.
+    val wifi = rememberWifiRadio()
+    WifiWatching(wifi, active = visible && page == CcPage.Main)
+
     BackHandler(enabled = visible) {
         when (page) {
             CcPage.Main -> onClose()
@@ -153,7 +157,7 @@ fun ControlCenter(
         // at 1% while Home is idle, without focus, the first opening is like the second.
         if (warm && !visible) {
             Column(Modifier.graphicsLayer { alpha = 0.01f }.width(300.dp).liquidGlass(24.dp).padding(16.dp)) {
-                MainPage(vm, now, false, onOpen)
+                MainPage(vm, wifi, now, false, onOpen)
             }
         }
         AnimatedVisibility(
@@ -184,7 +188,7 @@ fun ControlCenter(
                     // Closing sets the page back to Main while the panel fades out; that page must
                     // not take focus from the tile Home has just put it back on.
                     when (p) {
-                        CcPage.Main -> MainPage(vm, now, visible, onOpen)
+                        CcPage.Main -> MainPage(vm, wifi, now, visible, onOpen)
                         CcPage.Inputs -> InputsPage(vm, visible, onOpen)
                         CcPage.InputSettings -> InputSettingsPage(vm, visible)
                         CcPage.Update -> UpdatePage(vm, visible)
@@ -197,7 +201,7 @@ fun ControlCenter(
 }
 
 @Composable
-private fun MainPage(vm: HomeViewModel, now: LocalDateTime, takeFocus: Boolean, onOpen: (android.content.Intent) -> Unit) {
+private fun MainPage(vm: HomeViewModel, wifi: WifiRadio, now: LocalDateTime, takeFocus: Boolean, onOpen: (android.content.Intent) -> Unit) {
     val context = LocalContext.current
     val first = remember { FocusRequester() }
     val networkFocus = remember { FocusRequester() }
@@ -217,7 +221,10 @@ private fun MainPage(vm: HomeViewModel, now: LocalDateTime, takeFocus: Boolean, 
     LaunchedEffect(Unit) {
         if (!takeFocus) return@LaunchedEffect
         withFrameNanos { }
-        runCatching { first.requestFocus() }
+        // From the PIN of a Wi-Fi press, focus returns to the Network button.
+        val target = if (wifi.focusButton) networkFocus else first
+        wifi.focusButton = false
+        runCatching { target.requestFocus() }
     }
 
     Column {
@@ -228,10 +235,7 @@ private fun MainPage(vm: HomeViewModel, now: LocalDateTime, takeFocus: Boolean, 
             }
             val net = vm.network
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                GlyphIcon(
-                    when (net.kind) { NetKind.Wifi -> Glyph.Wifi; NetKind.Ethernet -> Glyph.Ethernet; NetKind.Offline -> Glyph.Offline },
-                    Palette.SecondaryLabel, 14.dp, level = net.level,
-                )
+                NetworkStatusIcon(net, Palette.SecondaryLabel, 18.dp)
                 BasicText(
                     when (net.kind) {
                         NetKind.Wifi -> net.name ?: stringResource(R.string.net_wifi)
@@ -241,33 +245,40 @@ private fun MainPage(vm: HomeViewModel, now: LocalDateTime, takeFocus: Boolean, 
                     style = Type.Caption, maxLines = 1, overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.widthIn(max = 110.dp),
                 )
-                if (net.vpn) VpnBadge(Palette.SecondaryLabel, fontSize = 9.sp)
             }
         }
 
         Spacer(Modifier.height(12.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            // Light yellow while any input source is plugged in or connected (TvSource.connected).
             RoundButton(
                 Glyph.Input, stringResource(R.string.cc_inputs),
                 focusRequester = first,
                 modifier = Modifier.onFocusChanged { if (it.isFocused) cameFrom = first },
+                tone = sourceTone(vm.sources.any { it.connected }),
             ) {
                 // TCL lists no inputs to Android; its own input panel is the next best thing.
                 vm.overlay = if (vm.sources.isEmpty() && SystemProbe.openInputPicker(context)) Overlay.None
                 else Overlay.ControlCenter(CcPage.Inputs)
             }
+            // Press: Wi-Fi on or off (the Wi-Fi settings where the firmware refuses that). Hold: the
+            // Wi-Fi settings. Behind the PIN either way. The icon shows no globe; the status pill on
+            // Home keeps it. Light blue while Wi-Fi is on, grey while it is off. The caption is the
+            // connection step or the network's name.
+            val caption = networkCaption(wifi.lit, wifi.link, vm.network.takeIf { it.kind == NetKind.Wifi }?.name)
             RoundButton(
                 when (vm.network.kind) { NetKind.Ethernet -> Glyph.Ethernet; NetKind.Offline -> Glyph.Offline; else -> Glyph.Wifi },
-                stringResource(R.string.cc_network),
+                networkCaptionText(caption),
+                network = networkButtonStatus(wifi.lit, wifi.present, vm.network),
                 focusRequester = networkFocus,
                 modifier = Modifier.onFocusChanged { if (it.isFocused) cameFrom = networkFocus },
-            ) {
-                vm.whenUnlocked {
-                    val pages = SystemProbe.networkSettingsIntents(context, ethernet = vm.network.kind == NetKind.Ethernet)
-                    LaunchFallback.arm(pages.drop(1))
-                    onOpen(pages.first())
-                }
-            }
+                tone = networkTone(wifi.lit),
+                busy = wifi.busy,
+                wideLabel = true,
+                scrollLabel = caption.kind == WifiCaption.Name,
+                labelRunning = takeFocus,
+                onLongPress = { holdWifi(vm, context, onOpen) },
+            ) { pressWifi(vm, wifi, context, onOpen) }
             RoundButton(
                 Glyph.Gear, stringResource(R.string.cc_settings),
                 focusRequester = settingsFocus,
@@ -443,26 +454,85 @@ private fun SetupPage(vm: HomeViewModel, takeFocus: Boolean, onOpen: (android.co
     }
 }
 
-/** A round Control Center button: frosted at rest, white when focused. */
+/** The colours of a round button's circle, its glyph, and its glyph on the focused (near-white) plate. */
+private class ToneColors(val fill: Color, val glyph: Color, val focusedGlyph: Color)
+
+private fun ButtonTone.colors(): ToneColors = when (this) {
+    ButtonTone.Plain -> ToneColors(Palette.Fill, Palette.Label, Palette.OnFocus)
+    ButtonTone.Green -> ToneColors(Palette.Green, Palette.Label, Color(0xFF248A3D))
+    ButtonTone.Blue -> ToneColors(Palette.NetworkOn, Palette.Label, Palette.NetworkOnFocused)
+    // Light, so its glyph is dark.
+    ButtonTone.Yellow -> ToneColors(Palette.SourceConnected, Palette.SourceConnectedGlyph, Palette.SourceConnectedFocused)
+}
+
+/** The width a [wideLabel] caption may use: a little beyond its 64dp column, into the gap to the next button. */
+private val WideCaption = 80.dp
+
+/**
+ * A round Control Center button: frosted at rest, white when focused, and [tone] colours the circle
+ * (Wi-Fi on: blue; a source connected: yellow), with a turning ring while [busy]. [network], when
+ * given, replaces the glyph with the status icon. With [onLongPress], holding OK does that instead
+ * (HoldPressable); the others stay plain Pressables. A [wideLabel] may use [WideCaption] (the row's
+ * layout stays as it is); with [scrollLabel] a label wider than that travels to and fro while
+ * [labelRunning] (CaptionText).
+ */
 @Composable
 private fun RoundButton(
     glyph: Glyph,
     label: String,
     focusRequester: FocusRequester? = null,
     modifier: Modifier = Modifier,
+    network: NetworkStatus? = null,
+    tone: ButtonTone = ButtonTone.Plain,
+    busy: Boolean = false,
+    wideLabel: Boolean = false,
+    scrollLabel: Boolean = false,
+    labelRunning: Boolean = false,
+    onLongPress: (() -> Unit)? = null,
     onClick: () -> Unit,
 ) {
-    Pressable(onClick = onClick, modifier = modifier, focusRequester = focusRequester, focusedScale = 1.1f) { state ->
-        val bg by animateColorAsState(if (state.focused) Palette.Focus else Palette.Fill, tween(140, easing = Motion.EaseOut), label = "round-bg")
-        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(64.dp)) {
-            Box(Modifier.size(48.dp).clip(CircleShape).background(bg), contentAlignment = Alignment.Center) {
-                GlyphIcon(glyph, if (state.focused) Palette.OnFocus else Palette.Label, 20.dp)
-            }
-            Spacer(Modifier.height(6.dp))
-            BasicText(
-                label, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                style = Type.Caption.copy(color = if (state.focused) Palette.Label else Palette.SecondaryLabel, textAlign = TextAlign.Center),
-            )
+    val face: @Composable (PressState) -> Unit = { state ->
+        RoundFace(glyph, label, network, tone, busy, wideLabel, scrollLabel, labelRunning, state)
+    }
+    if (onLongPress == null) {
+        Pressable(onClick = onClick, modifier = modifier, focusRequester = focusRequester, focusedScale = 1.1f) { face(it) }
+    } else {
+        HoldPressable(onClick = onClick, onLongPress = onLongPress, modifier = modifier, focusRequester = focusRequester, focusedScale = 1.1f) { face(it) }
+    }
+}
+
+@Composable
+private fun RoundFace(
+    glyph: Glyph,
+    label: String,
+    network: NetworkStatus?,
+    tone: ButtonTone,
+    busy: Boolean,
+    wideLabel: Boolean,
+    scrollLabel: Boolean,
+    labelRunning: Boolean,
+    state: PressState,
+) {
+    val colors = tone.colors()
+    val bg by animateColorAsState(
+        if (state.focused) Palette.Focus else colors.fill,
+        tween(140, easing = Motion.EaseOut), label = "round-bg",
+    )
+    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(64.dp)) {
+        Box(Modifier.size(48.dp).clip(CircleShape).background(bg), contentAlignment = Alignment.Center) {
+            val foreground = if (state.focused) colors.focusedGlyph else colors.glyph
+            // The weak arcs of the Wi-Fi icon: the default grey does not read on the blue.
+            val weak = if (!state.focused && tone == ButtonTone.Blue) Color.White.copy(alpha = 0.5f) else null
+            if (network != null) NetworkStatusIcon(network, foreground, 24.dp, inactiveColor = weak)
+            else GlyphIcon(glyph, foreground, 20.dp)
+            if (busy) BusyRing(if (state.focused) Palette.OnFocus else foreground, Modifier.fillMaxSize())
+        }
+        Spacer(Modifier.height(6.dp))
+        val style = Type.Caption.copy(color = if (state.focused) Palette.Label else Palette.SecondaryLabel, textAlign = TextAlign.Center)
+        if (wideLabel) {
+            CaptionText(label, style, WideCaption, scroll = scrollLabel, running = labelRunning)
+        } else {
+            BasicText(label, maxLines = 1, overflow = TextOverflow.Ellipsis, style = style)
         }
     }
 }
