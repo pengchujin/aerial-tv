@@ -202,10 +202,11 @@ private fun MainPage(vm: HomeViewModel, now: LocalDateTime, takeFocus: Boolean, 
     val context = LocalContext.current
     val first = remember { FocusRequester() }
     val networkFocus = remember { FocusRequester() }
+    val bluetoothFocus = remember { FocusRequester() }
     val settingsFocus = remember { FocusRequester() }
-    // The buttons share one row above a panel-wide slider, so focus searching up from it has three
-    // equally near choices and takes the middle one, Network, whichever button Down came from
-    // (75A7D). Remember that button and send Up back to it.
+    // The buttons share one row above a panel-wide slider, so focus searching up from it can
+    // choose a different button than Down came from (75A7D). Remember that button and send
+    // Up back to it.
     var cameFrom by remember { mutableStateOf(first) }
     // Firmwares that list their inputs late (see HomeViewModel.refreshSources): look again while
     // the page is open and still empty. One provider or TvInputManager query every 3 s.
@@ -265,6 +266,17 @@ private fun MainPage(vm: HomeViewModel, now: LocalDateTime, takeFocus: Boolean, 
             ) {
                 vm.whenUnlocked {
                     val pages = SystemProbe.networkSettingsIntents(context, ethernet = vm.network.kind == NetKind.Ethernet)
+                    LaunchFallback.arm(pages.drop(1))
+                    onOpen(pages.first())
+                }
+            }
+            RoundButton(
+                Glyph.Bluetooth, stringResource(R.string.cc_bluetooth),
+                focusRequester = bluetoothFocus,
+                modifier = Modifier.onFocusChanged { if (it.isFocused) cameFrom = bluetoothFocus },
+            ) {
+                vm.whenUnlocked {
+                    val pages = SystemProbe.bluetoothSettingsIntents(context)
                     LaunchFallback.arm(pages.drop(1))
                     onOpen(pages.first())
                 }

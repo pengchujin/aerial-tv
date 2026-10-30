@@ -282,6 +282,23 @@ object SystemProbe {
         )
     }
 
+    /** Pages for the Bluetooth button, best first; allResolvable falls back to the last one. */
+    fun bluetoothSettingsIntents(context: Context): List<Intent> {
+        // The ATV accessories page needs BLUETOOTH_CONNECT on Android 12+, which a settings
+        // shortcut does not hold (Permission Denial on the Android 12 TV emulator): below S only.
+        val accessories = if (Build.VERSION.SDK_INT < 31) listOf(
+            Intent(Intent.ACTION_MAIN).setComponent(ComponentName("com.android.tv.settings", "com.android.tv.settings.accessories.AddAccessoryActivity")),
+        ) else emptyList()
+        return allResolvable(
+            context,
+            // Opens fine where the Wi-Fi page is killed (issue #331, MiTV-ANSP0).
+            Intent(Intent.ACTION_MAIN).setComponent(ComponentName("com.xiaomi.mitv.settings", "com.xiaomi.mitv.settings.bluetooth.MitvBluetoothActivity")),
+            *accessories.toTypedArray(),
+            Intent(Settings.ACTION_BLUETOOTH_SETTINGS),
+            Intent(Settings.ACTION_SETTINGS),
+        )
+    }
+
     // Hisense H55E9A (Android 8): the OEM connection panel works, while the leftover AOSP
     // NetworkActivity can crash in its subpages (#760). Other TVs keep their existing order.
     // Use the OEM network category action, not WIFI_SETTINGS which opens the Wi-Fi list directly.
