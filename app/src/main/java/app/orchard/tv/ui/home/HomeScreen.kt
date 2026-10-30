@@ -277,7 +277,7 @@ private const val HOME_SHOT_EVERY_MS = 30_000L
 @Composable
 fun HomeScreen(
     vm: HomeViewModel,
-    onLaunch: (AppEntry, Rect?) -> Unit,
+    onLaunch: (AppEntry, Rect?, HomeLaunchOrigin) -> Unit,
     onOpen: (Intent) -> Unit,
     onAppInfo: (String) -> Unit,
     onUninstall: (String) -> Unit,
@@ -290,6 +290,21 @@ fun HomeScreen(
     val density = LocalDensity.current
     val now by rememberNow()
     val scope = rememberCoroutineScope()
+    val appTransitions = LocalAppLaunchTransitions.current
+    // A zoom's leaving phases are one state here (LaunchSession.forHome): its intent going out
+    // near the end of the grow does not recompose all of Home under it.
+    val launchSession by remember(appTransitions) { derivedStateOf { appTransitions?.session?.forHome() } }
+    // Back from an app a tile zoomed into: the wallpaper's film starts once the zoom has shrunk
+    // into its tile (AppLaunchTransitions.returnQuiet, at most RETURN_QUIET_MAX_MS), not under it.
+    // Its player opening on the main thread and its 4K decoder starting cost the shrink frames.
+    // In front for Home: resumed, or paused only while the zoom is still growing into an app
+    // (AppLaunchTransitions.pauseHeld, until the grow ends). Derived, so the pause writes this
+    // state twice and nothing recomposes for it: the film's release and the recomposition that
+    // `resumed = false` brought were what stood in the last frames of the grow.
+    val inFront by remember(vm, appTransitions) { derivedStateOf { vm.resumed || appTransitions?.pauseHeld == true } }
+    val filmFront = (inFront || vm.homeBounce) && appTransitions?.returnQuiet != true
+    val fallbackRetreat = remember { Animatable(0f) }
+    val launchRetreat = appTransitions?.retreat ?: fallbackRetreat
 
     val requesters = remember { HashMap<String, FocusRequester>() }
     fun requester(key: String) = requesters.getOrPut(key) { FocusRequester() }
@@ -317,6 +332,17 @@ fun HomeScreen(
     DisposableEffect(liveFilm) {
         LiveFilm.onHome = liveFilm
         onDispose { if (LiveFilm.onHome === liveFilm) LiveFilm.onHome = null }
+    }
+    // For the picture of Home a zoom keeps for its return (AppLaunchTransitions.captureHomeLate): the
+    // film is its own plane under the window, not in the picture, so where it shows through, the
+    // wallpaper's still goes under the picture while Home is not drawn.
+    DisposableEffect(appTransitions, filmCover) {
+        appTransitions?.filmShowing = { filmCover.value > 0.01f }
+        appTransitions?.stillBackdrop = { Wallpapers.backdrop }
+        onDispose {
+            appTransitions?.filmShowing = { false }
+            appTransitions?.stillBackdrop = { null }
+        }
     }
     // A screensaver of aerials over the aerial wallpaper carries the wallpaper's film on, one shot
     // from Home to screensaver: the apps fade, the clock moves to the corner. Whether the film is
@@ -447,6 +473,13 @@ fun HomeScreen(
         runCatching { requester(key).requestFocus() }
     }
     val windowFocused = LocalWindowInfo.current.isWindowFocused
+    val windowSize = LocalWindowInfo.current.containerSize
+    LaunchedEffect(windowSize, launchSession?.id) {
+        val source = launchSession?.source ?: return@LaunchedEffect
+        if (windowSize.width > 0 && windowSize.height > 0 &&
+            (source.windowWidth != windowSize.width || source.windowHeight != windowSize.height)
+        ) appTransitions?.suppressMotion(keepFocus = true)
+    }
     LaunchedEffect(windowFocused, vm.homeResetPending, vm.loaded) {
         if (windowFocused && vm.homeResetPending && vm.loaded) {
             withFrameNanos { }
@@ -454,6 +487,58 @@ fun HomeScreen(
             focusApp(0)
             vm.homeResetPending = false
         }
+    }
+
+    LaunchedEffect(overlay, moving, vm.screensaverVisible) {
+        if (moving != null || vm.screensaverVisible ||
+            overlay != Overlay.None && overlay !is Overlay.Folder
+        ) appTransitions?.suppressMotion()
+    }
+    // One animation owns this track. Lifecycle/focus/overlay changes cancel its previous run.
+    LaunchedEffect(launchSession?.id, launchSession?.phase, launchSession?.returnMotion, inFront, windowFocused, overlay, moving, reduced, vm.screensaverVisible, vm.loaded) {
+        val session = launchSession
+        val homeLayerVisible = overlay == Overlay.None || overlay is Overlay.Folder
+        when {
+            !inFront || !windowFocused || !homeLayerVisible || moving != null || vm.screensaverVisible || !vm.loaded -> launchRetreat.snapTo(0f)
+            session == null -> launchRetreat.animateTo(0f, tween(if (reduced) 0 else 160, easing = Motion.EaseOut))
+            // Aerial's zoom (AppLaunchZoom) moves the other tiles and ends the session itself.
+            session.zoom -> launchRetreat.snapTo(0f)
+            reduced || !session.returnMotion -> {
+                launchRetreat.snapTo(0f)
+                if (session.phase == LaunchPhase.Returning) {
+                    repeat(3) { withFrameNanos { } }
+                    appTransitions?.finish(session.id)
+                }
+            }
+            session.phase == LaunchPhase.Requested -> launchRetreat.animateTo(1f, tween(180, easing = Motion.EaseOut))
+            session.phase == LaunchPhase.Returning -> {
+                // Only Aerial's cards re-enter; the former app's last frame belongs to the system.
+                if (session.leftHome) launchRetreat.snapTo(1f)
+                launchRetreat.animateTo(0f, tween(210, easing = Motion.EaseOut))
+                appTransitions?.finish(session.id)
+            }
+            else -> launchRetreat.snapTo(0f)
+        }
+    }
+    LaunchedEffect(launchSession?.id, launchSession?.phase, windowFocused, vm.loaded, overlay) {
+        val session = launchSession ?: return@LaunchedEffect
+        if (session.phase != LaunchPhase.Returning || !session.restoreFocus || !vm.loaded ||
+            !windowFocused || vm.homeResetPending || vm.screensaverVisible || moving != null
+        ) return@LaunchedEffect
+        val folder = session.source.folderId
+        if (folder != null && !vm.folderApps[folder].isNullOrEmpty()) {
+            // Existing folder state retains its scroll; tiles restore the stable app key.
+            if (overlay == Overlay.None) vm.overlay = Overlay.Folder(folder)
+            return@LaunchedEffect
+        }
+        if (overlay != Overlay.None) return@LaunchedEffect
+        withFrameNanos { }
+        val index = apps.indexOfFirst { it.key == session.source.key }.takeIf { it >= 0 }
+            ?: session.source.homeIndex.coerceIn(0, (apps.size - 1).coerceAtLeast(0))
+        dragged = session.source.touchScrolled
+        if (dragged) scroll.snapTo(with(density) { session.source.scrollDp.dp.toPx() })
+        pillFocused = false
+        focusApp(index)
     }
 
     BackHandler(enabled = overlay == Overlay.None && moving == null) {
@@ -470,6 +555,29 @@ fun HomeScreen(
         Modifier
             .fillMaxSize()
             .onPreviewKeyEvent { e ->
+                // The zoom covers the grid until the app is up (or the request times out, at most
+                // REQUEST_TIMEOUT_MS): a key then would move focus or open something unseen.
+                val zooming = appTransitions?.session?.let {
+                    it.zoom && (it.phase == LaunchPhase.Opening || it.phase == LaunchPhase.Requested)
+                } == true
+                if (zooming && e.nativeKeyEvent.keyCode in setOf(
+                        NativeKeyEvent.KEYCODE_DPAD_LEFT, NativeKeyEvent.KEYCODE_DPAD_RIGHT,
+                        NativeKeyEvent.KEYCODE_DPAD_UP, NativeKeyEvent.KEYCODE_DPAD_DOWN,
+                        NativeKeyEvent.KEYCODE_DPAD_CENTER, NativeKeyEvent.KEYCODE_ENTER,
+                        NativeKeyEvent.KEYCODE_NUMPAD_ENTER, NativeKeyEvent.KEYCODE_BACK,
+                        NativeKeyEvent.KEYCODE_MENU,
+                    )
+                ) return@onPreviewKeyEvent true
+                if (e.type == KeyEventType.KeyDown && e.nativeKeyEvent.keyCode in setOf(
+                        NativeKeyEvent.KEYCODE_DPAD_LEFT, NativeKeyEvent.KEYCODE_DPAD_RIGHT,
+                        NativeKeyEvent.KEYCODE_DPAD_UP, NativeKeyEvent.KEYCODE_DPAD_DOWN,
+                        NativeKeyEvent.KEYCODE_BACK, NativeKeyEvent.KEYCODE_MENU,
+                    )
+                ) {
+                    // Input stays live; a new navigation choice wins over returning focus.
+                    if (appTransitions?.session?.phase == LaunchPhase.Returning) appTransitions.cancel()
+                    else appTransitions?.suppressMotion()
+                }
                 // The remote takes the grid back from the finger: scroll follows focus again.
                 // Back leaves it to BackHandler, which needs to know the grid was dragged
                 // (gesture navigation sends Back as a key too).
@@ -577,9 +685,13 @@ fun HomeScreen(
         // issue #466: the reporter rebuilt the same steps in a small app and got the same 16 frames).
         val homeLayer = rememberGraphicsLayer()
         var homeShot by remember { mutableStateOf<ImageBitmap?>(null) }
-        LaunchedEffect(ccOpen) {
+        // Not while Aerial is behind an app (vm.resumed): the 8 MB picture is let go then and no
+        // timer runs for it; Home shows live under the panel meanwhile, looking the same, and the
+        // picture is taken again a moment after Aerial is back.
+        LaunchedEffect(ccOpen, inFront) {
+            if (homeShot != null && !inFront) DiagLog.i("away: Control Center's picture of Home let go")
             homeShot = null
-            if (!ccOpen || Build.VERSION.SDK_INT < Build.VERSION_CODES.N) return@LaunchedEffect
+            if (!ccOpen || !inFront || Build.VERSION.SDK_INT < Build.VERSION_CODES.N) return@LaunchedEffect
             delay(HOME_SHOT_AFTER_MS)
             while (true) {
                 homeShot = runCatching { homeLayer.toImageBitmap() }.getOrNull()
@@ -600,15 +712,46 @@ fun HomeScreen(
         // its picture stands in under Control Center, and a SurfaceView in a layer that is not
         // drawn cuts no hole in the window, so the paused film showed as the window's black
         // (Xiaomi MiTV-MFTR0, the aerial wallpaper under Control Center).
-        val filmMoves = vm.filmFront && overlay == Overlay.None && !vm.screensaverVisible && !pastShelf &&
+        val filmMoves = filmFront && overlay == Overlay.None && !vm.screensaverVisible && !pastShelf &&
             !inGrid && moving == null
+        // The film stands still on its frame from the click until the zoom's grow ends
+        // (holdsFilmForGrow): the player is paused, its decoder kept, so nothing is released or
+        // opened and LiveWallpaper's own code for leaving is untouched. The pause hold keeps Home
+        // "in front" through the grow, which kept a 4K decode and the glass sampler running beside
+        // the zoom and the app's start. Played again only if Aerial is still in front when the hold
+        // ends (a failed launch, a cancel) and Home still wants the film moving; where Aerial
+        // really left, LiveWallpaper lets the player go and a new one starts on the way back.
+        // Read in a coroutine, not in composition: the hold starting recomposes nothing.
+        val filmWanted by rememberUpdatedState(filmMoves || (filmSaver && filmFront))
+        LaunchedEffect(appTransitions, liveFilm) {
+            val transitions = appTransitions ?: return@LaunchedEffect
+            var frozen: Any? = null
+            snapshotFlow { holdsFilmForGrow(transitions.session) }.collect { hold ->
+                val p = liveFilm.player
+                if (hold) {
+                    if (p != null && p.playWhenReady) {
+                        p.pause()
+                        frozen = p
+                        DiagLog.i("wallpaper film held on its frame while the zoom grows")
+                    }
+                } else {
+                    val held = frozen
+                    frozen = null
+                    if (held != null && p === held) {
+                        val thaw = thawsFilm(vm.resumed, filmWanted)
+                        if (thaw) liveFilm.goOn()
+                        DiagLog.i("wallpaper film hold ended: ${if (thaw) "plays on" else "left to Home"}")
+                    }
+                }
+            }
+        }
         val sourceInput = Wallpapers.sourceInput
         when {
             Wallpapers.selectedId == Wallpapers.LIVE -> LiveWallpaper(
                 moving = filmMoves,
-                keep = vm.filmFront && (!vm.screensaverVisible || filmSaver),
+                keep = filmFront && (!vm.screensaverVisible || filmSaver),
                 cover = filmCover,
-                hold = filmSaver && vm.filmFront,
+                hold = filmSaver && filmFront,
                 // Control Center, Personalize and an app's menu on Home leave Home sharp (dimmed,
                 // above the sheet, beside the menu): the paused film stays. Swapped for its picture
                 // there, the background jumped (another plane and processing; a key frame a second
@@ -626,12 +769,12 @@ fun HomeScreen(
             Wallpapers.isVideo() -> key(Wallpapers.selectedId) {
                 VideoWallpaper(
                     moving = filmMoves,
-                    keep = vm.filmFront && !vm.screensaverVisible,
+                    keep = filmFront && !vm.screensaverVisible,
                     lastInputAt = vm.lastInputAt,
                     cover = filmCover,
                 )
             }
-            sourceInput != null -> SourceWallpaper(sourceInput, show = vm.resumed && !vm.screensaverVisible, cover = filmCover)
+            sourceInput != null -> SourceWallpaper(sourceInput, show = inFront && !vm.screensaverVisible, cover = filmCover)
         }
         Box(
             Modifier
@@ -690,7 +833,10 @@ fun HomeScreen(
                 plate = plate,
                 scroll = { scroll.value },
                 collapse = collapsePx,
-                cover = { filmCover.value },
+                // Read while drawing only. Zero while the zoom's picture of Home is taken with the
+                // film still playing (AppLaunchTransitions.homeStill): Home draws what it draws once
+                // the film has been let go, the still picture and the plate.
+                cover = { if (appTransitions?.homeStill == true) 0f else filmCover.value },
                 // A film kept moving, or an input's picture, gets the shade a picture has, so the
                 // top row reads over it without the plate. In the grid both give way to the
                 // glass, as any wallpaper does (an input's picture cannot be blurred).
@@ -785,7 +931,10 @@ fun HomeScreen(
                                 val mover = moving
                                 if (mover == null) {
                                     val folder = app.folder
-                                    if (folder == null) onLaunch(app, bounds)
+                                    if (folder == null) onLaunch(app, bounds, HomeLaunchOrigin(
+                                        folderId = null, homeIndex = index,
+                                        scrollDp = with(density) { scroll.value.toDp().value }, touchScrolled = dragged,
+                                    ))
                                     else {
                                         // Closing the folder comes back to its tile.
                                         focusAfterOverlay = app.key
@@ -963,7 +1112,13 @@ fun HomeScreen(
             tileH = metrics.tileH,
             gap = metrics.gap,
             columns = columns,
-            onLaunch = onLaunch,
+            onLaunch = { app, bounds ->
+                val index = apps.indexOfFirst { it.folder?.id == openFolder }.coerceAtLeast(0)
+                onLaunch(app, bounds, HomeLaunchOrigin(
+                    folderId = openFolder, homeIndex = index,
+                    scrollDp = with(density) { scroll.value.toDp().value }, touchScrolled = dragged,
+                ))
+            },
             onLongPress = { app, bounds -> vm.overlay = Overlay.AppMenu(app.key, bounds ?: Rect.Zero, inFolder = openFolder) },
             onDismiss = { vm.overlay = Overlay.None },
         )

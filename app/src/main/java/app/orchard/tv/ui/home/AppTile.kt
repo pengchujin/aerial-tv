@@ -33,6 +33,8 @@ import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -40,6 +42,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.snapshotFlow
+import kotlinx.coroutines.flow.first
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithCache
@@ -70,9 +75,13 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.findRootCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -112,16 +121,6 @@ import kotlin.math.roundToInt
 // D-pad remotes give no tilt to follow, so the lift itself has to read from across the room.
 private const val FOCUSED_SCALE = 1.15f
 private const val PRESSED_SCALE = 1.05f
-
-/**
- * A tile's rest bounds grown about their middle to its size when focused: where the launch
- * animation starts, since the focused tile is what the viewer sees.
- */
-fun Rect.asFocusedTile(): Rect {
-    val dx = width * (FOCUSED_SCALE - 1f) / 2f
-    val dy = height * (FOCUSED_SCALE - 1f) / 2f
-    return Rect(left - dx, top - dy, right + dx, bottom + dy)
-}
 
 /** Half a sine wave, so a back-and-forth eases through each turn. */
 private val SineEasing = Easing { t -> (1f - cos(PI * t).toFloat()) / 2f }
@@ -164,17 +163,112 @@ fun AppTile(
     val reduced = LocalReducedMotion.current
     val scope = rememberCoroutineScope()
     val focusManager = LocalFocusManager.current
+    // Read where it is used (keys, effects), not in composition: the window's focus coming back
+    // with a return would otherwise recompose every tile under the zoom's first frames.
+    val windowInfo = LocalWindowInfo.current
+    val appTransitions = LocalAppLaunchTransitions.current
+    // Only the source tile recomposes for a session, and only as its return starts and ends; the
+    // other tiles read the session in their layer (below), never in composition.
+    val returnHere by remember(appTransitions, app.key) {
+        derivedStateOf {
+            appTransitions?.session?.takeIf { it.phase == LaunchPhase.Returning && it.source.key == app.key }
+        }
+    }
+    val returnRim = remember { Animatable(0f) }
 
     var focused by remember { mutableStateOf(false) }
     // Once per tile: a focused one drawn from its artwork before its face was made (issue #654).
     val rawLogged = remember { booleanArrayOf(false) }
     var pressed by remember { mutableStateOf(false) }
     var bounds by remember { mutableStateOf<Rect?>(null) }
+    var faceCoordinates by remember { mutableStateOf<LayoutCoordinates?>(null) }
+    // The face is inside zoom/lean/push: sample now, never multiply focus scale twice.
+    fun launchBounds(): Rect? = runCatching {
+        faceCoordinates?.takeIf { it.isAttached }?.boundsInWindow()?.takeIf {
+            it.width >= 1f && it.height >= 1f &&
+                listOf(it.left, it.top, it.right, it.bottom).all { v -> v.isFinite() }
+        }
+    }.getOrNull()
+    // The layout box under the zoom/lean layer: where the face settles at focus on a return.
+    var tileCoordinates by remember { mutableStateOf<LayoutCoordinates?>(null) }
+    val canvasDensity = LocalDensity.current
+    fun rootBox(of: LayoutCoordinates?): Rect? = runCatching {
+        of?.takeIf { it.isAttached }?.let { it.findRootCoordinates().localBoundingBoxOf(it, clipBounds = false) }
+            ?.takeIf { it.width >= 1f && it.height >= 1f && listOf(it.left, it.top, it.right, it.bottom).all { v -> v.isFinite() } }
+    }.getOrNull()
+    // The face as drawn now, unclipped: what Aerial's own zoom grows from (AppLaunchZoom).
+    fun noteZoom() {
+        val face = rootBox(faceCoordinates) ?: return
+        val layoutW = faceCoordinates?.size?.width?.takeIf { it > 0 } ?: return
+        appTransitions?.noteZoomSource(ZoomSource(
+            key = app.key, art = app.art, rect = face,
+            radius = with(canvasDensity) { Corner.toPx() } * face.width / layoutW,
+            at = android.os.SystemClock.uptimeMillis(),
+        ))
+    }
+    // The focused face where the tile is now (scrolled, in its folder), for the zoom to land on.
+    fun publishReturn() {
+        val transitions = appTransitions ?: return
+        val session = transitions.session ?: return
+        if (!session.zoom || session.phase != LaunchPhase.Returning || session.source.key != app.key) return
+        val box = rootBox(tileCoordinates) ?: return
+        val w = tileCoordinates?.size?.width ?: return
+        val h = tileCoordinates?.size?.height ?: return
+        val sx = focusedPx(w.toFloat()) / w.toFloat()
+        val sy = focusedPx(h.toFloat()) / h.toFloat()
+        val target = Rect(
+            box.center.x - box.width * sx / 2f, box.center.y - box.height * sy / 2f,
+            box.center.x + box.width * sx / 2f, box.center.y + box.height * sy / 2f,
+        )
+        if (transitions.returnTarget != target) transitions.returnTarget = target
+    }
     var longPressJob by remember { mutableStateOf<Job?>(null) }
     var longFired by remember { mutableStateOf(false) }
     var menuPressed by remember { mutableStateOf(false) }
     val click by rememberUpdatedState(onClick)
     val longPress by rememberUpdatedState(onLongPress)
+
+    // Not enabled, or whenever the window loses the focus: no press is left held.
+    LaunchedEffect(enabled) {
+        snapshotFlow { enabled && windowInfo.isWindowFocused }.collect { live ->
+            if (!live) {
+                pressed = false
+                menuPressed = false
+                longFired = false
+                longPressJob?.cancel()
+            }
+        }
+    }
+    DisposableEffect(Unit) { onDispose { longPressJob?.cancel() } }
+    LaunchedEffect(returnHere?.id, enabled, reduced) {
+        val session = returnHere
+        if (session == null || !enabled) return@LaunchedEffect returnRim.snapTo(0f)
+        // Once the window has the focus back (the closing app's window may hold it a moment).
+        if (!windowInfo.isWindowFocused) {
+            returnRim.snapTo(0f)
+            snapshotFlow { windowInfo.isWindowFocused }.first { it }
+        }
+        // Folder's initial focus runs after one frame; source restoration takes precedence.
+        if (session.restoreFocus && session.source.folderId != null) {
+            repeat(2) { withFrameNanos { } }
+            runCatching { focusRequester.requestFocus() }
+        }
+        // A zoom lands on the tile itself; the rim pulse would only show under it.
+        if (!reduced && session.returnMotion && !session.zoom) {
+            returnRim.snapTo(1f)
+            returnRim.animateTo(0f, tween(180, easing = Motion.EaseOut))
+        }
+    }
+    // Followed every frame while the zoom returns (the grid may scroll, a folder grows in); only
+    // for the source tile and only until the session ends, so nothing runs while idle.
+    LaunchedEffect(returnHere?.id) {
+        val session = returnHere ?: return@LaunchedEffect
+        if (!session.zoom) return@LaunchedEffect
+        while (true) {
+            publishReturn()
+            withFrameNanos { }
+        }
+    }
 
     // Lean (degrees) and push (px) used by the edge nudge.
     val leanY = remember { Animatable(0f) }
@@ -252,8 +346,16 @@ fun AppTile(
         modifier
             .size(width, height)
             .graphicsLayer {
-                alpha = appear.value
+                // The same small card layer also covers siblings inside an open folder.
+                val source = appTransitions?.session?.source?.key == app.key
+                val retreat = if (source) 0f else appTransitions?.retreat?.value ?: 0f
+                // Under Aerial's zoom the other tiles fall back further, in step with it both ways.
+                val recede = if (source || appTransitions?.zoom == null) 0f else appTransitions.zoomProgress.coerceIn(0f, 1f)
+                alpha = appear.value * (1f - 0.12f * retreat) * (1f - 0.35f * recede)
+                scaleX = (1f - 0.012f * retreat) * (1f - 0.04f * recede)
+                scaleY = scaleX
                 translationY = (1f - appear.value) * 18.dp.toPx()
+                compositingStrategy = CompositingStrategy.ModulateAlpha
             },
     ) {
         if (lift > 0.01f && !AerialSettings.lite && DiagLayers.shows("shadow")) {
@@ -282,7 +384,10 @@ fun AppTile(
         Box(
             Modifier
                 .size(width, height)
-                .onGloballyPositioned { bounds = it.boundsInWindow() }
+                .onGloballyPositioned {
+                    bounds = it.boundsInWindow()
+                    tileCoordinates = it
+                }
                 .graphicsLayer {
                     zoom(scale)
                     rotationY = leanY.value
@@ -302,10 +407,12 @@ fun AppTile(
                     focused = it.isFocused
                     if (it.isFocused) onFocused() else {
                         pressed = false
+                        menuPressed = false
                         longPressJob?.cancel()
                     }
                 }
                 .onKeyEvent { e ->
+                    if (!enabled || !windowInfo.isWindowFocused) return@onKeyEvent false
                     val code = e.nativeKeyEvent.keyCode
                     val down = e.type == KeyEventType.KeyDown
                     val dir = when (code) {
@@ -368,7 +475,8 @@ fun AppTile(
                         longPressJob?.cancel()
                         if (pressed && !longFired) {
                             Sounds.select()
-                            onClick(bounds)
+                            noteZoom()
+                            onClick(launchBounds())
                         }
                         pressed = false
                     }
@@ -389,7 +497,8 @@ fun AppTile(
                         onTap = {
                             runCatching { focusRequester.requestFocus() }
                             Sounds.select()
-                            click(bounds)
+                            noteZoom()
+                            click(launchBounds())
                         },
                         onLongPress = {
                             pressed = false
@@ -402,7 +511,7 @@ fun AppTile(
                 .focusProperties { if (rowEnd) right = FocusRequester.Cancel }
                 .focusable(enabled),
         ) {
-            Spacer(Modifier.fillMaxSize().drawWithCache {
+            Spacer(Modifier.fillMaxSize().onGloballyPositioned { faceCoordinates = it }.drawWithCache {
                 val art = app.art
                 val w = size.width.roundToInt()
                 val h = size.height.roundToInt()
@@ -469,7 +578,7 @@ fun AppTile(
                         drawRect(ShaderBrush(ComposeShader(glint, shape, PorterDuff.Mode.DST_IN)), blendMode = BlendMode.Screen)
                     }
                     // A focused tile's rim catches a little more light.
-                    if (lift > 0.01f) drawImage(rim, dstSize = full, alpha = 0.08f * lift)
+                    if (lift > 0.01f) drawImage(rim, dstSize = full, alpha = 0.08f * lift + 0.16f * returnRim.value)
                 }
             })
         }
@@ -577,9 +686,13 @@ object TileFaces {
      * Drops the faces at any other size than at rest (the focused ones, about 250 KB each): a tile
      * makes its own again when it is next focused. For the system's low-memory signals.
      */
-    fun trimMemory() = synchronized(made) {
+    fun trimMemory(keepFocusedOf: ImageBitmap? = null) = synchronized(made) {
         val keep = restKey
-        for (sizes in made.values) sizes.keys.retainAll { it == keep }
+        for ((art, sizes) in made) {
+            // The tile an app was opened from keeps its focused face: the return lands on it.
+            if (art === keepFocusedOf) continue
+            sizes.keys.retainAll { it == keep }
+        }
     }
 
     fun ready(back: ImageBitmap, w: Int, h: Int): ImageBitmap? =

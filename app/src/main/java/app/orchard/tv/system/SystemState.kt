@@ -192,6 +192,28 @@ object SystemProbe {
 
     private val SETTINGS_PACKAGES = setOf("com.android.settings", "com.android.tv.settings", "com.xiaomi.mitv.settings", "com.tcl.settings", "com.helios.setting", "com.haier.tv.menusetting")
 
+    /**
+     * Whether the Activity [intent] opens declares an ordinary full-screen window: neither
+     * windowIsTranslucent nor windowIsFloating in its theme (the activity's, else its app's). Such
+     * a window covers Aerial and stops it, which Aerial's app zoom waits for. False when it is a
+     * panel or dialog, or when the theme cannot be read. A window made translucent in code is not
+     * seen here (the zoom's cover timeout handles that). Reads the other app's resources: a few ms
+     * the first time, so callers keep the answer.
+     */
+    fun opensOpaqueActivity(context: Context, intent: Intent): Boolean = runCatching {
+        val info = context.packageManager.resolveActivity(intent, 0)?.activityInfo ?: return@runCatching false
+        // The activity's own theme, else its app's (ActivityInfo.getThemeResource).
+        val theme = info.themeResource
+        if (theme == 0) return@runCatching true // the platform's default: a full-screen window
+        val other = context.createPackageContext(info.packageName, 0)
+        val t = other.resources.newTheme().apply { applyStyle(theme, true) }
+        fun flag(attr: Int): Boolean {
+            val a = t.obtainStyledAttributes(intArrayOf(attr))
+            return try { a.getBoolean(0, false) } finally { a.recycle() }
+        }
+        !flag(android.R.attr.windowIsTranslucent) && !flag(android.R.attr.windowIsFloating)
+    }.getOrDefault(false)
+
     fun settingsIntent(context: Context): Intent =
         xgimiSettingsIntent(context, "Settings://com.xgimi.misckey.main/mainPage")
             ?: konkaSettingsIntent(context)

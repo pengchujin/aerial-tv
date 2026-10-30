@@ -16,6 +16,7 @@ import android.net.NetworkRequest
 import android.os.Build
 import android.net.NetworkCapabilities
 import android.net.Uri
+import android.os.BadParcelableException
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -59,7 +60,25 @@ import app.orchard.tv.guard.HomeGuardService
 import app.orchard.tv.ui.home.HomeScreen
 import app.orchard.tv.ui.home.AerialStart
 import app.orchard.tv.ui.home.LiveFilm
-import app.orchard.tv.ui.home.asFocusedTile
+import app.orchard.tv.ui.home.AppLaunchTransitions
+import app.orchard.tv.ui.home.HomeLaunchOrigin
+import app.orchard.tv.ui.home.LocalAppLaunchTransitions
+import app.orchard.tv.ui.home.LaunchPhase
+import app.orchard.tv.ui.home.LaunchEntryKind
+import app.orchard.tv.ui.home.LaunchSource
+import app.orchard.tv.ui.home.AppLaunchZoom
+import app.orchard.tv.ui.home.LaunchSessionMachine
+import app.orchard.tv.ui.home.ZOOM_DISPATCH_MS
+import app.orchard.tv.ui.home.HeldWork
+import app.orchard.tv.ui.home.RETURN_QUIET_MAX_MS
+import app.orchard.tv.ui.home.ZOOM_LEFTOVER_MS
+import app.orchard.tv.ui.home.AWAY_RELEASE_AFTER_MS
+import app.orchard.tv.ui.home.LaunchZoomHome
+import app.orchard.tv.ui.home.trimLetsGo
+import app.orchard.tv.settings.Effects
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.Modifier
 import app.orchard.tv.ui.theme.LocalReducedMotion
 import app.orchard.tv.ui.home.TileFaces
 import app.orchard.tv.ui.theme.FontWarmup
@@ -96,9 +115,98 @@ import kotlinx.coroutines.withTimeoutOrNull
 class MainActivity : ComponentActivity() {
 
     private val vm by viewModels<HomeViewModel>()
+    private val appTransitions by viewModels<AppLaunchTransitions>()
+    private var reduceAppMotion = false
+    private var launchTimeout: Runnable? = null
+    // An options construction failure disables it here; never retry a sent Activity intent.
+    private var scaleUpAvailable = true
+    // The same for the no-transition options under Aerial's own zoom.
+    private var zoomOptionsAvailable = true
+    /** The zoom's pending Activity intent (ZOOM_DISPATCH_MS after the click); at most one. */
+    private var zoomDispatch: Runnable? = null
+    /** Paused for a zoom session without being stopped yet; see LaunchSessionMachine.coverTimeout. */
+    private var zoomCoverCheck: Runnable? = null
+
+    private fun clearZoomCallbacks() {
+        zoomDispatch?.let { idleHandler.removeCallbacks(it) }
+        zoomDispatch = null
+        zoomCoverCheck?.let { idleHandler.removeCallbacks(it) }
+        zoomCoverCheck = null
+    }
+
+    // Back in front and focused: by now any return has shrunk into its tile (the spring settles in
+    // well under a second), so an overlay still up is left over and must not hide Home.
+    private val zoomLeftoverCheck = Runnable {
+        if (vm.resumed && window.decorView.hasWindowFocus()) appTransitions.dropIfStale("still up after the return")
+    }
+
+    private fun scheduleZoomLeftoverCheck() {
+        idleHandler.removeCallbacks(zoomLeftoverCheck)
+        idleHandler.postDelayed(zoomLeftoverCheck, ZOOM_LEFTOVER_MS)
+    }
+
+    /**
+     * The work of coming to the front that waits while the zoom shrinks back (startWorkHeavy, the
+     * system refresh of resumeWork): on MiTV-AZFP0 it ran under the shrink and every frame of it
+     * took 30-130 ms. Run once the return's quiet time ends (AppLaunchTransitions.returnQuiet), at
+     * the latest RETURN_QUIET_MAX_MS after it began; each part checks the state Aerial is in by
+     * then, and what no longer applies is left to the next start or resume.
+     */
+    private val held = HeldWork()
+    private val releaseHeld = Runnable { held.release() }
+    private val quietTimeout = Runnable { appTransitions.endQuiet("timeout") }
+
+    /** True if the work of this start or resume waits for the return's shrink. */
+    private fun holdForReturn(): Boolean {
+        val already = appTransitions.returnQuiet
+        if (!appTransitions.holdForReturn()) return false
+        if (!already) {
+            idleHandler.removeCallbacks(quietTimeout)
+            idleHandler.postDelayed(quietTimeout, RETURN_QUIET_MAX_MS)
+        }
+        return true
+    }
+
+    /** Held while the return is quiet; at once if its quiet time has already ended. */
+    private fun holdOrRun(key: String, work: () -> Unit) {
+        if (appTransitions.returnQuiet) held.hold(key, work) else work()
+    }
+
+    /**
+     * While an app is in front (stopped for AWAY_RELEASE_AFTER_MS): lets go of what is big and made
+     * again cheaply, once per stop. The return does not wait for any of it, it shows the picture of
+     * Home. Not the wallpaper's film (LiveWallpaper lets its decoder go as Aerial stops), the
+     * wallpaper's own pictures (a decode on return, with the window showing black meanwhile), nor
+     * the tile faces at rest (the row's first frame).
+     */
+    private val releaseWhileAway = Runnable {
+        if (lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) return@Runnable
+        // The thumbnails of the wallpaper picker (about 330 KB each) and the focused tile faces
+        // (about 250 KB each), except the launched tile's, which the return lands on.
+        Wallpapers.trimMemory()
+        TileFaces.trimMemory(keepFocusedOf = appTransitions.zoom?.art?.back)
+        DiagLog.i("away: picker thumbnails and focused tile faces let go; picture of Home held: ${appTransitions.snapshotBytes() / 1024} KB")
+    }
+
+    private fun onReturnQuietEnd() {
+        idleHandler.removeCallbacks(quietTimeout)
+        idleHandler.removeCallbacks(releaseHeld)
+        // Posted: never inside the lifecycle call (or the frame) that ended the quiet time.
+        if (!held.isEmpty) idleHandler.post(releaseHeld)
+    }
+
+    /** The zoom's state for lifecycle log lines, while there is a zoom session. */
+    private fun zoomNote(): String =
+        if (appTransitions.session?.zoom == true || appTransitions.zoom != null) "; app zoom: ${appTransitions.describe()}" else ""
+
+    /** Whether a settings app's entry opens a full-screen window (SystemProbe.opensOpaqueActivity), per component. */
+    private val opaqueSettings = HashMap<String, Boolean>()
 
     private val packageReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context, intent: Intent) = vm.reload()
+        override fun onReceive(context: Context, intent: Intent) {
+            opaqueSettings.clear()
+            vm.reload()
+        }
     }
 
     private val volumeReceiver = object : BroadcastReceiver() {
@@ -229,6 +337,8 @@ class MainActivity : ComponentActivity() {
         TileArtFactory.useCanvasDensity(canvasDensity(resources.displayMetrics) * uhd)
         Sounds.init(this)
         val reducedMotion = Settings.Global.getFloat(contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f
+        reduceAppMotion = reducedMotion
+        appTransitions.onQuietEnd = { onReturnQuietEnd() }
 
         // The home screen paints every pixel itself; a window background would be one more
         // full-screen fill per frame for the TV's GPU. Only until Home's first frame, the backdrop
@@ -260,16 +370,28 @@ class MainActivity : ComponentActivity() {
                 density = canvasDensity(resources.displayMetrics),
                 fontScale = LocalDensity.current.fontScale,
             )
-            CompositionLocalProvider(LocalReducedMotion provides reducedMotion, LocalDensity provides canvas) {
-                HomeScreen(
-                    vm = vm,
-                    onLaunch = ::launch,
-                    onOpen = ::open,
-                    onAppInfo = { open(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", it, null)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) },
-                    onUninstall = { open(Intent(Intent.ACTION_DELETE, Uri.fromParts("package", it, null)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) },
-                    // Posted so the key-up of the Back press that started it does not end it at once.
-                    onStartScreensaver = { idleHandler.postDelayed({ startScreensaver(asked = true) }, 150) },
-                )
+            CompositionLocalProvider(
+                LocalReducedMotion provides reducedMotion,
+                LocalDensity provides canvas,
+                LocalAppLaunchTransitions provides appTransitions,
+            ) {
+                // Aerial's app-opening zoom over the whole of Home (folders and panels included),
+                // which is not drawn under it once it covers the screen.
+                Box(Modifier.fillMaxSize()) {
+                    // Recorded in a layer of its own, which the zoom's picture of Home is taken from.
+                    LaunchZoomHome(appTransitions) {
+                        HomeScreen(
+                            vm = vm,
+                            onLaunch = ::launch,
+                            onOpen = ::open,
+                            onAppInfo = { open(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", it, null)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) },
+                            onUninstall = { open(Intent(Intent.ACTION_DELETE, Uri.fromParts("package", it, null)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) },
+                            // Posted so the key-up of the Back press that started it does not end it at once.
+                            onStartScreensaver = { idleHandler.postDelayed({ startScreensaver(asked = true) }, 150) },
+                        )
+                    }
+                    AppLaunchZoom(appTransitions)
+                }
             }
         }
         if (Build.VERSION.SDK_INT >= 29 && uhd > 1f) {
@@ -296,7 +418,10 @@ class MainActivity : ComponentActivity() {
             }
         }
         if (fresh && firstStartSinceBoot()) openBootSource("boot")
-        if (intent.getBooleanExtra(EXTRA_WOKE, false)) openBootSource("brought back on wake")
+        if (intent.getBooleanExtra(EXTRA_WOKE, false)) {
+            appTransitions.cancel()
+            openBootSource("brought back on wake")
+        }
         if (intent.getBooleanExtra(EXTRA_REOPEN_BOOT, false)) openBootSource("covered by the stock launcher's boot screen", again = true)
         if (fromLocked) {
             // This window already went through onStart and onResume while locked (both returned
@@ -327,13 +452,26 @@ class MainActivity : ComponentActivity() {
         // Memory running low, or Aerial in the background on the system's list to kill. Not merely
         // Home out of sight (UI_HIDDEN, every time an app opens): coming back, the first moves along
         // the row would make the focused faces again on the main thread.
-        if (level < TRIM_MEMORY_RUNNING_LOW || level == TRIM_MEMORY_UI_HIDDEN) return
+        if (!trimLetsGo(level)) return
         DiagLog.i("trim memory, level $level")
         Wallpapers.trimMemory()
         TileFaces.trimMemory()
+        // The picture of Home a zoom keeps for its return is made again by the next click.
+        appTransitions.releaseSnapshot("memory, level $level")
     }
 
     override fun onDestroy() {
+        launchTimeout?.let { idleHandler.removeCallbacks(it) }
+        clearZoomCallbacks()
+        idleHandler.removeCallbacks(zoomLeftoverCheck)
+        idleHandler.removeCallbacks(releaseWhileAway)
+        // The transitions outlive this Activity (configuration change): nothing of it is called later.
+        appTransitions.onQuietEnd = null
+        appTransitions.endQuiet("destroyed")
+        appTransitions.releasePause("destroyed")
+        held.drop()
+        idleHandler.removeCallbacks(quietTimeout)
+        idleHandler.removeCallbacks(releaseHeld)
         if (locked) runCatching { unregisterReceiver(unlocked) }
         runCatching { unregisterReceiver(screenOnReceiver) }
         super.onDestroy()
@@ -349,7 +487,13 @@ class MainActivity : ComponentActivity() {
      */
     private val screenOnReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
-            if (intent.action == Intent.ACTION_SCREEN_OFF) { BootOpen.noteScreenOff(context); return }
+            if (intent.action == Intent.ACTION_SCREEN_OFF) {
+                appTransitions.cancel()
+                launchTimeout?.let { idleHandler.removeCallbacks(it) }
+                clearZoomCallbacks()
+                BootOpen.noteScreenOff(context)
+                return
+            }
             idleHandler.postDelayed({
                 if (lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) openBootSource("screen on")
             }, 1500)
@@ -495,6 +639,7 @@ class MainActivity : ComponentActivity() {
             DiagLog.i("a window came over the screensaver; ending it")
             hideScreensaver()
         }
+        if (hasFocus && vm.resumed) scheduleZoomLeftoverCheck()
     }
 
     override fun dump(prefix: String, fd: java.io.FileDescriptor?, writer: java.io.PrintWriter, args: Array<out String>?) {
@@ -529,6 +674,7 @@ class MainActivity : ComponentActivity() {
      * starts nothing on the timer, and Back starts the firmware's.
      */
     private fun startScreensaver(asked: Boolean) {
+        appTransitions.cancel()
         AerialSettings.relock()
         if (Wallpapers.screensaver == ScreensaverMode.System) {
             if (asked && !SystemScreensaver.startFirmware(this)) DiagLog.i("no system screensaver to start")
@@ -673,6 +819,9 @@ class MainActivity : ComponentActivity() {
         window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
     }
 
+    /** The key whose press ended the zoom's hold (AppLaunchTransitions.endHoldOnKey), until its lift; -1: none. */
+    private var holdEndedKey = -1
+
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         if (locked) return super.dispatchKeyEvent(event)
         if (event.keyCode == dreamWokeKey) {
@@ -681,6 +830,23 @@ class MainActivity : ComponentActivity() {
             if (event.repeatCount > 0) return true
             dreamWokeKey = -1 // a new press of the same key
         }
+        // The press (and its repeats and lift) that ended a held zoom ends it and does nothing else.
+        if (event.keyCode == holdEndedKey) {
+            if (event.action == KeyEvent.ACTION_UP) holdEndedKey = -1
+            return true
+        }
+        // A key while the grown zoom waits for the app to cover Aerial: back into the tile, so a key
+        // never meets an overlay it cannot reach (the app may be slow, or never come).
+        if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0 && vm.resumed && appTransitions.endHoldOnKey()) {
+            holdEndedKey = event.keyCode
+            launchTimeout?.let { idleHandler.removeCallbacks(it) }
+            zoomDispatch?.let { idleHandler.removeCallbacks(it) }
+            zoomDispatch = null
+            openedAppSinceHome = false
+            return true
+        }
+        // A key while Aerial is in front: the user's navigation wins over any return still drawn.
+        if (event.action == KeyEvent.ACTION_DOWN && vm.resumed) appTransitions.dropIfStale("key ${KeyEvent.keyCodeToString(event.keyCode)}")
         if (keysLogged++ < 200) DiagLog.i("key ${KeyEvent.keyCodeToString(event.keyCode)} ${if (event.action == KeyEvent.ACTION_DOWN) "down" else "up"} #${event.repeatCount} at ${event.eventTime}, view focused ${currentFocus != null}")
         restartIdleTimer()
         // A lift whose press never reached Aerial: Coocaa C10's hotkey service takes the press of
@@ -736,7 +902,10 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         if (locked) return
         DiagLog.i("onNewIntent ${intent.action}")
-        if (intent.getBooleanExtra(EXTRA_WOKE, false)) openBootSource("brought back on wake")
+        if (intent.getBooleanExtra(EXTRA_WOKE, false)) {
+            appTransitions.cancel()
+            openBootSource("brought back on wake")
+        }
         if (intent.getBooleanExtra(EXTRA_REOPEN_BOOT, false)) openBootSource("covered by the stock launcher's boot screen", again = true)
         if (intent.action == ACTION_PREVIEW_SCREENSAVER) {
             idleHandler.post { startScreensaver(asked = true) }
@@ -745,7 +914,14 @@ class MainActivity : ComponentActivity() {
         if (intent.hasCategory(Intent.CATEGORY_HOME) || intent.action == Intent.ACTION_MAIN) {
             // Since 1.11 Home Guard answers Home from an app by bringing Aerial back with this same
             // intent, so the intent alone cannot tell Home-on-Home from coming back from an app.
-            vm.onHomePressed(resetFocus = !openedAppSinceHome)
+            val keepSource = openedAppSinceHome || appTransitions.session?.phase == LaunchPhase.Background
+            if (!keepSource) appTransitions.cancel()
+            vm.onHomePressed(resetFocus = !keepSource)
+            // Keep Home's overlay cleanup, then reopen a still-valid folder source on return.
+            val folder = appTransitions.session?.source?.folderId
+            if (keepSource && folder != null && !vm.folderApps[folder].isNullOrEmpty()) {
+                vm.overlay = Overlay.Folder(folder)
+            }
             openedAppSinceHome = false
         }
     }
@@ -758,14 +934,31 @@ class MainActivity : ComponentActivity() {
 
     /** What onStart does once the user is unlocked; also run by a start that was locked before. */
     private fun startWork() {
-        DiagLog.i("onStart")
+        idleHandler.removeCallbacks(releaseWhileAway)
+        DiagLog.i("onStart${zoomNote()}")
         SelfCompile.onHomeStarted()
+        // Back from the app a tile zoomed into: the rest waits until the zoom has shrunk back.
+        if (holdForReturn()) {
+            holdOrRun("start") {
+                // Stopped again before the shrink was over: the next start does it.
+                if (lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) startWorkHeavy()
+            }
+            return
+        }
+        startWorkHeavy()
+    }
+
+    /** Receivers and network callbacks of startWorkHeavy are registered (onStop takes them off). */
+    private var receiversOn = false
+
+    private fun startWorkHeavy() {
         // The phone and computer page, at any time the TV is on (only once unlocked: its token is
         // in credential-protected storage).
         lifecycleScope.launch(Dispatchers.IO) { PhoneServer.listen(this@MainActivity) }
         GuardSetup.ensureEnabled(this)
         idleHandler.postDelayed({ GuardSetup.rebindIfStalled(this) }, 5_000)
         vm.reloadIfPackagesChanged()
+        receiversOn = true
         ContextCompat.registerReceiver(
             this, packageReceiver,
             IntentFilter().apply {
@@ -812,19 +1005,33 @@ class MainActivity : ComponentActivity() {
 
     /** What onResume does once the user is unlocked; also run by a start that was locked before. */
     private fun resumeWork() {
+        zoomCoverCheck?.let { idleHandler.removeCallbacks(it) }
+        zoomCoverCheck = null
+        // Before resumed(): paused but never stopped (the app never covered Aerial in time, or
+        // Home came straight back), there was no onStart to begin the quiet time.
+        val quiet = holdForReturn()
+        // Back from the app this tile opened: the zoom shrinks from full screen into it (AppLaunchZoom).
+        appTransitions.resumed()
         vm.resumed = true
+        scheduleZoomLeftoverCheck()
         idleHandler.removeCallbacks(endHomeBounce)
         vm.homeBounce = false
-        DiagLog.i("onResume; screensaver after ${idleBeforeScreensaver() / 1000} s")
+        DiagLog.i("onResume; screensaver after ${idleBeforeScreensaver() / 1000} s${zoomNote()}")
         if (SystemClock.uptimeMillis() - dreamAskedAt < 1_000) {
             dreamChecking = true
             idleHandler.postDelayed(dreamCheck, 1_500)
         }
+        // The screensaver timer and Home Guard's state stay at once: they are cheap and what they
+        // protect cannot wait.
         restartIdleTimer()
         GuardSetup.setHomeInFront(this, true)
         HomeGuardService.onAerialResumed()
         Updates.onHomeResumed()
-        vm.refreshSystem()
+        // Network, volume, inputs, brightness: read off the main thread, but each answer recomposes
+        // the status pill and Control Center's rows, so it waits for the shrink.
+        if (quiet) holdOrRun("resume") {
+            if (lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) vm.refreshSystem()
+        } else vm.refreshSystem()
         if (!resumedInProcess) {
             resumedInProcess = true
             val age = if (Build.VERSION.SDK_INT >= 24) SystemClock.elapsedRealtime() - android.os.Process.getStartElapsedRealtime() else -1L
@@ -849,11 +1056,36 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onPause() {
+        val pausedAt = SystemClock.uptimeMillis()
         super.onPause()
         if (locked) return
+        // Paused before the zoom asked for its app (Home's intent, a system panel, the screen
+        // going off): the app is not opened behind the user's back and the zoom is dropped.
+        appTransitions.session?.takeIf { it.phase == LaunchPhase.Opening }?.let {
+            zoomDispatch?.let { r -> idleHandler.removeCallbacks(r) }
+            zoomDispatch = null
+            appTransitions.cancel()
+            openedAppSinceHome = false
+            DiagLog.i("paused before ${it.source.key} was asked for; not opened")
+        }
+        appTransitions.paused()
+        launchTimeout?.let { idleHandler.removeCallbacks(it) }
+        appTransitions.session?.takeIf { it.zoom && it.phase == LaunchPhase.Background }?.let { s ->
+            zoomCoverCheck?.let { idleHandler.removeCallbacks(it) }
+            val check = Runnable { appTransitions.coverTimeout(s.id) }
+            zoomCoverCheck = check
+            idleHandler.postDelayed(check, s.coverTimeoutMs)
+        }
+        // Paused while the zoom is still growing into the app: Home does not see the pause until the
+        // grow has ended (the film stands on its frame meanwhile, nothing recomposes), see AppLaunchTransitions.pauseHeld.
+        // Before resumed = false, so that HomeScreen never reads the one without the other.
+        val pauseHeld = appTransitions.holdPauseForGrow()
         vm.resumed = false
         Updates.onHomePaused()
-        DiagLog.i("onPause")
+        // For a zoom, how long after the click Aerial is paused (the app's window comes next).
+        val zoomClick = appTransitions.session?.takeIf { it.zoom }?.source?.requestedAt
+        DiagLog.i("onPause${zoomClick?.let { " ${pausedAt - it} ms after the click" } ?: ""}${zoomNote()}")
+        val bodyAt = SystemClock.uptimeMillis()
         GuardSetup.setHomeInFront(this, false)
         if (HomeGuardService.onAerialPaused()) {
             // Only Home's bounce: the film plays on, unless Aerial is not back soon after all
@@ -862,46 +1094,238 @@ class MainActivity : ComponentActivity() {
             idleHandler.removeCallbacks(endHomeBounce)
             idleHandler.postDelayed(endHomeBounce, HOME_BOUNCE_MS)
         }
+        val guardMs = SystemClock.uptimeMillis() - bodyAt
         idleHandler.removeCallbacks(showScreensaver)
         idleHandler.removeCallbacks(dreamCheck)
         // From Android 11 the dream is an activity: paused while waiting for it, it showed.
         if (dreamChecking) noteDreamShown(this)
         dreamChecking = false
         hideScreensaver()
+        val tookMs = SystemClock.uptimeMillis() - pausedAt
+        // Only a pause that is slow, under a zoom: the guard's part (a package manager call on
+        // some versions) and the whole of it, since the pause comes in the grow's last frames.
+        if (zoomClick != null && tookMs >= 8) {
+            DiagLog.i("onPause took $tookMs ms (Home Guard and the home-in-front flag $guardMs ms), pause held $pauseHeld")
+        }
     }
 
     override fun onStop() {
         super.onStop()
         if (locked) return
-        DiagLog.i("onStop")
+        // The app covers Aerial: the zoom's next frame, on return, is full screen again.
+        zoomCoverCheck?.let { idleHandler.removeCallbacks(it) }
+        zoomCoverCheck = null
+        appTransitions.stopped()
+        DiagLog.i("onStop${zoomNote()}")
         SelfCompile.onHomeStopped()
+        idleHandler.removeCallbacks(releaseWhileAway)
+        idleHandler.postDelayed(releaseWhileAway, AWAY_RELEASE_AFTER_MS)
         // Out of sight after all: no bounce to wait out (homeBounce).
         idleHandler.removeCallbacks(endHomeBounce)
         vm.homeBounce = false
         // An app, the screensaver or standby in front: the PIN is asked again, as in Lite (#718).
         AerialSettings.relock()
-        unregisterReceiver(packageReceiver)
-        unregisterReceiver(volumeReceiver)
-        unregisterReceiver(dayReceiver)
-        runCatching { getSystemService<ConnectivityManager>()?.unregisterNetworkCallback(networkCallback) }
+        // Stopped before a held start ran (startWork): nothing of it was registered.
+        if (receiversOn) {
+            receiversOn = false
+            unregisterReceiver(packageReceiver)
+            unregisterReceiver(volumeReceiver)
+            unregisterReceiver(dayReceiver)
+            runCatching { getSystemService<ConnectivityManager>()?.unregisterNetworkCallback(networkCallback) }
+        }
     }
 
-    /** Opens an app, growing it out of its tile. */
-    private fun launch(app: AppEntry, bounds: Rect?) {
+    /**
+     * Request a launch from the current card. An ordinary app's tile zooms in Aerial's own window
+     * (AppLaunchZoom) and the intent goes out ZOOM_DISPATCH_MS after the click, on a timer rather
+     * than on the animation's frames, so a slow frame never delays the app. Everything else (stock
+     * launcher, inputs, Aerial's shortcuts, a settings panel, Lite, removed animations) starts at
+     * once as before, with the system's scale-up where it applies.
+     */
+    private fun launch(app: AppEntry, bounds: Rect?, origin: HomeLaunchOrigin) {
+        // Taken first, so that no later launch can pick up this click's tile.
+        val zoomFrom = appTransitions.takeZoomSource(app.key)
+        if (!vm.resumed || !window.decorView.hasWindowFocus()) return
         // The TV's settings app behind the parental PIN as well, not only Control Center's button.
+        // The PIN overlay and its delay invalidate the old card geometry.
         if (AerialSettings.locked && SystemProbe.isSettingsApp(this, app.packageName)) {
-            vm.whenUnlocked { launch(app, bounds) }
+            vm.whenUnlocked { launch(app, null, origin) }
             return
         }
+        val decor = window.decorView
+        val source = LaunchSource(
+            key = app.key,
+            component = app.component.flattenToShortString(),
+            kind = when {
+                app.source != null -> LaunchEntryKind.Source
+                HomeGuardService.isStockHome(app.packageName) -> LaunchEntryKind.StockHome
+                app.shortcut != null -> LaunchEntryKind.Shortcut
+                else -> LaunchEntryKind.App
+            },
+            boundsInWindow = bounds,
+            folderId = origin.folderId,
+            homeIndex = origin.homeIndex,
+            scrollDp = origin.scrollDp,
+            touchScrolled = origin.touchScrolled,
+            windowWidth = decor.width,
+            windowHeight = decor.height,
+            requestedAt = SystemClock.uptimeMillis(),
+        )
+        // Only an app's own full-screen Activity: inputs, the stock launcher and shortcuts keep their
+        // routes. The TV's settings zoom too when their entry's theme is an ordinary full-screen
+        // window; a panel (translucent or floating theme) opens plainly, as before. A settings
+        // page made translucent in code is caught by its shorter cover timeout: the zoom goes back
+        // into the tile under it. Lite chosen in Personalize or animations removed: the plain launch.
+        val settings = SystemProbe.isSettingsApp(this, app.packageName)
+        val zoom = zoomFrom?.takeIf {
+            bounds != null && source.kind == LaunchEntryKind.App && zoomOptionsAvailable &&
+                !reduceAppMotion && AerialSettings.effects != Effects.Lite &&
+                (!settings || settingsOpenFullScreen(app))
+        }
+        val session = appTransitions.begin(
+            source, zoom,
+            coverTimeoutMs = if (settings) LaunchSessionMachine.SETTINGS_COVER_TIMEOUT_MS else LaunchSessionMachine.ZOOM_COVER_TIMEOUT_MS,
+        ) ?: return
+        clearZoomCallbacks()
+        // Worked out once, here: resolving it is a binder call, and the dispatch 240 ms on would
+        // make it again on the main thread in the middle of the grow.
+        val zoomIntent = if (session.zoom) settingsLaunchIntent(this, app.launchIntent()) else null
+        launchTimeout?.let { idleHandler.removeCallbacks(it) }
+        val timeout = Runnable {
+            // Reconcile a request that never left Home; do not call it a successful first frame.
+            appTransitions.restore(session.id)
+            if (appTransitions.session?.id == session.id) openedAppSinceHome = false
+        }
+        launchTimeout = timeout
+        idleHandler.postDelayed(timeout, appTransitions.remainingRequestMs())
         openedAppSinceHome = true
-        // The stock launcher (Xiaomi's PatchWall, with the maker's own iQIYI / Mango content) opens
-        // through the system Home action where it can; see HomeGuardService.openStockLauncher.
-        if (HomeGuardService.isStockHome(app.packageName) &&
-            HomeGuardService.openStockLauncher(app.packageName) { startStockLauncher(app) }
-        ) return
-        val options = bounds?.asFocusedTile()?.let {
+        if (session.zoom) {
+            val dispatch = Runnable {
+                zoomDispatch = null
+                // Superseded, cancelled (screen off, screensaver) or paused first: nothing is sent.
+                if (!appTransitions.dispatched(session.id)) return@Runnable
+                val options = zoomOptions()
+                val intent = zoomIntent ?: settingsLaunchIntent(this, app.launchIntent())
+                // Sent from a worker thread: startActivity is a binder call that waits for the
+                // system (27-96 ms on MiTV-AZFP0, with the app's process starting), and on the main
+                // thread it fell on the grow's frames. Exactly one attempt, never repeated here.
+                launchOffMain(intent, options, source.requestedAt, app.key) { e ->
+                    zoomLaunchFailed(e, options != null, session.id, app)
+                }
+            }
+            zoomDispatch = dispatch
+            idleHandler.postDelayed(dispatch, ZOOM_DISPATCH_MS)
+            DiagLog.i("opening ${app.key} with Aerial's zoom; intent in $ZOOM_DISPATCH_MS ms")
+            return
+        }
+        var usedScaleUp = false
+        try {
+            // The stock launcher (Xiaomi's PatchWall, with the maker's own iQIYI / Mango content) opens
+            // through the system Home action where it can; see HomeGuardService.openStockLauncher.
+            if (HomeGuardService.isStockHome(app.packageName) &&
+                HomeGuardService.openStockLauncher(app.packageName) { startStockLauncher(app) }
+            ) return
+            if (HisenseSources.open(this, app.launchIntent())) return
+            val options = launchOptions(bounds)
+            usedScaleUp = options != null
+            startActivity(settingsLaunchIntent(this, app.launchIntent()), options)
+        } catch (e: Exception) {
+            // An options-specific rejection affects the next explicit attempt. Never resend a
+            // request from a broad RuntimeException catch: the OEM might already have launched it.
+            val detail = e.message.orEmpty().lowercase()
+            if (usedScaleUp && (e is BadParcelableException ||
+                    e is IllegalArgumentException && ("animation" in detail || "activityoptions" in detail))
+            ) scaleUpAvailable = false
+            // XGIMI (GMUI): nothing answers the passthrough intent a source tile carries, so the tile
+            // opens the source page of its settings service instead (issue #241).
+            if (app.source != null && runCatching { SystemProbe.openInputPicker(this) }.getOrDefault(false)) return
+            launchTimeout?.let { idleHandler.removeCallbacks(it) }
+            appTransitions.restore(session.id)
+            if (appTransitions.session?.id == session.id) openedAppSinceHome = false
+            DiagLog.i("launch failed for ${app.key}: ${e.javaClass.simpleName}")
+            Toast.makeText(this, getString(R.string.launch_failed, app.label), Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    /** The thread the zoom's start request is sent from; idle (and no cost) between launches. */
+    private val launchThread by lazy {
+        java.util.concurrent.Executors.newSingleThreadExecutor { Thread(it, "aerial-launch").apply { isDaemon = true } }
+    }
+
+    /**
+     * Sends [intent] with [options] from [launchThread] with this Activity as the caller (the same
+     * request the main thread made: same token, same options), once. A failure comes back to the
+     * main thread as [failed]; nothing is ever sent again. Logs when the request left and how long the
+     * call took, from the click ([requestedAt]).
+     */
+    private fun launchOffMain(intent: Intent, options: Bundle?, requestedAt: Long, key: String, failed: (Exception) -> Unit) {
+        launchThread.execute {
+            val sentAt = SystemClock.uptimeMillis()
+            var error: Exception? = null
+            try {
+                startActivity(intent, options)
+            } catch (e: Exception) {
+                error = e
+            }
+            DiagLog.i("app zoom: intent for $key sent ${sentAt - requestedAt} ms after the click, startActivity took ${SystemClock.uptimeMillis() - sentAt} ms (off the main thread)")
+            error?.let { e -> idleHandler.post { failed(e) } }
+        }
+    }
+
+    /** The zoom's request failed: the zoom turns back into its tile, and the owner is told. Main thread. */
+    private fun zoomLaunchFailed(e: Exception, hadOptions: Boolean, sessionId: Long, app: AppEntry) {
+        val detail = e.message.orEmpty().lowercase()
+        if (hadOptions && (e is BadParcelableException ||
+                e is IllegalArgumentException && ("animation" in detail || "activityoptions" in detail))
+        ) zoomOptionsAvailable = false
+        // The timeout is this session's unless a newer launch has replaced it.
+        if (appTransitions.session?.id == sessionId) launchTimeout?.let { idleHandler.removeCallbacks(it) }
+        // The zoom turns back into the tile from wherever it is (AppLaunchZoom, Shrink).
+        appTransitions.restore(sessionId)
+        if (appTransitions.session?.id == sessionId) openedAppSinceHome = false
+        DiagLog.i("launch failed for ${app.key}: ${e.javaClass.simpleName}")
+        Toast.makeText(this, getString(R.string.launch_failed, app.label), Toast.LENGTH_SHORT).show()
+    }
+
+    /** The settings tile's entry, as it is started (settingsLaunchIntent), opens a full-screen window. */
+    private fun settingsOpenFullScreen(app: AppEntry): Boolean =
+        opaqueSettings.getOrPut(app.component.flattenToShortString()) {
+            SystemProbe.opensOpaqueActivity(this, settingsLaunchIntent(this, app.launchIntent())).also {
+                DiagLog.i("settings ${app.component.flattenToShortString()}: ${if (it) "full-screen theme, zooms" else "panel or unknown theme, plain launch"}")
+            }
+        }
+
+    /**
+     * Under Aerial's zoom: no window animation, so the app appears straight out of the full-screen
+     * frame instead of the system scaling its window from the tile a second time. A zero resource
+     * loads no animation in AOSP 9's AppTransition (loadAnimationRes returns null for id 0). Whether
+     * Xiaomi's window manager honours it is checked on the TV (dumpsys window: mNextAppTransitionType).
+     */
+    private fun zoomOptions(): Bundle? = try {
+        ActivityOptions.makeCustomAnimation(this, 0, 0).toBundle().apply {
+            // TCL 65C6 (MStar m7221, Android 8), #590: never identify the target as Aerial.
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) remove("android:activity.packageName")
+        }
+    } catch (e: RuntimeException) {
+        zoomOptionsAvailable = false
+        DiagLog.i("no-transition options unavailable: ${e.javaClass.simpleName}")
+        null
+    }
+
+    /** Compose supplies window pixels; ScaleUp expects offsets relative to its source View. */
+    private fun launchOptions(bounds: Rect?): Bundle? {
+        if (bounds == null || reduceAppMotion || !scaleUpAvailable) return null
+        val decor = window.decorView
+        val origin = IntArray(2)
+        decor.getLocationInWindow(origin)
+        val left = (bounds.left - origin[0]).coerceAtLeast(0f)
+        val top = (bounds.top - origin[1]).coerceAtLeast(0f)
+        val right = (bounds.right - origin[0]).coerceAtMost(decor.width.toFloat())
+        val bottom = (bounds.bottom - origin[1]).coerceAtMost(decor.height.toFloat())
+        if (!listOf(left, top, right, bottom).all { it.isFinite() } || right - left < 1f || bottom - top < 1f) return null
+        return try {
             ActivityOptions.makeScaleUpAnimation(
-                window.decorView, it.left.toInt(), it.top.toInt(), it.width.toInt(), it.height.toInt(),
+                decor, left.toInt(), top.toInt(), (right - left).toInt(), (bottom - top).toInt(),
             ).toBundle().apply {
                 // The options name Aerial's package, and on TCL 65C6 (MStar m7221, Android 8) the
                 // app opened with them ran as Aerial's: 云视听极光 failed its settings read for a
@@ -909,15 +1333,11 @@ class MainActivity : ComponentActivity() {
                 // (issue #590). A scale-up needs no package; not yet tried on that TV.
                 if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) remove("android:activity.packageName")
             }
-        }
-        try {
-            if (HisenseSources.open(this, app.launchIntent())) return
-            startActivity(settingsLaunchIntent(this, app.launchIntent()), options)
-        } catch (e: Exception) {
-            // XGIMI (GMUI): nothing answers the passthrough intent a source tile carries, so the tile
-            // opens the source page of its settings service instead (issue #241).
-            if (app.source != null && SystemProbe.openInputPicker(this)) return
-            Toast.makeText(this, getString(R.string.launch_failed, app.label), Toast.LENGTH_SHORT).show()
+        } catch (e: RuntimeException) {
+            // No request was sent yet: plain launch here cannot open an Activity twice.
+            scaleUpAvailable = false
+            DiagLog.i("scale-up options unavailable: ${e.javaClass.simpleName}; using system transition")
+            null
         }
     }
 
@@ -939,6 +1359,9 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun open(intent: Intent) {
+        // A settings/details/uninstall route is not the pending card's return.
+        appTransitions.cancel()
+        openedAppSinceHome = false
         try {
             SystemProbe.startSettingsIntent(this, intent)
         } catch (e: Exception) {
