@@ -444,6 +444,41 @@ class HomeGuardService : AccessibilityService() {
         takeOverOnceSettled("started shortly after boot", woke = true)
     }
 
+    /**
+     * Skyworth / Coocaa (Tianci) firmwares boot the home screen by reading
+     * `persist.service.model.pkg` / `.cls` in system_server's sky_launcher, not by resolving HOME,
+     * and clear those properties during the boot. Writing them to Aerial here — every time the
+     * guard binds (boot, revive) — makes the *next* boot go straight to Aerial. The write is
+     * idempotent and is a no-op on firmwares without those properties. It is gated on the Tianci
+     * movie platform (com.tianci.movieplatform), the marker of a Coocaa firmware that reads them
+     * (e.g. 7S711_A9 / sky848_9s60, m7221, Android 8).
+     */
+    private fun applySkyworthBootHome() {
+        val isCoocaa = runCatching { packageManager.getPackageInfo("com.tianci.movieplatform", 0) }.isSuccess
+        if (!isCoocaa) return
+        val wrote = setSystemProperty("persist.service.model.pkg", packageName) &&
+            setSystemProperty("persist.service.model.cls", "app.orchard.tv.MainActivity")
+        Log.i(TAG, if (wrote) "set persist.service.model.* for Coocaa boot home" else "could not set persist.service.model.*")
+    }
+
+    /** Sets a system property by reflection; falls back to shell setprop when the value did not take. */
+    private fun setSystemProperty(key: String, value: String): Boolean {
+        runCatching {
+            Class.forName("android.os.SystemProperties")
+                .getMethod("set", String::class.java, String::class.java)
+                .invoke(null, key, value)
+        }
+        if (systemProperty(key) == value) return true
+        return runCatching {
+            Runtime.getRuntime().exec(arrayOf("setprop", key, value)).waitFor()
+            systemProperty(key) == value
+        }.getOrDefault(false)
+    }
+
+    private fun systemProperty(key: String): String? = runCatching {
+        Class.forName("android.os.SystemProperties").getMethod("get", String::class.java).invoke(null, key) as String
+    }.getOrNull()
+
     // The opt-in CEC Home (CecHome) depends on the input in front, which can change without a new
     // window from the player. Watched only while it is configured, and only its own setting key.
     private val cecInputObserver = object : ContentObserver(handler) {
@@ -534,6 +569,7 @@ class HomeGuardService : AccessibilityService() {
         contentResolver.registerContentObserver(Settings.Global.getUriFor(Settings.Global.ADB_ENABLED), false, adbObserver)
         contentResolver.registerContentObserver(Settings.Secure.getUriFor("screensaver_components"), false, screensaverObserver)
         GuardSetup.ensureAdb(this)
+        applySkyworthBootHome()
         // Not only at boot: a guard switched on later was just as deaf, for good, until Aerial was
         // stopped or accessibility switched off and on (MiTV4-ANSM0, issue #381).
         if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.M) handler.postDelayed(deafCheck, DEAF_AFTER_MS)

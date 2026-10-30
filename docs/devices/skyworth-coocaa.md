@@ -20,6 +20,8 @@
 
 root 后把 `/system/pcfg/<型号目录>/config/general_config.xml` 里的 `DEFAULT_HOMEPAGE` 改成 `app.orchard.tv/app.orchard.tv.MainActivity`（必须是「包名/完整类名」两段），#316 里连续 10 次冷启动都直达。
 
+不用 root 的替代（7S711_A9，固件 `022.009.220`，实测）：sky_launcher 开机真正读的桌面开关是 `persist.service.model.pkg/.cls`，不是 `homepage.*`——关机前把这两个属性设成 `app.orchard.tv` / `app.orchard.tv.MainActivity`，下次冷启动就直达 Aerial（两次冷启动都验证过）。这两个属性只在开机时被读一次、随后被固件清空，所以 1.62 起 `HomeGuardService` 每次绑定（开机、复活）都把 `model.*` 写回 Aerial，形成「下次开机直达」的闭环；不需要改 `/system`、不需要 root。判定按 `com.tianci.movieplatform` 包是否存在（天赐系统标志），没有这个包的机型不受影响。
+
 ## 75A7D 的信号源键和亮度（#566，报告人实测，1.49 起）
 
 - 遥控器信号源键：固件弹自己的 Quick Panel（`com.coocaa.os.ccosservice/com.coocaa.os.controlcenter.quicksettings.service.FeatureService`），同时把按键交给前台 App。有这个服务时 Aerial 不再响应信号源键，和 TCL 的 `tclInputPanel` 一样。

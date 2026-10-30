@@ -226,6 +226,7 @@ curl -fsSL https://aerial.qust.me/install.sh | TV=192.168.1.20 bash -s restore
 | 索尼 | KD55X7000D 国行 | Android 8 | ✅ 亮度要在电视设置里调（[#757](https://github.com/pengchujin/aerial-tv/issues/757)） |
 | 创维 / 酷开 | K3 Pro、75A7D | Android 11 | ✅ 75A7D 的信号源 1.45 起能用；开机先出酷开桌面 3–6 秒，报告人改固件属性后开机直达（[#894](https://github.com/pengchujin/aerial-tv/issues/894)） |
 | 创维 / 酷开 | 65G60、8R134 / 8R145、aigc 系（C10 投影、P60、7T863） | Android 8–11 | ⚠️ 开机先进酷开桌面，或被系统清理后要等 20–30 秒（[笔记](docs/devices/skyworth-coocaa.md)） |
+| 创维 / 酷开 | 7S711_A9（sky848_9s60，m7221） | Android 8.0 | ✅ 守护把 `persist.service.model.*` 写回自身即可免 root 开机直达（[笔记](docs/devices/skyworth-coocaa.md)） |
 | 创维 / 酷开 | 5S21（50K2、7626K2）、5S05（60U2）、8H66 H7 | Android 5.x | ⚠️ 开机和待机后是 Aerial，主页键回不到 Aerial；信号源列不出来 |
 | 创维 / 酷开 | 8H83 M6（Hi3751V500） | Android 4.4 | ❌ Aerial Lite 能装能开，但主页键和开机都由固件按组件直接打开酷开桌面，选择框里没有第三方桌面（[#903](https://github.com/pengchujin/aerial-tv/issues/903)） |
 | 创维 / 酷开 | 8H57_H5 | Android 5.1 | ⚠️ 开机先转圈十几秒才进 Aerial（[#785](https://github.com/pengchujin/aerial-tv/issues/785)） |
