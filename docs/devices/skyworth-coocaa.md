@@ -51,6 +51,13 @@ Aerial 1.69 standard 版，固件 `TQ1A.230205.002 / eng.www-da.20260205.170347`
 - 这台 SELinux permissive，应用身份（`run-as` 实测 rc=0）也能 `/system/bin/setprop`。Aerial 是系统桌面时在回到前台及开机后 40 s、90 s 把四个属性写成自己；第一次覆盖前把原值存进 `Settings.Global` 的 `aerial_coocaa_homepage` / `aerial_coocaa_model`（`包名/类名`），`restore.sh` 按它写回或清空。连续两次重启：开机由系统（uid 0）直接拉起 Aerial，不先出酷开桌面；主页键直接进 Aerial。
 - 卸载而不先跑 `restore.sh`：开机那次有 `checkIntentExists`，会跳过不存在的组件，随后固件自己清空 `model.*`、改回 `homepage.*`；开机之后、清空之前的回桌面请求会指向不存在的组件。没有实测。
 - 开机自启：`SkyResourceManagerService.isProcessLocked()` 拦非系统应用（`Boot denial: startProcessLocked() from package=app.orchard.tv`、`is't allow to start settings by user`），守护和 `BootReceiver` 开机都起不来。`adb shell service call skyresource 5 s16 app.orchard.tv i32 0 i32 1`（`setProcessInfo`，开机自启）后不再拦；`i32 1 i32 2` 是后台保留。重装后要重设，`install.sh` 还没有做。
+- 开机「重置」`homepage.*` 时，`SkyBootIntent.initGeneralConfig()` 写进去的是字面字符串 `home[0]` / `home[1]`（数组元素被写成了带引号的常量），过一会儿才有别的组件写回真实值；开机后约 20 秒读到的就是这两个字符串。所以 Aerial 只把真实存在的 activity 当原值保存，原桌面也先读 `DEFAULT_HOMEPAGE`。
+
+### 原桌面磁贴打不开（Android 13 的 intent filter 匹配）
+
+- 1.69 点原桌面：`START {act=MAIN cat=[LAUNCHER] cmp=com.skyworth.officehomepage/.view.HomepageActivity} from uid <Aerial>`，PackageManager 报 `Intent does not match component's intent filter` / `Access blocked`；随后的 `pressHomeForStock` 按 Home，主页键已指向 Aerial，于是回到 Aerial。Android 13 起，target 33+ 的应用按组件启动别的应用也要匹配对方的 intent filter，酷开的几个桌面只声明自家类别。
+- 而且磁贴指向的是 `com.skyworth.officehomepage`（`SKYWORTH_PREFERRED_STOCK_HOMES` 里为 skyT963 排第一），不是这台显示的桌面。这台固件的桌面是 `/system/pcfg/8R734_A7HP/config/general_config.xml` 的 `DEFAULT_HOMEPAGE`：`com.tianci.movieplatform/com.coocaa.aigc.home.home.rootpage.HomeActivity`（`exported=true`，filter：`coocaa.intent.aigc.home` + DEFAULT；`MAIN` + `coocaa.intent.category.MYAPP_DISMISS`，没有任何 Home 类别）。文件对所有人可读。
+- 现在：`system/CoocaaHome.kt` 读出固件桌面（`DEFAULT_HOMEPAGE`，其次 Aerial 保存的原值、`persist.service.homepage.*`，都要求 activity 存在）；守护把它排在所属包的第一位，原桌面磁贴优先用它所在的包；打开时先照旧带 LAUNCHER，被拦就改用只带 `MAIN` 的 intent。
 
 ### 缩放（与焦点无关，备查）
 
