@@ -250,7 +250,10 @@ class HomeGuardService : AccessibilityService() {
      */
     private val userUnlocked = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
-            // Before unlock only Direct Boot aware launchers resolve.
+            // Before unlock only Direct Boot aware launchers resolve, and only Direct Boot aware
+            // activities are found: PatchWall's home screen was cached as missing while locked, so
+            // FIRMWARE_HOMES_WITHOUT_FILTER lost it until Aerial restarted (MiTV-MOOQ0, Android 11).
+            activityCache.clear()
             refreshStockHomes()
             watchCecInput()
             updateKeyFilter()
@@ -1321,6 +1324,12 @@ class HomeGuardService : AccessibilityService() {
             // it (issue #861, the reporter's mResumedActivity). The elderly mode's home is
             // PatchWall's MainActivityUserMode, which already counts.
             "com.xiaomi.eetv.litehome" to listOf("com.xiaomi.eetv.litehome.Launcher"),
+            // PatchWall on Xiaomi's Android TV firmware is its own package, and its home screen
+            // declares no Home: the Mi key (KEYCODE_BUTTON_5) makes partnercustomizer's
+            // GlobalKeyReceiver start it by component (the owner saw it at power-on too), and it
+            // stayed over Aerial (MiTV-MOOQ0, Android 11; dumpsys window on device). Its input
+            // source popup is another activity in the package, and stays.
+            "com.mitv.tvhome.atv" to listOf("com.mitv.tvhome.atv.app.PatchWallActivity"),
         )
 
         /**
