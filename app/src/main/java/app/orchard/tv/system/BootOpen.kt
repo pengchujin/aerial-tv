@@ -53,6 +53,15 @@ object BootOpen {
     internal fun sleptSince(openedAsleep: Long, asleepNow: Long): Boolean =
         openedAsleep >= 0 && asleepNow - openedAsleep > SLEPT_MS
 
+    /** Whether the TV has been to standby since the target was last opened. Xiaomi MiTV kills the
+     *  app during standby, so on a cold start after a wake both the SCREEN_ON broadcast and the
+     *  WOKE intent are missed (HomeGuard may not be bound yet); the kernel sleep counter survives
+     *  and is checked here whenever the app resumes. */
+    fun dueAfterStandby(context: Context): Boolean {
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        return sleptSince(prefs.getLong(OPENED_ASLEEP, -1L), asleep())
+    }
+
     /** False when the target was opened in this boot and the TV has not gone to standby since. */
     fun due(context: Context): Boolean {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
