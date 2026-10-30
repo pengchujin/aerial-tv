@@ -98,6 +98,7 @@
     <string name="ss_aerial">Aerial</string>
     <string name="ss_photos">Photos</string>
     <string name="ss_clock">Clock</string>
+    <string name="ss_dvd">DVD</string>
     <string name="wp_phone_title">Set up from a phone or computer</string>
     <string name="wp_phone_body">Scan the code, or open the address below in a computer\'s browser, to send photos and videos, change app icons and set the weather\'s city. It must be on the same network as the TV.</string>
     <string name="wp_phone_offline">Connect the TV to a network to set it up from a phone or computer.</string>

@@ -132,6 +132,7 @@ fun Screensaver(visible: Boolean, apps: List<AppEntry>, now: LocalDateTime, skip
                 )
                 ScreensaverMode.Photos -> PhotoSaver(now, skips.steps, remember { Wallpapers.screensaverPicture() })
                 ScreensaverMode.Clock, ScreensaverMode.System -> ClockSaver(apps, now)
+                ScreensaverMode.Dvd -> DvdSaver()
                 ScreensaverMode.Videos -> if (videosFailed) PhotoSaver(now, skips.steps) else VideoSaver(skips.steps, onUnavailable = { videosFailed = true })
             }
         }
@@ -146,14 +147,14 @@ class ScreensaverSkips {
     private val flow = MutableSharedFlow<Int>(extraBufferCapacity = 8)
     val steps: SharedFlow<Int> get() = flow
 
-    /** True if the screensaver took [event], both its down and its up. The clock has nothing to step through. */
+    /** True if the screensaver took [event], both its down and its up. The clock and the DVD logo have nothing to step through. */
     fun onKey(event: KeyEvent): Boolean {
         val step = when (event.keyCode) {
             KeyEvent.KEYCODE_DPAD_LEFT -> -1
             KeyEvent.KEYCODE_DPAD_RIGHT -> 1
             else -> return false
         }
-        if (Wallpapers.screensaver == ScreensaverMode.Clock) return false
+        if (Wallpapers.screensaver == ScreensaverMode.Clock || Wallpapers.screensaver == ScreensaverMode.Dvd) return false
         if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) flow.tryEmit(step)
         return true
     }

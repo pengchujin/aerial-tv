@@ -46,9 +46,12 @@ data class Wallpaper(
     val caption: String? = null,
 )
 
-/** System: none of Aerial's; the TV's own screensaver starts as the firmware has it (SystemScreensaver). */
+/**
+ * Dvd: the DVD player's bouncing logo on black (DvdSaver).
+ * System: none of Aerial's; the TV's own screensaver starts as the firmware has it (SystemScreensaver).
+ */
 enum class ScreensaverMode(val key: String) {
-    Aerial("aerial"), Photos("photos"), Clock("clock"), Videos("videos"), System("system");
+    Aerial("aerial"), Photos("photos"), Clock("clock"), Dvd("dvd"), Videos("videos"), System("system");
 
     companion object {
         fun of(key: String?) = entries.firstOrNull { it.key == key } ?: Aerial
