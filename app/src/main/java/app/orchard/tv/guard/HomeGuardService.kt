@@ -34,6 +34,7 @@ import app.orchard.tv.MainActivity
 import app.orchard.tv.dream.AerialDream
 import app.orchard.tv.settings.AerialSettings
 import app.orchard.tv.system.BootOpen
+import app.orchard.tv.system.CoocaaHome
 import app.orchard.tv.system.DeviceProfile
 import app.orchard.tv.system.DiagLog
 import app.orchard.tv.system.SystemProbe
@@ -1154,6 +1155,13 @@ class HomeGuardService : AccessibilityService() {
         }.filterValues { it.isNotEmpty() }
         stockHomes = (stockHomes.keys + unfiltered.keys).associateWith {
             stockHomes[it].orEmpty() + unfiltered[it].orEmpty()
+        }
+        // Tianci / Coocaa: the launcher the firmware names in persist.service.homepage.* first for
+        // its package, so the 原桌面 tile opens that one and not another activity of the package
+        // (Skyworth 8R734_A7HP: the AI launcher com.coocaa.aigc.home.home.rootpage.HomeActivity, in
+        // com.tianci.movieplatform, declares no Home; that package's HOME.CC is the older UI).
+        CoocaaHome.launcher(this)?.takeIf { isActivity(it.packageName, it.className) }?.let { own ->
+            stockHomes = stockHomes + (own.packageName to (setOf(own.className) + stockHomes[own.packageName].orEmpty()))
         }
     }
 

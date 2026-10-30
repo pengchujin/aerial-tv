@@ -69,6 +69,7 @@ import app.orchard.tv.settings.AerialSettings
 import app.orchard.tv.wallpaper.PhoneServer
 import app.orchard.tv.wallpaper.Wallpapers
 import app.orchard.tv.system.BootOpen
+import app.orchard.tv.system.CoocaaHome
 import app.orchard.tv.system.DiagLog
 import app.orchard.tv.system.FrameStats
 import app.orchard.tv.wallpaper.AerialFormats
@@ -531,12 +532,14 @@ class MainActivity : ComponentActivity() {
         ).filter { (key, value) -> systemProperty(key) != value }
         if (want.isEmpty()) return
         Thread {
-            for (kind in listOf("homepage", "model")) {
+            for ((kind, saved) in listOf("homepage" to CoocaaHome.SAVED_HOMEPAGE, "model" to CoocaaHome.SAVED_MODEL)) {
                 val pkg = systemProperty("persist.service.$kind.pkg").orEmpty()
-                if (pkg.isEmpty() || pkg == packageName) continue
+                val cls = systemProperty("persist.service.$kind.cls").orEmpty()
+                // Only a real activity: right after a boot homepage.* holds the literal home[0] / home[1].
+                if (!CoocaaHome.isLauncher(this, android.content.ComponentName(pkg, cls))) continue
                 runCatching {
-                    if (Settings.Global.getString(contentResolver, "aerial_coocaa_$kind") == null) {
-                        Settings.Global.putString(contentResolver, "aerial_coocaa_$kind", "$pkg/${systemProperty("persist.service.$kind.cls").orEmpty()}")
+                    if (Settings.Global.getString(contentResolver, saved) == null) {
+                        Settings.Global.putString(contentResolver, saved, "$pkg/$cls")
                     }
                 }
             }
@@ -995,7 +998,10 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    /** The stock launcher's own entry, or one of the same page Aerial may start (StandIn, issue #971). */
+    /**
+     * The stock launcher's own entry, or one of the same page Aerial may start (StandIn, issue
+     * #971), or its component started with MAIN alone (startStockDirectly).
+     */
     private fun startStockLauncher(app: AppEntry): Boolean {
         val intent = app.launchIntent()
         return try {
@@ -1006,11 +1012,28 @@ class MainActivity : ComponentActivity() {
             DiagLog.i("${app.component.className} needs a permission; opening ${standIn?.className ?: "nothing"} instead")
             standIn != null && runCatching {
                 startActivity(Intent(Intent.ACTION_MAIN).setComponent(standIn).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-            }.isSuccess
+            }.isSuccess || startStockDirectly(app)
         } catch (e: Exception) {
-            false
+            startStockDirectly(app)
         }
     }
+
+    /**
+     * The stock launcher by its component, with MAIN alone and no category. From Android 13 an
+     * explicit start from an app that targets it has to match one of the target's intent filters,
+     * and Coocaa's launchers declare only their own categories: on Skyworth 8R734_A7HP the
+     * launcher-category start of the 原桌面 tile was "Access blocked" (Intent does not match
+     * component's intent filter), and the Home press after it came back to Aerial, the Home the
+     * firmware is set to. MAIN alone is what those filters take
+     * (com.coocaa.aigc.home.home.rootpage.HomeActivity: MAIN +
+     * coocaa.intent.category.MYAPP_DISMISS).
+     */
+    private fun startStockDirectly(app: AppEntry): Boolean = runCatching {
+        startActivity(
+            Intent(Intent.ACTION_MAIN).setComponent(app.component)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED),
+        )
+    }.isSuccess
 
     private fun open(intent: Intent) {
         try {

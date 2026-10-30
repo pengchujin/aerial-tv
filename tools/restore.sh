@@ -50,9 +50,13 @@ elif [ "$(adb shell getprop persist.vt.use_home_pkg | tr -d '\r')" = "$PKG" ] &&
 fi
 # Skyworth/Coocaa: while it is the system's Home, Aerial points persist.service.homepage.* (the Home
 # key) and persist.service.model.* (boot) at itself (MainActivity.claimFirmwareHome). Put back what it
-# kept, or empty them. Done after the force-stop above, so Aerial does not write them again.
+# kept; homepage.* else to the firmware's DEFAULT_HOMEPAGE, model.* else empty. Done after the
+# force-stop above, so Aerial does not write them again.
+PCFG_HOME=$(adb shell "cat /system/pcfg/\$(getprop ro.build.skymodel)_\$(getprop ro.build.skytype)/config/general_config.xml 2>/dev/null" |
+  sed -n 's/.*name="DEFAULT_HOMEPAGE"[[:space:]]*value="\([^"]*\)".*/\1/p' | head -n 1 | tr -d '\r')
 for KIND in homepage model; do
   SAVED=$(adb shell settings get global "aerial_coocaa_$KIND" | tr -d '\r')
+  if [ "$KIND" = homepage ] && { [ -z "$SAVED" ] || [ "$SAVED" = null ]; }; then SAVED=$PCFG_HOME; fi
   if [ "$(adb shell getprop "persist.service.$KIND.pkg" | tr -d '\r')" = "$PKG" ]; then
     if [ -n "$SAVED" ] && [ "$SAVED" != null ]; then
       adb shell setprop "persist.service.$KIND.pkg" "${SAVED%%/*}" || true
