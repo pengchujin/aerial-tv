@@ -46,7 +46,7 @@ class AppEntry(
 }
 
 /**
- * Every launchable app, one tile per package, on the full app's rules (apps/Apps.kt): TV entries
+ * Every launchable component, one tile per entry, on the full app's rules (apps/Apps.kt): TV entries
  * first, then phone ones and the firmware's hidden ones; the TV's own launcher as 原桌面; Aerial's
  * own tiles for firmware apps; the icon library's picture before the app's banner or icon.
  * Tiles are made once per app version and kept as PNGs in cache/tiles.
@@ -110,11 +110,10 @@ object AppCatalog {
         val pm = context.packageManager
         IconLibrary.init(context)
         CustomIcons.init(context)
-        val found = LinkedHashMap<String, Pair<ActivityInfo, Boolean>>()
+        val entries = LauncherEntries()
         fun add(category: String, leanback: Boolean) {
             for (r in pm.queryIntentActivities(Intent(Intent.ACTION_MAIN).addCategory(category), 0)) {
-                val info = r.activityInfo
-                if (!found.containsKey(info.packageName)) found[info.packageName] = info to leanback
+                entries.add(r.activityInfo, leanback)
             }
         }
         add(AppEntry.CATEGORY_LEANBACK_LAUNCHER, true)
@@ -122,19 +121,19 @@ object AppCatalog {
         add(CATEGORY_APPSTORE_LAUNCHER, false)
         for (component in UNLISTED_ENTRIES) {
             val info = runCatching { pm.getActivityInfo(component, 0) }.getOrNull() ?: continue
-            if (info.exported && info.isEnabled && info.applicationInfo.enabled && !found.containsKey(info.packageName)) found[info.packageName] = info to false
+            entries.add(info, leanback = false, onlyWhenPackageMissing = true)
         }
         // The TV's own launcher, which some firmwares declare only as a Home.
         val stockHomes = HashSet<String>()
         for (r in pm.queryIntentActivities(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME), 0)) {
             val info = r.activityInfo
-            if (r.priority < 0 || !info.exported || found.containsKey(info.packageName)) continue
-            found[info.packageName] = info to false
-            stockHomes += info.packageName
+            if (r.priority < 0) continue
+            if (entries.add(info, leanback = false, onlyWhenPackageMissing = true)) stockHomes += info.packageName
         }
-        found.remove(context.packageName)
+        entries.removePackage(context.packageName)
         // The full app is a Home too; it is never one of Lite's tiles.
-        found.remove("app.orchard.tv")
+        entries.removePackage("app.orchard.tv")
+        val found = entries.all()
 
         val byCategory = HashMap<String, SystemTile>()
         for ((category, tile) in SYSTEM_CATEGORIES) {
@@ -145,7 +144,7 @@ object AppCatalog {
         pm.resolveActivity(Intent(android.provider.Settings.ACTION_SETTINGS), 0)?.let {
             if (!byCategory.containsKey(it.activityInfo.packageName)) byCategory[it.activityInfo.packageName] = SystemTile.Settings
         }
-        installed = found.keys.toSet()
+        installed = found.mapTo(HashSet()) { it.info.packageName }
 
         val dir = File(context.cacheDir, "tiles").apply { mkdirs() }
         val index = context.getSharedPreferences("tiles", Context.MODE_PRIVATE)
@@ -153,10 +152,10 @@ object AppCatalog {
         // Two threads: these TVs have two to four slow cores, and Home's own thread needs one.
         val pool = Executors.newFixedThreadPool(2)
         try {
-            val jobs = found.values.map { (info, leanback) ->
+            val jobs = found.map { launcher ->
                 pool.submit(Callable {
-                    runCatching { entry(pm, info, leanback, byCategory, info.packageName in stockHomes, homeLabel, dir, index, quick) }
-                        .onFailure { Log.w(TAG, "left ${info.packageName} out of Home", it) }
+                    runCatching { entry(pm, launcher.info, launcher.leanback, byCategory, launcher.info.packageName in stockHomes, homeLabel, dir, index, quick, launcher.key) }
+                        .onFailure { Log.w(TAG, "left ${launcher.info.packageName}/${launcher.info.name} out of Home", it) }
                         .getOrNull()
                 })
             }
@@ -183,23 +182,24 @@ object AppCatalog {
 
     private fun entry(
         pm: PackageManager, info: ActivityInfo, leanback: Boolean, byCategory: Map<String, SystemTile>, stockHome: Boolean,
-        homeLabel: String, dir: File, index: android.content.SharedPreferences, quick: Boolean = false,
+        homeLabel: String, dir: File, index: android.content.SharedPreferences, quick: Boolean = false, entryKey: String = info.packageName,
     ): AppEntry {
         val pkg = info.packageName
         // A picture chosen on the phone page changes the tile as much as an update does.
-        val stamp = runCatching { pm.getPackageInfo(pkg, 0).lastUpdateTime }.getOrDefault(0L) + IconLibrary.stamp(pkg) +
-            CustomIcons.stamp(pkg) + if (stockHome) 1 else 0
+        val primary = entryKey == pkg
+        val stamp = runCatching { pm.getPackageInfo(pkg, 0).lastUpdateTime }.getOrDefault(0L) +
+            (if (primary) IconLibrary.stamp(pkg) else 0L) + CustomIcons.stamp(entryKey) + if (stockHome) 1 else 0
         val system = (info.applicationInfo.flags and ApplicationInfo.FLAG_SYSTEM) != 0
         val component = ComponentName(pkg, info.name)
         val fw = faceW
         val fh = faceH
-        val key = "v2|$stamp|$fw|$fh"
-        val file = File(dir, "$pkg.png")
-        val cached = index.getString(pkg, null)
+        val key = "v3|$stamp|$fw|$fh|${info.name}|$leanback"
+        val file = tileFile(dir, entryKey)
+        val cached = index.getString(entryKey, null)
         if (cached != null && cached.startsWith("$key|") && file.exists()) {
             BitmapFactory.decodeFile(file.path)?.let {
                 val label = if (stockHome) homeLabel else cached.substring(key.length + 1)
-                return AppEntry(pkg, label, component, leanback, !system, it)
+                return AppEntry(entryKey, label, component, leanback, !system, it)
             }
         }
         val label = runCatching { info.loadLabel(pm).toString().trim() }.getOrDefault("").ifEmpty { pkg }
@@ -208,16 +208,16 @@ object AppCatalog {
             val art = TileFactory.quick(icon)
             val face = Shapes.face(art, fw, fh, Ui.px(12f * HomeView.FOCUS_SCALE), Ui.px(0.5f * HomeView.FOCUS_SCALE))
             art.recycle()
-            return AppEntry(pkg, if (stockHome) homeLabel else label, component, leanback, !system, face, placeholder = true)
+            return AppEntry(entryKey, if (stockHome) homeLabel else label, component, leanback, !system, face, placeholder = true)
         }
-        val banner = banner(pm, info, leanback)
+        val banner = if (primary || (Build.VERSION.SDK_INT >= 21 && info.bannerResource != 0)) banner(pm, info, leanback) else null
         val own = if (stockHome) SystemTile.Home
-            else if (system) SYSTEM_TILES[pkg] ?: byCategory[pkg]?.takeIf { banner == null } else null
+            else if (system && primary) SYSTEM_TILES[pkg] ?: byCategory[pkg]?.takeIf { banner == null } else null
         // Aerial's own tiles for firmware apps keep their look; any other app's ready-made picture
         // comes before what Aerial would draw from its banner or icon.
-        val custom = CustomIcons.load(pkg)
-        val library = if (custom == null && (own == null || IconLibrary.pick(pkg) == IconLibrary.Pick.Library)) IconLibrary.load(pkg) else null
-        val recipe = TileRecipes.of(pkg)
+        val custom = CustomIcons.load(entryKey)
+        val library = if (primary && custom == null && (own == null || IconLibrary.pick(pkg) == IconLibrary.Pick.Library)) IconLibrary.load(pkg) else null
+        val recipe = TileRecipes.of(entryKey)
         val art = runCatching {
             when {
                 // The owner's own picture first, as in the full app.
@@ -238,9 +238,9 @@ object AppCatalog {
         art.recycle()
         runCatching {
             FileOutputStream(file).use { face.compress(Bitmap.CompressFormat.PNG, 100, it) }
-            index.edit().putString(pkg, "$key|$label").apply()
+            index.edit().putString(entryKey, "$key|$label").apply()
         }
-        return AppEntry(pkg, if (stockHome) homeLabel else label, component, leanback, !system, face)
+        return AppEntry(entryKey, if (stockHome) homeLabel else label, component, leanback, !system, face)
     }
 
     /**
@@ -269,8 +269,9 @@ object AppCatalog {
     fun ownArt(context: Context, app: AppEntry): Bitmap? = runCatching {
         val pm = context.packageManager
         val info = pm.getActivityInfo(app.component, 0)
+        val primary = app.key == info.packageName
         val recipe = TileRecipes.of(app.key)
-        val banner = banner(pm, info, app.leanback)
+        val banner = if (primary || (Build.VERSION.SDK_INT >= 21 && info.bannerResource != 0)) banner(pm, info, app.leanback) else null
         val art = when {
             recipe?.glyph != null -> TileFactory.glyphTile(recipe.top ?: 0, recipe.bottom ?: 0, recipe.glyph)
             banner != null && recipe?.useIcon != true -> TileFactory.fromBanner(banner)
@@ -287,8 +288,14 @@ object AppCatalog {
         val e = index.edit()
         for (pkg in gone) {
             e.remove(pkg)
-            File(File(context.cacheDir, "tiles"), "$pkg.png").delete()
+            tileFile(File(context.cacheDir, "tiles"), pkg).delete()
         }
         e.apply()
+    }
+
+    private fun tileFile(dir: File, entryKey: String): File {
+        val name = if (CustomIcons.isValidKey(entryKey)) entryKey else
+            "entry-" + java.security.MessageDigest.getInstance("SHA-256").digest(entryKey.toByteArray()).joinToString("") { "%02x".format(it) }
+        return File(dir, "$name.png")
     }
 }

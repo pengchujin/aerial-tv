@@ -42,15 +42,18 @@ object TileDiskCache {
     /** Bumped when tiles are drawn differently, so a build with the same version code redraws them. */
     private const val ART = 3
 
-    fun key(stamp: Long): String =
-        "$stamp|${TileArtFactory.W}|${TileArtFactory.unified}|${Locale.getDefault().toLanguageTag()}|${BuildConfig.VERSION_CODE}|$ART"
+    fun key(stamp: Long, activity: String, leanback: Boolean): String =
+        "$stamp|$activity|$leanback|${TileArtFactory.W}|${TileArtFactory.unified}|${Locale.getDefault().toLanguageTag()}|${BuildConfig.VERSION_CODE}|$ART"
 
-    private fun file(pkg: String) = File(dir, "$pkg.tile")
+    private fun fileName(key: String): String = if (CustomIcons.isValidKey(key)) key else
+        "entry-" + java.security.MessageDigest.getInstance("SHA-256").digest(key.toByteArray()).joinToString("") { "%02x".format(it) }
 
-    /** The label and tile kept for [pkg] under [key], or null. Off the main thread. */
-    fun read(pkg: String, key: String): Pair<String, TileArt>? {
+    private fun file(key: String) = File(dir, "${fileName(key)}.tile")
+
+    /** The label and tile kept for [entry] under [key], or null. Off the main thread. */
+    fun read(entry: String, key: String): Pair<String, TileArt>? {
         if (!::dir.isInitialized) return null
-        val f = file(pkg).takeIf { it.exists() } ?: return null
+        val f = file(entry).takeIf { it.exists() } ?: return null
         return runCatching {
             DataInputStream(f.inputStream().buffered()).use { input ->
                 if (input.readUTF() != key) return null
@@ -68,13 +71,13 @@ object TileDiskCache {
                 val backdrop = image() ?: return null
                 label to TileArt(back.asImageBitmap(), fore?.asImageBitmap(), foreAt, tint, backdrop.asImageBitmap())
             }
-        }.onFailure { Log.w(TAG, "could not read the kept tile of $pkg", it) }.getOrNull()
+        }.onFailure { Log.w(TAG, "could not read the kept tile of $entry", it) }.getOrNull()
     }
 
-    /** Only the label and color kept for [pkg] under [key], or null: the few bytes at the file's start. */
-    fun readHeader(pkg: String, key: String): Pair<String, Color>? {
+    /** Only the label and color kept for [entry] under [key], or null: the few bytes at the file's start. */
+    fun readHeader(entry: String, key: String): Pair<String, Color>? {
         if (!::dir.isInitialized) return null
-        val f = file(pkg).takeIf { it.exists() } ?: return null
+        val f = file(entry).takeIf { it.exists() } ?: return null
         return runCatching {
             DataInputStream(f.inputStream().buffered(512)).use { input ->
                 if (input.readUTF() != key) return null
@@ -84,11 +87,11 @@ object TileDiskCache {
     }
 
     /** Keeps [art] for the next start, in the background. */
-    fun write(pkg: String, key: String, label: String, art: TileArt) {
+    fun write(entry: String, key: String, label: String, art: TileArt) {
         if (!::dir.isInitialized) return
         scope.launch {
             runCatching {
-                val tmp = File(dir, "$pkg.tmp")
+                val tmp = File(dir, "${fileName(entry)}.tmp")
                 DataOutputStream(tmp.outputStream().buffered()).use { out ->
                     out.writeUTF(key)
                     out.writeUTF(label)
@@ -104,17 +107,18 @@ object TileDiskCache {
                         png.writeTo(out)
                     }
                 }
-                if (!tmp.renameTo(file(pkg))) tmp.delete()
-            }.onFailure { Log.w(TAG, "could not keep the tile of $pkg", it) }
+                if (!tmp.renameTo(file(entry))) tmp.delete()
+            }.onFailure { Log.w(TAG, "could not keep the tile of $entry", it) }
         }
     }
 
     /** Drops the files of apps no longer listed. */
-    fun keepOnly(packages: Set<String>) {
+    fun keepOnly(entries: Set<String>) {
         if (!::dir.isInitialized) return
         scope.launch {
+            val names = entries.mapTo(HashSet(), ::fileName)
             dir.listFiles()?.forEach { f ->
-                if (f.name.removeSuffix(".tile").removeSuffix(".tmp") !in packages) f.delete()
+                if (f.name.removeSuffix(".tile").removeSuffix(".tmp") !in names) f.delete()
             }
         }
     }

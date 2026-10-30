@@ -381,11 +381,11 @@ class MainActivity : ComponentActivity() {
             // An app opens from its own entry at once: listing every app took 6.5 s at power-on on
             // Xiaomi MiTV-MFTR0 once Aerial came up earlier in the boot, all of it on PatchWall's
             // heels. Inputs and Aerial's own tiles (AppCatalog.shortcuts) only Home lists.
-            val direct = pkg?.let { p ->
-                runCatching {
-                    val launch = packageManager.getLeanbackLaunchIntentForPackage(p) ?: packageManager.getLaunchIntentForPackage(p)
+            val direct = pkg?.let { key ->
+                vm.entry(key)?.let { it.label to it.launchIntent() } ?: runCatching {
+                    val launch = packageManager.getLeanbackLaunchIntentForPackage(key) ?: packageManager.getLaunchIntentForPackage(key)
                     launch?.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
-                        ?.let { packageManager.getApplicationLabel(packageManager.getApplicationInfo(p, 0)).toString() to it }
+                        ?.let { packageManager.getApplicationLabel(packageManager.getApplicationInfo(key, 0)).toString() to it }
                 }.getOrNull()
             }
             // Inputs can take a while to list right after a wake (Xiaomi MiTV-MTEQ0, issue #111).

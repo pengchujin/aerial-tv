@@ -252,7 +252,7 @@ fun AppMenu(
                                 if (customIcon) {
                                     MenuRow(Glyph.Photo, stringResource(R.string.menu_reset_icon), { onResetIcon(shownApp.key) })
                                 }
-                                if (shownApp.shortcut == null) MenuRow(Glyph.Info, stringResource(R.string.menu_info), { onInfo(shownApp.key) })
+                                if (shownApp.shortcut == null) MenuRow(Glyph.Info, stringResource(R.string.menu_info), { onInfo(shownApp.component.packageName) })
                             }
                             // What the TV starts on, for homes that switch it on to watch television.
                             val boots = shownApp.source?.let { it.id == AerialSettings.bootSource } ?: (shownApp.key == AerialSettings.bootApp)
@@ -262,7 +262,7 @@ fun AppMenu(
                                 { onBootTarget(shownApp.key) },
                             )
                             if (shownApp.removable) {
-                                MenuRow(Glyph.Trash, stringResource(R.string.menu_uninstall), { onUninstall(shownApp.key) }, destructive = true)
+                                MenuRow(Glyph.Trash, stringResource(R.string.menu_uninstall), { onUninstall(shownApp.component.packageName) }, destructive = true)
                             }
                         }
                     }

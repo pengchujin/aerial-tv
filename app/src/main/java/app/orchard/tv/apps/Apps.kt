@@ -47,8 +47,10 @@ data class AppEntry(
     val folder: Folder? = null,
     /** Set for a place inside a firmware app (AppCatalog.shortcuts); [packageName] is then its key. */
     val shortcut: Intent? = null,
+    /** A package name for the primary launcher, a component key for another launcher in that APK. */
+    val entryKey: String = packageName,
 ) {
-    val key: String get() = packageName
+    val key: String get() = entryKey
 
     fun launchIntent(): Intent = source?.let { Intent(it.intent) } ?: shortcut?.let { Intent(it) } ?: Intent(Intent.ACTION_MAIN)
         .addCategory(if (leanback) Intent.CATEGORY_LEANBACK_LAUNCHER else Intent.CATEGORY_LAUNCHER)
@@ -187,7 +189,7 @@ object AppCatalog {
      * Every app with a TV entry, plus apps that only have a phone-style entry. China-market firmwares
      * (Xiaomi's settings, gallery, weather...) expose many of their own apps with CATEGORY_LAUNCHER only,
      * and a few with no launcher category at all (see [UNLISTED_ENTRIES]).
-     * One tile per package; the TV entry wins.
+     * One tile per launcher component; the TV category wins when a component declares both.
      */
     /** When the last load ran (uptime ms): from, after the package queries, done. For DiagLog. */
     @Volatile var lastTiming: LongArray = LongArray(3); private set
@@ -204,16 +206,16 @@ object AppCatalog {
         val pm = context.packageManager
         // Its own label names the firmware rather than what it is ("T-UI" on TCL MT5879).
         val homeLabel = context.getString(R.string.tile_stock_home)
-        val found = LinkedHashMap<String, Pair<ActivityInfo, Boolean>>()
+        val entries = LauncherEntries()
         pm.queryIntentActivities(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LEANBACK_LAUNCHER), 0)
-            .forEach { found.putIfAbsent(it.activityInfo.packageName, it.activityInfo to true) }
+            .forEach { entries.add(it.activityInfo, leanback = true) }
         pm.queryIntentActivities(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER), 0)
-            .forEach { found.putIfAbsent(it.activityInfo.packageName, it.activityInfo to false) }
+            .forEach { entries.add(it.activityInfo, leanback = false) }
         pm.queryIntentActivities(Intent(Intent.ACTION_MAIN).addCategory(CATEGORY_APPSTORE_LAUNCHER), 0)
-            .forEach { found.putIfAbsent(it.activityInfo.packageName, it.activityInfo to false) }
+            .forEach { entries.add(it.activityInfo, leanback = false) }
         for (component in UNLISTED_ENTRIES) {
             val info = runCatching { pm.getActivityInfo(component, 0) }.getOrNull() ?: continue
-            if (info.exported && info.isEnabled && info.applicationInfo.enabled) found.putIfAbsent(info.packageName, info to false)
+            entries.add(info, leanback = false, onlyWhenPackageMissing = true)
         }
         val stockHomes = HashSet<String>()
         // Skyworth skyT963 (1AA46_V58FP, Android 9) ships three home packages — the 芒果
@@ -230,10 +232,11 @@ object AppCatalog {
             }
         for (info in stockInfos) {
             if (skyworthHomes && stockHomes.isNotEmpty()) continue
-            if (found.putIfAbsent(info.packageName, info to false) == null) stockHomes += info.packageName
+            if (entries.add(info, leanback = false, onlyWhenPackageMissing = true)) stockHomes += info.packageName
         }
-        if (skyworthHomes) found.remove("com.example.android.home")
-        found.remove(context.packageName)
+        if (skyworthHomes) entries.removePackage("com.example.android.home")
+        entries.removePackage(context.packageName)
+        val found = entries.all()
 
         val byCategory = HashMap<String, SystemTile>()
         for ((category, tile) in SYSTEM_CATEGORIES) {
@@ -244,14 +247,14 @@ object AppCatalog {
             ?.let { byCategory.putIfAbsent(it.activityInfo.packageName, SystemTile.Settings) }
 
         val queried = android.os.SystemClock.uptimeMillis()
-        val whole = first?.invoke(found.keys)?.takeIf { it.isNotEmpty() }
+        val whole = first?.invoke(found.mapTo(HashSet()) { it.key })?.takeIf { it.isNotEmpty() }
         coroutineScope {
-            found.values.map { (info, leanback) ->
-                val home = info.packageName in stockHomes
-                val later = whole != null && info.packageName !in whole
+            found.map { launcher ->
+                val home = launcher.info.packageName in stockHomes
+                val later = whole != null && launcher.key !in whole
                 async {
-                    runCatching { entry(pm, info, leanback, byCategory, home, later) }
-                        .onFailure { Log.w(TAG, "left ${info.packageName} out of Home", it) }
+                    runCatching { entry(pm, launcher.info, launcher.leanback, byCategory, home, later, launcher.key) }
+                        .onFailure { Log.w(TAG, "left ${launcher.info.packageName}/${launcher.info.name} out of Home", it) }
                         .getOrNull()?.let { if (home) it.copy(label = homeLabel) else it }
                 }
             }.awaitAll().filterNotNull()
@@ -259,7 +262,7 @@ object AppCatalog {
             val now = android.os.SystemClock.uptimeMillis()
             lastTiming = longArrayOf(started, queried, now)
             loaded = it
-            TileDiskCache.keepOnly(it.mapTo(HashSet()) { app -> app.packageName })
+            TileDiskCache.keepOnly(it.mapTo(HashSet()) { app -> app.key })
         }
     }
 
@@ -383,28 +386,30 @@ object AppCatalog {
     fun ownArt(context: Context, entry: AppEntry): TileArt? = runCatching {
         val pm = context.packageManager
         val info = pm.getActivityInfo(entry.component, 0)
-        fromApp(pm, info, banner(pm, info, entry.leanback), TileRecipes.of(entry.packageName))
+        fromApp(pm, info, entryBanner(pm, info, entry.leanback, entry.key == entry.packageName), TileRecipes.of(entry.key))
     }.getOrNull()
 
     private fun entry(
         pm: PackageManager, info: ActivityInfo, leanback: Boolean, byCategory: Map<String, SystemTile>,
-        stockHome: Boolean = false, later: Boolean = false,
+        stockHome: Boolean = false, later: Boolean = false, key: String = info.packageName,
     ): AppEntry {
         val pkg = info.packageName
         // A picture chosen on the phone page changes the tile as much as an update does.
         // Drawn as the stock launcher or not is part of it too: the same package can be either.
-        val stamp = runCatching { pm.getPackageInfo(pkg, 0).lastUpdateTime }.getOrDefault(0L) + CustomIcons.stamp(pkg) +
-            IconLibrary.stamp(pkg) + if (stockHome) 1 else 0
+        val primary = key == pkg
+        val stamp = runCatching { pm.getPackageInfo(pkg, 0).lastUpdateTime }.getOrDefault(0L) +
+            CustomIcons.stamp(key) + (if (primary) IconLibrary.stamp(pkg) else 0L) + (if (stockHome) 1 else 0)
         val system = (info.applicationInfo.flags and ApplicationInfo.FLAG_SYSTEM) != 0
-        val inMemory = synchronized(cache) { cache[pkg] }?.takeIf { it.stamp == stamp && it.width == TileArtFactory.W }
+        val cacheKey = TileDiskCache.key(stamp, info.name, leanback)
+        val inMemory = synchronized(cache) { cache[key] }?.takeIf { it.stamp == stamp && it.width == TileArtFactory.W }
         if (inMemory == null && later) {
-            TileDiskCache.readHeader(pkg, TileDiskCache.key(stamp))?.let { (label, tint) ->
-                return AppEntry(pkg, label, ComponentName(pkg, info.name), leanback, !system, placeholder(tint))
+            TileDiskCache.readHeader(key, cacheKey)?.let { (label, tint) ->
+                return AppEntry(pkg, label, ComponentName(pkg, info.name), leanback, !system, placeholder(tint), entryKey = key)
             }
         }
         val cached = inMemory
-            ?: runCatching { TileDiskCache.read(pkg, TileDiskCache.key(stamp)) }.getOrNull()?.let { (label, art) ->
-                Cached(stamp, TileArtFactory.W, label, art).also { synchronized(cache) { cache[pkg] = it } }
+            ?: runCatching { TileDiskCache.read(key, cacheKey) }.getOrNull()?.let { (label, art) ->
+                Cached(stamp, TileArtFactory.W, label, art).also { synchronized(cache) { cache[key] = it } }
             }
         val label: String
         val art: TileArt
@@ -413,16 +418,16 @@ object AppCatalog {
             art = cached.art
         } else {
             label = runCatching { info.loadLabel(pm).toString().trim() }.getOrDefault("").ifEmpty { pkg }
-            val banner = banner(pm, info, leanback)
+            val banner = entryBanner(pm, info, leanback, primary)
             // A launcher declared only as a Home has an icon for phones at best (TCL's cyberui: the
             // default robot), so it is drawn as Aerial's own.
             val own = if (stockHome) SystemTile.Home
-                else if (system) SYSTEM_TILES[pkg] ?: byCategory[pkg]?.takeIf { banner == null } else null
-            val custom = CustomIcons.load(pkg)
+                else if (system && primary) SYSTEM_TILES[pkg] ?: byCategory[pkg]?.takeIf { banner == null } else null
+            val custom = CustomIcons.load(key)
             // Aerial's own tiles for the firmware's apps keep their look; any other app's
             // ready-made picture comes before what Aerial would draw from its banner or icon.
-            val library = if (custom == null && (own == null || IconLibrary.pick(pkg) == IconLibrary.Pick.Library)) IconLibrary.load(pkg) else null
-            val recipe = TileRecipes.of(pkg)
+            val library = if (primary && custom == null && (own == null || IconLibrary.pick(pkg) == IconLibrary.Pick.Library)) IconLibrary.load(pkg) else null
+            val recipe = TileRecipes.of(key)
             // A tile that cannot be drawn used to drop the app from Home altogether, without a word
             // in the log (com.fongmi.androidtv on TCL MT5879, issue #415). Its icon then, or
             // Android's default one, so it is always there.
@@ -440,10 +445,14 @@ object AppCatalog {
                 Log.w(TAG, "could not draw the icon of $pkg either; using the default one", it)
                 TileArtFactory.fromIcon(pm.defaultActivityIcon, null)
             }.getOrThrow()
-            synchronized(cache) { cache[pkg] = Cached(stamp, TileArtFactory.W, label, art) }
-            runCatching { TileDiskCache.write(pkg, TileDiskCache.key(stamp), label, art) }
+            synchronized(cache) { cache[key] = Cached(stamp, TileArtFactory.W, label, art) }
+            runCatching { TileDiskCache.write(key, cacheKey, label, art) }
         }
         val removable = !system
-        return AppEntry(pkg, label, ComponentName(pkg, info.name), leanback, removable, art)
+        return AppEntry(pkg, label, ComponentName(pkg, info.name), leanback, removable, art, entryKey = key)
     }
+
+    /** A secondary launcher uses its own icon unless it explicitly supplies a TV banner. */
+    private fun entryBanner(pm: PackageManager, info: ActivityInfo, leanback: Boolean, primary: Boolean) =
+        if (primary || info.bannerResource != 0) banner(pm, info, leanback) else null
 }

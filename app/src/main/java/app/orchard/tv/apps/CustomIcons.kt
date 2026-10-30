@@ -31,7 +31,7 @@ object CustomIcons {
         dir = File(context.filesDir, "icons").apply { mkdirs() }
     }
 
-    /** By package name; a pinned input's key holds slashes, so it goes by a hash of the key. */
+    /** Package keys use their names; component and input keys are hashed into safe filenames. */
     private fun fileFor(pkg: String) = if (isValidKey(pkg)) File(dir, "$pkg.png") else File(dir, "input-${hash(pkg)}.png")
 
     private fun hash(key: String): String =
