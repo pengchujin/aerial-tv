@@ -784,6 +784,10 @@ class MainActivity : ComponentActivity() {
         HomeGuardService.onAerialResumed()
         Updates.onHomeResumed()
         vm.refreshSystem()
+        // Xiaomi MiTV stops this app during standby and starts it cold on the next wake; the
+        // SCREEN_ON broadcast and the WOKE intent are then both missed (see dueAfterStandby),
+        // so also check the sleep counter now that we are back in front.
+        if (BootOpen.dueAfterStandby(this)) openBootSource("resumed after standby")
         // Back in front by any route (Home was handled in onNewIntent, which runs first; Back from
         // the app lands here directly), so the next Home press is a Home-on-Home again.
         openedAppSinceHome = false
