@@ -48,6 +48,22 @@ elif [ "$(adb shell getprop persist.vt.use_home_pkg | tr -d '\r')" = "$PKG" ] &&
   # launcher is 聚好看 on every VIDAA build reported so far.
   adb shell setprop persist.vt.use_home_pkg com.jamdeo.tv.vod
 fi
+# Skyworth/Coocaa: while it is the system's Home, Aerial points persist.service.homepage.* (the Home
+# key) and persist.service.model.* (boot) at itself (MainActivity.claimFirmwareHome). Put back what it
+# kept, or empty them. Done after the force-stop above, so Aerial does not write them again.
+for KIND in homepage model; do
+  SAVED=$(adb shell settings get global "aerial_coocaa_$KIND" | tr -d '\r')
+  if [ "$(adb shell getprop "persist.service.$KIND.pkg" | tr -d '\r')" = "$PKG" ]; then
+    if [ -n "$SAVED" ] && [ "$SAVED" != null ]; then
+      adb shell setprop "persist.service.$KIND.pkg" "${SAVED%%/*}" || true
+      adb shell setprop "persist.service.$KIND.cls" "${SAVED#*/}" || true
+    else
+      adb shell setprop "persist.service.$KIND.pkg" "''" || true
+      adb shell setprop "persist.service.$KIND.cls" "''" || true
+    fi
+  fi
+  adb shell settings delete global "aerial_coocaa_$KIND" >/dev/null 2>&1 || true
+done
 adb shell cmd role remove-role-holder --user 0 android.app.role.HOME "$PKG" >/dev/null 2>&1 || true
 
 # Aerial Lite (Android 4.x) takes over only as the home app the owner chose; nothing else to undo.

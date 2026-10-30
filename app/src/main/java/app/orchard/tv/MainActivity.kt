@@ -356,6 +356,7 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        firmwareHomeHandler.removeCallbacksAndMessages(null)
         if (locked) runCatching { unregisterReceiver(unlocked) }
         runCatching { unregisterReceiver(screenOnReceiver) }
         super.onDestroy()
@@ -505,6 +506,56 @@ class MainActivity : ComponentActivity() {
     private fun systemProperty(key: String): String? = runCatching {
         Class.forName("android.os.SystemProperties").getMethod("get", String::class.java).invoke(null, key) as String
     }.getOrNull()
+
+    private val firmwareHomeHandler = Handler(Looper.getMainLooper())
+
+    /**
+     * Coocaa firmware (Skyworth 8R734_A7HP, Android 13) picks the screen by component: at boot and for
+     * the system's own Home requests from persist.service.model.pkg/.cls (SkyBootIntent), and for the
+     * Home key from persist.service.homepage.pkg/.cls (com.tianci.system). Each boot it empties
+     * model.* and puts homepage.* back to its own launcher, so while Aerial is the system's Home it
+     * writes them again whenever it comes to the front, and twice more after a boot. What it writes
+     * over is kept once in Settings.Global aerial_coocaa_homepage / aerial_coocaa_model ("pkg/cls"),
+     * for tools/restore.sh to put back, as with Hisense's aerial_vt_home_pkg. An app's setprop only
+     * goes through where SELinux is permissive, as on that set; elsewhere it fails quietly.
+     */
+    private fun claimFirmwareHome() {
+        if (systemProperty("persist.service.homepage.pkg").isNullOrEmpty()) return
+        if (!isSystemHome(this)) return
+        val cls = MainActivity::class.java.name
+        val want = listOf(
+            "persist.service.model.pkg" to packageName,
+            "persist.service.model.cls" to cls,
+            "persist.service.homepage.pkg" to packageName,
+            "persist.service.homepage.cls" to cls,
+        ).filter { (key, value) -> systemProperty(key) != value }
+        if (want.isEmpty()) return
+        Thread {
+            for (kind in listOf("homepage", "model")) {
+                val pkg = systemProperty("persist.service.$kind.pkg").orEmpty()
+                if (pkg.isEmpty() || pkg == packageName) continue
+                runCatching {
+                    if (Settings.Global.getString(contentResolver, "aerial_coocaa_$kind") == null) {
+                        Settings.Global.putString(contentResolver, "aerial_coocaa_$kind", "$pkg/${systemProperty("persist.service.$kind.cls").orEmpty()}")
+                    }
+                }
+            }
+            want.forEach { (key, value) ->
+                runCatching { Runtime.getRuntime().exec(arrayOf("/system/bin/setprop", key, value)).waitFor() }
+            }
+            val missed = want.filter { (key, value) -> systemProperty(key) != value }.map { it.first }
+            DiagLog.i("firmware home: wrote ${want.size} properties" + if (missed.isEmpty()) "" else ", not taken: $missed")
+        }.start()
+    }
+
+    /** Right after a boot the firmware empties model.* some seconds in: look again then. */
+    private fun claimFirmwareHomeAfterBoot() {
+        claimFirmwareHome()
+        val sinceBoot = SystemClock.elapsedRealtime()
+        for (at in longArrayOf(40_000L, 90_000L)) {
+            if (sinceBoot < at) firmwareHomeHandler.postDelayed({ claimFirmwareHome() }, at - sinceBoot)
+        }
+    }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
@@ -855,6 +906,7 @@ class MainActivity : ComponentActivity() {
         // Back in front by any route (Home was handled in onNewIntent, which runs first; Back from
         // the app lands here directly), so the next Home press is a Home-on-Home again.
         openedAppSinceHome = false
+        claimFirmwareHomeAfterBoot()
         LaunchFallback.next()?.let { page ->
             // Only where the page truly closed: Hisense's network page (85E5N, MT9653, Android 11)
             // is a panel over Aerial, which resumes beneath it without window focus, and the next
