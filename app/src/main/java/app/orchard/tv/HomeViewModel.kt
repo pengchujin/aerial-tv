@@ -89,6 +89,12 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
     var loaded by mutableStateOf(false); private set
 
     var overlay by mutableStateOf<Overlay>(Overlay.None)
+
+    /** The tile Home last focused (its key), reported by HomeScreen for the agent interface (see AgentBridge). */
+    var reportedFocus by mutableStateOf<String?>(null)
+
+    /** A tile an agent asked to focus; HomeScreen moves focus to it and clears this. */
+    var focusRequest by mutableStateOf<String?>(null)
     var movingKey by mutableStateOf<String?>(null); private set
 
     var network by mutableStateOf(NetworkStatus()); private set

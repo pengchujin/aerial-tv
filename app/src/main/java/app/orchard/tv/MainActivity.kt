@@ -97,6 +97,13 @@ class MainActivity : ComponentActivity() {
 
     private val vm by viewModels<HomeViewModel>()
 
+    init {
+        // The agent interface drives this Home (see AgentBridge).
+        lifecycle.addObserver(androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_CREATE) app.orchard.tv.agent.AgentBridge.attach(vm)
+        })
+    }
+
     private val packageReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) = vm.reload()
     }

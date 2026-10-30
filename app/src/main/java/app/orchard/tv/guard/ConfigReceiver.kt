@@ -3,6 +3,8 @@ package app.orchard.tv.guard
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import app.orchard.tv.agent.AgentApi
+import app.orchard.tv.agent.AgentBridge
 import app.orchard.tv.apps.TileSheet
 import app.orchard.tv.settings.AerialSettings
 import app.orchard.tv.settings.Effects
@@ -40,6 +42,14 @@ import kotlinx.coroutines.launch
  */
 class ConfigReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
+        // ... --es agent state|settings|set|open|focus|help   (the agent interface: settings, screens and
+        //                                 focus without pressing keys; the answer is the broadcast's data.
+        //                                 See docs/AGENT.md)
+        if (intent.hasExtra("agent")) {
+            val extras = listOf("agent", "key", "value", "target").associateWith { intent.getStringExtra(it) }
+            resultData = AgentApi.parse(extras)?.let { AgentBridge.run(context, it) } ?: "error: no command"
+            return
+        }
         // ... --es export_tiles <name>   (every tile on one picture; see TileSheet)
         // Runs on past the broadcast's time limit; Home keeps the process alive. Look for the file.
         intent.getStringExtra("export_tiles")?.takeIf { Regex("^[A-Za-z0-9_-]+$").matches(it) }?.let { name ->
