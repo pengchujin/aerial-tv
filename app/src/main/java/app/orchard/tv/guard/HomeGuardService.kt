@@ -1408,6 +1408,11 @@ class HomeGuardService : AccessibilityService() {
 
         val isRunning: Boolean get() = instance != null
 
+        /** Opens Android's power dialog through the connected accessibility service. */
+        fun showPowerDialog(): Boolean = runCatching {
+            instance?.performGlobalAction(GLOBAL_ACTION_POWER_DIALOG) == true
+        }.getOrDefault(false)
+
         /** Whether usage stats may be read (GET_USAGE_STATS, granted over ADB); see foregroundCheck. */
         fun usageStatsAllowed(context: Context): Boolean = runCatching {
             @Suppress("DEPRECATION")

@@ -249,4 +249,6 @@
     <string name="st_play_hint">静止时：在第一排（双排时前两排）停 10 秒后播放，按键停下。一直：按键不停，背景压暗一点；再往下进入其余 App 时停下。</string>
     <string name="ss_show_time">时间</string>
     <string name="ss_show_time_hint">航拍和照片屏保上的时间。时间和地名会不时挪一点位置，避免烧屏。</string>
+    <string name="cc_power">电源</string>
+    <string name="cc_power_unavailable">无法打开系统电源菜单，请确认已启用 Aerial 桌面守护。</string>
 </resources>
