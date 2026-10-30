@@ -192,7 +192,29 @@ class MainActivity : ComponentActivity() {
             return
         }
         super.onCreate(savedInstanceState)
+        if (savedInstanceState == null && reopenAsHome()) return
         startReal(savedInstanceState)
+    }
+
+    /**
+     * Started fresh into a task of its own by something other than a Home intent while Aerial is the
+     * system's Home: starts itself again as Home ([bringBackIntent]) and closes this task. Coocaa's
+     * launcher opens the default Home's launcher entry at boot (Skyworth 8R734_A7HP, Android 13),
+     * which made a standard task, and on that firmware a standard task kept its surface hidden: no
+     * keys, an ANR, a kill, until the guard brought Aerial back as Home.
+     */
+    private fun reopenAsHome(): Boolean {
+        val started = intent ?: return false
+        if (started.action != null && started.action != Intent.ACTION_MAIN) return false
+        if (started.hasCategory(Intent.CATEGORY_HOME) || !isTaskRoot) return false
+        val again = bringBackIntent(this)
+        if (!again.hasCategory(Intent.CATEGORY_HOME)) return false
+        DiagLog.i("started as ${started.categories} in task $taskId; reopening as Home")
+        return runCatching {
+            startActivity(again)
+            finishAndRemoveTask()
+            true
+        }.getOrDefault(false)
     }
 
     /**
@@ -1004,11 +1026,41 @@ class MainActivity : ComponentActivity() {
         private var handedOverAtBoot = false
         private val AOSP_FALLBACK_HOMES = setOf("com.android.settings.FallbackHome", "com.android.tv.settings.system.FallbackHome", "com.android.tv.settings.ui.activity.FallbackHome")
 
-        /** How Home Guard and the boot receiver bring Aerial back: the same task the launcher entry uses. */
-        fun bringBackIntent(context: Context): Intent =
-            Intent(context, MainActivity::class.java)
-                .setAction(Intent.ACTION_MAIN)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
+        /**
+         * How Home Guard and the boot receiver bring Aerial back: the same task the launcher entry uses,
+         * unless Aerial is the system's Home. Then it is a Home intent (CATEGORY_HOME, package only, no
+         * component), so the system makes it a home-type task. On Skyworth 8R734_A7HP (titanite,
+         * Android 13) a fresh standard task for MainActivity kept its task surface hidden in
+         * SurfaceFlinger (flags 0x1) while WindowManager had it visible and focused: input found the
+         * window NOT_VISIBLE and every key ended in an ANR, then a kill and the same again. That
+         * firmware's Task.prepareSurfaces re-applies the visibility every frame only for home-type
+         * root tasks, and Aerial started as Home showed and took keys at once. Where Aerial is not the
+         * system's Home the category stays off: it made the system open a second, home-type task with
+         * a fresh MainActivity every time (Xiaomi MiTV-MFTR0, 1.11).
+         */
+        fun bringBackIntent(context: Context): Intent {
+            val home = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
+            val intent = if (isSystemHome(context)) {
+                home.setPackage(context.packageName)
+            } else {
+                Intent(context, MainActivity::class.java).setAction(Intent.ACTION_MAIN)
+            }
+            return intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
+        }
+
+        /**
+         * Whether the system's Home is Aerial. Also when no Home is chosen yet but Aerial is one of
+         * them (the system's resolver comes back): early in a boot, or with a second Home such as
+         * Dangbei's launcher installed next to it.
+         */
+        fun isSystemHome(context: Context): Boolean = runCatching {
+            val pm = context.packageManager
+            val home = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
+            val resolved = pm.resolveActivity(home, PackageManager.MATCH_DEFAULT_ONLY)?.activityInfo?.packageName
+            resolved == context.packageName ||
+                (resolved == "android" &&
+                    pm.queryIntentActivities(home, PackageManager.MATCH_DEFAULT_ONLY).any { it.activityInfo.packageName == context.packageName })
+        }.getOrDefault(false)
 
         const val SCREENSAVER_HOLD_MS = 4 * 60 * 60 * 1000L
 

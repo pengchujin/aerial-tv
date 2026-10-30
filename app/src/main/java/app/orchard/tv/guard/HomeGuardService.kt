@@ -1163,9 +1163,10 @@ class HomeGuardService : AccessibilityService() {
             (category.endsWith(VENDOR_HOME_SUFFIX) && category != "android.intent.category.SECONDARY_HOME")
 
     /**
-     * Brings Aerial's one task to the front. No CATEGORY_HOME: on firmwares where Aerial is not the
-     * system Home, that category made the system open a second, home-type task with a fresh
-     * MainActivity every time, which lost the focused tile (Xiaomi MiTV-MFTR0, 1.11).
+     * Brings Aerial's one task to the front ([MainActivity.bringBackIntent]). No CATEGORY_HOME on
+     * firmwares where Aerial is not the system Home: there that category made the system open a
+     * second, home-type task with a fresh MainActivity every time, which lost the focused tile
+     * (Xiaomi MiTV-MFTR0, 1.11). Where Aerial is the system Home it is a Home intent, see there.
      */
     /** When goHome last started Aerial. */
     private var broughtBackAt = Long.MIN_VALUE / 2
