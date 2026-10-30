@@ -159,8 +159,11 @@ class HomeGuardService : AccessibilityService() {
             if (SystemClock.uptimeMillis() - broughtBackAt < 1_000) return
             // PatchWall's boot screen comes up seconds after what the TV starts on was opened (DTV,
             // 5 s later, MiTV4A, Android 6.0.1, issue #963's log): back to that, not Aerial's Home.
-            if (bootCover && BootOpen.openedWithin(this@HomeGuardService, BOOT_TARGET_COVER_MS)) {
-                Log.i(TAG, "stock launcher's boot screen over what the TV starts on; opening that again")
+            // Not keyed to BootActivity: its home activity can come first (see bootTargetCovered).
+            if (bootTargetCovered()) {
+                Log.i(TAG, "stock launcher's screen over what the TV starts on; opening that again")
+                // Which screen usage stats gave, for the next report from a TV without logcat.
+                DiagLog.i("guard: $pkg/$cls over what the TV starts on; opening that again")
                 goHome(reopenBoot = true)
                 return
             }
@@ -347,6 +350,9 @@ class HomeGuardService : AccessibilityService() {
             if (intent.getStringExtra("reason") != "homekey") return
             // The guard's own press for the stock launcher's tile, not the viewer's.
             if (SystemClock.uptimeMillis() - ownHomeAt < OWN_HOME_MS) return
+            // On disk as well: in the boot window, answering Home here can end with accessibility
+            // restarted (frontAfterHome), and the guard that starts then has to know of it too.
+            if (SystemClock.elapsedRealtime() < BOOT_WINDOW_MS) BootOpen.noteHomeKey(this@HomeGuardService)
             if (backOnPause) noteHomeInAerial()
             val front = lastWindow?.first
             if (front != null && front !in stockHomes) {
@@ -617,6 +623,28 @@ class HomeGuardService : AccessibilityService() {
         AerialSettings.hasBootTarget
     }.getOrDefault(false)
 
+    /**
+     * Whether the stock launcher came over what the TV starts on a moment after that opened, rather
+     * than the viewer leaving it with Home: then the target is opened again instead of Aerial's Home.
+     *
+     * Which screen of the launcher it is must not matter. On MiTV4-ANSM0 (Android 6.0.1, firmware
+     * 22.10.20.3352, issue #963) the input opened at 8.4 s into the boot, PatchWall's home activity
+     * resumed at 30.6 s and its BootActivity started at 31.5 s; the usage-stats poll at 32.7 s still
+     * had only the home activity, so a check keyed to BootActivity missed it and Aerial's Home
+     * covered the input. Answered at the first poll after the launcher appears, as before.
+     *
+     * Not after Home: pressing it there means Aerial, and on a wake the target is opened again in
+     * the same boot window, where every such press would otherwise reopen it. Kept on disk as well
+     * (BootOpen.noteHomeKey): answering that Home can end with accessibility restarted and the
+     * guard in a new process, which would otherwise reopen what the viewer just left.
+     */
+    private fun bootTargetCovered(): Boolean =
+        SystemClock.elapsedRealtime() < BOOT_WINDOW_MS &&
+            hasBootSource() &&
+            SystemClock.uptimeMillis() - homePressedAt >= HOME_LEFT_MS &&
+            !BootOpen.homeKeyWithin(this, HOME_LEFT_MS) &&
+            BootOpen.openedWithin(this, BOOT_TARGET_COVER_MS)
+
     private fun justUpdated(): Boolean = runCatching {
         System.currentTimeMillis() - packageManager.getPackageInfo(packageName, 0).lastUpdateTime < 2 * 60_000
     }.getOrDefault(false)
@@ -662,6 +690,17 @@ class HomeGuardService : AccessibilityService() {
         }
         if (!stockInFront && last != null) Log.i(TAG, "$reason with ${last.first} in front; leaving it there")
         if (!stockInFront || SystemClock.uptimeMillis() < allowStockUntil) return
+        // What the TV starts on was opened and then covered: it is what the viewer is waiting for,
+        // not Aerial's Home. Reached at the boot rechecks and by a process started again in the boot
+        // window, where usage stats still have the stock launcher's move to the front from before
+        // the target opened (MiTV4-ANSM0, Android 6.0.1, issue #963's log: 38 s after the target).
+        if (bootTargetCovered()) {
+            Log.i(TAG, "$reason with the stock launcher over what the TV starts on; opening that again")
+            val front = last?.let { "${it.first}/${it.second}" } ?: "unknown"
+            DiagLog.i("guard: $reason, front $front; opening what the TV starts on again")
+            goHome(reopenBoot = true)
+            return
+        }
         Log.i(TAG, "$reason with the stock launcher in front; bringing Aerial back")
         DiagLog.i("guard: $reason, front ${last?.first ?: "unknown"}; bringing Aerial back")
         goHome(woke)
@@ -1269,7 +1308,16 @@ class HomeGuardService : AccessibilityService() {
         private const val TAG = "AerialGuard"
         private const val BOOT_WINDOW_MS = 3 * 60 * 1000L
         private const val HOME_KEY_CHECK_MS = 1500L
-        private const val BOOT_TARGET_COVER_MS = 30_000L
+        /**
+         * How long after what the TV starts on was opened the stock launcher may still come over it
+         * and be answered by opening that again. 24.3 s on MiTV4-ANSM0 (Android 6.0.1, firmware
+         * 22.10.20.3352, issue #963), 38.4 s in that boot when the guard's process was started again
+         * and usage stats still had the launcher's move to the front from before the target opened.
+         * Slower TVs come later: 30 s left little room.
+         */
+        private const val BOOT_TARGET_COVER_MS = 60_000L
+        /** A Home press this recently is the viewer leaving what the TV starts on; see bootTargetCovered. */
+        private const val HOME_LEFT_MS = 5_000L
         private const val SETTLE_MS = 1500L
         private const val BOOT_STOCK_CAP_MS = 20_000L
         private const val WAKE_WINDOW_MS = 15_000L

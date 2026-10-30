@@ -18,6 +18,8 @@ object BootOpen {
     private const val SCREEN_OFF_ELAPSED = "screen_off_elapsed"
     private const val SCREEN_OFF_BOOT = "screen_off_boot"
     private const val OPENED_ASLEEP = "boot_open_asleep"
+    private const val HOME_ELAPSED = "home_key_elapsed"
+    private const val HOME_BOOT = "home_key_boot"
 
     /** When this boot began by the wall clock, to tell a stored time of this boot from one before. */
     private fun bootStamp(): Long = System.currentTimeMillis() - SystemClock.elapsedRealtime()
@@ -31,6 +33,25 @@ object BootOpen {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit {
             putLong(SCREEN_OFF_ELAPSED, SystemClock.elapsedRealtime()).putLong(SCREEN_OFF_BOOT, bootStamp())
         }
+    }
+
+    /**
+     * The viewer pressed Home. Kept on disk as well: pressing it where the stock launcher raises no
+     * window change makes the guard switch accessibility off and on, which starts it in a new
+     * process a moment later (MiTV4-ANSM0, Android 6.0.1, issue #651), and that one must know the
+     * Home press was the viewer's rather than what the TV starts on being covered.
+     */
+    fun noteHomeKey(context: Context) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit {
+            putLong(HOME_ELAPSED, SystemClock.elapsedRealtime()).putLong(HOME_BOOT, bootStamp())
+        }
+    }
+
+    /** Whether the viewer pressed Home in this boot within the last [ms]; see noteHomeKey. */
+    fun homeKeyWithin(context: Context, ms: Long): Boolean {
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val at = prefs.getLong(HOME_ELAPSED, -1L)
+        return at >= 0 && thisBoot(at, prefs.getLong(HOME_BOOT, 0L)) && SystemClock.elapsedRealtime() - at < ms
     }
 
     fun noteOpened(context: Context) {

@@ -297,7 +297,7 @@ class MainActivity : ComponentActivity() {
         }
         if (fresh && firstStartSinceBoot()) openBootSource("boot")
         if (intent.getBooleanExtra(EXTRA_WOKE, false)) openBootSource("brought back on wake")
-        if (intent.getBooleanExtra(EXTRA_REOPEN_BOOT, false)) openBootSource("covered by the stock launcher's boot screen", again = true)
+        if (intent.getBooleanExtra(EXTRA_REOPEN_BOOT, false)) openBootSource("covered by the stock launcher", again = true)
         if (fromLocked) {
             // This window already went through onStart and onResume while locked (both returned
             // early) and the system will not call them again unless it stops and starts the
@@ -737,7 +737,7 @@ class MainActivity : ComponentActivity() {
         if (locked) return
         DiagLog.i("onNewIntent ${intent.action}")
         if (intent.getBooleanExtra(EXTRA_WOKE, false)) openBootSource("brought back on wake")
-        if (intent.getBooleanExtra(EXTRA_REOPEN_BOOT, false)) openBootSource("covered by the stock launcher's boot screen", again = true)
+        if (intent.getBooleanExtra(EXTRA_REOPEN_BOOT, false)) openBootSource("covered by the stock launcher", again = true)
         if (intent.action == ACTION_PREVIEW_SCREENSAVER) {
             idleHandler.post { startScreensaver(asked = true) }
             return
@@ -1024,7 +1024,10 @@ class MainActivity : ComponentActivity() {
         /** Set by Home Guard when it brings Aerial back after standby or a boot. */
         const val EXTRA_WOKE = "app.orchard.tv.WOKE"
 
-        /** Set by Home Guard when the stock launcher's boot screen covered what the TV starts on. */
+        /**
+         * Set by Home Guard when the stock launcher covered what the TV starts on just after it
+         * opened: its boot screen, or its home activity that comes before it (issue #963).
+         */
         const val EXTRA_REOPEN_BOOT = "app.orchard.tv.REOPEN_BOOT"
 
         /** How long after the key that woke a screensaver other keys are still taken as waking it. */
