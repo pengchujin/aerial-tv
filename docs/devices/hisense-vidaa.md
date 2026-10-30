@@ -14,6 +14,7 @@
 | VIDAA_TV（老款） | Android 5.1.1（SDK 22），MStar MSD6A828 | 装得上；没有 `cmd`；每次开机固件把 `accessibility_enabled` 清成 0，直接写 1 会被静默丢弃，先 `pm unhide` 任一个包触发包变更后再写才生效；GlobalPanel 吃掉主页键，只有守护能接管；设置里没有无障碍入口，每次开机都要用电脑恢复 | #285 |
 | VIDAA C1 投影 | Android 9，MT9669 | 没有 role 服务，也没有 `persist.vt.use_home_pkg`；聚好看 HOME priority=50，守护拉起 Aerial 后 2–5 秒系统（uid 1000）又切回聚好看；`SYSTEM_ALERT_WINDOW` 被改回 ignore；暂时接管不了 | #323 |
 | 海信会议室触屏电视、海信投影 | 未说 | 投影打不开 ADB；会议室机只问了能否保留触屏（能，1.20 起支持触屏） | 微博 |
+| VIDAA_TV（70V1F-S，`NOVA72691`） | Android 9，NT72691（Novatek n62020），armv7 | 装得上；不 root 的所有接管路径都失败（`set-home-activity` 无效、第三方 HOME priority 被钳成 0、启动指针无效、无障碍守护收不到窗口事件、禁用聚好看桌面组件会让开机走不完）；root 后把桌面装成系统应用（priority=100）主页键可直达，开机仍先画聚好看约 8–10 秒 | 本次报告（2026-10-29） |
 
 Vidda C1S 激光投影（VIDAA_TV，MT9669，Android 9，PR #545）：聚好看（`com.jamdeo.tv.vod`）不向第三方无障碍服务发窗口事件，别的 App 的事件照常；`set-home-activity` 写了 preferred 也不生效；用量统计里有聚好看的 `MOVE_TO_FOREGROUND`。1.49 起原桌面里有聚好看就每秒查一次用量统计（要 `GET_USAGE_STATS`，安装命令会给），报告人实测从 B 站按主页键 1–2 秒回到 Aerial。
 
@@ -114,3 +115,203 @@ Vidda C1S 激光投影（VIDAA_TV，MT9669，Android 9，PR #545）：聚好看�
 
 - 屏保设成 Aerial 的 Dream 后，Aerial 用 Somnambulator 请系统起屏保，系统没有起：Aerial 30 毫秒后又回到前台（#525 的日志）。用了航拍壁纸时，壁纸的播放器已经为屏保让出解码器，于是停住（#533）。
 - 1.48 起：请求后 1.5 秒内 Aerial 仍在前台且有焦点，就改放 Aerial 自己的屏保，这个进程里不再请系统起。没在海信真机上验证。
+
+## 海信 70V1F-S（`VIDAA_TV` / `NOVA72691`，Android 9，NT72691）
+
+2026-10-28/29 在一台实机上做的完整验证。维护者没有这台机器，以下全部来自报告人的实测日志和命令输出。
+写得比较长，是因为这台固件的几个失败点**长得像"工具坏了"，实际是固件不让第三方窗口当桌面**，
+记下来可以省掉后来人重复踩。
+
+### 机器信息
+
+- `VIDAA_TV` / `NOVA72691`，零售型号 70V1F-S（BOM 0008），Android 9 / API 28。
+- 指纹 `Hisense/VIDAA_TV/NOVA72691:9/PPR2.180905.006.A1/04.02.60.03:user/release-keys`，软件版本 `04.02.60.03`，
+  安全补丁 `2021-01-05`，内核 `4.9.118+` #1（2024-02-20 编译）。
+- SoC：Novatek `n62020`（NT72691），只有 `armeabi-v7a`（32 位）。
+- `ro.adb.secure=1`、`persist.adb.tcp.port=5555`；`ro.boot.selinux=permissive`。
+- 原桌面：`com.jamdeo.tv.vod/com.ju.main.launcher.LauncherActivity`（聚好看），HOME priority 50。
+
+### 结论速览
+
+- **不 root：这台机器上接管不了主页键。** 下面列的 7 条路径全部实测失败，不是配置没调对。
+- **不要禁用聚好看的桌面组件。** 它不会把 HOME 交出来，只会让开机永远走不完（见「开机被搞挂的原理」）。
+- **root 之后可行**：桌面装成系统应用 + HOME filter `priority=100`，主页键直接进；开机仍先画聚好看约 8–10 秒，
+  用一个只在开机跑 90 秒的脚本重试切换即可。
+- 还有一条**没测**的线索：`persist.vt.use_home_pkg`（Android 11 机型 #40 可用），见文末。
+
+### 不 root：试过什么、结果如何
+
+| # | 尝试 | 命令 | 结果 |
+|---|---|---|---|
+| 1 | 看 HOME 候选 | `cmd package query-activities --brief -a MAIN -c HOME` | 聚好看 `priority=50`，第三方桌面 `priority=0` |
+| 2 | 指定首选桌面 | `cmd package set-home-activity --user 0 <桌面>/.MainActivity` | 返回 `Success`，**不生效**；只写进 `always="false"`，HOME 仍进聚好看 |
+| 3 | 改厂商"自定义启动包" | `settings put system settings_startup_source_custom_pkg_key <桌面>`（`startup_source_is_custom` 本来就是 `1`） | **无效**，两次预置重启后开机仍解析到聚好看 |
+| 4 | 禁用聚好看桌面组件 | `pm disable --user 0 com.jamdeo.tv.vod/com.ju.main.launcher.LauncherActivity` | 主页键失效，**并且开机永远走不完**（见下节） |
+| 5 | 换系统自带兜底桌面 | `pm enable com.android.settings`（放出 `.FallbackHome`）+ 禁用聚好看组件 | 开机会解析到 `FallbackHome`，但它发现没有真桌面就自己 finish 再被拉起，循环，开机仍走不完 |
+| 6 | 无障碍守护 | 第三方无障碍服务监听 `TYPE_WINDOW_STATE_CHANGED` | 服务能绑定，但**收不到聚好看的窗口事件**（与 #545 Vidda C1S 一致） |
+| 7 | 用 adb 模拟主页键 | `input keyevent 3` | **被固件吞掉**：无论聚好看组件启用还是禁用，logcat 里都没有任何 `START`。主页键只能用实体遥控器验证 |
+
+另外，海信在 `boot_completed` 之前会拦截第三方进程（`VtInterceptApp`），第三方 `BootReceiver` 收不到
+`BOOT_COMPLETED`，所以"开机自启 + 自己抢前台"这条路在本机也不成立。
+
+### 不 root 能做的（实用建议）
+
+既然主页键抢不过，就**别跟聚好看抢，保留它当默认桌面**：
+
+1. Aerial 正常安装、正常运行，只是别当默认桌面；
+2. 给用户一个次级入口：桌面第一排放 Aerial 图标，或把遥控器上的自定义键（海信 `rc_*_key_action`
+   一类映射，视固件而定）指向 Aerial；
+3. **绝对不要**为了"抢桌面"去 `pm disable` 聚好看的桌面组件——那会直接卡开机（见下节）；
+4. 精简/去广告这类操作不受影响，可以照常做，本文只是说"默认桌面"这一项在本机无解。
+
+### 开机被搞挂的原理（重要）
+
+正常开机发出的是一条**隐式** HOME 启动：
+
+```
+I ActivityManager: START u0 {act=android.intent.action.MAIN cat=[android.intent.category.HOME]
+  flg=0x10000100 cmp=com.jamdeo.tv.vod/com.ju.main.launcher.LauncherActivity} from uid 0
+```
+
+把聚好看的 `LauncherActivity` 组件禁用后，**这条 START 根本不会发出**。没有应用窗口被绘制 → 开机动画拿不到第一帧
+→ 不退出 → `sys.boot_completed` 一直是空。实测两次开机、每次每 15 秒采样、共 4 分钟，全部为空。
+
+它不是"找不到桌面"，而是"没有任何窗口可画"。反证：启用系统自带的 `com.android.settings/.FallbackHome` 后，
+开机会解析到它（说明走的确实是隐式 HOME intent）：
+
+```
+START u0 {act=MAIN cat=[HOME] cmp=com.android.settings/.FallbackHome} from uid 0
+```
+
+但 `FallbackHome` 没有真桌面接力，会反复 finish/重启，开机照样走不完。
+
+**所以：这台机器上禁用聚好看桌面组件 = 开机卡死**，而且 `adbd` 在 `/system` 里，
+一旦 `/system` 出问题 adb 也起不来。测试时务必先准备一个 root 侧的恢复脚本（重新 `pm enable` + 拉起 HOME intent）。
+
+### root 方案（完整步骤）
+
+#### 1. 拿到 root（本机专属，不可移植）
+
+海信的 `autorun` 服务在 `/init.hisense.rc` 里是 `user root` + `class main` + `oneshot`，
+它执行的 `/system/bin/autorun.sh` 末尾会解包 `/data/local/misc/Arun.zip` 到 `/tmp`、`chmod 777 /tmp/run.sh`
+并执行。`/data/local/misc` 是 `0777 shell:shell`，adb 直接可写：
+
+```console
+adb push hook.tar /data/local/misc/Arun.zip     # 是 tar 不是 zip，里面放 run.sh
+adb shell setprop ctl.start autorun             # 约 15 秒后以 uid 0 执行
+```
+
+#### 2. 桌面装成系统应用
+
+```console
+mount -o remount,rw /                     # root shell 内执行
+mkdir -p /system/priv-app/TvHome
+cp /data/local/tmp/TvHome.apk /system/priv-app/TvHome/com.local.tvhome.apk
+chown -R 0:0 /system/priv-app/TvHome
+chmod 755 /system/priv-app/TvHome
+chmod 644 /system/priv-app/TvHome/com.local.tvhome.apk
+restorecon -R /system/priv-app/TvHome
+sync && mount -o remount,ro /
+```
+
+两个坑：
+
+- **APK 文件名必须等于包名**（`<包名>.apk`），否则整目录被拒：
+  `W PackageManager: Failed to parse /system/priv-app/TvHome: No packages found in split`
+- 目录权限要是 `0755`（root 的 umask 若为 077 会生成 `0700`）
+
+#### 3. HOME filter 给 priority=100
+
+```xml
+<intent-filter android:priority="100">
+    <action android:name="android.intent.action.MAIN" />
+    <category android:name="android.intent.category.HOME" />
+    <category android:name="android.intent.category.DEFAULT" />
+</intent-filter>
+```
+
+成了系统应用之后 priority **不再被钳成 0**：`query-activities` 显示 `priority=100`，`resolve-activity`
+返回它，**实体遥控器按主页键直接进入**（报告人实测，不再闪聚好看）。
+
+确认安装生效：
+
+```console
+adb shell pm path com.local.tvhome
+# package:/system/priv-app/TvHome/com.local.tvhome.apk
+adb shell dumpsys package com.local.tvhome | grep -m1 flags=
+# flags=[ SYSTEM HAS_CODE ALLOW_CLEAR_USER_DATA ]
+```
+
+#### 4. 开机仍会先画聚好看（8–10 秒）
+
+固件在任何第三方组件可启动之前就先起聚好看；实测第三方包在 `boot_completed` 之后约 **8–10 秒**才可启动，
+这之前 `am start` 会报：
+
+```
+Error: Activity class {com.local.tvhome/com.local.tvhome.MainActivity} does not exist.
+```
+
+用一个"只在开机跑 90 秒"的钩子轮询并重试即可，跑完退出、不留常驻进程：
+
+```sh
+VODPKG=com.jamdeo.tv.vod
+TVH=com.local.tvhome/.MainActivity
+pm enable --user 0 com.jamdeo.tv.vod/com.ju.main.launcher.LauncherActivity   # 保证开机画得出界面
+k=0
+while [ $k -lt 90 ]; do
+  k=$((k+1))
+  case "$(dumpsys activity activities 2>/dev/null | grep -m1 mResumedActivity)" in
+    *com.jamdeo.tv.vod*)
+      i=0
+      while [ $i -lt 6 ]; do
+        i=$((i+1)); am start -n "$TVH"; sleep 2
+        case "$(dumpsys activity activities 2>/dev/null | grep -m1 mResumedActivity)" in
+          *tvhome*) break ;;
+        esac
+      done
+      sleep 1; am force-stop "$VODPKG"     # 顺手回收 ~180 MB
+      break ;;
+  esac
+  sleep 1
+done
+```
+
+#### 5. 内存
+
+`am kill` 对聚好看无效（常驻 KeepAliveService 兜住进程）；`am force-stop com.jamdeo.tv.vod` 实测把 PSS
+从 179–217 MB 降到 0，`MemAvailable` 从约 678 MB 回到约 834 MB，且不影响下次开机由系统重新拉起。
+
+### 排障命令
+
+```console
+cmd package query-activities --brief -a MAIN -c HOME     # 谁在候选、什么优先级
+cmd package resolve-activity --brief -a MAIN -c HOME     # 现在会选谁
+logcat -b system -d | grep 'START u0' | grep -i home     # 开机到底起了谁
+getprop sys.boot_completed                                # 启动有没有走完
+ps -A | grep com.jamdeo.tv.vod                            # 聚好看进程还在不在
+dumpsys meminfo com.jamdeo.tv.vod | grep -m1 TOTAL        # 它占多少
+```
+
+### 给后来人的经验清单
+
+1. **别禁用聚好看的桌面组件**——开机动画要等第一帧窗口，禁了就是卡死，不是"换个桌面"。
+2. **`input keyevent 3` 不可信**：本机固件会吞掉注入的主页键，必须用实体遥控器验证。
+3. **`set-home-activity` 会骗你**：返回 `Success`，实际只写 `always="false"`。
+4. **第三方 HOME 的 priority 会被钳成 0**，这是"为什么装了却抢不到"的直接原因。
+5. **系统应用是分水岭**：装进 `/system/priv-app` 且文件名=包名之后，priority 才保得住。
+6. **开机有 8–10 秒的组件不可用窗口**，任何"开机就拉起"的方案都要带重试。
+7. **`adbd` 在 `/system` 里**，动 `/system` 前先备份、先准备好恢复手段。
+8. **留一个看门狗**：180 秒内没等到 `boot_completed` 就自动 `pm enable` 聚好看组件并拉起 HOME，
+   测试期间它救了三次。
+
+### 未验证
+
+- **`persist.vt.use_home_pkg`**：Android 11 / MT9653 的机型（#40）用它就能直接指定主屏幕包，不用 root。
+  本机 Android 9 是否存在这个属性、是否生效**还没测**——这是下一步最值得试的一条：
+  ```console
+  adb shell getprop persist.vt.use_home_pkg
+  adb shell setprop persist.vt.use_home_pkg <你的桌面包名>
+  ```
+  如果有效，可以彻底省掉 root 和那 8–10 秒的开机聚好看。
+- 未评估任何厂商包的精简清单，也不建议照搬其他海信主板的禁用列表。
+- 本文不含序列号、IP、About 页截图。
