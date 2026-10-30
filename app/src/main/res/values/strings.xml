@@ -65,8 +65,9 @@
     <string name="move_hint_touch">Use the arrows or tap a spot to move · Press OK or tap the app when done</string>
 
     <string name="hidden_title">Hidden Apps</string>
-    <string name="hidden_hint">Select an app to put it back on Home</string>
-    <string name="hidden_empty">No hidden apps</string>
+    <string name="hidden_hint">Toggle a switch to hide an app from Home; toggle it back to restore.</string>
+    <string name="hidden_on">Hidden</string>
+    <string name="hidden_off">Shown</string>
 
     <string name="launch_failed">Couldn\'t open %1$s</string>
     <string name="unavailable">Not available on this TV</string>

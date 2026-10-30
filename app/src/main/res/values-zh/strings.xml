@@ -64,8 +64,9 @@
     <string name="move_hint_touch">用方向键移动，或点一下要放的位置 · 按确定键或点这个 App 完成</string>
 
     <string name="hidden_title">隐藏的 App</string>
-    <string name="hidden_hint">选择一个 App 放回主屏幕</string>
-    <string name="hidden_empty">没有隐藏的 App</string>
+    <string name="hidden_hint">打开开关把 App 从主屏幕隐藏，关掉即恢复。</string>
+    <string name="hidden_on">已隐藏</string>
+    <string name="hidden_off">显示中</string>
 
     <string name="launch_failed">无法打开%1$s</string>
     <string name="unavailable">此电视不支持</string>

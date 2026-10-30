@@ -75,6 +75,7 @@ import app.orchard.tv.HomeViewModel
 import app.orchard.tv.Overlay
 import app.orchard.tv.R
 import app.orchard.tv.settings.AerialSettings
+import app.orchard.tv.apps.AppCatalog
 import app.orchard.tv.apps.AppEntry
 import app.orchard.tv.ui.control.ControlCenter
 import app.orchard.tv.ui.wallpaper.SheetCovers
@@ -1027,10 +1028,11 @@ fun HomeScreen(
 
         HiddenAppsSheet(
             visible = overlay is Overlay.HiddenApps,
-            apps = vm.hiddenApps,
-            onUnhide = { key ->
-                vm.unhide(key)
-                if (vm.hiddenApps.isEmpty()) vm.overlay = Overlay.Wallpaper
+apps = AppCatalog.loaded,
+            hiddenKeys = vm.hiddenApps.map { it.key }.toSet(),
+            // The switch is the row: on hides the app, off puts it back.
+            onToggle = { key ->
+                if (vm.hiddenApps.any { it.key == key }) vm.unhide(key) else vm.hide(key)
             },
             // Hidden apps are reached from Personalization, and Back returns there.
             onDismiss = { vm.overlay = Overlay.Wallpaper },

@@ -59,7 +59,6 @@
     <string name="move_hint_touch">Стрілками або дотиком виберіть місце · після завершення натисніть OK або торкніться застосунку</string>
     <string name="hidden_title">Приховані застосунки</string>
     <string name="hidden_hint">Виберіть застосунок, щоб повернути його на головний екран</string>
-    <string name="hidden_empty">Немає прихованих застосунків</string>
     <string name="launch_failed">Не вдалося відкрити %1$s</string>
     <string name="unavailable">Недоступно на цьому телевізорі</string>
     <string name="cc_brightness">Яскравість</string>

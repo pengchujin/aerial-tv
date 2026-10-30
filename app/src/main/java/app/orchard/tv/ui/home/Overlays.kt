@@ -331,17 +331,19 @@ fun MiniTile(app: AppEntry, focused: Boolean, modifier: Modifier = Modifier) {
     }
 }
 
-/** Hidden apps, to put back on Home. Reached from Control Center. */
+/** Every app on the TV, one per row with a switch: on hides it from Home, off puts it back. */
 @Composable
 fun HiddenAppsSheet(
     visible: Boolean,
     apps: List<AppEntry>,
-    onUnhide: (String) -> Unit,
+    hiddenKeys: Set<String>,
+    onToggle: (String) -> Unit,
     onDismiss: () -> Unit,
 ) {
     val first = remember { FocusRequester() }
     BackHandler(enabled = visible, onBack = onDismiss)
-    LaunchedEffect(visible, apps.size) {
+    val ordered = remember(apps) { apps.sortedBy { it.label.lowercase() } }
+    LaunchedEffect(visible, ordered.size) {
         if (visible) {
             withFrameNanos { }
             runCatching { first.requestFocus() }
@@ -349,8 +351,8 @@ fun HiddenAppsSheet(
     }
     AnimatedVisibility(
         visible = visible,
-        enter = fadeIn(tween(200, easing = Motion.EaseOut)) + scaleIn(tween(300, easing = Motion.Drawer), initialScale = 0.94f),
-        exit = fadeOut(tween(150, easing = Motion.EaseOut)) + scaleOut(tween(150, easing = Motion.EaseOut), targetScale = 0.97f),
+        enter = fadeIn(tween(200)) + scaleIn(tween(300, easing = Motion.Drawer), initialScale = 0.94f),
+        exit = fadeOut(tween(150)) + scaleOut(tween(150, easing = Motion.EaseOut), targetScale = 0.97f),
         modifier = Modifier.fillMaxSize(),
     ) {
         Box(Modifier.fillMaxSize().dismissOnTap(onDismiss).background(Color.Black.copy(alpha = 0.35f)), contentAlignment = Alignment.Center) {
@@ -358,46 +360,73 @@ fun HiddenAppsSheet(
                 Modifier
                     .width(660.dp)
                     .consumeTaps()
-                    // The canvas is 540 dp tall: past three rows the grid scrolls inside the sheet.
-                    .heightIn(max = 480.dp)
+                    // Past a screenful the list scrolls inside the sheet.
+                    .heightIn(max = 560.dp)
                     .liquidGlass(28.dp)
                     .padding(28.dp),
             ) {
                 BasicText(stringResource(R.string.hidden_title), style = Type.LargeTitle)
                 BasicText(
-                    stringResource(if (apps.isEmpty()) R.string.hidden_empty else R.string.hidden_hint),
-                    style = Type.Callout, modifier = Modifier.padding(top = 4.dp, bottom = 20.dp),
+                    stringResource(R.string.hidden_hint),
+                    style = Type.Callout, modifier = Modifier.padding(top = 4.dp, bottom = 16.dp),
                 )
                 // Focus moving to a row out of view scrolls it in (Compose brings focused items into view).
                 Column(
                     Modifier
                         .weight(1f, fill = false)
                         .verticalScroll(rememberScrollState())
-                        // Room for the focused tile's 1.1x scale, so the edge rows are not clipped.
-                        .padding(horizontal = 8.dp, vertical = 8.dp),
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(Color.White.copy(alpha = 0.05f)),
                 ) {
-                apps.chunked(4).forEachIndexed { r, row ->
-                    Row(horizontalArrangement = Arrangement.spacedBy(20.dp), modifier = Modifier.padding(bottom = 18.dp)) {
-                        row.forEachIndexed { c, app ->
-                            Pressable(
-                                onClick = { onUnhide(app.key) },
-                                focusRequester = if (r == 0 && c == 0) first else null,
-                                focusedScale = 1.1f,
-                            ) { state ->
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    MiniTile(app, state.focused, Modifier.size(132.dp, 74.dp))
-                                    Spacer(Modifier.height(8.dp))
-                                    BasicText(
-                                        app.label, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                                        style = Type.Caption.copy(color = if (state.focused) Palette.Label else Palette.SecondaryLabel),
-                                        modifier = Modifier.width(132.dp),
-                                    )
-                                }
-                            }
-                        }
+                    ordered.forEachIndexed { i, app ->
+                        if (i > 0) Box(Modifier.padding(start = 16.dp).fillMaxWidth().height(1.dp).background(Palette.Hairline))
+                        HideRow(app, hiddenKeys.contains(app.key), first = i == 0, onToggle = { onToggle(app.key) })
                     }
                 }
-                }
+                Spacer(Modifier.height(16.dp))
+            }
+        }
+    }
+}
+
+/** One app with its hide switch: the switch reads the row's state, so OK alone works. */
+@Composable
+private fun HideRow(app: AppEntry, hidden: Boolean, first: Boolean, onToggle: () -> Unit) {
+    val rowFocus = if (first) remember { FocusRequester() } else null
+    Pressable(onClick = onToggle, focusRequester = rowFocus, focusedScale = 1f) { state ->
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .height(64.dp)
+                .padding(start = 16.dp, end = 14.dp)
+                .background(if (state.focused) Color.White.copy(alpha = 0.08f) else Color.Transparent),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            MiniTile(app, state.focused, Modifier.size(92.dp, 52.dp))
+            BasicText(
+                app.label, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                style = Type.Body.copy(color = if (state.focused) Palette.Label else Palette.SecondaryLabel),
+                modifier = Modifier.weight(1f),
+            )
+            Row(
+                Modifier
+                    .clip(RoundedCornerShape(50))
+                    .background(when {
+                        state.focused -> Palette.Focus
+                        hidden -> Palette.FillStrong
+                        else -> Palette.Fill
+                    })
+                    .height(36.dp)
+                    .padding(horizontal = 16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                if (hidden) GlyphIcon(Glyph.Check, if (state.focused) Palette.OnFocus else Palette.Label, 13.dp)
+                BasicText(
+                    stringResource(if (hidden) R.string.hidden_on else R.string.hidden_off),
+                    style = Type.Caption.copy(color = if (state.focused) Palette.OnFocus else Palette.Label),
+                )
             }
         }
     }

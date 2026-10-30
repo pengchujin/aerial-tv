@@ -59,7 +59,6 @@
     <string name="move_hint_touch">Орынды таңдау үшін көрсеткілерді пайдаланыңыз немесе түртіңіз · аяқталғанда OK басыңыз немесе қолданбаны түртіңіз</string>
     <string name="hidden_title">Жасырын қолданбалар</string>
     <string name="hidden_hint">Қолданбаны басты экранға қайтару үшін таңдаңыз</string>
-    <string name="hidden_empty">Жасырын қолданбалар жоқ</string>
     <string name="launch_failed">%1$s ашылмады</string>
     <string name="unavailable">Бұл теледидарда қолжетімсіз</string>
     <string name="cc_brightness">Жарықтық</string>

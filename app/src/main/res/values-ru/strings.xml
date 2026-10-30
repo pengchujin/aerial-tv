@@ -59,7 +59,6 @@
     <string name="move_hint_touch">Стрелками или касанием выберите место · по завершении нажмите OK или коснитесь приложения</string>
     <string name="hidden_title">Скрытые приложения</string>
     <string name="hidden_hint">Выберите приложение, чтобы вернуть его на главный экран</string>
-    <string name="hidden_empty">Нет скрытых приложений</string>
     <string name="launch_failed">Не удалось открыть %1$s</string>
     <string name="unavailable">Недоступно на этом телевизоре</string>
     <string name="cc_brightness">Яркость</string>
