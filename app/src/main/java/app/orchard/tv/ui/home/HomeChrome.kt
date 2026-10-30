@@ -172,14 +172,15 @@ fun timeText(now: LocalDateTime): String {
     return now.format(DateTimeFormatter.ofPattern(pattern))
 }
 
+/** The date as the locale writes it from [skeleton]: in full by default, "MMMdEEE" for the short one. */
 @Composable
-fun dateText(now: LocalDateTime): String {
+fun dateText(now: LocalDateTime, skeleton: String = "MMMMdEEEE"): String {
     val locale = Locale.getDefault()
     // zh's best pattern runs the weekday into the date ("M月d日EEEE"); a space keeps them apart.
-    val pattern = remember(locale) {
-        DateFormat.getBestDateTimePattern(locale, "MMMMdEEEE")
-            .replace(Regex("(?<=[^\\s,，'])EEEE"), " EEEE")
-            .replace(Regex("EEEE(?=[^\\s,，'])"), "EEEE ")
+    val pattern = remember(locale, skeleton) {
+        DateFormat.getBestDateTimePattern(locale, skeleton)
+            .replace(Regex("(?<=[^\\s,，'E])(E+)"), " $1")
+            .replace(Regex("(E+)(?=[^\\s,，'E])"), "$1 ")
     }
     // Android's SimpleDateFormat (ICU), not java.time: through desugaring, java.time gave the month
     // its stand-alone form, "23 октябрь" in Russian where a date needs "23 октября".
@@ -749,24 +750,30 @@ private fun conditionName(kind: WeatherKind): Int = when (kind) {
 }
 
 /**
- * The small clock: the time and the weather in one quiet line in the top left, level with the status
- * pill, so the wallpaper keeps the rest of the screen. A soft shadow keeps it readable on photos.
+ * The small clock: the date, the time and the weather in one quiet line in the top left, level with
+ * the status pill, so the wallpaper keeps the rest of the screen. A soft shadow keeps it readable on
+ * photos. The date is the short one ("10月21日 周三"): without the large clock, one row of apps
+ * showed no date at all (issue #104).
  */
 @Composable
 fun CornerClock(now: LocalDateTime, modifier: Modifier = Modifier, toSaver: () -> Float = { 0f }, saving: Boolean = false) {
     val drift = heldDrift(saving, now)
     val dim = Color.White.copy(alpha = 0.92f)
     val shadow = Shadow(Color.Black.copy(alpha = 0.5f), blurRadius = 8f)
+    // The date and weather go as the time moves to the screensaver's place.
+    val aside = Modifier.graphicsLayer {
+        alpha = 1f - (toSaver() * 2.5f).coerceIn(0f, 1f)
+        compositingStrategy = CompositingStrategy.ModulateAlpha
+    }
     Row(modifier.height(34.dp), verticalAlignment = Alignment.CenterVertically) {
+        BasicText(dateText(now, "MMMdEEE"), style = Type.Headline.copy(color = dim, shadow = shadow), modifier = aside)
+        // Spaced by padding, not spaces: a space after Chinese is narrow and put the dot against "周一".
+        BasicText("·", style = Type.Headline.copy(color = dim, shadow = shadow), modifier = aside.padding(horizontal = 8.dp))
         BasicText(
             timeText(now), style = Type.SmallClock.copy(fontSize = Type.Title.fontSize, color = dim, shadow = shadow),
             modifier = Modifier.toSaverClock(toSaver, Type.Title.fontSize, Type.Title.fontSize.value.dp * CAP_TOP, drift),
         )
         Weather.now?.takeIf { AerialSettings.showWeather }?.let { w ->
-            val aside = Modifier.graphicsLayer {
-                alpha = 1f - (toSaver() * 2.5f).coerceIn(0f, 1f)
-                compositingStrategy = CompositingStrategy.ModulateAlpha
-            }
             GlyphIcon(glyphFor(w), dim, 18.dp, aside.padding(start = 16.dp, end = 6.dp))
             val place = Weather.place?.takeIf { it.length <= 12 }
             BasicText(listOfNotNull(place, "${w.celsius}°").joinToString(" "), style = Type.Headline.copy(color = dim, shadow = shadow), modifier = aside)
