@@ -1356,6 +1356,10 @@ function renderScreensaver() {
   if (!videos.length) { const row = el('div', 'item'); row.appendChild(el('span', 'txt', t('videos_empty'))).style.color = 'var(--secondary)'; list.appendChild(row); }
   for (const video of videos) {
     const row = el('div', 'item');
+    // The film's own frame: a name alone says nothing once the films come from many places.
+    const poster = el('img', 'ithumb'); poster.alt = ''; poster.loading = 'lazy';
+    poster.src = `${base}thumb/video/${encodeURIComponent(video.id)}`;
+    row.appendChild(poster);
     row.appendChild(el('span', 'txt', video.name));
     const del = el('button', 'link', t('aria_delete')); del.style.color = 'var(--danger)';
     del.onclick = async () => {

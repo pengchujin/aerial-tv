@@ -59,6 +59,8 @@ class PhoneServer private constructor(private val context: Context, private val 
                 path == "/" -> newFixedLengthResponse(Response.Status.OK, "text/html; charset=utf-8", page())
                 path == "/api/state" -> json(state())
                 path == "/api/diagnostics" -> text(Response.Status.OK, Diagnostics.report(context))
+                // Before /thumb/: a film's poster must not be taken for a photo's id.
+                path.startsWith("/thumb/video/") -> videoThumb(path.removePrefix("/thumb/video/"))
                 path.startsWith("/thumb/") -> thumb(path.removePrefix("/thumb/"))
                 session.method == Method.POST && path == "/api/wallpaper" -> {
                     val id = form(session)["id"].orEmpty()
@@ -356,6 +358,17 @@ class PhoneServer private constructor(private val context: Context, private val 
 
     private fun thumb(id: String): Response {
         val bmp = Wallpapers.thumbnail(java.net.URLDecoder.decode(id, "UTF-8")) ?: return text(Response.Status.NOT_FOUND, "")
+        return jpeg(bmp)
+    }
+
+    /** A frame from one of the owner's films, so the list of them shows which film is which. */
+    private fun videoThumb(id: String): Response {
+        val bmp = ScreensaverVideos.thumbnail(context, java.net.URLDecoder.decode(id, "UTF-8"))
+            ?: return text(Response.Status.NOT_FOUND, "")
+        return jpeg(bmp)
+    }
+
+    private fun jpeg(bmp: Bitmap): Response {
         val out = ByteArrayOutputStream()
         bmp.compress(Bitmap.CompressFormat.JPEG, 82, out)
         val bytes = out.toByteArray()
