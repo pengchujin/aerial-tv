@@ -32,6 +32,48 @@ import app.orchard.tv.system.SystemScreensaver
 object GuardSetup {
     private const val TAG = "AerialGuard"
 
+    /** When rebindIfStalled last took the guard out; see REBIND_SPACING_MS. */
+    @Volatile
+    private var rebindAskedAt = Long.MIN_VALUE / 2
+
+    /** The least time between two rebinds: the put-back comes 1.5 s in, binding after that. */
+    private const val REBIND_SPACING_MS = 15_000L
+
+    /** How long Android 9/10 is given to bind the guard after a put-back before it counts as unanswered. */
+    private const val PUT_BACK_BIND_MS = 25_000L
+
+    /** The put-back, after the take-out; see rebindIfStalled. */
+    private const val PUT_BACK_DELAY_MS = 1_500L
+
+    /** Put-backs Android 9/10 did not answer with a binding; see [bindingWedged]. */
+    private val unansweredRebinds = UnansweredRebinds(limit = 2)
+
+    /**
+     * Android 9 and 10 keep a binding cut short by a force-stop until the TV restarts: the guard is
+     * enabled in settings, Aerial runs, and Android never binds it again, whatever is written to
+     * the list. Seen on Xiaomi MiTV-AZFP0 (Android 9): `am force-stop` 0.2 s after the notification
+     * listener's revival had put the guard back left `dumpsys activity services` with a DEAD
+     * connection to HomeGuardService for good. Read the AOSP pie source: bindLocked adds the
+     * service to UserState.mBindingServices, only onServiceConnected (or a user switch) takes it
+     * out, there is no onBindingDied there, and updateServicesLocked skips every service in that
+     * set, both for binding and for unbinding; Android 10 has no onBindingDied either. Past
+     * Android 10 rebindIfStalled works as before.
+     *
+     * Detected, for this process, after put-backs that went unanswered: rebindIfStalled then
+     * stops taking the guard out, which cannot help and makes Android bind and unbind the other
+     * services in the list (Xiaoai's) each time. Only a restart of the TV brings the guard back.
+     * Diagnostics shows it.
+     */
+    val bindingWedged: Boolean get() = unansweredRebinds.wedged && !HomeGuardService.isRunning
+
+    /** Tests: Robolectric keeps this object across tests of one class, but restarts the clock. */
+    @androidx.annotation.VisibleForTesting
+    @Synchronized
+    internal fun resetRebindsForTest() {
+        rebindAskedAt = Long.MIN_VALUE / 2
+        unansweredRebinds.bound()
+    }
+
     /** elapsedRealtime of the last time the guard had to be switched back on. */
     @Volatile
     var lastRevivedAt = Long.MIN_VALUE / 2
@@ -329,18 +371,37 @@ object GuardSetup {
      * setting but never binds the new version. Writing the list without Aerial and then with it
      * makes Android bind it again.
      */
+    @Synchronized
     fun rebindIfStalled(context: Context) {
-        if (HomeGuardService.isRunning) return
+        if (HomeGuardService.isRunning) { unansweredRebinds.bound(); return }
         rescanIfMissing(context)
         if (standingOut(context)) { watchScreenOn(context); return }
+        // See bindingWedged: nothing written to the list binds it again before a restart.
+        if (unansweredRebinds.wedged) return
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_SECURE_SETTINGS) != PackageManager.PERMISSION_GRANTED) return
+        // MainActivity, the notification listener and the sync adapter all ask, seconds apart. Each
+        // ask takes the guard out again, which can cut short a binding still under way on a slow box
+        // (MiTV-AZFP0, Android 9: enabled, never bound). Give each put-back time to bind. Up to
+        // Android 10, until the bind check below has looked, so each put-back is counted.
+        val spacing = if (UnansweredRebinds.canWedge(Build.VERSION.SDK_INT)) {
+            maxOf(REBIND_SPACING_MS, PUT_BACK_DELAY_MS + PUT_BACK_BIND_MS + 1_000)
+        } else REBIND_SPACING_MS
+        val sinceLast = SystemClock.elapsedRealtime() - rebindAskedAt
+        if (sinceLast in 0 until spacing) {
+            DiagLog.i("guard: rebind skipped, the last one was ${sinceLast} ms ago")
+            return
+        }
         val me = ComponentName(context, HomeGuardService::class.java).flattenToString()
         val resolver = context.contentResolver
         val entries = Settings.Secure.getString(resolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES).orEmpty()
             .split(':').filter { it.isNotBlank() }
         val others = entries.filter { ComponentName.unflattenFromString(it)?.flattenToString() != me }
         if (others.size == entries.size) return // not enabled at all; ensureEnabled handles that
+        // Bound while the list was read: nothing to take out.
+        if (HomeGuardService.isRunning) { unansweredRebinds.bound(); return }
         runCatching {
+            rebindAskedAt = SystemClock.elapsedRealtime()
+            DiagLog.i("guard: enabled but not bound; taking it out and putting it back")
             // A guard that had to be bound again counts as revived: whatever is in front came up
             // while it was not watching (MiTV-MFTR0, Android 11: woken from standby after Aerial's
             // screensaver, PatchWall stayed in front once the guard was back, issue #47).
@@ -348,15 +409,45 @@ object GuardSetup {
             Settings.Secure.putString(resolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES, others.joinToString(":"))
             // Two writes in a row are coalesced and Android sees no change; give it a moment between.
             // Read the list again then, so a service another app added meanwhile is kept (#57).
+            val app = context.applicationContext
             Handler(Looper.getMainLooper()).postDelayed({
                 runCatching {
-                    val now = Settings.Secure.getString(resolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES).orEmpty()
-                        .split(':').filter { it.isNotBlank() && ComponentName.unflattenFromString(it)?.flattenToString() != me }
-                    Settings.Secure.putString(resolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES, (now + me).joinToString(":"))
+                    // Already back (ensureEnabled put it there meanwhile): nothing to write.
+                    if (!enabledInSettings(app)) {
+                        val now = Settings.Secure.getString(resolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES).orEmpty()
+                            .split(':').filter { it.isNotBlank() && ComponentName.unflattenFromString(it)?.flattenToString() != me }
+                        Settings.Secure.putString(resolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES, (now + me).joinToString(":"))
+                    }
                 }
-            }, 1500)
+                if (UnansweredRebinds.canWedge(Build.VERSION.SDK_INT)) {
+                    Handler(Looper.getMainLooper()).postDelayed({ checkPutBackBound(app) }, PUT_BACK_BIND_MS)
+                }
+            }, PUT_BACK_DELAY_MS)
             Log.i(TAG, "Home Guard was enabled but not running; asked Android to bind it again")
         }
+    }
+
+    /** Up to Android 10, after a put-back: counts it when Android has not bound the guard; see [bindingWedged]. */
+    @Synchronized
+    private fun checkPutBackBound(context: Context) {
+        if (HomeGuardService.isRunning) { unansweredRebinds.bound(); return }
+        // Out of the list again since (standby, the owner): Android was not asked to bind it.
+        if (!enabledInSettings(context) || standingOut(context)) return
+        if (!unansweredRebinds.unanswered()) {
+            DiagLog.i("guard: still not bound ${PUT_BACK_BIND_MS / 1000} s after a put-back")
+            return
+        }
+        val message = "Home Guard stays enabled but unbound after ${unansweredRebinds.limit} put-backs: " +
+            "Android ${Build.VERSION.RELEASE} keeps a binding cut short by a force-stop until the TV restarts; " +
+            "no longer taking it out of the list in this process. Restart the TV once."
+        Log.i(TAG, message)
+        DiagLog.i("guard: $message")
+    }
+
+    private fun enabledInSettings(context: Context): Boolean {
+        val me = ComponentName(context, HomeGuardService::class.java)
+        return Settings.Secure.getString(context.contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES).orEmpty()
+            .split(':').any { ComponentName.unflattenFromString(it) == me }
     }
 
     /**
@@ -518,5 +609,38 @@ object GuardSetup {
             Settings.Secure.putInt(resolver, Settings.Secure.ACCESSIBILITY_ENABLED, 1)
             !alreadyOn
         }.onFailure { Log.w(TAG, "could not re-enable Home Guard", it) }.getOrDefault(false)
+    }
+}
+
+/**
+ * Counts put-backs Android did not answer with a binding, for [GuardSetup.bindingWedged]. A binding
+ * resets it; [limit] unanswered ones in a row mark the binding as wedged for the process. Callers
+ * hold GuardSetup's lock.
+ */
+internal class UnansweredRebinds(val limit: Int) {
+    var count = 0
+        private set
+
+    @Volatile
+    var wedged = false
+        private set
+
+    fun bound() {
+        count = 0
+        wedged = false
+    }
+
+    /** Returns true only for the put-back that marks the binding as wedged. */
+    fun unanswered(): Boolean {
+        if (wedged) return false
+        count++
+        if (count < limit) return false
+        wedged = true
+        return true
+    }
+
+    companion object {
+        /** Up to Android 10 (Q); later versions keep the old rebinds. See GuardSetup.bindingWedged. */
+        fun canWedge(sdk: Int): Boolean = sdk <= 29
     }
 }
