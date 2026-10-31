@@ -803,8 +803,14 @@ class MainActivity : ComponentActivity() {
             // A request leaves VPNs out unless told otherwise; the status pill shows one coming up (issue #809).
             else cm.registerNetworkCallback(NetworkRequest.Builder().removeCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN).build(), networkCallback)
         }
-        // Apps can change while Aerial is in the background without it hearing about it.
-        vm.reload()
+        // Apps can change while Aerial is in the background without it hearing about it: the
+        // package receiver above is unregistered in onStop, so nothing arrives then.
+        // reloadIfPackagesChanged (above) already reloads when PackageManager's change counter has
+        // moved (Android 8+), and reloads unconditionally on older Android, where there is none.
+        // Reloading here as well threw that check away: every return to Home rebuilt all the tiles
+        // for nothing (measured 100-380 ms, main thread held 204 ms at times), and on a cold start
+        // it cancelled the load init() had begun and ran it again. On this TCL the guard brings
+        // Aerial back several times a minute, so each bounce cost a full rebuild.
         Wallpapers.refreshDailyIfStale()
         Wallpapers.rotateIfDue()
         Weather.refreshIfStale()
