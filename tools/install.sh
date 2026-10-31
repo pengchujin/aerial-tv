@@ -273,7 +273,9 @@ APK=$(build "$FLAVOR")
 echo "Installing $APK"
 # Some firmwares exit 0 on a failed install (TCL p331, Android 5.1: "Failure [INSTALL_PARSE_FAILED_
 # INCONSISTENT_CERTIFICATES]" with exit 0, issue #1017), so only "Success" counts.
-OUT=$(adb install -r "$APK" 2>&1); RC=$?
+# Catch a nonzero exit here so errexit does not skip the fallback and error explanations below.
+RC=0
+OUT=$(adb install -r "$APK" 2>&1) || RC=$?
 if [ "$RC" -ne 0 ] || ! printf '%s\n' "$OUT" | grep -q Success; then
   echo "$OUT" >&2
   case "$OUT" in
@@ -413,3 +415,4 @@ echo "Home Guard is enabled but Android has not started it." >&2
 echo "Some TCL / Hisense firmwares block sideloaded accessibility services: allow Aerial under the" >&2
 echo "TV's security app (自启动 / 无障碍 / 权限管理), then run this script again." >&2
 exit 1
+
