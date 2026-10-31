@@ -93,9 +93,6 @@ import app.orchard.tv.ui.components.consumeTaps
 import app.orchard.tv.ui.components.dismissOnTap
 import app.orchard.tv.ui.components.liquidGlass
 import app.orchard.tv.ui.home.MenuRow
-import app.orchard.tv.ui.home.VpnBadge
-import app.orchard.tv.ui.home.dateText
-import app.orchard.tv.ui.home.timeText
 import app.orchard.tv.ui.theme.Glyph
 import app.orchard.tv.ui.theme.GlyphIcon
 import app.orchard.tv.ui.theme.Motion
@@ -104,7 +101,6 @@ import app.orchard.tv.ui.theme.Type
 import app.orchard.tv.update.SelfCompile
 import app.orchard.tv.update.Updates
 import app.orchard.tv.wallpaper.PhoneServer
-import java.time.LocalDateTime
 
 /**
  * tvOS Control Center: a glass panel that drops in from the top-right corner over a blurred Home.
@@ -115,7 +111,6 @@ fun ControlCenter(
     visible: Boolean,
     page: CcPage,
     vm: HomeViewModel,
-    now: LocalDateTime,
     onOpen: (android.content.Intent) -> Unit,
     onClose: () -> Unit,
     /** Draw the closed panel once, nearly transparent, so that its first opening is not its first draw (HomeScreen). */
@@ -154,7 +149,7 @@ fun ControlCenter(
         // at 1% while Home is idle, without focus, the first opening is like the second.
         if (warm && !visible) {
             Column(Modifier.graphicsLayer { alpha = 0.01f }.width(300.dp).liquidGlass(24.dp).padding(16.dp)) {
-                MainPage(vm, now, false, onOpen)
+                MainPage(vm, false, onOpen)
             }
         }
         AnimatedVisibility(
@@ -185,7 +180,7 @@ fun ControlCenter(
                     // Closing sets the page back to Main while the panel fades out; that page must
                     // not take focus from the tile Home has just put it back on.
                     when (p) {
-                        CcPage.Main -> MainPage(vm, now, visible, onOpen)
+                        CcPage.Main -> MainPage(vm, visible, onOpen)
                         CcPage.Inputs -> InputsPage(vm, visible, onOpen)
                         CcPage.InputSettings -> InputSettingsPage(vm, visible)
                         CcPage.Update -> UpdatePage(vm, visible)
@@ -198,7 +193,7 @@ fun ControlCenter(
 }
 
 @Composable
-private fun MainPage(vm: HomeViewModel, now: LocalDateTime, takeFocus: Boolean, onOpen: (android.content.Intent) -> Unit) {
+private fun MainPage(vm: HomeViewModel, takeFocus: Boolean, onOpen: (android.content.Intent) -> Unit) {
     val context = LocalContext.current
     val first = remember { FocusRequester() }
     val networkFocus = remember { FocusRequester() }
@@ -222,31 +217,6 @@ private fun MainPage(vm: HomeViewModel, now: LocalDateTime, takeFocus: Boolean, 
     }
 
     Column {
-        Row(verticalAlignment = Alignment.Bottom) {
-            Column(Modifier.weight(1f)) {
-                BasicText(timeText(now), style = Type.SmallClock.copy(fontSize = Type.LargeTitle.fontSize * 1.05f))
-                BasicText(dateText(now), style = Type.Callout)
-            }
-            val net = vm.network
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                GlyphIcon(
-                    when (net.kind) { NetKind.Wifi -> Glyph.Wifi; NetKind.Ethernet -> Glyph.Ethernet; NetKind.Offline -> Glyph.Offline },
-                    Palette.SecondaryLabel, 14.dp, level = net.level,
-                )
-                BasicText(
-                    when (net.kind) {
-                        NetKind.Wifi -> net.name ?: stringResource(R.string.net_wifi)
-                        NetKind.Ethernet -> stringResource(R.string.net_ethernet)
-                        NetKind.Offline -> stringResource(R.string.net_offline)
-                    },
-                    style = Type.Caption, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.widthIn(max = 110.dp),
-                )
-                if (net.vpn) VpnBadge(Palette.SecondaryLabel, fontSize = 9.sp)
-            }
-        }
-
-        Spacer(Modifier.height(12.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             RoundButton(
                 Glyph.Input, stringResource(R.string.cc_inputs),
@@ -260,6 +230,7 @@ private fun MainPage(vm: HomeViewModel, now: LocalDateTime, takeFocus: Boolean, 
             RoundButton(
                 when (vm.network.kind) { NetKind.Ethernet -> Glyph.Ethernet; NetKind.Offline -> Glyph.Offline; else -> Glyph.Wifi },
                 stringResource(R.string.cc_network),
+                level = vm.network.level,
                 focusRequester = networkFocus,
                 modifier = Modifier.onFocusChanged { if (it.isFocused) cameFrom = networkFocus },
             ) {
@@ -462,13 +433,14 @@ private fun RoundButton(
     label: String,
     focusRequester: FocusRequester? = null,
     modifier: Modifier = Modifier,
+    level: Float = 1f,
     onClick: () -> Unit,
 ) {
     Pressable(onClick = onClick, modifier = modifier, focusRequester = focusRequester, focusedScale = 1.1f) { state ->
         val bg by animateColorAsState(if (state.focused) Palette.Focus else Palette.Fill, tween(140, easing = Motion.EaseOut), label = "round-bg")
         Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(64.dp)) {
             Box(Modifier.size(48.dp).clip(CircleShape).background(bg), contentAlignment = Alignment.Center) {
-                GlyphIcon(glyph, if (state.focused) Palette.OnFocus else Palette.Label, 20.dp)
+                GlyphIcon(glyph, if (state.focused) Palette.OnFocus else Palette.Label, 20.dp, level = level)
             }
             Spacer(Modifier.height(6.dp))
             BasicText(

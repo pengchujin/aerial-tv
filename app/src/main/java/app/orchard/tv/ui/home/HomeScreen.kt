@@ -948,7 +948,6 @@ fun HomeScreen(
             visible = overlay is Overlay.ControlCenter,
             page = (overlay as? Overlay.ControlCenter)?.page ?: CcPage.Main,
             vm = vm,
-            now = now,
             onOpen = { vm.overlay = Overlay.None; onOpen(it) },
             onClose = { vm.overlay = Overlay.None },
             warm = ccWarm,

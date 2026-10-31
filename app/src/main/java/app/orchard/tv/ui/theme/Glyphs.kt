@@ -38,14 +38,30 @@ enum class Glyph { Folder, Pencil, Wifi, Ethernet, Offline, Gear, Input, Speaker
 @Composable
 fun GlyphIcon(glyph: Glyph, color: Color, size: Dp, modifier: Modifier = Modifier, level: Float = 1f) {
     val data = glyphPath(glyph, level)
+    val backdrop = wifiBackdrop(glyph, level)
     Box(modifier.size(size).drawWithCache {
         val w = this.size.width.roundToInt().coerceAtLeast(1)
         val h = this.size.height.roundToInt().coerceAtLeast(1)
-        val key = Triple(data, w, h)
-        val image = glyphImages.get(key) ?: glyphImage(data, w, h).also { glyphImages.put(key, it) }
-        onDrawBehind { drawImage(image, colorFilter = ColorFilter.tint(color)) }
+        val image = cachedGlyphImage(data, w, h)
+        val dimmed = backdrop?.let { cachedGlyphImage(it, w, h) }
+        onDrawBehind {
+            dimmed?.let { drawImage(it, colorFilter = ColorFilter.tint(color.copy(alpha = color.alpha * BACKDROP_ALPHA))) }
+            drawImage(image, colorFilter = ColorFilter.tint(color))
+        }
     })
 }
+
+private fun cachedGlyphImage(data: String?, w: Int, h: Int): ImageBitmap {
+    val key = Triple(data, w, h)
+    return glyphImages.get(key) ?: glyphImage(data, w, h).also { glyphImages.put(key, it) }
+}
+
+/** How much of its color the bars a weak signal does not reach keep, as on the system's own Wi-Fi icon. */
+private const val BACKDROP_ALPHA = 0.3f
+
+/** The full set of Wi-Fi bars, drawn dimmed behind a weaker signal's lit ones; null where nothing sits behind. */
+internal fun wifiBackdrop(glyph: Glyph, level: Float): String? =
+    if (glyph == Glyph.Wifi && glyphPath(glyph, level) != GlyphPaths.WIFI) GlyphPaths.WIFI else null
 
 /** [level] picks the variant of Wi-Fi (signal) and Speaker (volume): 0 to 1. */
 fun DrawScope.drawGlyph(glyph: Glyph, color: Color, level: Float = 1f) = drawGlyph(glyphPath(glyph, level), color)
