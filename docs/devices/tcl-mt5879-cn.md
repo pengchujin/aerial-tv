@@ -4,8 +4,8 @@
 - 1920×1080，**240dpi**（1280×720dp）。Aerial 的画布缩放会让它和小米显示得一模一样。
 - 显示模式：1080p 下 50 / 60 / 100 / 120Hz，平时是 60Hz。Android 11 说不出哪些切换不黑屏，所以 Aerial 不切。1.15 导航帧耗时中位数 8ms、90 分位 10ms（2026-10-21）。
 - 240dpi 下 `loadIcon` 给的是 72px 的图标，所以磁贴图要取 App 自带的最高密度。
-- 原桌面：`com.tcl.cyberui/.MainActivity`（唯一的 HOME 候选）。
-- 安装的 flavor：`guard`。
+- 原桌面：`com.tcl.cyberui/.MainActivity`（下述 guard 配置中唯一的 HOME 候选）。
+- 原有实测配置的 flavor：`guard`。另有同型号、固件 `2026012200` 的 standard 默认 HOME 实测，见下文；不要把两台的配置混用。
 
 ## 安装限制：系统校验链
 
@@ -64,7 +64,7 @@ TCL 手机 App 有一个「把手机里的 APK 推到电视」的功能。电视
 - 冷启动后，第三方 App 的服务绑定、广播接收和进程启动，都要经过 `TclAppBootManagerImpl`（在 `/apex/com.tcl.tcore/javalib/tcl-service.jar` 里，由 `ActiveServices` 调用 `getTclAppBootManagerInjector().canBindServiceGo`）。默认会拒绝，日志里是 `ActivityManager: forbid bind service app.orchard.tv/...HomeGuardService`，所以开机后停在 TCL 桌面。
 - 放行条件是两个 TCL 自定义的 AppOps：`APP_AUTO_START`（op 100，系统拉起）和 `APP_ASSOC_START`（op 101，其他 App 关联拉起）。默认分别是 `ignore` 和 `default`。`install.sh` 用 `appops set app.orchard.tv APP_AUTO_START allow`（以及 `APP_ASSOC_START`）放行，`restore.sh` 会改回 `default`。
 - 2026-10-20 实测：放行后 `adb reboot`，开机约 0.5 秒通知监听就被绑定，Aerial 被拉起，守护服务接管桌面。
-- 试过但没用的办法：`settings put system boot_app_mode boot_launcher` 加上 `boot_app_componentname app.orchard.tv/.MainActivity`（TCL「开机进入」的设置，由 `com.tcl.ttvs` 的 MMMService 管理），重启后还是进 TCL 桌面，已改回空值。
+- 在上述 guard 配置中试过但没用的办法：`settings put system boot_app_mode boot_launcher` 加上 `boot_app_componentname app.orchard.tv/.MainActivity`（TCL「开机进入」的设置，由 `com.tcl.ttvs` 的 MMMService 管理），重启后还是进 TCL 桌面，已改回空值。
 - TCL 开机时有可能把 `screensaver_components` 写回「艺术画报」（实测出现过一次）。所以 `install.sh` 接管屏保时，会通过 ConfigReceiver 发送 `own_screensaver=true`，之后 Aerial 每次启动都会检查，被改回去就再改成 Aerial（`GuardSetup.keepScreensaver`）。
 
 ## HOME 与守护
@@ -74,6 +74,85 @@ TCL 手机 App 有一个「把手机里的 APK 推到电视」的功能。电视
 - **升级 App 后，守护服务处于「已启用但没绑定」状态**。`GuardSetup.rebindIfStalled` 会先移除、1.5 秒后再加回，触发重新绑定（两次写入挨得太近会被系统合并，不起作用）。
 - TCL 自己有两个无障碍服务（`com.tcl.walleve`，「小T助手」），改 `enabled_accessibility_services` 时一定要保留。
 - 待机时网络 ADB 会断，但 adbd 不会被关；唤醒后能直接重连。
+
+## 另一台同型号：standard 默认 HOME（固件 2026012200）
+
+这份补充记录来自另一台 Android 报告型号为 `tcl_mt5879_cn` 的电视，Android 11 / SDK 30，
+build `RQ3A.210705.001`、incremental `2026012200`，MT5879 / 32 位 ARM / 约 4 GB 内存。
+商品型号没有确认，不把平台名当作零售型号。这台已安装官方 `standard`，
+`app.orchard.tv/.MainActivity` 是真实默认 HOME；上文的 guard 方案仍适用于无法注册 HOME 的配置。
+
+### 默认 HOME 与开机目标要一致
+
+这台原来的 Android HOME 已是 Aerial，但 `Settings.System` 里仍保存：
+
+```text
+boot_app_mode=boot_launcher
+boot_app_componentname=com.tcl.cyberui/.MainActivity
+```
+
+本机日志和 `TclBootAppPolicy` 显示，TCL 开机策略会另外打开保存的组件；组件与默认 HOME
+一致时不再覆盖，由 Android 启动默认 HOME。这解释了为什么已选 Aerial 仍会先进原桌面。
+**这和 guard 没有 HOME 声明时只写开机字段的情况不同。**
+
+仅针对这台已成功安装 standard 的配置，先保存原值和 HOME 查询结果，再设置：
+
+```bash
+adb shell settings get system boot_app_mode
+adb shell settings get system boot_app_componentname
+adb shell cmd package resolve-activity --brief -a android.intent.action.MAIN -c android.intent.category.HOME -c android.intent.category.DEFAULT
+
+adb shell cmd package set-home-activity app.orchard.tv/.MainActivity
+adb shell settings put system boot_app_mode boot_launcher
+adb shell settings put system boot_app_componentname app.orchard.tv/.MainActivity
+```
+
+字段在 **system**，不是 global。2026-10-25 分两步验收：
+
+1. 只纠正开机组件，保持 CyberUI 启用：重启后直接启动 Aerial，没有 CyberUI Activity 启动。
+   所以停用原桌面不是开机直进 Aerial 的前提。
+2. 之后另做了停用 CyberUI 的配置，并移除它的通知监听授权；用户拔电再通电后，
+   HOME 仍直接启动 Aerial，日志无 CyberUI 进程或 Activity 启动，无 CyberUI PID，崩溃缓冲区为空。
+   设置面板、信号源菜单及 HOME 返回均已检查。第二步只是这台的单独配置，不作为默认安装步骤。
+
+恢复时用保存的原 HOME 和两个 system 字段；原来没有的字段用 `settings delete system <字段>`
+还原，不要写字符串 `null`。若另改过原桌面启用状态或通知监听，也要分别还原原值，保留 TCL
+自带的设置、SystemUI、LiveTV、语音服务以及已有的无障碍服务。
+
+### 受校验器限制时的覆盖升级记录
+
+2026-10-30，这台从 1.47（55）升级到 1.72（91），普通 `adb install -r` 仍返回
+`INSTALL_FAILED_VERIFICATION_FAILURE`；当时 `REQUEST_INSTALL_PACKAGES` 已是 `allow`。
+这个 appop 不能放行 ADB 的 `PmStrategy`，也不能证明电视上点击 APK 的路径已经可用。
+
+这台两次覆盖升级（1.47 → 1.72，以及 2026-10-31 的 1.72 →
+[1.74（94）](https://github.com/pengchujin/aerial-tv/releases/tag/v1.74)）实际使用了临时安装窗口：
+只在设备端执行 `pm install -r` 时短暂禁用系统安装器，随后立即恢复。
+窗口期间系统安装界面暂时不可用；这是本固件的人工排障记录，不替代前面的多屏互动等正常安装方式，
+也不要加入默认安装脚本或永久关闭验证器。
+
+已验证的操作约束：
+
+- 先备份当前 APK、HOME、开机字段、屏保、无障碍、通知监听、已停用包列表及安装器的用户启用状态。
+- 本机安装器原状态是 `enabled=0`（default）。设备端脚本检查型号、APK 可读及此原状态；
+  任一不符便退出，不能把别的机器上原本停用的安装器强行恢复成启用。
+- 在禁用前同时设置退出 trap 和独立的 `nohup` 看门狗；看门狗 45 秒后执行
+  `pm default-state --user 0 com.android.packageinstaller`，避免主机断连后一直停用。
+- 执行 `pm disable-user --user 0 com.android.packageinstaller`、`pm install -r <已校验的官方APK>`，
+  不管安装成功与否都立即执行 `pm default-state --user 0 com.android.packageinstaller`。
+  只有恢复成功才取消看门狗；最后再用 `dumpsys package` 确认原启用状态。
+- 两次安装和恢复返回值均为 0；安装器最终均为 `enabled=0`。没有卸载 Aerial、清空数据或永久停用安装器。
+
+### 1.74 升级后的验收范围
+
+- `app.orchard.tv` 保留官方签名（与已装的 1.72 相同），版本为 1.74 / 94；桌面可正常显示。
+- 默认 HOME、`boot_app_mode`、`boot_app_componentname`、AerialDream、已有无障碍和通知监听、
+  已停用包列表、安装权限与升级前一致。
+- `cmd package compile -m speed -f app.orchard.tv` 返回 `Success`，dexopt 为 `[status=speed]`，
+  检查时崩溃缓冲区无致命异常。
+- 10 月 30 / 31 日的两次升级均未重启；断电冷启动验收是 10 月 25 日的 1.47，不能标成 1.74 冷启动已测。
+- 未复测 1.74 应用内升级或从电视下载后点击 APK 的完整安装路径。
+  新版针对默认 standard 的 `LauncherStrategy` / 安装会话改进，和本次 ADB 安装成功是不同的验证范围。
 
 ## 设置入口
 
