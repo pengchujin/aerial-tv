@@ -610,6 +610,7 @@ class MainActivity : ComponentActivity() {
     private fun claimFirmwareHome() {
         if (systemProperty("persist.service.homepage.pkg").isNullOrEmpty()) return
         if (!isSystemHome(this)) return
+        keepFirmwareHome()
         val cls = MainActivity::class.java.name
         val want = listOf(
             "persist.service.model.pkg" to packageName,
@@ -619,23 +620,34 @@ class MainActivity : ComponentActivity() {
         ).filter { (key, value) -> systemProperty(key) != value }
         if (want.isEmpty()) return
         Thread {
-            for ((kind, saved) in listOf("homepage" to CoocaaHome.SAVED_HOMEPAGE, "model" to CoocaaHome.SAVED_MODEL)) {
-                val pkg = systemProperty("persist.service.$kind.pkg").orEmpty()
-                val cls = systemProperty("persist.service.$kind.cls").orEmpty()
-                // Only a real activity: right after a boot homepage.* holds the literal home[0] / home[1].
-                if (!CoocaaHome.isLauncher(this, android.content.ComponentName(pkg, cls))) continue
-                runCatching {
-                    if (Settings.Global.getString(contentResolver, saved) == null) {
-                        Settings.Global.putString(contentResolver, saved, "$pkg/$cls")
-                    }
-                }
-            }
             want.forEach { (key, value) ->
                 runCatching { Runtime.getRuntime().exec(arrayOf("/system/bin/setprop", key, value)).waitFor() }
             }
             val missed = want.filter { (key, value) -> systemProperty(key) != value }.map { it.first }
             DiagLog.i("firmware home: wrote ${want.size} properties" + if (missed.isEmpty()) "" else ", not taken: $missed")
         }.start()
+    }
+
+    /**
+     * Keeps what the properties say now, once each, for tools/restore.sh to put back. It runs
+     * whenever Aerial comes to the front and not only on the way to writing: right after a boot
+     * homepage.* holds SkyBootIntent's literal home[0] / home[1], which is skipped, and the value
+     * the firmware settles on a little later is then still kept. The component is not required to
+     * answer a PackageManager query (CoocaaHome.worthKeeping): on Skyworth 8R721_A5FP (Android 13)
+     * the launcher those properties named was invisible to PackageManager, and requiring it left
+     * nothing to restore (PR #992, the 8R721 report).
+     */
+    private fun keepFirmwareHome() {
+        for ((kind, saved) in listOf("homepage" to CoocaaHome.SAVED_HOMEPAGE, "model" to CoocaaHome.SAVED_MODEL)) {
+            val value = "${systemProperty("persist.service.$kind.pkg").orEmpty()}/${systemProperty("persist.service.$kind.cls").orEmpty()}"
+            if (!CoocaaHome.worthKeeping(this, value)) continue
+            runCatching {
+                if (Settings.Global.getString(contentResolver, saved) == null) {
+                    Settings.Global.putString(contentResolver, saved, value)
+                    DiagLog.i("firmware home: kept $kind's $value for restore")
+                }
+            }
+        }
     }
 
     /** Right after a boot the firmware empties model.* some seconds in: look again then. */

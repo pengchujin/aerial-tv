@@ -39,6 +39,26 @@ object CoocaaHome {
             component.packageName != context.packageName &&
             runCatching { context.packageManager.getActivityInfo(component, 0) }.isSuccess
 
+    /**
+     * Whether a property's value ("pkg/cls") is worth keeping for restore. It is not looked up:
+     * the launcher a Coocaa set names may answer no PackageManager query at all — on Skyworth
+     * 8R721_A5FP (Android 13) resolve-activity found no Home candidate before Aerial took over, and
+     * the firmware still started its launcher by component — and skipping the save left
+     * tools/restore.sh nothing to put back (PR #992, the 8R721 report). Empty halves, Aerial
+     * itself and the literal home[0] / home[1] SkyBootIntent.initGeneralConfig writes at a boot are
+     * not kept; a real activity is not required.
+     */
+    fun worthKeeping(context: Context, value: String): Boolean {
+        val component = runCatching { ComponentName.unflattenFromString(value) }.getOrNull() ?: return false
+        if (component.packageName.isEmpty() || component.className.isEmpty()) return false
+        if (component.packageName == context.packageName) return false
+        if (component.packageName.startsWith(PLACEHOLDER) || component.className.startsWith(PLACEHOLDER)) return false
+        return true
+    }
+
+    /** The front of the placeholder SkyBootIntent leaves in homepage.* for some seconds at a boot. */
+    private const val PLACEHOLDER = "home["
+
     /** DEFAULT_HOMEPAGE, found the way SkyBootIntent.initPcfgPath finds the file. */
     private fun defaultHomepage(): String? = runCatching {
         val model = property("ro.build.skymodel").orEmpty()
