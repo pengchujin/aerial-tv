@@ -129,6 +129,29 @@ class HomeGuardService : AccessibilityService() {
         takeOverIfStockHomeInFront("looking again after boot", woke = false, coveredSilently = true)
     }
 
+    // PatchWall's non-HOME boot cover also appears on MiTV-AZFP0 / Android 9.
+    // Watch only during boot/wake; old firmware's existing continuous polling is unchanged.
+    private var patchwallBootCover = false
+
+    private fun recoveryWindow(): Boolean {
+        val now = SystemClock.elapsedRealtime()
+        return now < BOOT_WINDOW_MS || now - screenOnAt in 0 until WAKE_WINDOW_MS
+    }
+
+    private fun isPatchwallHomeCover(pkg: String, cls: String): Boolean =
+        pkg == PATCHWALL && cls == PATCHWALL_BOOT &&
+            (recoveryWindow() || SystemClock.uptimeMillis() - homePressedAt in 0 until APP_SWITCH_HOLD_MS)
+
+    private fun continuousForegroundCheck(): Boolean =
+        Build.VERSION.SDK_INT <= Build.VERSION_CODES.M || INVISIBLE_LAUNCHERS.any { it in stockHomes }
+
+    private fun restartForegroundCheck() {
+        handler.removeCallbacks(foregroundCheck)
+        if (!continuousForegroundCheck() && !(patchwallBootCover && recoveryWindow())) return
+        if (usageStatsAllowed(this)) handler.post(foregroundCheck)
+        else Log.i(TAG, "usage stats not allowed; not watching the front by them")
+    }
+
     /**
      * Xiaomi PatchWall up to Android 6 is invisible to accessibility: no window change when it comes
      * to the front, no Home key in the filter (MitvPhoneWindowManager takes it first), while other
@@ -141,6 +164,7 @@ class HomeGuardService : AccessibilityService() {
      */
     private val foregroundCheck = object : Runnable {
         override fun run() {
+            if (!continuousForegroundCheck() && (!patchwallBootCover || !recoveryWindow() || screenOff)) return
             handler.postDelayed(this, FOREGROUND_POLL_MS)
             // Not skipped where Aerial is the default Home, for the same reason as the Home key:
             // Panasonic DX01C (Skyworth-made, Tianci, Android 6) shows its own launcher at power-on
@@ -153,7 +177,7 @@ class HomeGuardService : AccessibilityService() {
             // Its home screen only, as for window changes: PatchWall's children's mode, opened
             // from its tile, is in the same package and stays.
             val (pkg, cls) = window
-            val bootCover = pkg == PATCHWALL && cls == PATCHWALL_BOOT && SystemClock.elapsedRealtime() < BOOT_WINDOW_MS
+            val bootCover = isPatchwallHomeCover(pkg, cls)
             if (cls !in stockHomes[pkg].orEmpty() && !bootCover) return
             foregroundTakenAt = at
             if (SystemClock.uptimeMillis() - broughtBackAt < 1_000) return
@@ -314,6 +338,7 @@ class HomeGuardService : AccessibilityService() {
             // FIRMWARE_HOMES_WITHOUT_FILTER lost it until Aerial restarted (MiTV-MOOQ0, Android 11).
             activityCache.clear()
             refreshStockHomes()
+            restartForegroundCheck()
             watchCecInput()
             updateKeyFilter()
             // The ADB and screensaver checks were skipped while locked.
@@ -340,6 +365,7 @@ class HomeGuardService : AccessibilityService() {
             // Firmwares put their own launcher back in front while the TV is in standby, and no
             // window change follows on wake. Look once things have settled after the screen lights.
             screenOnAt = SystemClock.elapsedRealtime()
+            restartForegroundCheck()
             takeOverOnceSettled("screen on", woke = true)
         }
     }
@@ -371,9 +397,10 @@ class HomeGuardService : AccessibilityService() {
             // restarted (frontAfterHome), and the guard that starts then has to know of it too.
             if (SystemClock.elapsedRealtime() < BOOT_WINDOW_MS) BootOpen.noteHomeKey(this@HomeGuardService)
             if (backOnPause) noteHomeInAerial()
+            homePressedAt = SystemClock.uptimeMillis()
             val front = lastWindow?.first
             if (front != null && front !in stockHomes) {
-                windowsAtHome = windowsSeen
+                windowsAtHome = activityWindowsSeen
                 homePressedAt = SystemClock.uptimeMillis()
                 handler.removeCallbacks(frontAfterHome)
                 handler.removeCallbacks(frontAfterHomeAgain)
@@ -390,6 +417,7 @@ class HomeGuardService : AccessibilityService() {
     }
 
     private var windowsSeen = 0L
+    private var activityWindowsSeen = 0L
     private var windowsAtHome = 0L
     private var homePressedAt = Long.MIN_VALUE / 2
 
@@ -413,9 +441,10 @@ class HomeGuardService : AccessibilityService() {
             goHome()
             return@Runnable
         }
-        if (windowsSeen != windowsAtHome) return@Runnable
+        if (activityWindowsSeen != windowsAtHome) return@Runnable
         val front = frontByUsage()
-        if (front == null || front.first !in stockHomes) {
+        if (front == null || (front.second !in stockHomes[front.first].orEmpty() &&
+                !isPatchwallHomeCover(front.first, front.second))) {
             // Usage stats may not have the stock launcher yet: look again until the usual wait is up.
             if (deafAfterHome && SystemClock.uptimeMillis() - homePressedAt < FRONT_AFTER_HOME_MS) {
                 handler.postDelayed(frontAfterHomeAgain, DEAF_LOOK_MS)
@@ -569,11 +598,12 @@ class HomeGuardService : AccessibilityService() {
         // at boot, during standby and on Home with no window change (issue #928, the reporter's
         // logs), while usage stats record it. Only where one of these launchers is a stock home,
         // so other TVs past Android 6 are not polled.
-        if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.M || INVISIBLE_LAUNCHERS.any { it in stockHomes }) {
-            handler.removeCallbacks(foregroundCheck)
-            if (usageStatsAllowed(this)) handler.post(foregroundCheck)
-            else Log.i(TAG, "usage stats not allowed; not watching the front by them")
-        }
+        // On MiTV-AZFP0 (Android 9) PatchWall's BootActivity is watched the same way, but only for
+        // a bounded window after boot and wake (restartForegroundCheck). A process revived after
+        // standby may have missed SCREEN_ON before binding, so its window is not left open.
+        if (!screenOff && !recoveryWindow()) screenOnAt = SystemClock.elapsedRealtime()
+        patchwallBootCover = isActivity(PATCHWALL, PATCHWALL_BOOT)
+        restartForegroundCheck()
         if (!GuardSetup.isUserUnlocked(this)) {
             Log.i(TAG, "bound while user locked; deferred takeover until unlock")
             return
@@ -903,6 +933,7 @@ class HomeGuardService : AccessibilityService() {
         if (event.action == KeyEvent.ACTION_UP) {
             handler.removeCallbacks(homeHold)
             if (!event.isCanceled && !homeHeld) {
+                homePressedAt = SystemClock.uptimeMillis()
                 Log.i(TAG, "Home key taken before the system saw it")
                 // Over Aerial's screensaver, Home closes it. Not counted toward a double press: an IR
                 // remote's press can come twice (TCL MT5879), and the second opened the recent apps.
@@ -1113,6 +1144,7 @@ class HomeGuardService : AccessibilityService() {
         // an app the viewer chose kept the guard from taking over (PR #45).
         val before = lastWindow?.first
         if (isActivity(pkg, cls)) {
+            activityWindowsSeen++
             lastWindow = pkg to cls
             if (!CecHome.active(this, pkg)) {
                 lastCecHomeUp = Long.MIN_VALUE / 2
@@ -1136,7 +1168,8 @@ class HomeGuardService : AccessibilityService() {
             }
             // Only the stock launcher's home activity itself, not its dialogs or other screens.
             // Not gated on isDefaultHome(): see takeOverIfStockHomeInFront.
-            if (cls !in stockHomes.getValue(pkg) || allowed) return
+            val bootCover = isPatchwallHomeCover(pkg, cls)
+            if ((cls !in stockHomes.getValue(pkg) && !bootCover) || allowed) return
             // Switching inputs passes through the stock launcher on Skyworth: the TV service starts
             // its SkyLauncher, the launcher shows for a moment, then the input. Taking Home at once
             // aborted the switch (Skyworth 8H26_M9, Android 5.1, issues #108, #155). Look again
