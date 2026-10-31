@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="wifi_error_failed">Не вдалося перемкнути Wi-Fi. Утримуйте кнопку «Мережа», щоб відкрити налаштування Wi-Fi.</string>
+    <string name="wifi_error_timeout">Стан Wi-Fi не змінився. Спробуйте ще раз або утримуйте кнопку «Мережа», щоб відкрити налаштування Wi-Fi.</string>
+    <string name="wifi_status_scanning">Пошук…</string>
+    <string name="wifi_status_connecting">Підключення…</string>
+    <string name="wifi_status_authenticating">Авторизація…</string>
+    <string name="wifi_status_obtaining_ip">Отримання IP…</string>
+    <string name="wifi_status_verifying">Перевірка…</string>
+    <string name="wifi_status_sign_in">Перевірка входу…</string>
+</resources>

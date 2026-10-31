@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="wifi_error_failed">无法切换 Wi-Fi。长按“网络”按钮可打开 Wi-Fi 设置。</string>
+    <string name="wifi_error_timeout">Wi-Fi 状态没有改变。请重试，或长按“网络”按钮打开 Wi-Fi 设置。</string>
+    <string name="wifi_status_scanning">扫描中</string>
+    <string name="wifi_status_connecting">连接中</string>
+    <string name="wifi_status_authenticating">验证中</string>
+    <string name="wifi_status_obtaining_ip">获取IP地址</string>
+    <string name="wifi_status_verifying">检查连接</string>
+    <string name="wifi_status_sign_in">登录检查</string>
+</resources>

@@ -46,10 +46,10 @@ class NetworkStatusTest {
 
         repeat(3) {
             setDefault(ConnectivityManager.TYPE_VPN, NetworkCapabilities.TRANSPORT_VPN)
-            assertEquals(expected.copy(vpn = true), SystemProbe.network(context))
+            assertEquals(expected.copy(vpn = true, vpnValidated = true), SystemProbe.network(context))
             // The VPN stays among the networks, so only the name and signal are compared here.
             connectivity.setActiveNetworkInfo(cm.getNetworkInfo(wifi))
-            assertEquals(expected, SystemProbe.network(context).copy(vpn = false))
+            assertEquals(expected, SystemProbe.network(context).copy(vpn = false, vpnValidated = false))
         }
     }
 
@@ -186,7 +186,7 @@ class NetworkStatusTest {
         setDefault(ConnectivityManager.TYPE_ETHERNET, NetworkCapabilities.TRANSPORT_ETHERNET)
         assertEquals(false, SystemProbe.network(context).vpn)
         addPhysical(100, ConnectivityManager.TYPE_VPN, NetworkCapabilities.TRANSPORT_VPN)
-        assertEquals(NetworkStatus(NetKind.Ethernet, vpn = true), SystemProbe.network(context))
+        assertEquals(NetworkStatus(NetKind.Ethernet, vpn = true, internet = true, vpnValidated = true), SystemProbe.network(context))
     }
 
     @Test
@@ -194,6 +194,105 @@ class NetworkStatusTest {
         setDefault(ConnectivityManager.TYPE_ETHERNET, NetworkCapabilities.TRANSPORT_ETHERNET)
         addPhysical(100, ConnectivityManager.TYPE_VPN, NetworkCapabilities.TRANSPORT_VPN, connected = false)
         assertEquals(false, SystemProbe.network(context).vpn)
+    }
+
+    @Test
+    fun wifiWithoutValidationShowsNoInternetEvenWhenInternetIsConfigured() {
+        val wifi = setDefault(ConnectivityManager.TYPE_WIFI, NetworkCapabilities.TRANSPORT_WIFI)
+        val caps = capabilities(NetworkCapabilities.TRANSPORT_WIFI)
+        shadowOf(caps).removeCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+        connectivity.setNetworkCapabilities(wifi, caps)
+        val status = SystemProbe.network(context)
+        assertEquals(NetKind.Wifi, status.kind)
+        assertEquals(false, status.internet)
+        assertEquals(false, status.global)
+    }
+
+    @Test
+    @Config(sdk = [28])
+    fun validatedVpnRequiresValidatedPhysicalUplinkOnAndroidNine() {
+        setDefault(ConnectivityManager.TYPE_VPN, NetworkCapabilities.TRANSPORT_VPN)
+        val wifi = addPhysical(100, ConnectivityManager.TYPE_WIFI, NetworkCapabilities.TRANSPORT_WIFI)
+        val caps = capabilities(NetworkCapabilities.TRANSPORT_WIFI)
+        shadowOf(caps).removeCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+        connectivity.setNetworkCapabilities(wifi, caps)
+        val status = SystemProbe.network(context)
+        assertEquals(true, status.vpn)
+        assertEquals(false, status.internet)
+        assertEquals(false, status.global)
+    }
+
+    @Test
+    fun validatedVpnAndValidatedWifiShowGlobal() {
+        setDefault(ConnectivityManager.TYPE_VPN, NetworkCapabilities.TRANSPORT_VPN)
+        addPhysical(100, ConnectivityManager.TYPE_WIFI, NetworkCapabilities.TRANSPORT_WIFI)
+        val status = SystemProbe.network(context)
+        assertEquals(NetKind.Wifi, status.kind)
+        assertEquals(true, status.internet)
+        assertEquals(true, status.global)
+    }
+
+    @Test
+    fun captivePortalAlwaysSuppressesGlobalEvenWithStaleValidation() {
+        setDefault(ConnectivityManager.TYPE_VPN, NetworkCapabilities.TRANSPORT_VPN)
+        val wifi = addPhysical(100, ConnectivityManager.TYPE_WIFI, NetworkCapabilities.TRANSPORT_WIFI)
+        val caps = capabilities(NetworkCapabilities.TRANSPORT_WIFI)
+        shadowOf(caps).addCapability(NetworkCapabilities.NET_CAPABILITY_CAPTIVE_PORTAL)
+        connectivity.setNetworkCapabilities(wifi, caps)
+        assertEquals(false, SystemProbe.network(context).global)
+        assertEquals(false, SystemProbe.network(context).internet)
+    }
+
+    @Test
+    fun localOnlyWifiWithVpnDoesNotShowGlobal() {
+        setDefault(ConnectivityManager.TYPE_VPN, NetworkCapabilities.TRANSPORT_VPN)
+        val wifi = addPhysical(100, ConnectivityManager.TYPE_WIFI, NetworkCapabilities.TRANSPORT_WIFI)
+        val caps = capabilities(NetworkCapabilities.TRANSPORT_WIFI)
+        shadowOf(caps).removeCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+        connectivity.setNetworkCapabilities(wifi, caps)
+        assertEquals(NetKind.Wifi, SystemProbe.network(context).kind)
+        assertEquals(false, SystemProbe.network(context).global)
+    }
+
+    @Test
+    fun vpnTransportWithoutItsOwnValidationDoesNotClaimInternet() {
+        val vpn = setDefault(ConnectivityManager.TYPE_VPN, NetworkCapabilities.TRANSPORT_VPN)
+        addPhysical(100, ConnectivityManager.TYPE_WIFI, NetworkCapabilities.TRANSPORT_WIFI)
+        val caps = capabilities(NetworkCapabilities.TRANSPORT_VPN)
+        shadowOf(caps).removeCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+        connectivity.setNetworkCapabilities(vpn, caps)
+        assertEquals(false, SystemProbe.network(context).internet)
+        assertEquals(false, SystemProbe.network(context).global)
+    }
+
+    @Test
+    fun unvalidatedPerAppVpnDoesNotShowGlobalOverValidatedWifi() {
+        setDefault(ConnectivityManager.TYPE_WIFI, NetworkCapabilities.TRANSPORT_WIFI)
+        val vpn = addPhysical(100, ConnectivityManager.TYPE_VPN, NetworkCapabilities.TRANSPORT_VPN)
+        val caps = capabilities(NetworkCapabilities.TRANSPORT_VPN)
+        shadowOf(caps).removeCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+        connectivity.setNetworkCapabilities(vpn, caps)
+        val status = SystemProbe.network(context)
+        assertEquals(true, status.internet)
+        assertEquals(true, status.vpn)
+        assertEquals(false, status.global)
+    }
+
+    @Test
+    fun noInternetWinsOverVpnInIconState() {
+        val status = NetworkStatus(NetKind.Wifi, vpn = true, internet = false, vpnValidated = true)
+        assertEquals(false, status.global)
+        assertEquals(true, status.copy(internet = true).global)
+    }
+
+    @Test
+    fun wifiSignalHasFourDistinctTiers() {
+        for (tier in 0..3) {
+            assertEquals(tier, NetworkStatus(NetKind.Wifi, level = tier / 3f).signal)
+        }
+        assertEquals(0, NetworkStatus(NetKind.Wifi, level = -1f).signal)
+        assertEquals(3, NetworkStatus(NetKind.Wifi, level = 2f).signal)
+        assertEquals(0, NetworkStatus(NetKind.Wifi, level = Float.NaN).signal)
     }
 
     private fun setWifiInfo(ssid: String, rssi: Int) {
@@ -225,5 +324,7 @@ class NetworkStatusTest {
 
     private fun capabilities(vararg transports: Int) = ShadowNetworkCapabilities.newInstance().apply {
         transports.forEach { shadowOf(this).addTransportType(it) }
+        shadowOf(this).addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+        shadowOf(this).addCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
     }
 }
