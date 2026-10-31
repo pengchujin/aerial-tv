@@ -415,4 +415,3 @@ echo "Home Guard is enabled but Android has not started it." >&2
 echo "Some TCL / Hisense firmwares block sideloaded accessibility services: allow Aerial under the" >&2
 echo "TV's security app (自启动 / 无障碍 / 权限管理), then run this script again." >&2
 exit 1
-
