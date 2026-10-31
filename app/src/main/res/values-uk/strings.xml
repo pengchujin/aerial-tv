@@ -123,6 +123,11 @@
     <string name="st_clock_small">Малий</string>
     <string name="st_clock_large">Великий</string>
     <string name="st_clock_size_hint">«Малий» показує час і погоду одним рядком у кутку. «Великий» ставить великий годинник угорі екрана, дату над ним і погоду під ним.</string>
+    <string name="st_clock_weight">Товщина цифр</string>
+    <string name="st_clock_weight_bold">Жирні</string>
+    <string name="st_clock_weight_normal">Звичайні</string>
+    <string name="st_clock_weight_light">Тонкі</string>
+    <string name="st_clock_weight_hint">Як малювати цифри годинника. «Жирні» — так вони виглядали завжди.</string>
     <string name="st_names">Назви застосунків</string>
     <string name="st_names_focused">Вибраний застосунок</string>
     <string name="st_names_all">Усі застосунки</string>

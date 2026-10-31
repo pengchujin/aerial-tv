@@ -123,6 +123,11 @@
     <string name="st_clock_small">Маленькие</string>
     <string name="st_clock_large">Большие</string>
     <string name="st_clock_size_hint">«Маленькие» показывают время и погоду одной строкой в углу. «Большие» ставят крупные часы вверху экрана, дату над ними и погоду под ними.</string>
+    <string name="st_clock_weight">Толщина цифр</string>
+    <string name="st_clock_weight_bold">Жирные</string>
+    <string name="st_clock_weight_normal">Обычные</string>
+    <string name="st_clock_weight_light">Тонкие</string>
+    <string name="st_clock_weight_hint">Как рисовать цифры часов. «Жирные» — так они выглядели всегда.</string>
     <string name="st_names">Названия приложений</string>
     <string name="st_names_focused">Выбранное приложение</string>
     <string name="st_names_all">Все приложения</string>

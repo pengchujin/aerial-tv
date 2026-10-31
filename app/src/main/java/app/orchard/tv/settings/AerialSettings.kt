@@ -42,6 +42,18 @@ enum class UiSounds(val key: String) {
 }
 
 /**
+ * How heavy the clock's digits are drawn, as some prefer them lighter than Aerial has always drawn
+ * them (the owner, A95X F4 box). Bold is Inter's 700, how every clock was drawn until this option.
+ */
+enum class ClockWeight(val key: String) {
+    Bold("bold"), Regular("regular"), Light("light");
+
+    companion object {
+        fun of(key: String?) = entries.firstOrNull { it.key == key } ?: Bold
+    }
+}
+
+/**
  * How much of the interface's light and motion to draw. Full is the glass panels, a focused tile's
  * sheen, parallax and shadow, and the panel's highest refresh rate. Lite draws the panels in plain
  * dark glass (no offscreen layer per frame), a focused tile without sheen, parallax or shadow, and
@@ -113,6 +125,9 @@ object AerialSettings {
 
     /** The date and weather over a big clock above the top row, instead of one small line in the corner. */
     var largeClock by mutableStateOf(false); private set
+
+    /** How heavy the clock's digits are: Bold as Aerial always drew them, Regular or Light. */
+    var clockWeight by mutableStateOf(ClockWeight.Bold); private set
 
     /**
      * The moving wallpaper (aerial films, the owner's own videos) plays on the top row whatever the
@@ -195,6 +210,7 @@ object AerialSettings {
         homeColumns = prefs.getInt("home_columns", DEFAULT_HOME_COLUMNS).takeIf { it in HOME_COLUMNS } ?: DEFAULT_HOME_COLUMNS
         clockRight = prefs.getBoolean("clock_right", false)
         largeClock = prefs.getBoolean("large_clock", false)
+        clockWeight = ClockWeight.of(prefs.getString("clock_weight", null))
         homePlate = prefs.getBoolean("home_plate", true)
         showAllNames = prefs.getBoolean("show_all_names", false)
         wallpaperAlwaysMoves = prefs.getBoolean("wallpaper_always_moves", false)
@@ -286,6 +302,11 @@ object AerialSettings {
     fun chooseLargeClock(on: Boolean) {
         largeClock = on
         app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit { putBoolean("large_clock", on) }
+    }
+
+    fun chooseClockWeight(weight: ClockWeight) {
+        clockWeight = weight
+        app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit { putString("clock_weight", weight.key) }
     }
 
     fun chooseShowAllNames(on: Boolean) {

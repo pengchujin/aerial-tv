@@ -97,6 +97,7 @@ import app.orchard.tv.ui.components.glassEdge
 import app.orchard.tv.ui.components.rememberFrostSwap
 import app.orchard.tv.ui.components.smoothMask
 import app.orchard.tv.ui.theme.Glyph
+import app.orchard.tv.ui.theme.fontWeight
 import app.orchard.tv.ui.theme.GlyphIcon
 import app.orchard.tv.ui.theme.LocalReducedMotion
 import app.orchard.tv.ui.theme.Motion
@@ -655,7 +656,7 @@ fun ShelfClock(
         )
         BasicText(
             timeText(now),
-            style = Type.Clock.copy(shadow = shadow),
+            style = Type.Clock.copy(shadow = shadow, fontWeight = AerialSettings.clockWeight.fontWeight),
             modifier = Modifier.padding(top = 16.dp)
                 .toSaverClock(toSaver, Type.Clock.fontSize, 0.dp, drift)
                 .capBox(Type.Clock.fontSize),
@@ -759,7 +760,7 @@ fun CornerClock(now: LocalDateTime, modifier: Modifier = Modifier, toSaver: () -
     val shadow = Shadow(Color.Black.copy(alpha = 0.5f), blurRadius = 8f)
     Row(modifier.height(34.dp), verticalAlignment = Alignment.CenterVertically) {
         BasicText(
-            timeText(now), style = Type.SmallClock.copy(fontSize = Type.Title.fontSize, color = dim, shadow = shadow),
+            timeText(now), style = Type.SmallClock.copy(fontSize = Type.Title.fontSize, color = dim, shadow = shadow, fontWeight = AerialSettings.clockWeight.fontWeight),
             modifier = Modifier.toSaverClock(toSaver, Type.Title.fontSize, Type.Title.fontSize.value.dp * CAP_TOP, drift),
         )
         Weather.now?.takeIf { AerialSettings.showWeather }?.let { w ->
