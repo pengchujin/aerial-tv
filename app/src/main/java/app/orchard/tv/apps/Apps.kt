@@ -9,6 +9,7 @@ import android.content.pm.PackageManager
 import android.util.Log
 import app.orchard.tv.R
 import app.orchard.tv.guard.HomeGuardService
+import app.orchard.tv.system.CoocaaHome
 import app.orchard.tv.system.TvSource
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.toArgb
@@ -223,10 +224,14 @@ object AppCatalog {
         // unaffected.
         val skyworthHomes = listOf("com.skyworth.officehomepage", "com.tianci.movieplatform")
             .any { runCatching { pm.getPackageInfo(it, 0) }.isSuccess }
+        // The home the Home key opens first: the one the firmware names (CoocaaHome), then the list.
+        // On Skyworth 8R734_A7HP that is com.tianci.movieplatform, and officehomepage, first in the
+        // list for skyT963, is not what the set shows.
+        val preferredHomes = listOfNotNull(CoocaaHome.launcher(context)?.packageName) + SKYWORTH_PREFERRED_STOCK_HOMES
         val stockInfos = stockLaunchers(pm)
             .filter { !skyworthHomes || it.packageName != "com.example.android.home" }
             .sortedBy {
-                SKYWORTH_PREFERRED_STOCK_HOMES.indexOf(it.packageName).let { i -> if (i == -1) Int.MAX_VALUE else i }
+                preferredHomes.indexOf(it.packageName).let { i -> if (i == -1) Int.MAX_VALUE else i }
             }
         for (info in stockInfos) {
             if (skyworthHomes && stockHomes.isNotEmpty()) continue

@@ -34,6 +34,7 @@ import app.orchard.tv.MainActivity
 import app.orchard.tv.dream.AerialDream
 import app.orchard.tv.settings.AerialSettings
 import app.orchard.tv.system.BootOpen
+import app.orchard.tv.system.CoocaaHome
 import app.orchard.tv.system.DeviceProfile
 import app.orchard.tv.system.DiagLog
 import app.orchard.tv.system.SystemProbe
@@ -1248,6 +1249,13 @@ class HomeGuardService : AccessibilityService() {
         stockHomes = (stockHomes.keys + unfiltered.keys).associateWith {
             stockHomes[it].orEmpty() + unfiltered[it].orEmpty()
         }
+        // Tianci / Coocaa: the launcher the firmware names in persist.service.homepage.* first for
+        // its package, so the 原桌面 tile opens that one and not another activity of the package
+        // (Skyworth 8R734_A7HP: the AI launcher com.coocaa.aigc.home.home.rootpage.HomeActivity, in
+        // com.tianci.movieplatform, declares no Home; that package's HOME.CC is the older UI).
+        CoocaaHome.launcher(this)?.takeIf { isActivity(it.packageName, it.className) }?.let { own ->
+            stockHomes = stockHomes + (own.packageName to (setOf(own.className) + stockHomes[own.packageName].orEmpty()))
+        }
     }
 
     /** Android's own SECONDARY_HOME is for other displays, and comes with CATEGORY_HOME anyway. */
@@ -1256,9 +1264,10 @@ class HomeGuardService : AccessibilityService() {
             (category.endsWith(VENDOR_HOME_SUFFIX) && category != "android.intent.category.SECONDARY_HOME")
 
     /**
-     * Brings Aerial's one task to the front. No CATEGORY_HOME: on firmwares where Aerial is not the
-     * system Home, that category made the system open a second, home-type task with a fresh
-     * MainActivity every time, which lost the focused tile (Xiaomi MiTV-MFTR0, 1.11).
+     * Brings Aerial's one task to the front ([MainActivity.bringBackIntent]). No CATEGORY_HOME on
+     * firmwares where Aerial is not the system Home: there that category made the system open a
+     * second, home-type task with a fresh MainActivity every time, which lost the focused tile
+     * (Xiaomi MiTV-MFTR0, 1.11). Where Aerial is the system Home it is a Home intent, see there.
      */
     /** When goHome last started Aerial. */
     private var broughtBackAt = Long.MIN_VALUE / 2

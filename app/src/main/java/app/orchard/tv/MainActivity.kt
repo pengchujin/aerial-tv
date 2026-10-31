@@ -69,6 +69,7 @@ import app.orchard.tv.settings.AerialSettings
 import app.orchard.tv.wallpaper.PhoneServer
 import app.orchard.tv.wallpaper.Wallpapers
 import app.orchard.tv.system.BootOpen
+import app.orchard.tv.system.CoocaaHome
 import app.orchard.tv.system.DiagLog
 import app.orchard.tv.system.FrameStats
 import app.orchard.tv.wallpaper.AerialFormats
@@ -192,7 +193,29 @@ class MainActivity : ComponentActivity() {
             return
         }
         super.onCreate(savedInstanceState)
+        if (savedInstanceState == null && reopenAsHome()) return
         startReal(savedInstanceState)
+    }
+
+    /**
+     * Started fresh into a task of its own by something other than a Home intent while Aerial is the
+     * system's Home: starts itself again as Home ([bringBackIntent]) and closes this task. Coocaa's
+     * launcher opens the default Home's launcher entry at boot (Skyworth 8R734_A7HP, Android 13),
+     * which made a standard task, and on that firmware a standard task kept its surface hidden: no
+     * keys, an ANR, a kill, until the guard brought Aerial back as Home.
+     */
+    private fun reopenAsHome(): Boolean {
+        val started = intent ?: return false
+        if (started.action != null && started.action != Intent.ACTION_MAIN) return false
+        if (started.hasCategory(Intent.CATEGORY_HOME) || !isTaskRoot) return false
+        val again = bringBackIntent(this)
+        if (!again.hasCategory(Intent.CATEGORY_HOME)) return false
+        DiagLog.i("started as ${started.categories} in task $taskId; reopening as Home")
+        return runCatching {
+            startActivity(again)
+            finishAndRemoveTask()
+            true
+        }.getOrDefault(false)
     }
 
     /**
@@ -334,6 +357,7 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        firmwareHomeHandler.removeCallbacksAndMessages(null)
         if (locked) runCatching { unregisterReceiver(unlocked) }
         runCatching { unregisterReceiver(screenOnReceiver) }
         super.onDestroy()
@@ -490,6 +514,58 @@ class MainActivity : ComponentActivity() {
     private fun systemProperty(key: String): String? = runCatching {
         Class.forName("android.os.SystemProperties").getMethod("get", String::class.java).invoke(null, key) as String
     }.getOrNull()
+
+    private val firmwareHomeHandler = Handler(Looper.getMainLooper())
+
+    /**
+     * Coocaa firmware (Skyworth 8R734_A7HP, Android 13) picks the screen by component: at boot and for
+     * the system's own Home requests from persist.service.model.pkg/.cls (SkyBootIntent), and for the
+     * Home key from persist.service.homepage.pkg/.cls (com.tianci.system). Each boot it empties
+     * model.* and puts homepage.* back to its own launcher, so while Aerial is the system's Home it
+     * writes them again whenever it comes to the front, and twice more after a boot. What it writes
+     * over is kept once in Settings.Global aerial_coocaa_homepage / aerial_coocaa_model ("pkg/cls"),
+     * for tools/restore.sh to put back, as with Hisense's aerial_vt_home_pkg. An app's setprop only
+     * goes through where SELinux is permissive, as on that set; elsewhere it fails quietly.
+     */
+    private fun claimFirmwareHome() {
+        if (systemProperty("persist.service.homepage.pkg").isNullOrEmpty()) return
+        if (!isSystemHome(this)) return
+        val cls = MainActivity::class.java.name
+        val want = listOf(
+            "persist.service.model.pkg" to packageName,
+            "persist.service.model.cls" to cls,
+            "persist.service.homepage.pkg" to packageName,
+            "persist.service.homepage.cls" to cls,
+        ).filter { (key, value) -> systemProperty(key) != value }
+        if (want.isEmpty()) return
+        Thread {
+            for ((kind, saved) in listOf("homepage" to CoocaaHome.SAVED_HOMEPAGE, "model" to CoocaaHome.SAVED_MODEL)) {
+                val pkg = systemProperty("persist.service.$kind.pkg").orEmpty()
+                val cls = systemProperty("persist.service.$kind.cls").orEmpty()
+                // Only a real activity: right after a boot homepage.* holds the literal home[0] / home[1].
+                if (!CoocaaHome.isLauncher(this, android.content.ComponentName(pkg, cls))) continue
+                runCatching {
+                    if (Settings.Global.getString(contentResolver, saved) == null) {
+                        Settings.Global.putString(contentResolver, saved, "$pkg/$cls")
+                    }
+                }
+            }
+            want.forEach { (key, value) ->
+                runCatching { Runtime.getRuntime().exec(arrayOf("/system/bin/setprop", key, value)).waitFor() }
+            }
+            val missed = want.filter { (key, value) -> systemProperty(key) != value }.map { it.first }
+            DiagLog.i("firmware home: wrote ${want.size} properties" + if (missed.isEmpty()) "" else ", not taken: $missed")
+        }.start()
+    }
+
+    /** Right after a boot the firmware empties model.* some seconds in: look again then. */
+    private fun claimFirmwareHomeAfterBoot() {
+        claimFirmwareHome()
+        val sinceBoot = SystemClock.elapsedRealtime()
+        for (at in longArrayOf(40_000L, 90_000L)) {
+            if (sinceBoot < at) firmwareHomeHandler.postDelayed({ claimFirmwareHome() }, at - sinceBoot)
+        }
+    }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
@@ -853,6 +929,7 @@ class MainActivity : ComponentActivity() {
         // Back in front by any route (Home was handled in onNewIntent, which runs first; Back from
         // the app lands here directly), so the next Home press is a Home-on-Home again.
         openedAppSinceHome = false
+        claimFirmwareHomeAfterBoot()
         LaunchFallback.next()?.let { page ->
             // Only where the page truly closed: Hisense's network page (85E5N, MT9653, Android 11)
             // is a panel over Aerial, which resumes beneath it without window focus, and the next
@@ -943,7 +1020,10 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    /** The stock launcher's own entry, or one of the same page Aerial may start (StandIn, issue #971). */
+    /**
+     * The stock launcher's own entry, or one of the same page Aerial may start (StandIn, issue
+     * #971), or its component started with MAIN alone (startStockDirectly).
+     */
     private fun startStockLauncher(app: AppEntry): Boolean {
         val intent = app.launchIntent()
         return try {
@@ -954,11 +1034,28 @@ class MainActivity : ComponentActivity() {
             DiagLog.i("${app.component.className} needs a permission; opening ${standIn?.className ?: "nothing"} instead")
             standIn != null && runCatching {
                 startActivity(Intent(Intent.ACTION_MAIN).setComponent(standIn).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-            }.isSuccess
+            }.isSuccess || startStockDirectly(app)
         } catch (e: Exception) {
-            false
+            startStockDirectly(app)
         }
     }
+
+    /**
+     * The stock launcher by its component, with MAIN alone and no category. From Android 13 an
+     * explicit start from an app that targets it has to match one of the target's intent filters,
+     * and Coocaa's launchers declare only their own categories: on Skyworth 8R734_A7HP the
+     * launcher-category start of the 原桌面 tile was "Access blocked" (Intent does not match
+     * component's intent filter), and the Home press after it came back to Aerial, the Home the
+     * firmware is set to. MAIN alone is what those filters take
+     * (com.coocaa.aigc.home.home.rootpage.HomeActivity: MAIN +
+     * coocaa.intent.category.MYAPP_DISMISS).
+     */
+    private fun startStockDirectly(app: AppEntry): Boolean = runCatching {
+        startActivity(
+            Intent(Intent.ACTION_MAIN).setComponent(app.component)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED),
+        )
+    }.isSuccess
 
     private fun open(intent: Intent) {
         try {
@@ -1040,11 +1137,41 @@ class MainActivity : ComponentActivity() {
         private var handedOverAtBoot = false
         private val AOSP_FALLBACK_HOMES = setOf("com.android.settings.FallbackHome", "com.android.tv.settings.system.FallbackHome", "com.android.tv.settings.ui.activity.FallbackHome")
 
-        /** How Home Guard and the boot receiver bring Aerial back: the same task the launcher entry uses. */
-        fun bringBackIntent(context: Context): Intent =
-            Intent(context, MainActivity::class.java)
-                .setAction(Intent.ACTION_MAIN)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
+        /**
+         * How Home Guard and the boot receiver bring Aerial back: the same task the launcher entry uses,
+         * unless Aerial is the system's Home. Then it is a Home intent (CATEGORY_HOME, package only, no
+         * component), so the system makes it a home-type task. On Skyworth 8R734_A7HP (titanite,
+         * Android 13) a fresh standard task for MainActivity kept its task surface hidden in
+         * SurfaceFlinger (flags 0x1) while WindowManager had it visible and focused: input found the
+         * window NOT_VISIBLE and every key ended in an ANR, then a kill and the same again. That
+         * firmware's Task.prepareSurfaces re-applies the visibility every frame only for home-type
+         * root tasks, and Aerial started as Home showed and took keys at once. Where Aerial is not the
+         * system's Home the category stays off: it made the system open a second, home-type task with
+         * a fresh MainActivity every time (Xiaomi MiTV-MFTR0, 1.11).
+         */
+        fun bringBackIntent(context: Context): Intent {
+            val home = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
+            val intent = if (isSystemHome(context)) {
+                home.setPackage(context.packageName)
+            } else {
+                Intent(context, MainActivity::class.java).setAction(Intent.ACTION_MAIN)
+            }
+            return intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
+        }
+
+        /**
+         * Whether the system's Home is Aerial. Also when no Home is chosen yet but Aerial is one of
+         * them (the system's resolver comes back): early in a boot, or with a second Home such as
+         * Dangbei's launcher installed next to it.
+         */
+        fun isSystemHome(context: Context): Boolean = runCatching {
+            val pm = context.packageManager
+            val home = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
+            val resolved = pm.resolveActivity(home, PackageManager.MATCH_DEFAULT_ONLY)?.activityInfo?.packageName
+            resolved == context.packageName ||
+                (resolved == "android" &&
+                    pm.queryIntentActivities(home, PackageManager.MATCH_DEFAULT_ONLY).any { it.activityInfo.packageName == context.packageName })
+        }.getOrDefault(false)
 
         const val SCREENSAVER_HOLD_MS = 4 * 60 * 60 * 1000L
 
