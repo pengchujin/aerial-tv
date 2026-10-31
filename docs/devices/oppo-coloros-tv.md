@@ -33,10 +33,10 @@ INSTALL_FAILED_DUPLICATE_PERMISSION: App installation is banned, because of laun
 所以要把 Aerial 的 `standard` 版改成其中一个包名再签名安装。`guard` 版不声明桌面，
 可以用原包名直接装（实测），但它接管桌面的效果没在这台机器上验证过。
 
-### 改包名时，另外两处内部名字也要改
+### 用 apktool 改包名时的 Manifest 检查
 
 用源码编译时，改 `applicationId` 就够了；如果是用 apktool 拆开改 `AndroidManifest.xml`，
-下面两处要手动一起改，否则会出问题：
+除根节点 `package` 和下面的 HOME 标记外，以下名字也要手动一起改，否则会出问题：
 
 1. **广播权限** `<新包名>.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION`。
    不改的话，一打开就闪退，报 `Permission … is required`。
@@ -44,7 +44,16 @@ INSTALL_FAILED_DUPLICATE_PERMISSION: App installation is banned, because of laun
    不改的话，官方包和 `guard` 版会装不进来，报
    `INSTALL_FAILED_CONFLICTING_PROVIDER … is already used by …`。
 
-这两处都是打包时按 `applicationId` 生成的，所以源码改包名不用管。
+3. **更新安装包的 FileProvider** `app.orchard.tv.files`，改成 `<新包名>.files`。
+   不能只改 AndroidX 的 provider，漏掉文件 provider 会留下旧包名的 authority。
+
+广播权限的声明和 `uses-permission` 两处都要改。这些名字由 `applicationId` 生成，
+源码构建时会一起变化。`android:name="app.orchard.tv.MainActivity"` 等实际类名仍要保留，
+不要把整个 Manifest 中的 `app.orchard.tv` 全局替换。
+
+2026-10-31 用官方 1.74 `standard` APK 再次验证：apktool 使用 `--no-src`，只调整上述
+Manifest 内容并加入 `MODERN_HOME`，重打包后 `classes.dex`、`classes2.dex` 与官方包逐字节相同，
+再用本机原有密钥签名。每次升级都需要重复适配，密钥和密码只保存在本机。
 
 ## 不要停用原桌面（#862）
 
@@ -131,6 +140,27 @@ adb install -r -g Aerial-<版本>-oppo.apk
 
 升级要保留原来的签名，否则装不上；壁纸、照片和排序会保留。装完按「装好之后」里的命令
 确认一次。1.46 及以前的版本在开机时有上面两个问题，升到 1.47 及以后就不需要再打补丁。
+
+### 1.72 / 1.74 覆盖升级补充验证
+
+同一台 `OPPOCNM652` 的另一份实测记录：2026-10-30 从 1.47（55）升级到
+1.72（91），2026-10-31 再升级到 [1.74（94）](https://github.com/pengchujin/aerial-tv/releases/tag/v1.74)。
+两次都保留 `com.oneplus.tv.launcher2` 和原签名，使用 `adb install -r`，没有卸载或清空数据。
+
+- 默认 HOME 仍是 `com.oneplus.tv.launcher2/app.orchard.tv.MainActivity`，桌面画面和应用排列保留。
+- 系统屏保仍是 `com.oneplus.tv.launcher2/app.orchard.tv.dream.AerialDream`；无障碍、通知监听、
+  已停用包列表和已有安装权限的读数与升级前相同。
+- 这次配置中 Aerial 的无障碍和通知监听均未开启，走真实默认 HOME；不能把开启守护当作
+  standard 成为默认桌面的必要条件。原桌面的状态沿用原配置，不建议为了升级去停用它。
+- 启动后执行 `adb shell cmd package compile -m speed -f com.oneplus.tv.launcher2`，
+  返回 `Success`，`dumpsys package` 中为 `[status=speed]`；检查时崩溃缓冲区无致命异常。
+- 两次升级都没有做重启或断电冷启动测试，不能用这次结果替代前面的开机验收。
+
+**电视上下载官方 APK 后点击安装，和升级适配包是两回事。** 官方包名是 `app.orchard.tv`，
+不能覆盖当前的 `com.oneplus.tv.launcher2`，而且 standard 仍受本机的 HOME 包名限制。
+当前适配包即使已有 `REQUEST_INSTALL_PACKAGES: allow`，也不会改变这些限制。
+改包名版本没有官方应用内「下载并安装」按钮；后续仍需同包名、同签名的适配包。
+本次未验证直接点击适配 APK 的完整安装流程，也没有据此判断其他普通 APK 是否能安装。
 
 ## 已知问题
 
