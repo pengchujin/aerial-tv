@@ -117,6 +117,7 @@ import app.orchard.tv.ui.theme.GlyphIcon
 import app.orchard.tv.ui.theme.Motion
 import app.orchard.tv.ui.theme.Palette
 import app.orchard.tv.ui.theme.Type
+import app.orchard.tv.ui.theme.fontWeight
 import app.orchard.tv.update.ReleaseNotes
 import app.orchard.tv.update.SelfCompile
 import app.orchard.tv.update.Updates
@@ -312,7 +313,7 @@ private fun MainPage(
     Column {
         Row(verticalAlignment = Alignment.Bottom) {
             Column(Modifier.weight(1f)) {
-                BasicText(timeText(now), style = Type.SmallClock.copy(fontSize = Type.LargeTitle.fontSize * 1.05f))
+                BasicText(timeText(now), style = Type.SmallClock.copy(fontSize = Type.LargeTitle.fontSize * 1.05f, fontWeight = AerialSettings.clockWeight.fontWeight))
                 BasicText(dateText(now), style = Type.Callout)
             }
             val net = vm.network

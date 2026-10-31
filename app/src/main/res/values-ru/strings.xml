@@ -132,6 +132,11 @@
     <string name="st_clock_hours_24">24 часа</string>
     <string name="st_clock_hours_12">12 часов</string>
     <string name="st_clock_hours_hint">«Как на ТВ» следует настройке времени телевизора, а если её нет, показывает 24 часа.</string>
+    <string name="st_clock_weight">Толщина цифр</string>
+    <string name="st_clock_weight_bold">Жирные</string>
+    <string name="st_clock_weight_normal">Обычные</string>
+    <string name="st_clock_weight_light">Тонкие</string>
+    <string name="st_clock_weight_hint">Как рисовать цифры часов. «Жирные» — так они выглядели всегда.</string>
     <string name="st_names">Названия приложений</string>
     <string name="st_names_focused">Выбранное приложение</string>
     <string name="st_names_all">Все приложения</string>

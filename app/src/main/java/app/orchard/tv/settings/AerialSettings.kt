@@ -42,6 +42,18 @@ enum class UiSounds(val key: String) {
 }
 
 /**
+ * How heavy the clock's digits are drawn, as some prefer them lighter than Aerial has always drawn
+ * them (the owner, A95X F4 box). Bold is Inter's 700, how every clock was drawn until this option.
+ */
+enum class ClockWeight(val key: String) {
+    Bold("bold"), Regular("regular"), Light("light");
+
+    companion object {
+        fun of(key: String?) = entries.firstOrNull { it.key == key } ?: Bold
+    }
+}
+
+/**
  * How much of the interface's light and motion to draw. Full is the glass panels, a focused tile's
  * sheen, parallax and shadow, and the panel's highest refresh rate. Lite draws the panels in plain
  * dark glass (no offscreen layer per frame), a focused tile without sheen, parallax or shadow, and
@@ -156,6 +168,9 @@ object AerialSettings {
     /** The date and weather over a big clock above the top row, instead of one small line in the corner. */
     var largeClock by mutableStateOf(false); private set
 
+    /** How heavy the clock's digits are: Bold as Aerial always drew them, Regular or Light. */
+    var clockWeight by mutableStateOf(ClockWeight.Bold); private set
+
     /**
      * How often "My Photos, in turn" moves to the next photo, in minutes; a day (1440) unless the
      * owner chose shorter, for a home that wants Home to be a slideshow (issue #1314).
@@ -257,6 +272,7 @@ object AerialSettings {
         clockHours = ClockHours.of(prefs.getString("clock_hours", null))
         homeLocked = prefs.getBoolean("home_locked", false)
         photoMinutes = prefs.getInt("photo_minutes", DAY_MINUTES).takeIf { it in PHOTO_MINUTES } ?: DAY_MINUTES
+        clockWeight = ClockWeight.of(prefs.getString("clock_weight", null))
         homePlate = prefs.getBoolean("home_plate", true)
         chosenAllNames = prefs.getBoolean("show_all_names", false)
         wallpaperAlwaysMoves = prefs.getBoolean("wallpaper_always_moves", false)
@@ -368,6 +384,11 @@ object AerialSettings {
     fun chooseClockHours(hours: ClockHours) {
         clockHours = hours
         app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit { putString("clock_hours", hours.key) }
+    }
+
+    fun chooseClockWeight(weight: ClockWeight) {
+        clockWeight = weight
+        app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit { putString("clock_weight", weight.key) }
     }
 
     fun chooseShowAllNames(on: Boolean) {

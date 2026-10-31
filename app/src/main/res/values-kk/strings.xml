@@ -132,6 +132,11 @@
     <string name="st_clock_hours_24">24 сағат</string>
     <string name="st_clock_hours_12">12 сағат</string>
     <string name="st_clock_hours_hint">«ТД сияқты» теледидардың уақыт параметріне сүйенеді, ол болмаса 24 сағатты көрсетеді.</string>
+    <string name="st_clock_weight">Цифр қалыңдығы</string>
+    <string name="st_clock_weight_bold">Жуан</string>
+    <string name="st_clock_weight_normal">Қалыпты</string>
+    <string name="st_clock_weight_light">Жіңішке</string>
+    <string name="st_clock_weight_hint">Сағат цифрларының қалыңдығы. «Жуан» — бұрыннан келе жатқан көрініс.</string>
     <string name="st_names">Қолданба атаулары</string>
     <string name="st_names_focused">Таңдалған қолданба</string>
     <string name="st_names_all">Барлық қолданбалар</string>

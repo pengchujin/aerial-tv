@@ -60,6 +60,7 @@ import app.orchard.tv.ui.components.diagLayer
 import app.orchard.tv.ui.theme.LocalReducedMotion
 import app.orchard.tv.ui.theme.Motion
 import app.orchard.tv.ui.theme.Type
+import app.orchard.tv.ui.theme.fontWeight
 import app.orchard.tv.wallpaper.AerialStream
 import app.orchard.tv.wallpaper.Aerial
 import app.orchard.tv.wallpaper.AerialSet
@@ -358,7 +359,10 @@ private fun Labels(
         val laidOut = if (large) Type.Clock.fontSize else Type.Title.fontSize
         if (time > 0f && AerialSettings.screensaverClock) BasicText(
             timeText(now),
-            style = if (large) Type.Clock.copy(color = SaverClockStyle.color) else SaverClockStyle.copy(fontSize = laidOut),
+            // The weight chosen in Personalize, on both cuts: the large one is Type.Clock's cut and
+            // tracking, the small one SaverClockStyle's, laid out at Home's size (issue #1646).
+            style = if (large) Type.Clock.copy(color = SaverClockStyle.color, fontWeight = AerialSettings.clockWeight.fontWeight)
+                    else SaverClockStyle.copy(fontSize = laidOut, fontWeight = AerialSettings.clockWeight.fontWeight),
             modifier = Modifier
                 .align(if (AerialSettings.clockRight) Alignment.TopEnd else Alignment.TopStart)
                 .padding(top = SaverClockTop, start = SaverClockSide, end = SaverClockSide)
