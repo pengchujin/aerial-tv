@@ -39,6 +39,8 @@ def messages(buf):
     out = []
     while len(buf) >= 4:
         n = struct.unpack(">i", buf[:4])[0]
+        if n < 0:
+            raise ValueError("negative T-Cast message length: {}".format(n))
         if len(buf) < 4 + n:
             break
         out.append(buf[4:4 + n].decode("utf-8", "replace"))
@@ -70,7 +72,12 @@ def main():
             buf += chunk
         except socket.timeout:
             pass
-        found, buf = messages(buf)
+        try:
+            found, buf = messages(buf)
+        except ValueError as exc:
+            sock.close()
+            print("Invalid response from the TV: {}.".format(exc), file=sys.stderr)
+            return 1
         for msg in found:
             parts = msg.split(">>")
             if len(parts) < 5 or parts[0] != "223" or parts[2] != package:
@@ -100,3 +107,4 @@ def main():
 
 if __name__ == "__main__":
     sys.exit(main())
+
