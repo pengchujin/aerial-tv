@@ -17,3 +17,6 @@ site/icons/
 
 # Wrangler state and the account cache (account id, e-mail).
 .wrangler/
+
+# The optional proxy core, fetched on request by tools/fetch-mihomo.sh (GPLv3, 56 MB): never committed.
+app/src/main/jniLibs/armeabi-v7a/libmihomo.so

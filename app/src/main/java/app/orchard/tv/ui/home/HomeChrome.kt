@@ -839,7 +839,7 @@ fun StatusPill(
                 NetKind.Offline -> Glyph.Offline
             }
             GlyphIcon(glyph, fg, 17.dp, level = network.level)
-            if (network.vpn) VpnBadge(fg)
+            if (network.tunneled) VpnBadge(fg)
             if (showTime) {
                 BasicText(timeText(now), style = Type.Headline.copy(color = fg))
             }

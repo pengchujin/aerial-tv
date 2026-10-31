@@ -88,6 +88,7 @@ import app.orchard.tv.system.NetKind
 import app.orchard.tv.system.SourceKind
 import app.orchard.tv.system.Sounds
 import app.orchard.tv.system.SystemProbe
+import app.orchard.tv.ui.components.PressState
 import app.orchard.tv.ui.components.Pressable
 import app.orchard.tv.ui.components.consumeTaps
 import app.orchard.tv.ui.components.dismissOnTap
@@ -121,12 +122,17 @@ fun ControlCenter(
     /** Draw the closed panel once, nearly transparent, so that its first opening is not its first draw (HomeScreen). */
     warm: Boolean = false,
 ) {
+    // The proxy as the VPN button and page show it; polled only while one of them is on screen.
+    val vpn = rememberVpnState()
+    VpnPolling(vpn, visible, page)
+
     BackHandler(enabled = visible) {
         when (page) {
             CcPage.Main -> onClose()
             CcPage.Inputs -> vm.overlay = Overlay.ControlCenter(CcPage.Main)
             CcPage.InputSettings -> vm.overlay = Overlay.ControlCenter(CcPage.Inputs)
             CcPage.Update, CcPage.Setup -> vm.overlay = Overlay.ControlCenter(CcPage.Main)
+            CcPage.Vpn -> leaveVpnPage(vm, vpn)
         }
     }
 
@@ -154,7 +160,7 @@ fun ControlCenter(
         // at 1% while Home is idle, without focus, the first opening is like the second.
         if (warm && !visible) {
             Column(Modifier.graphicsLayer { alpha = 0.01f }.width(300.dp).liquidGlass(24.dp).padding(16.dp)) {
-                MainPage(vm, now, false, onOpen)
+                MainPage(vm, vpn, now, false, onOpen)
             }
         }
         AnimatedVisibility(
@@ -185,11 +191,12 @@ fun ControlCenter(
                     // Closing sets the page back to Main while the panel fades out; that page must
                     // not take focus from the tile Home has just put it back on.
                     when (p) {
-                        CcPage.Main -> MainPage(vm, now, visible, onOpen)
+                        CcPage.Main -> MainPage(vm, vpn, now, visible, onOpen)
                         CcPage.Inputs -> InputsPage(vm, visible, onOpen)
                         CcPage.InputSettings -> InputSettingsPage(vm, visible)
                         CcPage.Update -> UpdatePage(vm, visible)
                         CcPage.Setup -> SetupPage(vm, visible, onOpen)
+                        CcPage.Vpn -> VpnPage(vm, vpn, visible)
                     }
                 }
             }
@@ -198,11 +205,19 @@ fun ControlCenter(
 }
 
 @Composable
-private fun MainPage(vm: HomeViewModel, now: LocalDateTime, takeFocus: Boolean, onOpen: (android.content.Intent) -> Unit) {
+private fun MainPage(vm: HomeViewModel, vpn: VpnState, now: LocalDateTime, takeFocus: Boolean, onOpen: (android.content.Intent) -> Unit) {
     val context = LocalContext.current
     val first = remember { FocusRequester() }
     val networkFocus = remember { FocusRequester() }
+    val vpnFocus = remember { FocusRequester() }
     val settingsFocus = remember { FocusRequester() }
+    // A start that failed in the service after the button's press had returned.
+    LaunchedEffect(vpn.failed, takeFocus) {
+        val code = vpn.failed ?: return@LaunchedEffect
+        if (!takeFocus) return@LaunchedEffect
+        vpn.failed = null
+        vm.notify(vpnErrorText(context, code))
+    }
     // The buttons share one row above a panel-wide slider, so focus searching up from it has three
     // equally near choices and takes the middle one, Network, whichever button Down came from
     // (75A7D). Remember that button and send Up back to it.
@@ -218,7 +233,10 @@ private fun MainPage(vm: HomeViewModel, now: LocalDateTime, takeFocus: Boolean, 
     LaunchedEffect(Unit) {
         if (!takeFocus) return@LaunchedEffect
         withFrameNanos { }
-        runCatching { first.requestFocus() }
+        // Back from the VPN page (or its PIN), focus returns to the VPN button.
+        val target = if (vpn.focusButton) vpnFocus else first
+        vpn.focusButton = false
+        runCatching { target.requestFocus() }
     }
 
     Column {
@@ -242,7 +260,7 @@ private fun MainPage(vm: HomeViewModel, now: LocalDateTime, takeFocus: Boolean, 
                     style = Type.Caption, maxLines = 1, overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.widthIn(max = 110.dp),
                 )
-                if (net.vpn) VpnBadge(Palette.SecondaryLabel, fontSize = 9.sp)
+                if (net.tunneled) VpnBadge(Palette.SecondaryLabel, fontSize = 9.sp)
             }
         }
 
@@ -269,6 +287,16 @@ private fun MainPage(vm: HomeViewModel, now: LocalDateTime, takeFocus: Boolean, 
                     onOpen(pages.first())
                 }
             }
+            // Press: the embedded proxy on or off. Hold: the VPN page (mode, nodes). Behind the PIN,
+            // as Network is.
+            RoundButton(
+                Glyph.Globe, stringResource(R.string.vpn_label),
+                focusRequester = vpnFocus,
+                modifier = Modifier.onFocusChanged { if (it.isFocused) cameFrom = vpnFocus },
+                active = vpn.on,
+                busy = vpn.busy || vpn.coreBusy,
+                onLongPress = { openVpnPage(vm, vpn) },
+            ) { pressVpn(vm, vpn, context) }
             RoundButton(
                 Glyph.Gear, stringResource(R.string.cc_settings),
                 focusRequester = settingsFocus,
@@ -455,20 +483,33 @@ private fun SetupPage(vm: HomeViewModel, takeFocus: Boolean, onOpen: (android.co
     }
 }
 
-/** A round Control Center button: frosted at rest, white when focused. */
+/**
+ * A round Control Center button: frosted at rest, white when focused. [active] fills the circle
+ * green (VPN on) and [busy] turns a ring around it. With [onLongPress], holding OK does that
+ * instead (HoldPressable); the others stay plain Pressables.
+ */
 @Composable
 private fun RoundButton(
     glyph: Glyph,
     label: String,
     focusRequester: FocusRequester? = null,
     modifier: Modifier = Modifier,
+    active: Boolean = false,
+    busy: Boolean = false,
+    onLongPress: (() -> Unit)? = null,
     onClick: () -> Unit,
 ) {
-    Pressable(onClick = onClick, modifier = modifier, focusRequester = focusRequester, focusedScale = 1.1f) { state ->
-        val bg by animateColorAsState(if (state.focused) Palette.Focus else Palette.Fill, tween(140, easing = Motion.EaseOut), label = "round-bg")
+    val face: @Composable (PressState) -> Unit = { state ->
+        val bg by animateColorAsState(
+            if (state.focused) Palette.Focus else if (active) Palette.Green else Palette.Fill,
+            tween(140, easing = Motion.EaseOut), label = "round-bg",
+        )
         Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(64.dp)) {
             Box(Modifier.size(48.dp).clip(CircleShape).background(bg), contentAlignment = Alignment.Center) {
-                GlyphIcon(glyph, if (state.focused) Palette.OnFocus else Palette.Label, 20.dp)
+                // On the focused (near-white) plate a green glyph still reads; otherwise white.
+                val foreground = if (state.focused) (if (active) Color(0xFF248A3D) else Palette.OnFocus) else Palette.Label
+                GlyphIcon(glyph, foreground, 20.dp)
+                if (busy) BusyRing(if (state.focused) Palette.OnFocus else foreground, Modifier.fillMaxSize())
             }
             Spacer(Modifier.height(6.dp))
             BasicText(
@@ -476,6 +517,11 @@ private fun RoundButton(
                 style = Type.Caption.copy(color = if (state.focused) Palette.Label else Palette.SecondaryLabel, textAlign = TextAlign.Center),
             )
         }
+    }
+    if (onLongPress == null) {
+        Pressable(onClick = onClick, modifier = modifier, focusRequester = focusRequester, focusedScale = 1.1f) { face(it) }
+    } else {
+        HoldPressable(onClick = onClick, onLongPress = onLongPress, modifier = modifier, focusRequester = focusRequester, focusedScale = 1.1f) { face(it) }
     }
 }
 

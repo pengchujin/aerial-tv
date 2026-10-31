@@ -79,6 +79,12 @@ android {
         unitTests.isIncludeAndroidResources = true
     }
     packaging {
+        // The optional proxy core (tools/fetch-mihomo.sh puts it in jniLibs/armeabi-v7a, git-ignored)
+        // is a PIE executable that Aerial starts as a child process from nativeLibraryDir, so the
+        // APK must extract it to disk instead of mapping it. keepDebugSymbols: a stripped static Go
+        // binary is not a valid input for AGP's strip step. Both are no-ops without the file.
+        jniLibs.useLegacyPackaging = true
+        jniLibs.keepDebugSymbols += "**/libmihomo.so"
         resources.excludes += setOf("/META-INF/{AL2.0,LGPL2.1}", "DebugProbesKt.bin", "kotlin-tooling-metadata.json")
     }
 }
@@ -108,6 +114,8 @@ dependencies {
     implementation("androidx.media3:media3-database:1.8.1")
     // Phone setup page (a tiny LAN web server) and the QR code that opens it.
     implementation("org.nanohttpd:nanohttpd:2.3.1")
+    // Parses Clash subscriptions as data (bounded, no object construction) for the built-in proxy.
+    implementation("org.snakeyaml:snakeyaml-engine:2.9")
     implementation("com.google.zxing:core:3.5.3")
 }
 

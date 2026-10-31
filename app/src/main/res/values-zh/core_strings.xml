@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The VPN page's "download the core" row (ui/control/VpnPanel.kt, proxy/CoreInstaller.kt). -->
+<resources>
+    <string name="vpn_core_missing">这台电视上还没有代理内核。</string>
+    <string name="vpn_core_download">下载内核（约 21 MB）</string>
+    <string name="vpn_core_retry">重新下载内核（约 21 MB）</string>
+    <string name="vpn_core_cancel">取消下载</string>
+    <string name="vpn_core_downloading">正在下载内核… %1$d%% · %2$s</string>
+    <string name="vpn_core_verifying">正在校验下载的文件…</string>
+    <string name="vpn_core_hint">内核是一个独立程序（mihomo，GPLv3），只在你点下载时获取，SHA-256 与 Aerial 内置的固定值一致才会使用。</string>
+    <string name="vpn_core_error_download">下载没有完成。可以稍后重试，会接着已收到的部分继续。</string>
+    <string name="vpn_core_error_integrity">下载的文件与固定的校验值不一致，已删除。</string>
+    <string name="vpn_core_error_storage">电视存储空间不足或无法写入，内核没有保存。</string>
+    <string name="vpn_core_error_exec">这台电视不允许应用运行自己下载的程序，内核已删除。</string>
+    <string name="vpn_core_error_selftest">内核下载后无法运行，已删除。</string>
+</resources>

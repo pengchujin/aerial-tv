@@ -25,6 +25,7 @@ import app.orchard.tv.apps.TileArt
 import app.orchard.tv.apps.TileArtFactory
 import app.orchard.tv.apps.folderEntry
 import app.orchard.tv.apps.sourceEntry
+import app.orchard.tv.proxy.ProxyManager
 import app.orchard.tv.settings.AerialSettings
 import app.orchard.tv.system.Brightness
 import app.orchard.tv.system.DiagLog
@@ -62,7 +63,7 @@ sealed interface Overlay {
     data class Pin(val mode: PinMode, val onDone: () -> Unit) : Overlay
 }
 
-enum class CcPage { Main, Inputs, InputSettings, Update, Setup }
+enum class CcPage { Main, Inputs, InputSettings, Update, Setup, Vpn }
 
 /**
  * Tiles a cold start reads whole before showing Home (two rows and a half, as many as can show);
@@ -91,7 +92,11 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
     var overlay by mutableStateOf<Overlay>(Overlay.None)
     var movingKey by mutableStateOf<String?>(null); private set
 
+    /** Android's network state with the embedded proxy's probe result (NetworkStatus.withProxy). */
     var network by mutableStateOf(NetworkStatus()); private set
+
+    /** The last [SystemProbe.network] result, before the proxy state; null until the first probe. */
+    private var systemNetwork: NetworkStatus? = null
     var volume by mutableStateOf(VolumeStatus()); private set
     var sources by mutableStateOf<List<TvSource>>(emptyList()); private set
     var homeStatus by mutableStateOf(HomeStatus.NotDefault); private set
@@ -167,6 +172,9 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
         AppCatalog.pinSource = ::pinSourceById
         AppCatalog.layout = layoutOps
         reload()
+        // The proxy's 204 probe runs on its own worker every ~30 s and is cleared on stop and on
+        // node, mode or profile changes; only its result arrives here, on the main thread.
+        viewModelScope.launch { ProxyManager.connected.collect { network = network.withProxy(it) } }
         // The light engine is written off the main thread: a held key repeats every few tens of ms,
         // and doing the HAL call on the key's own thread left the row lagging behind the picture.
         viewModelScope.launch(Dispatchers.Default) {
@@ -466,7 +474,7 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
             // vendor binder must not keep the panel saying "not the default home" (issue #892).
             homeStatus = withContext(Dispatchers.Default) { SystemProbe.homeStatus(ctx) }
             val level = withContext(Dispatchers.Default) { Brightness.level(ctx) }
-            network = n; volume = v
+            showNetwork(n); volume = v
             // TvSource holds an Intent, which has no value equality; compare what a tile shows.
             // The route too: a corrected Xiaomi source id changes nothing a tile shows.
             fun shown(list: List<TvSource>) = list.map { listOf(it.id, it.label, it.deviceName, it.intent.toUri(0)) }
@@ -518,7 +526,18 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun refreshNetwork() { network = SystemProbe.network(context) }
+    fun refreshNetwork() { showNetwork(SystemProbe.network(context)) }
+
+    /**
+     * On the main thread. Another uplink makes the proxy probe again (ProxyManager.onUplinkChanged,
+     * off this thread); a Wi-Fi signal step alone does not.
+     */
+    private fun showNetwork(probed: NetworkStatus) {
+        val previous = systemNetwork
+        systemNetwork = probed
+        network = probed.withProxy(ProxyManager.connected.value)
+        if (previous != null && (previous.kind != probed.kind || previous.name != probed.name)) ProxyManager.onUplinkChanged()
+    }
 
     /**
      * For the volume broadcast, one per step. It used to run refreshSystem, which read the level,

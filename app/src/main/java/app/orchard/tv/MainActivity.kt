@@ -124,6 +124,20 @@ class MainActivity : ComponentActivity() {
         override fun onCapabilitiesChanged(network: Network, caps: NetworkCapabilities) = runOnUiThread { vm.refreshNetwork() }
     }
 
+    // Aerial's own VPN excludes Aerial (ProxyService.establishTun), so the default-network callback
+    // above never reports it coming up or going down; this one sees every network, VPNs included.
+    // Bursts are coalesced; only the network pill is refreshed.
+    private val refreshNetworkOnly = Runnable { vm.refreshNetwork() }
+    private val allNetworksCallback = object : ConnectivityManager.NetworkCallback() {
+        private fun refresh() {
+            idleHandler.removeCallbacks(refreshNetworkOnly)
+            idleHandler.postDelayed(refreshNetworkOnly, 100)
+        }
+        override fun onAvailable(network: Network) = refresh()
+        override fun onLost(network: Network) = refresh()
+        override fun onCapabilitiesChanged(network: Network, caps: NetworkCapabilities) = refresh()
+    }
+
     // See MissingClipboard.
     override fun getSystemService(name: String): Any? =
         super.getSystemService(name) ?: if (name == CLIPBOARD_SERVICE) MissingClipboard.standIn else null
@@ -769,7 +783,12 @@ class MainActivity : ComponentActivity() {
         SelfCompile.onHomeStarted()
         // The phone and computer page, at any time the TV is on (only once unlocked: its token is
         // in credential-protected storage).
-        lifecycleScope.launch(Dispatchers.IO) { PhoneServer.listen(this@MainActivity) }
+        lifecycleScope.launch(Dispatchers.IO) {
+            PhoneServer.listen(this@MainActivity)
+            // Starts the proxy once per app process if the user has a profile (a manual stop lasts
+            // until the next app start).
+            app.orchard.tv.proxy.ProxyManager.startWithApplication()
+        }
         GuardSetup.ensureEnabled(this)
         idleHandler.postDelayed({ GuardSetup.rebindIfStalled(this) }, 5_000)
         vm.reloadIfPackagesChanged()
@@ -799,7 +818,13 @@ class MainActivity : ComponentActivity() {
             ContextCompat.RECEIVER_NOT_EXPORTED,
         )
         getSystemService<ConnectivityManager>()?.let { cm ->
-            if (Build.VERSION.SDK_INT >= 24) cm.registerDefaultNetworkCallback(networkCallback)
+            if (Build.VERSION.SDK_INT >= 24) {
+                cm.registerDefaultNetworkCallback(networkCallback)
+                cm.registerNetworkCallback(
+                    NetworkRequest.Builder().removeCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN).build(),
+                    allNetworksCallback,
+                )
+            }
             // A request leaves VPNs out unless told otherwise; the status pill shows one coming up (issue #809).
             else cm.registerNetworkCallback(NetworkRequest.Builder().removeCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN).build(), networkCallback)
         }
@@ -891,6 +916,8 @@ class MainActivity : ComponentActivity() {
         unregisterReceiver(volumeReceiver)
         unregisterReceiver(dayReceiver)
         runCatching { getSystemService<ConnectivityManager>()?.unregisterNetworkCallback(networkCallback) }
+        runCatching { getSystemService<ConnectivityManager>()?.unregisterNetworkCallback(allNetworksCallback) }
+        idleHandler.removeCallbacks(refreshNetworkOnly)
     }
 
     /** Opens an app, growing it out of its tile. */
