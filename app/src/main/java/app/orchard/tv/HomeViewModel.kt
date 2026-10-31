@@ -40,7 +40,6 @@ import app.orchard.tv.ui.home.TileFaces
 import app.orchard.tv.ui.theme.canvasDensity
 import app.orchard.tv.wallpaper.Wallpapers
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
@@ -155,6 +154,7 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private var loadJob: Job? = null
+    private var sourceJob: Job? = null
 
     /** A tile picture set or removed from the phone page; see CustomIcons.onChange; before init, which registers it. */
     private val customIconsChanged: () -> Unit = {
@@ -166,6 +166,14 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
         AppCatalog.renameFolder = ::renameFolder
         AppCatalog.pinSource = ::pinSourceById
         AppCatalog.layout = layoutOps
+        // Android may recreate just the Activity while this process still holds its catalogue.
+        // Show those known tiles at once; a slow firmware probe must not leave the shelf blank.
+        if (AppCatalog.loaded.isNotEmpty()) {
+            all = AppCatalog.loaded
+            sources = AppCatalog.sources
+            arrange()
+            loaded = true
+        }
         reload()
         // The light engine is written off the main thread: a held key repeats every few tens of ms,
         // and doing the HAL call on the key's own thread left the row lagging behind the picture.
@@ -232,9 +240,16 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
         loadJob = viewModelScope.launch {
             val ctx = context
             val started = SystemClock.uptimeMillis()
-            // The inputs are probed while the apps load: one after the other, a cold start waited
-            // for both in turn (0.1-0.8 s more on the TVs in issues #452, #454, #537).
-            val probing = async(Dispatchers.Default) { SystemProbe.sources(ctx) }
+            // The inputs are still probed while the apps load, but as a job of their own: vendor
+            // input Binder calls can stall indefinitely, and must never delay committing the app
+            // shelf, even on a genuine cold start. The inputs are arranged when the probe returns.
+            if (sourceJob?.isActive != true) sourceJob = viewModelScope.launch {
+                val detected = withContext(Dispatchers.IO) {
+                    runCatching { SystemProbe.sources(ctx) }.getOrDefault(emptyList())
+                }
+                sources = detected
+                if (loaded) arrange()
+            }
             // A cold start reads only the first rows' tiles whole; the rest follow just after.
             val first: ((Set<String>) -> Set<String>)? = if (loaded) null else { installed -> store.leading(LEADING_TILES, installed) }
             all = AppCatalog.load(ctx, first)
@@ -244,7 +259,6 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
             val now = SystemClock.uptimeMillis()
             DiagLog.i("${all.size} apps in ${now - started} ms (wait ${from - started}, queries ${queried - from}, " +
                 "tiles ${done - queried}, main ${now - done})")
-            sources = probing.await()
             arrange()
             prepareFaces()
             val wasLoaded = loaded
@@ -490,7 +504,7 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
     fun refreshSources() {
         viewModelScope.launch {
             val ctx = context
-            val s = withContext(Dispatchers.Default) { SystemProbe.sources(ctx) }
+            val s = withContext(Dispatchers.IO) { SystemProbe.sources(ctx) }
             if (s.isNotEmpty() && sources.isEmpty()) { sources = s; arrange() }
         }
     }

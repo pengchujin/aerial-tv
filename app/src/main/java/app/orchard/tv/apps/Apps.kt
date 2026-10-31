@@ -197,8 +197,11 @@ object AppCatalog {
      * whole; the others, if kept on disk, come as a placeholder in their color with their name
      * (TileArt.placeholder), and a later load without [first] reads them. Reading all 52 tiles took a cold start 500-680 ms on
      * TCL MT5879 (23 MB of pixels), while only the first rows show.
+     *
+     * Runs on IO: the package queries and the tile files block on firmware and storage, and must not
+     * wait behind (or hold up) the Default pool's CPU work such as the glass blur.
      */
-    suspend fun load(context: Context, first: ((installed: Set<String>) -> Set<String>)? = null): List<AppEntry> = withContext(Dispatchers.Default) {
+    suspend fun load(context: Context, first: ((installed: Set<String>) -> Set<String>)? = null): List<AppEntry> = withContext(Dispatchers.IO) {
         val started = android.os.SystemClock.uptimeMillis()
         TileDiskCache.init(context)
         val pm = context.packageManager
