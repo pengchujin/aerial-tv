@@ -157,7 +157,7 @@ fun VideoWallpaper(
                 val at = p.currentPosition
                 val w = surface?.width?.takeIf { it > 0 } ?: Wallpapers.screenW
                 val h = surface?.height?.takeIf { it > 0 } ?: Wallpapers.screenH
-                val frame = surface?.let { copyFrame(it) }
+                val frame = surface?.let { copyFrame(it, p.videoSize) }
                     ?: film?.let { id -> withContext(Dispatchers.IO) { fileFrame(context, id, at, w, h) } }
                 if (frame != null && film != null) Wallpapers.useLiveFrame(frame, film, at)
                 cover.animateTo(0f, tween(if (frame != null) 320 else 600, easing = Motion.EaseOut))

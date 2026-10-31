@@ -31,6 +31,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
+import androidx.media3.common.VideoSize
 import androidx.media3.exoplayer.ExoPlayer
 import app.orchard.tv.ui.components.FilmSlot
 import app.orchard.tv.settings.AerialSettings
@@ -42,6 +43,7 @@ import app.orchard.tv.wallpaper.AerialQuality
 import app.orchard.tv.wallpaper.AerialSet
 import app.orchard.tv.wallpaper.AerialStream
 import app.orchard.tv.wallpaper.Aerials
+import app.orchard.tv.wallpaper.Images
 import app.orchard.tv.wallpaper.ScreensaverMode
 import app.orchard.tv.wallpaper.Wallpapers
 import kotlinx.coroutines.Dispatchers
@@ -50,6 +52,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlin.math.abs
+import kotlin.math.roundToInt
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
@@ -211,9 +214,11 @@ fun LiveWallpaper(
     fun open(): ExoPlayer {
         val quality = AerialFormats.forWallpaper(context)
         val overHttp = Build.VERSION.SDK_INT < Build.VERSION_CODES.N
-        // Where it was let go (into an app, or a screensaver's films), else the picture's own
-        // moment; then the other films kept (AerialSet), in the order the screensaver plays them.
-        val spot = Wallpapers.liveSpot()
+        // Home reveals the saved picture before the decoder is ready. Start on that
+        // frame, rather than crossfading to the later position saved at screen-off.
+        // A different-format screensaver returns on black and keeps its own position.
+        val spot = if (fresh) Wallpapers.liveSpot()
+            else Wallpapers.livePictureSpot() ?: Wallpapers.liveSpot()
         fresh = false
         val films = AerialSet.playlist(context, spot?.first)
         val resume = films.first().takeIf { it.id == spot?.first }
@@ -289,7 +294,7 @@ fun LiveWallpaper(
         val at = p.currentPosition
         val started = android.os.SystemClock.elapsedRealtime()
         val frame = withTimeoutOrNull(LEAVE_FRAME_MS) {
-            (if (pixelCopy == false) null else surface?.let { capture(it) })
+            (if (pixelCopy == false) null else surface?.let { capture(it, p.videoSize) })
                 ?: reader.frame(film, at, Wallpapers.screenW, Wallpapers.screenH, exact = false, nearest = true)
         }
         if (frame == null) {
@@ -350,11 +355,9 @@ fun LiveWallpaper(
     LaunchedEffect(play, stops) {
         live.stopped = false
         if (play) {
-            // Let go past its picture (into an app, or a screensaver of its own), it goes on from
-            // where it was let go: the same film, not the one the picture came from, which could be
-            // any film from the last stop on the grid (owner, 2026-10-29). The picture caught up to
-            // that moment behind the app (LaunchedEffect(keep)); if it has not yet, it does under
-            // the moving film. Catching up first held Home still for about 3 s (Xiaomi MiTV-MFTR0).
+            // Begin on the picture Home is showing. If it is behind the last stop, catch it
+            // up under the moving film rather than changing the visible picture before playback.
+            // Catching up first held Home still for about 3 s (Xiaomi MiTV-MFTR0).
             val left = if (player == null) Wallpapers.leftLiveSpot() else null
             val p = player ?: open().also { player = it }
             DiagLog.i("wallpaper film starts (state ${p.playbackState}, ${p.currentMediaItem?.mediaId} at ${p.currentPosition} ms)")
@@ -403,7 +406,7 @@ fun LiveWallpaper(
                     glassReady(live)
                 }
                 glassSample = null
-                var frame = if (pixelCopy == false) null else surface?.let { capture(it) }
+                var frame = if (pixelCopy == false) null else surface?.let { capture(it, p.videoSize) }
                 if (frame == null && film != null) {
                     // Stopped by a panel opening: decoded once the panel is in. Read from Apple and
                     // decrypted in this process (the media server's reads come through its binder
@@ -452,7 +455,7 @@ fun LiveWallpaper(
                     // shows it plainly; once no key has come for KEEP_STOPPED_MS, the copy is made,
                     // unseen, and becomes the picture. Left first: the picture stays as it was.
                     val idle = untilQuietOrLeft({ standInNow && keepNow }, lastInputNow)
-                    val copy = if (idle) surface?.let { captureOnce(it) } else null
+                    val copy = if (idle) surface?.let { captureOnce(it, videoSize = p.videoSize) } else null
                     if (copy != null) Wallpapers.useLiveFrame(copy, film, at)
                     if (!keepNow) {
                         live.stopped = false
@@ -525,14 +528,14 @@ fun LiveWallpaper(
  * brightness without colour (Hisense VIDAA_TV T963, Xiaomi MiTV-MTEQ0: the wallpaper turned green
  * at the first key press, issue #256).
  */
-private suspend fun capture(view: SurfaceView): Bitmap? {
+private suspend fun capture(view: SurfaceView, videoSize: VideoSize): Bitmap? {
     // The same TV gives the same answer: where it fails, later stops go straight to the film's
     // file; where it works, the file is not needed at all.
-    return captureOnce(view).also { pixelCopy = it != null && !copySlow }
+    return captureOnce(view, videoSize = videoSize).also { pixelCopy = it != null && !copySlow }
 }
 
 /** A moving wallpaper's current frame where this TV lets PixelCopy read its video plane; else null. */
-internal suspend fun copyFrame(view: SurfaceView): Bitmap? = if (pixelCopy == false) null else capture(view)
+internal suspend fun copyFrame(view: SurfaceView, videoSize: VideoSize): Bitmap? = if (pixelCopy == false) null else capture(view, videoSize)
 
 /**
  * A small copy of the moving film for the plate's glass, where PixelCopy reads it; else null. Three
@@ -704,10 +707,15 @@ private const val GLASS_COST_FRAMES = 5
 /** A small key frame of [film] near [atMs], kept for the glass. */
 private class GlassSample(val film: String, val atMs: Long, val frame: Bitmap)
 
-private suspend fun captureOnce(view: SurfaceView, w: Int = view.width, h: Int = view.height): Bitmap? {
+private suspend fun captureOnce(view: SurfaceView, w: Int = view.width, h: Int = view.height, videoSize: VideoSize? = null): Bitmap? {
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N || view.width <= 0 || !view.holder.surface.isValid) return null
     val surface = view.holder.surface
-    val bitmap = createBitmap(w, h)
+    // PixelCopy scales the entire decoder buffer, not the SurfaceView's displayed crop.
+    // Preserve the video's aspect while copying, then crop exactly as the player does.
+    val copyWidth = if (videoSize != null && videoSize.width > 0 && videoSize.height > 0)
+        (h * videoSize.width.toFloat() * videoSize.pixelWidthHeightRatio / videoSize.height).roundToInt().coerceAtLeast(1)
+        else w
+    val bitmap = createBitmap(copyWidth, h)
     // PixelCopy copies on the thread that asks, before it calls back. Asked on the main thread, a
     // 4K film held it 0.5-1 s (TCL MT5879), and the keys pressed meanwhile all landed at once:
     // a Down that stopped the film moved focus down several rows.
@@ -731,7 +739,10 @@ private suspend fun captureOnce(view: SurfaceView, w: Int = view.width, h: Int =
     val unread = if (result == PixelCopy.SUCCESS) unreadable(bitmap) else null
     if (unread == "green") copyLostColour = true
     if (result != PixelCopy.SUCCESS || unread != null) DiagLog.i("wallpaper frame copy: result $result, $unread")
-    return bitmap.takeIf { result == PixelCopy.SUCCESS && unread == null }
+    if (result != PixelCopy.SUCCESS || unread != null) { bitmap.recycle(); return null }
+    return Images.cover(bitmap, w, h).also {
+        if (it !== bitmap) bitmap.recycle()
+    }
 }
 
 /**
@@ -849,7 +860,8 @@ private class FrameReader(private val context: android.content.Context) {
         }
         if (!quiet || frame == null) DiagLog.i("wallpaper ${if (exact) "frame" else if (nearest) "key frame" else "glass frame"} decoded: ${frame != null} in ${android.os.SystemClock.elapsedRealtime() - started} ms")
         val sized = frame?.let {
-            val sized = if (it.width == w && it.height == h) it else Bitmap.createScaledBitmap(it, w, h, true)
+            // Match the player's center crop, including screens that are not 16:9.
+            val sized = Images.cover(it, w, h)
             if (sized.isMutable && sized.config == Bitmap.Config.ARGB_8888) sized else sized.copy(Bitmap.Config.ARGB_8888, true)
         }
         // The decoder can lose the colour too: on Xiaomi MiTV-MFTP0 (Android 9) the wallpaper and
