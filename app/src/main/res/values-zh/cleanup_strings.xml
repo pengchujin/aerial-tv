@@ -1,0 +1,1 @@
+<?xml version="1.0" encoding="utf-8"?><resources><string name="cleanup_action">清理后台</string><string name="cleanup_running">清理中…</string><string name="cleanup_done">已清理 %1$d MB</string><string name="cleanup_unavailable">暂时无法清理</string></resources>

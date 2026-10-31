@@ -24,6 +24,7 @@ app/src/main/java/app/orchard/tv/
 │   ├── home/HomeScreen.kt   首页布局：网格几何、滚动、焦点管理、各浮层挂载、返回键
 │   ├── home/AppTile.kt      单个磁贴：聚焦弹簧、阴影、柔光、视差、边缘回弹、长按、移动抖动
 │   ├── home/HomeChrome.kt   背景（AmbientBackground）、大时钟、右上角状态胶囊、时间格式
+│   ├── home/RocketCleaner.kt  右上角状态胶囊左边的清理火箭：只在状态胶囊（或它自己）有焦点时出现，点击后调用 BackgroundCleaner 并显示结果
 │   ├── home/Overlays.kt     长按菜单、隐藏的 App 面板、MenuRow、MiniTile
 │   ├── home/FolderView.kt   打开的文件夹
 │   ├── home/PinPad.kt       家长密码键盘（设置 / 解锁，遥控器数字键或屏幕键盘）
@@ -46,6 +47,7 @@ app/src/main/java/app/orchard/tv/
 │   ├── SystemState.kt       SystemProbe：网络、音量、桌面状态、设置入口、信号源（TvInputManager + 小米路由 + 机型修正）
 │   ├── Brightness.kt        亮度：小米 picture_backlight / 标准 screen_brightness / TCL 走面板
 │   ├── DeviceProfile.kt     按机型的修正（数据在 assets/devices.json），这台电视自己的修正可以覆盖它
+│   ├── BackgroundCleaner.kt 清理后台：对符合条件的第三方应用调用 killBackgroundProcesses（Android 14 以前），读系统可用内存的前后差
 │   └── Diagnostics.kt       给 GitHub issue 用的诊断报告（手机页「反馈问题」、`dumpsys activity …MainActivity report`、tools/report.sh）
 ├── guard/
 │   ├── HomeGuardService.kt  无障碍「桌面守护」：原桌面出现就切回、从磁贴进原桌面时临时拦 HOME、亮屏检查、ADB 保持
@@ -304,6 +306,7 @@ NanoHTTPD 监听 8790 端口，路径前缀是 8 位随机令牌（每次打开�
   显示左侧菜单并选中网络，不直接进入 Wi-Fi 列表，同时避开固件残留的 Android TV 网络页
   （#760，H55E9A / Android 8 上普通应用权限实测）。其他电视的原有候选顺序和完整版的失败回退不变，
   Lite 同步这个入口；验证边界见 `docs/devices/hisense-vidaa.md`。
+- **清理后台**（`BackgroundCleaner.kt`，界面是 `ui/home/RocketCleaner.kt`）：对第三方应用的后台进程调用 `ActivityManager.killBackgroundProcesses`，需要普通权限 `KILL_BACKGROUND_PROCESSES`，不 force-stop 任何应用，也不动系统桌面。Android 5.1 起 `runningAppProcesses` 通常只返回 Aerial 自己（小米 MiTV-AZFP0，Android 9 上如此），所以候选按已安装包和共享 UID 枚举；系统应用（含更新过的和 persistent 的）、Aerial 自己、无障碍和通知监听服务所在包、输入法、带媒体会话的包、声明了 `BIND_VPN_SERVICE` 的包、最近 5 分钟用量统计里还在前台的包，以及重要性高于缓存的进程所在 UID 都跳过，其余交给系统再检查一次。读媒体会话要用 Aerial 已有的通知监听授权；读不到时整个清理按「不可用」处理，不冒险。Android 14 起公开接口只能结束调用方自己的包，这里直接返回「不可用」，不发请求。显示的 MB 是请求后 0.5 秒系统可用内存（`MemoryInfo.availMem`）的差值，不是被结束的应用数，可能是 0；`requestedCount` 只是发出的请求数。
 - **音量**：`AudioManager` 的 STREAM_MUSIC；TCL 必须加 `FLAG_SHOW_UI`（否则不会写入功放）。
 - **亮度**：见 `Brightness.kt` 的注释（小米 / 标准 / TCL 面板三种）。
 - **设置入口**：优先厂商自己的设置（小米 `com.xiaomi.mitv.settings`）。有的厂商的完整设置是服务弹出的面板，先按服务启动：极米 `SettingService`、康佳 `com.konka.service.SettingService` + `SETTING_MAIN_VIEW`（#771，只在服务导出时用，失败退回 Activity）。

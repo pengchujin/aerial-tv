@@ -36,6 +36,9 @@
     <uses-permission android:name="android.permission.WRITE_SETTINGS"
         tools:ignore="ProtectedPermissions" />
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- The rocket next to the status pill asks the system to end the background processes of
+         third-party apps (system.BackgroundCleaner); a normal permission, no prompt. -->
+    <uses-permission android:name="android.permission.KILL_BACKGROUND_PROCESSES" />
     <!-- Which app is in front, where a launcher hides from accessibility (Xiaomi PatchWall on
          Android 6, issue #81); granted over ADB. -->
     <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS"
