@@ -130,6 +130,11 @@
     <string name="st_clock_small">小</string>
     <string name="st_clock_large">大</string>
     <string name="st_clock_size_hint">小：时间和天气在角上一行小字。大：屏幕上方一个大时钟，上面是日期，下面是天气。</string>
+    <string name="st_clock_weight">时间显示</string>
+    <string name="st_clock_weight_bold">粗体</string>
+    <string name="st_clock_weight_normal">正常</string>
+    <string name="st_clock_weight_light">细体</string>
+    <string name="st_clock_weight_hint">时钟数字的粗细。粗体是原来的样子，嫌粗可以换正常或细体。</string>
     <string name="st_names">App 名称</string>
     <string name="st_names_focused">只显示选中的</string>
     <string name="st_names_all">全部显示</string>
