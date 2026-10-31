@@ -148,6 +148,8 @@ fun AppTile(
     focusRequester: FocusRequester,
     enabled: Boolean,
     moving: Boolean,
+    /** Extra opacity applied inside each drawing layer, without a layer around the whole tile. */
+    opacity: () -> Float = { 1f },
     /** Delay of the first-appearance stagger; null for no entrance (tiles in a folder that just opened). */
     appearDelayMs: Int?,
     onFocused: () -> Unit,
@@ -271,7 +273,7 @@ fun AppTile(
                         translationX = push.value.x
                         translationY = push.value.y + ShadowDrop.toPx() * lift
                         cameraDistance = 14f * density
-                        alpha = lift
+                        alpha = lift * opacity()
                         compositingStrategy = CompositingStrategy.ModulateAlpha
                     },
             ) {
@@ -284,6 +286,7 @@ fun AppTile(
                 .size(width, height)
                 .onGloballyPositioned { bounds = it.boundsInWindow() }
                 .graphicsLayer {
+                    alpha = opacity()
                     zoom(scale)
                     rotationY = leanY.value
                     rotationX = leanX.value
@@ -488,7 +491,7 @@ fun AppTile(
                         translationX = push.value.x
                         translationY = push.value.y
                         cameraDistance = 14f * density
-                        alpha = ring * ringIn
+                        alpha = ring * ringIn * opacity()
                         // No offscreen buffer while fading: it would be only tile-sized and clip the
                         // frame down to the four corner arcs that reach inside the tile's bounds.
                         compositingStrategy = CompositingStrategy.ModulateAlpha
@@ -522,7 +525,7 @@ fun AppTile(
                 .graphicsLayer {
                     // Only the focused app shows its name. With every name shown, the others stay a
                     // little dimmer than the focused one.
-                    alpha = if (AerialSettings.showAllNames) 0.7f + 0.3f * lift else lift
+                    alpha = (if (AerialSettings.showAllNames) 0.7f + 0.3f * lift else lift) * opacity()
                     // Sits just under the lifted tile, and rises into place as it appears.
                     translationY = height.toPx() * (scale - 1f) / 2f - (1f - lift) * 6.dp.toPx() +
                         if (nameOnPlate) 0f else ring * ringIn * (RingGap + RingWidth).toPx() * scale
