@@ -247,6 +247,7 @@ curl -fsSL https://aerial.qust.me/install.sh | TV=192.168.1.20 bash -s restore
 | 海信 | LED47K600X3D（VIDAA_TV，MT5880） | Android 4.0.4 | ⚠️ Aerial Lite 能装能用，开机直接进；遥控器的主页、APP、VOD 键被固件走私有通道拉起自家界面，Aerial 接不到（[#913](https://github.com/pengchujin/aerial-tv/issues/913)） |
 | 夏普 | LCD-50SU671A | Android 6 | ✅ 要用 QuickShortcutMaker 打开 ADB |
 | OPPO | K9 | Android 9 | ⚠️ 要改包名才能装（[笔记](docs/devices/oppo-coloros-tv.md)） |
+| 极米 | Z9X 4K 高亮版（goat_elegant） | Android 13 | ⚠️ 1.76 有限实测：初次显示、UID app-op 与重启前台恢复；启动画面和待机仍待验（[笔记](docs/devices/xgimi-z9x-4k.md)） |
 | 极米 | Z7X、m7642 | Android 9 | ✅ Z7X 要用第三方工具打开 ADB（[笔记](docs/devices/xgimi-z7x.md)） |
 | 极米 | 神灯 L1（m7642，pig_chivalrous） | Android 9 | ✅ 默认桌面开机后会丢，报告人的双规则办法见[笔记](docs/devices/xgimi-z7x.md)（[#767](https://github.com/pengchujin/aerial-tv/issues/767)） |
 | 极米 | Z6X 第四代（XK03U / ironman / m7221） | Android 8 | ⚠️ HDMI1 列表与切换已实测；未测视频输出（[笔记](docs/devices/xgimi-xk03u-android8.md)） |
