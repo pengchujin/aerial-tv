@@ -455,6 +455,9 @@ class MainActivity : ComponentActivity() {
     private var draws = 0
     private var keysLogged = 0
 
+    /** The press whose leftover volume repeats were last dropped; see dispatchKeyEvent. */
+    private var staleVolumeDown = Long.MIN_VALUE
+
     private fun logWindow() {
         val m = resources.displayMetrics
         val modes = if (Build.VERSION.SDK_INT >= 23) display()?.let { d ->
@@ -694,6 +697,18 @@ class MainActivity : ComponentActivity() {
             if (event.action == KeyEvent.ACTION_UP) { dreamWokeKey = -1; return true }
             if (event.repeatCount > 0) return true
             dreamWokeKey = -1 // a new press of the same key
+        }
+        // A volume key repeating in Aerial after it came up at the guard's filter: Coocaa's lift
+        // never got here, and every repeat was a step to 0 or 100 (see HomeGuardService.volumeKeyCameUp).
+        if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount > 0 &&
+            (event.keyCode == KeyEvent.KEYCODE_VOLUME_UP || event.keyCode == KeyEvent.KEYCODE_VOLUME_DOWN) &&
+            HomeGuardService.volumeKeyCameUp(event.keyCode, event.downTime)
+        ) {
+            if (event.downTime != staleVolumeDown) {
+                staleVolumeDown = event.downTime
+                DiagLog.i("key ${KeyEvent.keyCodeToString(event.keyCode)} #${event.repeatCount} repeats after it came up at the guard; dropped")
+            }
+            return true
         }
         if (keysLogged++ < 200) DiagLog.i("key ${KeyEvent.keyCodeToString(event.keyCode)} ${if (event.action == KeyEvent.ACTION_DOWN) "down" else "up"} #${event.repeatCount} at ${event.eventTime}, view focused ${currentFocus != null}")
         restartIdleTimer()

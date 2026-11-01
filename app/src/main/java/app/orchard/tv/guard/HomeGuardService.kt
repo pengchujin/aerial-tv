@@ -1116,7 +1116,12 @@ class HomeGuardService : AccessibilityService() {
             handler.removeCallbacks(volumeRepeat)
         }
         val taken = volumeKeyTaken
+        if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
+            DiagLog.i("guard: ${KeyEvent.keyCodeToString(event.keyCode)} down at ${event.downTime}${if (taken) ", not passed on" else ""}")
+        }
         if (event.action == KeyEvent.ACTION_UP) {
+            volumeUps[event.keyCode] = event.eventTime
+            DiagLog.i("guard: ${KeyEvent.keyCodeToString(event.keyCode)} up at ${event.eventTime}")
             handler.removeCallbacks(volumeRepeat)
             volumeKeyTaken = false
             volumeSeen = volumeNow()
@@ -1531,6 +1536,18 @@ class HomeGuardService : AccessibilityService() {
         private const val OWN_HOME_MS = 1_500L
         private const val DOUBLE_HOME_BROADCAST_MS = 600L
         private val VOLUME_KEYS = setOf(KeyEvent.KEYCODE_VOLUME_UP, KeyEvent.KEYCODE_VOLUME_DOWN, KeyEvent.KEYCODE_VOLUME_MUTE)
+
+        /** When the filter last saw each volume key come up (event time); see volumeKeyCameUp. */
+        private val volumeUps = java.util.concurrent.ConcurrentHashMap<Int, Long>()
+
+        /**
+         * Whether the volume key of a press that went down at [downTime] has come up at the filter.
+         * On Coocaa with the filter on, the lift never reached Aerial's window, and Android went on
+         * repeating the press there every 50 ms until another key came, each repeat a volume step
+         * (8R134_A7D and 8R145_P3DM on Realtek RTD2885N, Android 11; 8A002_A3 on T963, Android 9;
+         * issues #937 #1091 #1058, Aerial's own key log in each). MainActivity drops such repeats.
+         */
+        fun volumeKeyCameUp(keyCode: Int, downTime: Long): Boolean = (volumeUps[keyCode] ?: Long.MIN_VALUE) >= downTime
 
         @Volatile
         private var deafRetried = false
