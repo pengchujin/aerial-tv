@@ -677,7 +677,7 @@ object SystemProbe {
                 val intent = (if (xiaomi) xiaomiRoute(info, kind, label, profile)?.takeIf { resolves(context, it) } else null)
                     ?: generic.takeIf { resolves(context, it) }
                     ?: droidLogicRoute(context, info)
-                    ?: tclPlayer?.let { tclRoute(it, kind, label) }
+                    ?: tclPlayer?.let { tclRoute(it, kind, label, hw(info.id)) }
                     ?: generic
                 val device = cec
                     ?.let { runCatching { it.loadLabel(context).toString() }.getOrNull() }
@@ -761,10 +761,13 @@ object SystemProbe {
     /**
      * FFALCON/TCL T966D5 (Android 14) lists its inputs in the framework, but nothing there opens
      * the passthrough intent: every input said this TV could not switch to it (issue #395). TCL's
-     * player is tried there with the ordinals MT5879 uses (see tclSources), chosen by the input's
-     * name; not verified on that TV.
+     * player takes the input's hardware id: on TCL Q9L Pro (Android 14) HDMI 1-4 are HW15-18 and
+     * `targetSourceId` 15-18 switch to them, while MT5879's 8-11 gave "device_id:0 is invalid" and
+     * no picture (issue #792, the reporter's adb); TV and AV, HW2 and HW3, are 2 and 3 on MT5879
+     * too. Without a hardware id, the MT5879 ordinals by the input's name (see tclSources).
      */
-    private fun tclRoute(player: ComponentName, kind: SourceKind, label: String): Intent? {
+    private fun tclRoute(player: ComponentName, kind: SourceKind, label: String, hw: Int?): Intent? {
+        if (hw != null && kind != SourceKind.Other) return tclIntent(player, hw)
         val ordinal = when (kind) {
             SourceKind.Hdmi -> Regex("(\\d)").find(label)?.groupValues?.get(1)?.toIntOrNull()?.takeIf { it in 1..4 }?.let { 7 + it }
             SourceKind.Tuner -> 2
