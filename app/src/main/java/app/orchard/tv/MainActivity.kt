@@ -868,6 +868,7 @@ class MainActivity : ComponentActivity() {
         // Back in front by any route (Home was handled in onNewIntent, which runs first; Back from
         // the app lands here directly), so the next Home press is a Home-on-Home again.
         openedAppSinceHome = false
+        leftForAnApp = false
         LaunchFallback.next()?.let { page ->
             // Only where the page truly closed: Hisense's network page (85E5N, MT9653, Android 11)
             // is a panel over Aerial, which resumes beneath it without window focus, and the next
@@ -889,6 +890,7 @@ class MainActivity : ComponentActivity() {
         vm.resumed = false
         Updates.onHomePaused()
         DiagLog.i("onPause")
+        leftForAnApp = openedAppSinceHome
         GuardSetup.setHomeInFront(this, false)
         if (HomeGuardService.onAerialPaused()) {
             // Only Home's bounce: the film plays on, unless Aerial is not back soon after all
@@ -1047,6 +1049,16 @@ class MainActivity : ComponentActivity() {
 
         private const val DREAM_FAILS_ON = "dream_fails_on"
         private const val DREAM_FAILS = "dream_fails"
+
+        /**
+         * Whether Aerial was last left for an app it opened itself, and has not been back since.
+         * BootReceiver leaves such an app in front: Xiaomi MiTV-ANTL0 (Android 5.1.1) sent
+         * BOOT_COMPLETED three minutes after Aerial had come up as Home, and Aerial then covered
+         * the live TV or Bilibili the user had opened from it, once per boot (issue #1024's log).
+         */
+        @Volatile
+        var leftForAnApp = false
+            private set
 
         /** Whether Home has been resumed in this process yet (BootOpen.dueAfterColdWake). */
         private var resumedInProcess = false

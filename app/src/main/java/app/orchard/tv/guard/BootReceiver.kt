@@ -47,6 +47,10 @@ class BootReceiver : BroadcastReceiver() {
         // has to look: on Xiaomi MiTV-MTEQ0 (Android 10) it is bound ~20 s before BOOT_COMPLETED,
         // never sees PatchWall's windows, and the take-over at bind time did not stick (issue #154).
         if (HomeGuardService.onBootCompleted()) return
+        if (MainActivity.leftForAnApp) {
+            DiagLog.i("boot: an app opened from Aerial is in front; leaving it")
+            return
+        }
         runCatching {
             context.startActivity(MainActivity.bringBackIntent(context))
         }
