@@ -64,6 +64,14 @@
     <string name="unavailable">Недоступно на цьому телевізорі</string>
     <string name="cc_brightness">Яскравість</string>
     <string name="cc_brightness_in_settings">Налаштування зображення</string>
+    <string name="cc_brightness_mode">Режим яскравості</string>
+    <string name="cc_mode_bright">Яскравий</string>
+    <string name="cc_mode_standard">Стандартний</string>
+    <string name="cc_mode_soft">М\'який</string>
+    <string name="cc_mode_dynamic">Динамічний</string>
+    <string name="cc_mode_supernova">Надновий</string>
+    <string name="cc_mode_overclock">Розгін</string>
+    <string name="cc_mode_custom">Користувацький</string>
     <string name="cc_personalize">Персоналізація</string>
     <string name="wp_title">Персоналізація</string>
     <string name="wp_wallpaper">Шпалери</string>

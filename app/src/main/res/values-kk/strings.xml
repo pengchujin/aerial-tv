@@ -64,6 +64,14 @@
     <string name="unavailable">Бұл теледидарда қолжетімсіз</string>
     <string name="cc_brightness">Жарықтық</string>
     <string name="cc_brightness_in_settings">Кескін параметрлері</string>
+    <string name="cc_brightness_mode">Жарықтық режимі</string>
+    <string name="cc_mode_bright">Ашық</string>
+    <string name="cc_mode_standard">Стандартты</string>
+    <string name="cc_mode_soft">Жұмсақ</string>
+    <string name="cc_mode_dynamic">Динамикалық</string>
+    <string name="cc_mode_supernova">Аса жарық</string>
+    <string name="cc_mode_overclock">Жеделдету</string>
+    <string name="cc_mode_custom">Пайдаланушы</string>
     <string name="cc_personalize">Жекелендіру</string>
     <string name="wp_title">Жекелендіру</string>
     <string name="wp_wallpaper">Түсқағаз</string>
