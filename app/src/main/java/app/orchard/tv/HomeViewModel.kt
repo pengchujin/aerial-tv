@@ -106,11 +106,11 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
                 left--
             }
             sleepTimerMinutes = null
-            if (Build.VERSION.SDK_INT >= 28) {
-                app.orchard.tv.guard.HomeGuardService.instance?.performGlobalAction(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_LOCK_SCREEN)
+            val locked = app.orchard.tv.guard.HomeGuardService.lockOrSleep()
+            if (!locked) {
+                runCatching { Runtime.getRuntime().exec("input keyevent 26") }
+                runCatching { Runtime.getRuntime().exec("input keyevent 223") }
             }
-            runCatching { Runtime.getRuntime().exec("input keyevent 26") }
-            runCatching { Runtime.getRuntime().exec("input keyevent 223") }
         }
     }
 

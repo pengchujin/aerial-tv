@@ -1709,7 +1709,14 @@ class HomeGuardService : AccessibilityService() {
         )
 
         @Volatile
-        private var instance: HomeGuardService? = null
+        internal var instance: HomeGuardService? = null
+
+        fun lockOrSleep(): Boolean {
+            val s = instance ?: return false
+            return if (Build.VERSION.SDK_INT >= 28) {
+                s.performGlobalAction(AccessibilityService.GLOBAL_ACTION_LOCK_SCREEN)
+            } else false
+        }
 
         val isRunning: Boolean get() = instance != null
 
