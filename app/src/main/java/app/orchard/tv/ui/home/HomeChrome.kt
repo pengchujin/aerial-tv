@@ -940,15 +940,17 @@ fun CornerClock(
     }
 }
 
-internal fun glyphFor(w: WeatherNow): Glyph = when (w.kind) {
-    WeatherKind.Clear -> if (w.day) Glyph.Sun else Glyph.Moon
-    WeatherKind.PartlyCloudy -> if (w.day) Glyph.CloudSun else Glyph.Cloud
+internal fun glyphFor(kind: WeatherKind, day: Boolean = true): Glyph = when (kind) {
+    WeatherKind.Clear -> if (day) Glyph.Sun else Glyph.Moon
+    WeatherKind.PartlyCloudy -> if (day) Glyph.CloudSun else Glyph.Cloud
     WeatherKind.Cloudy -> Glyph.Cloud
     WeatherKind.Fog -> Glyph.CloudFog
     WeatherKind.Rain -> Glyph.CloudRain
     WeatherKind.Snow -> Glyph.CloudSnow
     WeatherKind.Thunder -> Glyph.CloudBolt
 }
+
+internal fun glyphFor(w: WeatherNow): Glyph = glyphFor(w.kind, w.day)
 
 /** "VPN" in a thin frame beside the network glyph while a VPN is up, as iOS's status bar has it (issue #809). */
 @Composable

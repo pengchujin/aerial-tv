@@ -1,5 +1,12 @@
 package app.orchard.tv.ui.control
 
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.em
+import app.orchard.tv.weather.WeatherHourly
+import app.orchard.tv.weather.WeatherDaily
+import java.util.Locale
+
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.heightIn
@@ -169,7 +176,7 @@ fun ControlCenter(
         ) {
             Column(
                 Modifier
-                    .width(300.dp)
+                    .width(if (page == CcPage.Weather) 340.dp else 300.dp)
                     .consumeTaps()
                     .liquidGlass(24.dp)
                     .padding(16.dp),
@@ -801,15 +808,15 @@ private fun WeatherPage(vm: HomeViewModel, takeFocus: Boolean) {
         withFrameNanos { }
         runCatching { first.requestFocus() }
     }
-    Column(Modifier.heightIn(max = 470.dp).verticalScroll(rememberScrollState())) {
+    Column(Modifier.heightIn(max = 500.dp).verticalScroll(rememberScrollState())) {
         MenuRow(
             Glyph.ChevronLeft,
-            stringResource(R.string.weather_page_title),
+            Weather.place ?: stringResource(R.string.weather_page_title),
             focusRequester = first,
             onClick = { vm.overlay = Overlay.ControlCenter(CcPage.Main) },
         )
 
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(10.dp))
         val now = Weather.now
         if (now != null) {
             val place = Weather.place ?: ""
@@ -828,7 +835,7 @@ private fun WeatherPage(vm: HomeViewModel, takeFocus: Boolean) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    modifier = Modifier.padding(vertical = 8.dp),
+                    modifier = Modifier.padding(vertical = 6.dp),
                 ) {
                     GlyphIcon(glyphFor(now), Color.White, 36.dp)
                     BasicText("${now.celsius}°", style = Type.LargeTitle.copy(color = Palette.Label))
@@ -838,15 +845,193 @@ private fun WeatherPage(vm: HomeViewModel, takeFocus: Boolean) {
                     style = Type.Callout.copy(color = Palette.SecondaryLabel),
                 )
             }
-            Spacer(Modifier.height(12.dp))
         }
 
+        if (Weather.hourly.isNotEmpty()) {
+            Spacer(Modifier.height(14.dp))
+            val hourlyTitle = if (Locale.getDefault().language == "ru") "ПОЧАСОВОЙ ПРОГНОЗ" else "HOURLY FORECAST"
+            BasicText(
+                hourlyTitle,
+                style = Type.Caption.copy(
+                    color = Palette.SecondaryLabel,
+                    fontWeight = FontWeight.W700,
+                    letterSpacing = 0.05.em,
+                ),
+                modifier = Modifier.padding(start = 4.dp, bottom = 8.dp),
+            )
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState())
+                    .smoothBackground(Palette.Fill, 16.dp)
+                    .padding(horizontal = 8.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                Weather.hourly.forEach { h ->
+                    HourlyItem(h)
+                }
+            }
+        }
+
+        if (Weather.daily.isNotEmpty()) {
+            Spacer(Modifier.height(14.dp))
+            val dailyTitle = if (Locale.getDefault().language == "ru") "ПРОГНОЗ НА 7 ДНЕЙ" else "7-DAY FORECAST"
+            BasicText(
+                dailyTitle,
+                style = Type.Caption.copy(
+                    color = Palette.SecondaryLabel,
+                    fontWeight = FontWeight.W700,
+                    letterSpacing = 0.05.em,
+                ),
+                modifier = Modifier.padding(start = 4.dp, bottom = 8.dp),
+            )
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .smoothBackground(Palette.Fill, 16.dp)
+                    .padding(horizontal = 8.dp, vertical = 6.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
+                Weather.daily.forEach { d ->
+                    DailyRow(d)
+                }
+            }
+        }
+
+        Spacer(Modifier.height(12.dp))
         MenuRow(
             Glyph.CloudSun,
             stringResource(R.string.weather_refresh),
             focusRequester = null,
             onClick = { Weather.refresh() },
         )
+    }
+}
+
+@Composable
+private fun HourlyItem(h: WeatherHourly) {
+    val timeLabel = if (h.isNow) {
+        if (Locale.getDefault().language == "ru") "Сейчас" else "Now"
+    } else h.time
+
+    Pressable(
+        onClick = {},
+        focusedScale = 1.08f,
+        modifier = Modifier.width(52.dp),
+    ) { state ->
+        val bg by animateColorAsState(
+            if (state.focused) Palette.Focus else Color.Transparent, tween(140, easing = Motion.EaseOut), label = "hourly-bg"
+        )
+        val fg = if (state.focused) Palette.OnFocus else Palette.Label
+        val secFg = if (state.focused) Palette.OnFocus.copy(alpha = 0.7f) else Palette.SecondaryLabel
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .smoothBackground(bg, 10.dp)
+                .padding(vertical = 6.dp),
+        ) {
+            BasicText(
+                timeLabel,
+                style = Type.Caption.copy(
+                    color = if (h.isNow) fg else secFg,
+                    fontWeight = if (h.isNow) FontWeight.W700 else FontWeight.Normal,
+                ),
+                maxLines = 1,
+            )
+            GlyphIcon(glyphFor(h.kind, h.day), if (state.focused) Palette.OnFocus else Color.White, 20.dp)
+            BasicText("${h.celsius}°", style = Type.Callout.copy(color = fg, fontWeight = FontWeight.W600))
+        }
+    }
+}
+
+@Composable
+private fun DailyRow(d: WeatherDaily) {
+    val dayText = formatDailyDate(d.date, d.dayIndex)
+    Pressable(
+        onClick = {},
+        focusedScale = 1.02f,
+        modifier = Modifier.fillMaxWidth(),
+    ) { state ->
+        val bg by animateColorAsState(
+            if (state.focused) Palette.Focus else Color.Transparent, tween(140, easing = Motion.EaseOut), label = "daily-bg"
+        )
+        val fg = if (state.focused) Palette.OnFocus else Palette.Label
+        val secFg = if (state.focused) Palette.OnFocus.copy(alpha = 0.7f) else Palette.SecondaryLabel
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .smoothBackground(bg, 10.dp)
+                .height(38.dp)
+                .padding(horizontal = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            BasicText(
+                dayText,
+                style = Type.Body.copy(
+                    color = fg,
+                    fontWeight = if (d.dayIndex == 0) FontWeight.W700 else FontWeight.Normal,
+                ),
+                modifier = Modifier.weight(1f),
+                maxLines = 1,
+            )
+            GlyphIcon(glyphFor(d.kind, true), if (state.focused) Palette.OnFocus else Color.White, 20.dp)
+            Spacer(Modifier.width(16.dp))
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                BasicText("${d.low}°", style = Type.Callout.copy(color = secFg))
+                BasicText("—", style = Type.Callout.copy(color = secFg))
+                BasicText("${d.high}°", style = Type.Callout.copy(color = fg, fontWeight = FontWeight.W600))
+            }
+        }
+    }
+}
+
+private fun formatDailyDate(dateStr: String, dayIndex: Int): String {
+    val lang = Locale.getDefault().language
+    if (lang == "ru") {
+        if (dayIndex == 0) return "Сегодня"
+        if (dayIndex == 1) return "Завтра"
+        return runCatching {
+            val localDate = java.time.LocalDate.parse(dateStr)
+            val dayName = when (localDate.dayOfWeek) {
+                java.time.DayOfWeek.MONDAY -> "Пн"
+                java.time.DayOfWeek.TUESDAY -> "Вт"
+                java.time.DayOfWeek.WEDNESDAY -> "Ср"
+                java.time.DayOfWeek.THURSDAY -> "Чт"
+                java.time.DayOfWeek.FRIDAY -> "Пт"
+                java.time.DayOfWeek.SATURDAY -> "Сб"
+                java.time.DayOfWeek.SUNDAY -> "Вс"
+                else -> ""
+            }
+            val monthName = when (localDate.monthValue) {
+                1 -> "янв"
+                2 -> "фев"
+                3 -> "мар"
+                4 -> "апр"
+                5 -> "мая"
+                6 -> "июн"
+                7 -> "июл"
+                8 -> "авг"
+                9 -> "сен"
+                10 -> "окт"
+                11 -> "ноя"
+                12 -> "дек"
+                else -> ""
+            }
+            "$dayName, ${localDate.dayOfMonth} $monthName"
+        }.getOrDefault(dateStr)
+    } else {
+        if (dayIndex == 0) return "Today"
+        if (dayIndex == 1) return "Tomorrow"
+        return runCatching {
+            val localDate = java.time.LocalDate.parse(dateStr)
+            val dayName = localDate.dayOfWeek.getDisplayName(java.time.format.TextStyle.SHORT, Locale.getDefault())
+            "$dayName, ${localDate.dayOfMonth}"
+        }.getOrDefault(dateStr)
     }
 }
 
