@@ -1,6 +1,9 @@
 package app.orchard.tv.ui.wallpaper
 
+import android.content.Intent
 import android.os.Build
+import android.provider.Settings
+import androidx.core.app.NotificationManagerCompat
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
@@ -71,6 +74,7 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import app.orchard.tv.R
 import app.orchard.tv.settings.AerialSettings
+import app.orchard.tv.settings.NowPlayingPlacement
 import app.orchard.tv.settings.FocusStyle
 import app.orchard.tv.settings.UiSounds
 import app.orchard.tv.settings.Effects
@@ -211,6 +215,27 @@ fun WallpaperSheet(
                         listOf(true to R.string.st_plate_glass, false to R.string.st_plate_none),
                         AerialSettings.homePlate, AerialSettings::chooseHomePlate,
                     )
+                    Choices(
+                        R.string.np_position, stringResource(R.string.np_position_hint), note,
+                        listOf(
+                            NowPlayingPlacement.AboveDock to R.string.np_above_dock,
+                            NowPlayingPlacement.TopLeft to R.string.np_top_left,
+                            NowPlayingPlacement.TopRight to R.string.np_top_right,
+                            NowPlayingPlacement.Off to R.string.np_off,
+                        ),
+                        AerialSettings.nowPlayingPlacement, AerialSettings::chooseNowPlayingPlacement,
+                    )
+                    if (AerialSettings.nowPlayingPlacement != NowPlayingPlacement.Off &&
+                        context.packageName !in NotificationManagerCompat.getEnabledListenerPackages(context)
+                    ) SettingRow(R.string.np_access, stringResource(R.string.np_access_hint), note) {
+                        ActionChip(stringResource(R.string.np_open_settings), Glyph.ChevronRight) {
+                            runCatching {
+                                context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                            }.onFailure {
+                                runCatching { context.startActivity(Intent(Settings.ACTION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+                            }
+                        }
+                    }
                     Choices(
                         R.string.st_names, stringResource(R.string.st_names_hint), note,
                         listOf(false to R.string.st_names_focused, true to R.string.st_names_all),

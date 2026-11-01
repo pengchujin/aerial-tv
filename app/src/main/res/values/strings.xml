@@ -1,5 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="np_position">Now Playing</string>
+    <string name="np_position_hint">Choose where the music card appears on Home.</string>
+    <string name="np_above_dock">Above Dock</string>
+    <string name="np_top_left">Top Left</string>
+    <string name="np_top_right">Top Right</string>
+    <string name="np_off">Off</string>
+    <string name="np_playing">Playing</string>
+    <string name="np_paused">Paused</string>
+    <string name="np_previous">Previous track</string>
+    <string name="np_play">Play</string>
+    <string name="np_pause">Pause</string>
+    <string name="np_next">Next track</string>
+    <string name="np_access">Music access</string>
+    <string name="np_access_hint">Allow Aerial TV notification access to show and control music.</string>
+    <string name="np_open_settings">Open Settings</string>
     <string name="app_name">Aerial</string>
     <string name="guard_name">Aerial Home Guard</string>
     <string name="guard_description">Keeps Aerial as your home screen on TVs that do not let you change it. Reads no screen content.</string>

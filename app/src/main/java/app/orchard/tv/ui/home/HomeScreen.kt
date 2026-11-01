@@ -75,7 +75,9 @@ import app.orchard.tv.HomeViewModel
 import app.orchard.tv.Overlay
 import app.orchard.tv.R
 import app.orchard.tv.settings.AerialSettings
+import app.orchard.tv.settings.NowPlayingPlacement
 import app.orchard.tv.apps.AppEntry
+import app.orchard.tv.media.NowPlayingState
 import app.orchard.tv.ui.control.ControlCenter
 import app.orchard.tv.ui.wallpaper.SheetCovers
 import app.orchard.tv.ui.wallpaper.WallpaperSheet
@@ -290,6 +292,8 @@ fun HomeScreen(
     val density = LocalDensity.current
     val now by rememberNow()
     val scope = rememberCoroutineScope()
+    val mediaPlacement = AerialSettings.nowPlayingPlacement
+    LaunchedEffect(mediaPlacement, vm.resumed) { vm.startMediaSessions() }
 
     val requesters = remember { HashMap<String, FocusRequester>() }
     fun requester(key: String) = requesters.getOrPut(key) { FocusRequester() }
@@ -306,6 +310,16 @@ fun HomeScreen(
     var indexAfterOverlay by remember { mutableStateOf(0) }
     var pillFocused by remember { mutableStateOf(false) }
     var lastFocusedIndex by remember { mutableStateOf(0) }
+    var mediaFocused by remember { mutableStateOf(false) }
+    var displayedMedia by remember { mutableStateOf<NowPlayingState?>(null) }
+    LaunchedEffect(vm.nowPlaying) {
+        val current = vm.nowPlaying
+        if (current != null) displayedMedia = current
+        else {
+            delay(180)
+            displayedMedia = null
+        }
+    }
     val focusedIndex = apps.indexOfFirst { it.key == focusedKey }
     val columns = AerialSettings.homeColumns
     val focusedRow = if (pillFocused || focusedIndex < 0) 0 else focusedIndex / columns
@@ -531,6 +545,26 @@ fun HomeScreen(
         val metrics = remember(maxWidth, maxHeight, columns, oneRow, plateNames, peek, hasPlate, largeClock, clockRightNow) {
             GridMetrics(maxWidth, maxHeight, columns, oneRow, plateNames, peek, hasPlate, largeClock, clockRightNow)
         }
+        val screenWidth = maxWidth
+        val cardHeight = if (oneRow) 119.dp else 105.dp
+        val plateTop = metrics.topRowY - if (hasPlate) PlatePadV else 0.dp
+        val clockBottom = if (largeClock) metrics.clockY + LargeClockHeight else 72.dp
+        val dockTop = plateTop - cardHeight - 12.dp
+        val sameSideTop = if (largeClock) clockBottom + 10.dp else 78.dp
+        val requestedLeft = mediaPlacement != NowPlayingPlacement.TopRight
+        // When a large clock and a raised two-row shelf leave no room on the requested side,
+        // use the free upper corner. The card never covers the clock or the app shelf.
+        val requestedTop = when (mediaPlacement) {
+            NowPlayingPlacement.AboveDock -> dockTop
+            NowPlayingPlacement.TopLeft -> if (!clockRightNow) sameSideTop else 28.dp
+            NowPlayingPlacement.TopRight -> if (clockRightNow) sameSideTop else 78.dp
+            NowPlayingPlacement.Off -> 0.dp
+        }
+        val clockOverlap = requestedLeft == !clockRightNow &&
+            requestedTop < clockBottom + 4.dp && requestedTop + cardHeight > if (largeClock) metrics.clockY else 28.dp
+        val cardDoesNotFit = requestedTop < 0.dp || requestedTop + cardHeight > plateTop - 8.dp || clockOverlap
+        val cardLeft = if (cardDoesNotFit) clockRightNow else requestedLeft
+        val cardTop = if (cardDoesNotFit) if (cardLeft) 28.dp else 78.dp else requestedTop
         val collapsePx = with(density) { metrics.collapse.toPx() }
 
         // Into the grid as from one row: the first row whole at the top. Two rows go in a row
@@ -544,6 +578,14 @@ fun HomeScreen(
         val maxScroll = with(density) { metrics.scrollFor(rows - 1, rows).toPx() }.coerceAtLeast(0f)
         LaunchedEffect(maxScroll) { scroll.updateBounds(0f, maxScroll) }
         val pastShelf by remember(collapsePx) { derivedStateOf { scroll.value > collapsePx / 2 } }
+        val mediaVisible = vm.nowPlaying != null && mediaPlacement != NowPlayingPlacement.Off &&
+            overlay == Overlay.None && moving == null && !vm.screensaverVisible && !inGrid && !pastShelf
+        LaunchedEffect(mediaVisible) {
+            if (!mediaVisible && mediaFocused) {
+                withFrameNanos { }
+                focusApp(lastFocusedIndex)
+            }
+        }
         val decay = rememberSplineBasedDecay<Float>()
         LaunchedEffect(target, dragged) {
             if (dragged) return@LaunchedEffect
@@ -833,6 +875,27 @@ fun HomeScreen(
                             // the focused one alone there, but it sat oddly on the glass).
                             showName = plate == null || index >= columns * metrics.shelfRows || plateNames,
                             nameOnPlate = plate != null && index < columns * metrics.shelfRows,
+                        )
+                    }
+                }
+                AnimatedVisibility(
+                    visible = mediaVisible,
+                    modifier = Modifier.offset(
+                        x = if (cardLeft) metrics.margin - PlatePadH else screenWidth - (metrics.margin - PlatePadH) - 375.dp,
+                        y = cardTop,
+                    ),
+                    enter = if (reduced) fadeIn(tween(1)) else fadeIn(tween(260, easing = Motion.EaseOut)) +
+                        slideInVertically(tween(260, easing = Motion.EaseOut)) { it / 5 },
+                    exit = if (reduced) fadeOut(tween(1)) else fadeOut(tween(180, easing = Motion.EaseOut)) +
+                        slideOutVertically(tween(180, easing = Motion.EaseOut)) { it / 5 },
+                ) {
+                    displayedMedia?.let { media ->
+                        NowPlayingCard(
+                            media, compact = !oneRow,
+                            onFocused = { mediaFocused = it },
+                            onPrevious = vm::previousMediaTrack,
+                            onPlayPause = vm::toggleMediaPlayback,
+                            onNext = vm::nextMediaTrack,
                         )
                     }
                 }

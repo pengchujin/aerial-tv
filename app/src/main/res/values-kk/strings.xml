@@ -1,5 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="np_position">Қазір ойнатылуда</string>
+    <string name="np_position_hint">Басты беттегі музыка картасының орнын таңдаңыз.</string>
+    <string name="np_above_dock">Панель үстінде</string>
+    <string name="np_top_left">Сол жақ жоғары</string>
+    <string name="np_top_right">Оң жақ жоғары</string>
+    <string name="np_off">Өшіру</string>
+    <string name="np_playing">Ойнатылуда</string>
+    <string name="np_paused">Кідіртілді</string>
+    <string name="np_previous">Алдыңғы ән</string>
+    <string name="np_play">Ойнату</string>
+    <string name="np_pause">Кідірту</string>
+    <string name="np_next">Келесі ән</string>
+    <string name="np_access">Музыкаға қол жеткізу</string>
+    <string name="np_access_hint">Музыканы көрсету және басқару үшін Aerial TV қолданбасына хабарландыруларға рұқсат беріңіз.</string>
+    <string name="np_open_settings">Параметрлерді ашу</string>
     <string name="guard_name">Aerial Home Guard</string>
     <string name="guard_description">Басты экранды өзгертуге болмайтын теледидарларда Aerial-ді басты экран ретінде сақтайды. Экран мазмұнын оқымайды.</string>
     <string name="greeting_morning">Қайырлы таң</string>

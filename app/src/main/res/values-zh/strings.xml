@@ -1,5 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="np_position">正在播放</string>
+    <string name="np_position_hint">选择首页音乐卡片的位置。</string>
+    <string name="np_above_dock">底板上方</string>
+    <string name="np_top_left">左上</string>
+    <string name="np_top_right">右上</string>
+    <string name="np_off">关闭</string>
+    <string name="np_playing">播放中</string>
+    <string name="np_paused">已暂停</string>
+    <string name="np_previous">上一首</string>
+    <string name="np_play">播放</string>
+    <string name="np_pause">暂停</string>
+    <string name="np_next">下一首</string>
+    <string name="np_access">音乐访问权限</string>
+    <string name="np_access_hint">允许 Aerial TV 使用通知监听权限，以显示和控制音乐。</string>
+    <string name="np_open_settings">打开设置</string>
     <string name="guard_name">Aerial 桌面守护</string>
     <string name="guard_description">在不允许更换桌面的电视上，让 Aerial 保持为主屏幕。不会读取任何屏幕内容。</string>
 
