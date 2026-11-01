@@ -49,7 +49,9 @@ object Weather {
     var now by mutableStateOf<WeatherNow?>(null); private set
 
     /** Where the weather is for, as a name to show; null until known. */
-    var place by mutableStateOf<String?>(null); private set
+    var place by mutableStateOf<String?>(null)
+        get() = field?.let { if (Locale.getDefault().language == "ru") RussianCities.translate(it) else it }
+        private set
 
     /** True when the owner named the place; false while it is guessed from the network. */
     var chosen by mutableStateOf(false); private set
@@ -128,9 +130,12 @@ object Weather {
             val city = ip.optString("city").ifBlank { null }
             val zh = city?.takeIf { ip.optString("country") == "CN" && Locale.getDefault().language == "zh" }
                 ?.let { Cities.near(app, it, lat.toDouble(), lon.toDouble(), km = 80.0, ascii = true)?.name }
+            val ru = city?.takeIf { Locale.getDefault().language == "ru" }
+                ?.let { RussianCities.findCity(lat, lon, it) }
+            val resolvedPlace = ru ?: zh ?: city
             prefs.edit {
                 putFloat("lat", lat); putFloat("lon", lon)
-                putString("place", zh ?: city)
+                putString("place", resolvedPlace)
                 putLong("located_at", System.currentTimeMillis())
             }
         }

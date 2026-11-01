@@ -50,6 +50,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
 import androidx.compose.ui.viewinterop.AndroidView
 import app.orchard.tv.ui.components.FilmSlot
 import app.orchard.tv.apps.AppEntry
@@ -351,10 +352,26 @@ private fun Labels(
                 horizontalAlignment = if (alignEnd) Alignment.End else Alignment.Start,
             ) {
                 val shadow = Shadow(Color.Black.copy(alpha = 0.45f), Offset(0f, 2f), blurRadius = 14f)
-                BasicText(
-                    timeText(now),
-                    style = SaverClockStyle.copy(shadow = shadow),
-                )
+                val day = dayOfWeekText(now)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = if (alignEnd) Arrangement.End else Arrangement.Start,
+                ) {
+                    BasicText(
+                        timeText(now),
+                        style = SaverClockStyle.copy(shadow = shadow),
+                    )
+                    BasicText(
+                        day,
+                        style = Type.ClockDate.copy(
+                            color = Color.White.copy(alpha = 0.92f),
+                            shadow = shadow,
+                            fontWeight = FontWeight.W700,
+                            letterSpacing = 0.05.em,
+                        ),
+                        modifier = Modifier.padding(start = 12.dp),
+                    )
+                }
                 Weather.now?.takeIf { AerialSettings.showWeather }?.let { w ->
                     val place = Weather.place?.takeIf { it.length <= 12 }
                     val cond = stringResource(conditionName(w.kind))
@@ -771,3 +788,20 @@ private fun ClockSaver(apps: List<AppEntry>, now: LocalDateTime) {
 }
 
 private data class Scene(val light: ImageBitmap?, val x: Float, val y: Float)
+private fun dayOfWeekText(now: LocalDateTime): String {
+    val lang = java.util.Locale.getDefault().language
+    return if (lang == "ru") {
+        when (now.dayOfWeek) {
+            java.time.DayOfWeek.MONDAY -> "ПОН"
+            java.time.DayOfWeek.TUESDAY -> "ВТР"
+            java.time.DayOfWeek.WEDNESDAY -> "СРД"
+            java.time.DayOfWeek.THURSDAY -> "ЧЕТ"
+            java.time.DayOfWeek.FRIDAY -> "ПЯТ"
+            java.time.DayOfWeek.SATURDAY -> "СУБ"
+            java.time.DayOfWeek.SUNDAY -> "ВСК"
+        }
+    } else {
+        now.dayOfWeek.getDisplayName(java.time.format.TextStyle.SHORT, java.util.Locale.getDefault()).uppercase()
+    }
+}
+

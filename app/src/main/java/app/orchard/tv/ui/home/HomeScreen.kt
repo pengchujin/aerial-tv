@@ -740,6 +740,7 @@ fun HomeScreen(
                         toSaver = { clockToSaver.value },
                         saving = vm.screensaverVisible,
                         away = carrying,
+                        enabled = gridEnabled && moving == null,
                         onClockClick = { vm.overlay = Overlay.ControlCenter(CcPage.SleepTimer) },
                         onWeatherClick = { vm.overlay = Overlay.ControlCenter(CcPage.Weather) },
                         onClockFocused = { gained ->
@@ -763,6 +764,7 @@ fun HomeScreen(
                         toSaver = { toSaver.value },
                         saving = vm.screensaverVisible,
                         away = carrying,
+                        enabled = gridEnabled && moving == null,
                         onClockClick = { vm.overlay = Overlay.ControlCenter(CcPage.SleepTimer) },
                         onWeatherClick = { vm.overlay = Overlay.ControlCenter(CcPage.Weather) },
                         onClockFocused = { gained ->
@@ -888,6 +890,7 @@ fun HomeScreen(
                     toSaver = { toSaver.value },
                     saving = vm.screensaverVisible,
                     away = carrying,
+                    enabled = gridEnabled && moving == null,
                     onClockClick = { vm.overlay = Overlay.ControlCenter(CcPage.SleepTimer) },
                     onWeatherClick = { vm.overlay = Overlay.ControlCenter(CcPage.Weather) },
                     onClockFocused = { gained ->

@@ -299,20 +299,6 @@ private fun MainPage(vm: HomeViewModel, now: LocalDateTime, takeFocus: Boolean, 
             stringResource(R.string.cc_personalize),
             onClick = { vm.overlay = Overlay.Wallpaper },
         )
-        MenuRow(
-            Glyph.Moon,
-            stringResource(R.string.sleep_timer_title),
-            onClick = { vm.overlay = Overlay.ControlCenter(CcPage.SleepTimer) },
-            trailing = vm.sleepTimerMinutes?.let { stringResource(R.string.sleep_timer_remaining, it) } ?: "›",
-        )
-        if (AerialSettings.showWeather && Weather.now != null) {
-            MenuRow(
-                Glyph.CloudSun,
-                stringResource(R.string.weather_page_title),
-                onClick = { vm.overlay = Overlay.ControlCenter(CcPage.Weather) },
-                trailing = "${Weather.now?.celsius}° ›",
-            )
-        }
         // What the TV opens when switched on: easy to forget, and puzzling when it happens.
         vm.bootTargetLabel()?.let { name ->
             MenuRow(

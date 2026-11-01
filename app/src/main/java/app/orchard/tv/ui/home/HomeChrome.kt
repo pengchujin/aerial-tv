@@ -625,6 +625,7 @@ fun ShelfClock(
     saving: Boolean = false,
     /** The screensaver is carrying Home's wallpaper on: the date and weather go before the time moves. */
     away: Boolean = false,
+    enabled: Boolean = true,
     onClockClick: (() -> Unit)? = null,
     onWeatherClick: (() -> Unit)? = null,
     onClockFocused: ((Boolean) -> Unit)? = null,
@@ -669,9 +670,10 @@ fun ShelfClock(
         val timeMod = Modifier.padding(top = 16.dp)
             .toSaverClock(toSaver, Type.Clock.fontSize, 0.dp, drift)
 
-        if (onClockClick != null && !saving && !away) {
+        if (onClockClick != null && enabled && !saving && !away) {
             Pressable(
                 onClick = onClockClick,
+                enabled = enabled,
                 focusedScale = 1.04f,
                 modifier = timeMod.focusProperties {
                     if (!hasWeather) {
@@ -712,9 +714,10 @@ fun ShelfClock(
             val range = if (w.high != null && w.low != null) stringResource(R.string.weather_high_low, w.high, w.low) else null
             val detail = listOfNotNull(place, stringResource(conditionName(w.kind)), range).joinToString(" · ")
 
-            if (onWeatherClick != null && !saving && !away) {
+            if (onWeatherClick != null && enabled && !saving && !away) {
                 Pressable(
                     onClick = onWeatherClick,
+                    enabled = enabled,
                     focusedScale = 1.06f,
                     modifier = aside.padding(top = 14.dp).focusProperties {
                         downRequester?.invoke()?.let { down = it }
@@ -842,6 +845,7 @@ fun CornerClock(
     toSaver: () -> Float = { 0f },
     saving: Boolean = false,
     away: Boolean = false,
+    enabled: Boolean = true,
     onClockClick: (() -> Unit)? = null,
     onWeatherClick: (() -> Unit)? = null,
     onClockFocused: ((Boolean) -> Unit)? = null,
@@ -853,9 +857,10 @@ fun CornerClock(
     val shadow = Shadow(Color.Black.copy(alpha = 0.5f), blurRadius = 8f)
     Row(modifier.height(34.dp), verticalAlignment = Alignment.CenterVertically) {
         val clockMod = Modifier.toSaverClock(toSaver, Type.Title.fontSize, Type.Title.fontSize.value.dp * CAP_TOP, drift)
-        if (onClockClick != null && !saving && !away) {
+        if (onClockClick != null && enabled && !saving && !away) {
             Pressable(
                 onClick = onClockClick,
+                enabled = enabled,
                 focusedScale = 1.08f,
                 modifier = clockMod.focusProperties {
                     downRequester?.invoke()?.let { down = it }
@@ -896,9 +901,10 @@ fun CornerClock(
                 compositingStrategy = CompositingStrategy.ModulateAlpha
             }
             val place = Weather.place?.takeIf { it.length <= 12 }
-            if (onWeatherClick != null && !saving && !away) {
+            if (onWeatherClick != null && enabled && !saving && !away) {
                 Pressable(
                     onClick = onWeatherClick,
+                    enabled = enabled,
                     focusedScale = 1.08f,
                     modifier = aside.padding(start = 6.dp).focusProperties {
                         downRequester?.invoke()?.let { down = it }
