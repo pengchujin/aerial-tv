@@ -742,13 +742,17 @@ private suspend fun captureOnce(view: SurfaceView, w: Int = view.width, h: Int =
     // last, kept for the TV's next starts too (FilmFrames): the film's file is not read there
     // either (FrameReader), and the glass goes without the film's frames (Wallpapers.filmGlassless).
     val took = android.os.SystemClock.elapsedRealtime() - started
-    if (result == PixelCopy.SUCCESS && took > COPY_SLOW_MS) {
+    val unread = if (result == PixelCopy.SUCCESS) unreadable(bitmap) else null
+    // Only a copy that read the film counts as slow. One that came back black is not used again
+    // anyway (pixelCopy), and the TV takes its frames from the file; counted, a slow black copy
+    // shut the file out too, for good, and the plate lost its frosted glass (Xiaomi MiTV-MFTR0,
+    // whose copies read black: `copy false` with no copy tried, 2026-11-01).
+    if (result == PixelCopy.SUCCESS && unread == null && took > COPY_SLOW_MS) {
         DiagLog.i("wallpaper frame copy took $took ms; no frames of the film from now on but a quiet one")
         FilmFrames.copyWasSlow()
     }
-    val unread = if (result == PixelCopy.SUCCESS) unreadable(bitmap) else null
     if (unread == "green") copyLostColour = true
-    if (result != PixelCopy.SUCCESS || unread != null) DiagLog.i("wallpaper frame copy: result $result, $unread")
+    if (result != PixelCopy.SUCCESS || unread != null) DiagLog.i("wallpaper frame copy: result $result, $unread, $took ms")
     return bitmap.takeIf { result == PixelCopy.SUCCESS && unread == null }
 }
 
@@ -826,11 +830,19 @@ private class FrameReader(private val context: android.content.Context) {
         w.abandoned = true
         FileFramesStuck.mark(context)
         FilmFrames.update()
-        DiagLog.i("wallpaper film file stuck ($what, ${android.os.SystemClock.elapsedRealtime() - started} ms); not read again until the TV restarts")
+        DiagLog.i("wallpaper film file stuck ($what, ${android.os.SystemClock.elapsedRealtime() - started} ms); not read again until it returns or the TV restarts")
         // Its retriever goes once the call stuck on it returns, if it ever does; what queued behind
-        // it returns null at once.
+        // it returns null at once. Returned, it was only slow (a slow network, a busy TV), not the
+        // media server jammed (TCL MT5879, where it never returns): the file may be read again.
+        // Kept for the whole boot, one slow frame took the plate's frosted glass for days
+        // (Xiaomi MiTV-MFTR0, 2026-11-01).
         runCatching {
-            w.executor.execute { w.close() }
+            w.executor.execute {
+                w.close()
+                FileFramesStuck.clear(context)
+                DiagLog.i("wallpaper film file returned after ${android.os.SystemClock.elapsedRealtime() - started} ms; read again")
+                android.os.Handler(android.os.Looper.getMainLooper()).post { FilmFrames.update() }
+            }
             w.executor.shutdown()
         }
     }
@@ -957,7 +969,9 @@ private object FilmFrames {
     }
 
     private fun prefs(context: android.content.Context) = context.getSharedPreferences("wallpaper_frames", android.content.Context.MODE_PRIVATE)
-    private const val SLOW_KEY = "copy_slow"
+    // A new key: "copy_slow" also took slow copies that read black (captureOnce), so each TV tries
+    // PixelCopy once more. Where it is truly slow (TCL MT5879) that is one more held copy, then kept.
+    private const val SLOW_KEY = "copy_slow_read"
 }
 
 /**
@@ -974,6 +988,12 @@ private object FileFramesStuck {
     fun mark(context: android.content.Context) {
         stuck = true
         prefs(context).edit().putLong(KEY, bootId(context)).apply()
+    }
+
+    /** The stuck call came back: the media server is not jammed. */
+    fun clear(context: android.content.Context) {
+        stuck = false
+        prefs(context).edit().remove(KEY).apply()
     }
 
     /** The boot count where the TV keeps one (Android 7.0+), else the minute the TV started. */
