@@ -124,3 +124,93 @@ Vidda C1S 激光投影（VIDAA_TV，MT9669，Android 9，PR #545）：聚好看�
 ## 75E8H 的音量条和亮度条（#1025，MT9652 m7642，安卓 9，VIDAA 6.6）
 
 报告人（Agent）实测：没有 `picture_backlight`；`screen_brightness` 写得进去但面板不变；`media volume --stream 3 --set 2` 让 AudioService 的当前值变了，电视实际音量和 `volume_music` 不变，遥控器音量键正常、Aerial 面板的数字会跟着遥控器变。亮度可以在 device profile 里加 `"ignoresScreenBrightness": true`（adapt.md 已补）；音量还要看 `dumpsys audio` 里是不是 fixed volume、走 HDMI/CEC，已问。
+
+## 激光机型的亮度（Vidda M2 Pro 高亮版，MT9653，Android 11）
+
+2026-11-01，在 Vidda M2 Pro 高亮版（型号代码 `VL5R-PRO`；`ro.product.model` 报 `VIDAA_TV`，
+MT9653，Android 11，Aerial 1.76）上实测。这台是激光超短焦投影，
+此前控制中心的亮度行对它不起作用：`screen_brightness` 写得进去，画面完全不变（216 → 30 与前一张截图
+逐像素无差别），和 #1025 在 75E8H 上报的现象一致。
+
+- **真实控光在固件的 `PictureManager` 里**，不在 Android 的设置里。`com.jamdeo.tv.*` 位于
+  `/system/framework/com.jamdeo.flow.jar`（boot class path），任何 App 都能直接反射调用，
+  不需要权限、root 或系统签名：`TvManager.getInstance().getPictureManager(context)` 之后，
+  `setCustomBacklight(0..10)` / `getCustomBacklight()` 就是原生设置「图像 → 亮度」的那 0–10 档。
+  验证方式：让户主在原生设置里反复拖亮度，同时由探针每 400 ms 采样全部画质字段，只有
+  `getCustomBacklight` 跟随变化、其余全程不动；写入侧同一字段同一量程，闭环成立。
+- **判定激光机型用 `getLaserOverLapOrCL0Mode`**（CL0 是激光光源），普通海信没有这个方法。
+  没有按 `VIDAA_TV` 判断（所有海信都报这个名字），也没有写进 `devices.json`。
+- **亮度模式共 7 个，与 `getBacklightMode` 的对照**（逐个提交后回读）：
+
+  | 模式 | `getBacklightMode` | `getCustomBacklight` | `getLaserOverLapOrCL0Mode` |
+  |---|---|---|---|
+  | 明亮 | 16384 | 10 | 0 |
+  | 标准 | 8192 | 8 | 0 |
+  | 柔和 | 2 | 4 | 0 |
+  | 动态 | 4096 | 不固定（随画面，实测 7 / 3 / 5） | 0 |
+  | 超新 | 131072 | 10 | 2 |
+  | 超频 | 65536 | 10 | 1 |
+  | 自定义 | 0 | 用户上次档位 | 0 |
+
+- **只有「自定义」的档位归用户管**：明亮 / 标准 / 柔和 / 超新 / 超频 都写死自己的档位（动态不写死，
+  它自己会动，见下一节），并且**丢弃**对 `setCustomBacklight` 的写入（回读纹丝不动，但值会记进
+  自定义槽位）。所以 Aerial 写入前先 `setBacklightMode(0)`，这正是原生设置在户主拖动亮度滑杆时
+  自己做的事——效果就是「一拖亮度，模式变成自定义」。切回「自定义」时系统自动恢复上次档位，
+  Aerial 不需要自己记。
+- 切模式只要一条 `setBacklightMode(...)`，预设档位和 `getLaserOverLapOrCL0Mode` 由系统联动写入，
+  不用再单独调 `setLaserOverLapOrCL0Mode`。
+- 「超新 / 超频」偏黄来自激光叠加（CL0Mode 2/1）改变合成白点，不是亮度也不是色温
+  （`getColorTemperature` 七个模式恒为 4）。
+- 无用的通道（勿再试）：`screen_brightness`（激光机不控光源）、`setBrightness`（只改画质黑位，
+  肉眼无感）、`setLightModeStatus`（第三方关不掉，恒为 true）、`setLightModeValue` /
+  `setMinBackLight` / `setLaserCL0Index`（空操作）、`setBacklightMode(8192 | v)`（被归一化，
+  BacklightMode 是离散枚举而不是标志位）。
+
+Aerial 的处理：`system/HisenseLaserPanel.kt`；`Brightness.level` / `adjust` 最前面分派，
+控制中心 `steps = 10`（11 档，其余电视仍是 20 步 5%），行里显示档位而不是百分比
+（`4`，不是 `40`；原生设置那一栏也是 0–10），亮度行在屏幕上时每 700 ms 轮询一次
+（系统改亮度不发广播，和极米同一个理由）。面板关着时一次都不读：控制中心为首次打开
+做的那个 1% 透明预热副本会把这一页也组合一遍，它的轮询被 `poll` 参数挡掉。
+验证范围见 HANDOFF 里 2026-11-01 那一条。
+
+### 亮度模式（控制中心里切换）
+
+七个模式也做进了控制中心：亮度滑块下面一行「亮度模式」，右边跟着当前模式名，按进去是
+`CcPage.BrightnessMode` 一页列表（和「信号源设置」同一套 `MenuRow` + `ChoiceRow`），
+当前模式带勾、并且是进页面时的初始焦点。列表下面**不留说明文字**：七项加一个勾就是整页
+（户主要求，原先那行随模式变的解释已删）。
+
+- **「自定义」是七项里的第七项，和别的模式一样可选**（2026-11-01 在原生设置里核对：
+  `设置 → 图像 → 亮度` 那一页就是 明亮 标准 柔和 动态 超新 超频 自定义 七颗胶囊，
+  全部 `enabled=true`、`focusable=true`）。在「标准」（8 档）下选中「自定义」，
+  档位立刻回到上次的 4 档 —— 这是固件行为，Aerial 只是写 `BM=0`，不自己记档位。
+- **七个模式各自怎么对待档位**（户主逐项核对，2026-11-01）：
+
+  | 模式 | 进入后的档位 | 可调 | 调亮度之后 |
+  |---|---|---|---|
+  | 明亮 | 10 | 是 | 转「自定义」 |
+  | 标准 | 8 | 是 | 转「自定义」 |
+  | 柔和 | 4 | 是 | 转「自定义」 |
+  | 动态 | **由系统定**（实测 8 / 9 / 5） | 是 | 转「自定义」 |
+  | 超新 | 10 | **否** | 保持 超新 |
+  | 超频 | 10 | **否** | 保持 超频 |
+  | 自定义 | 户主上次的档位 | 是 | 保持 自定义 |
+
+  档位全部由固件写、Aerial 只读，所以界面上不写死数字，亮度行自己就显示真实档位。
+  动态不钉固定档位，也不固定保持原值（从柔和 4 切进去读到 8、从标准 8 切进去仍是 8、
+  从明亮 10 切进去读到 9），所以它既不写数字也不写「保持不变」。
+- **超新 / 超频 的滑杆是灰的**：这两项下 `设置 → 图像 → 亮度` 那一行 `enabled=false`、
+  `focusable=false`（值 10），焦点根本进不去。Aerial 照这个锁定：亮度行降到 40% 透明度、
+  左右键只发 `Sounds.limit()` 的「到头」声而不写任何值（`HisenseLaserPanel.setLevel` 里也挡了一道，
+  `Brightness.adjust` 直接返回当前档位），所以在超新下按左不会突然掉进「自定义」。
+- 锁定由 `levelLocked(i)` 判定（只有 4、5 两项为 true）。
+- **为什么是一页而不是滑块旁边一排胶囊**：七个中文标签排不进 300dp 宽的面板；更要紧的是
+  亮度滑块的左右键已经是「一档」，旁边再放一排可选中的胶囊，同一个方向键就有了两种含义。
+  拆一页之后，模式用 OK 选、亮度用左右调，互不干扰。
+- **切模式只要一条 `setBacklightMode(MODE_BACKLIGHT[i])`**，档位和激光叠加由固件联动写入，
+  所以选完一个预设，亮度行的数字会跟着变（明亮 10、标准 8、柔和 4、动态 9、超新 / 超频 10）。
+- 反过来，在预设模式下拖亮度会转成「自定义」（`setLevel` 先写 `BM=0`），模式行的名字也会
+  在下一轮轮询里跟着改。
+- 模式和亮度一起读（`Brightness.mode` / `level` 同一次轮询），因为一个预设自带档位，
+  两者总是一起变；模式页开着时同样每 700 ms 读一次，实测从别的 app 改档位后，
+  页面上的勾会自己挪到「自定义」。

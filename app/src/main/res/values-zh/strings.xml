@@ -71,6 +71,14 @@
     <string name="unavailable">此电视不支持</string>
     <string name="cc_brightness">亮度</string>
     <string name="cc_brightness_in_settings">在图像设置里调</string>
+    <string name="cc_brightness_mode">亮度模式</string>
+    <string name="cc_mode_bright">明亮</string>
+    <string name="cc_mode_standard">标准</string>
+    <string name="cc_mode_soft">柔和</string>
+    <string name="cc_mode_dynamic">动态</string>
+    <string name="cc_mode_supernova">超新</string>
+    <string name="cc_mode_overclock">超频</string>
+    <string name="cc_mode_custom">自定义</string>
     <string name="cc_personalize">个性化</string>
     <string name="wp_title">个性化</string>
     <string name="wp_wallpaper">壁纸</string>

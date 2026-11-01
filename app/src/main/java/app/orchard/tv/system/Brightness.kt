@@ -30,6 +30,11 @@ import androidx.core.content.ContextCompat
  *   (com.xgimi.gmpf.api.DisplayManager, see SystemProbe.xgimiBrightnessLevel); the system setting
  *   does not follow it. Issue #241 took the level for read-only on a Z7X, but a `pig_chivalrous` on
  *   GMUI 9 takes a write from a plain app, so Control Center steps the light engine's own levels.
+ * - Hisense VIDAA laser sets: the light source's own 0..10 level, through PictureManager in the
+ *   firmware's framework (see HisenseLaserPanel); screen_brightness changes there without moving
+ *   the light source, so the row would otherwise open the picture settings (#1025 on a 75E8H).
+ *   The same class reports the set's seven picture modes, so Control Center can offer them as a
+ *   page under the brightness row ([mode], [setMode]).
  * - Others: the standard Settings.System screen brightness, 0–255. Writing it needs the "modify
  *   system settings" app-op. Both are granted by tools/install.sh; without them Control Center
  *   opens the TV's own picture settings instead.
@@ -69,6 +74,8 @@ object Brightness {
 
     /** Current level as 0..1, or null when Aerial cannot change it on this TV. */
     fun level(context: Context): Float? {
+        // Hisense laser: the light source's own level, which screen_brightness does not touch.
+        HisenseLaserPanel.level(context)?.let { return it }
         // XGIMI: the real brightness is the DLP light-engine level; the system screen_brightness
         // setting does not follow it (issue #241).
         SystemProbe.xgimiBrightnessLevel()?.let { return it }
@@ -96,6 +103,15 @@ object Brightness {
     }
 
     /**
+     * The picture mode of a laser set (0..6, in [HisenseLaserPanel]'s order), or null on a TV whose
+     * brightness has no modes Aerial can name. Only Hisense laser sets have them so far.
+     */
+    fun mode(context: Context): Int? = HisenseLaserPanel.mode(context)
+
+    /** Switches a laser set's picture mode; false where this TV has none to switch. */
+    fun setMode(context: Context, index: Int): Boolean = HisenseLaserPanel.setMode(context, index)
+
+    /**
      * XGIMI's light-engine level one notch from [current], or null on a TV without the engine.
      * [current] comes from the caller rather than from the HAL: the engine applies a write a moment
      * later, so a level read back between the repeats of a held key names the previous notch again
@@ -119,6 +135,18 @@ object Brightness {
      * the HAL class (see [SystemProbe.setXgimiBrightnessLevel]).
      */
     fun adjust(context: Context, direction: Int): Float? {
+        // Hisense laser: 11 notches of the TV's own level, not the 5% steps below — 5% would land
+        // on the same notch twice and the row would seem to stick. The notch asked for is reported
+        // rather than read back: the write goes through the picture service, so the row moves with
+        // the picture instead of a poll later.
+        HisenseLaserPanel.level(context)?.let { current ->
+            // 超新 / 超频 lock the level (the TV's own row is disabled there): a step leaves both the
+            // picture and the mode alone, and the row reports the level it still has.
+            if (HisenseLaserPanel.levelLocked(HisenseLaserPanel.mode(context))) return current
+            val next = HisenseLaserPanel.step(current, direction)
+            HisenseLaserPanel.setLevel(context, next)
+            return next
+        }
         SystemProbe.xgimiBrightnessLevel()?.let { current ->
             val next = xgimiStep(current, direction) ?: return current
             val level = Math.round(next * SystemProbe.xgimiBrightnessMax)

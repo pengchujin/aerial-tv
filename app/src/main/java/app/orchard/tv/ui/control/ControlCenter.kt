@@ -83,6 +83,7 @@ import app.orchard.tv.Overlay
 import app.orchard.tv.R
 import app.orchard.tv.apps.SourceLooks
 import app.orchard.tv.settings.AerialSettings
+import app.orchard.tv.system.HisenseLaserPanel
 import app.orchard.tv.system.HomeStatus
 import app.orchard.tv.system.LaunchFallback
 import app.orchard.tv.system.NetKind
@@ -125,6 +126,7 @@ fun ControlCenter(
     BackHandler(enabled = visible) {
         when (page) {
             CcPage.Main -> onClose()
+            CcPage.BrightnessMode -> vm.overlay = Overlay.ControlCenter(CcPage.Main)
             CcPage.Inputs -> vm.overlay = Overlay.ControlCenter(CcPage.Main)
             CcPage.InputSettings -> vm.overlay = Overlay.ControlCenter(CcPage.Inputs)
             CcPage.Update, CcPage.Setup -> vm.overlay = Overlay.ControlCenter(CcPage.Main)
@@ -155,7 +157,7 @@ fun ControlCenter(
         // at 1% while Home is idle, without focus, the first opening is like the second.
         if (warm && !visible) {
             Column(Modifier.graphicsLayer { alpha = 0.01f }.width(300.dp).liquidGlass(24.dp).padding(16.dp)) {
-                MainPage(vm, now, false, onOpen)
+                MainPage(vm, now, takeFocus = false, poll = false, onOpen = onOpen)
             }
         }
         AnimatedVisibility(
@@ -186,7 +188,8 @@ fun ControlCenter(
                     // Closing sets the page back to Main while the panel fades out; that page must
                     // not take focus from the tile Home has just put it back on.
                     when (p) {
-                        CcPage.Main -> MainPage(vm, now, visible, onOpen)
+                        CcPage.Main -> MainPage(vm, now, takeFocus = visible, poll = visible, onOpen = onOpen)
+                        CcPage.BrightnessMode -> BrightnessModePage(vm, takeFocus = visible, poll = visible)
                         CcPage.Inputs -> InputsPage(vm, visible, onOpen)
                         CcPage.InputSettings -> InputSettingsPage(vm, visible)
                         CcPage.Update -> UpdatePage(vm, visible)
@@ -199,8 +202,19 @@ fun ControlCenter(
 }
 
 @Composable
-private fun MainPage(vm: HomeViewModel, now: LocalDateTime, takeFocus: Boolean, onOpen: (android.content.Intent) -> Unit) {
+private fun MainPage(
+    vm: HomeViewModel,
+    now: LocalDateTime,
+    takeFocus: Boolean,
+    /** The row polls the picture service, so only the copy that is on screen may do it. */
+    poll: Boolean,
+    onOpen: (android.content.Intent) -> Unit,
+) {
     val context = LocalContext.current
+    // The seven picture modes belong to the laser sets only (HisenseLaserPanel); every other TV
+    // keeps the panel it had, without a row it has nothing to put behind.
+    val laser = remember { HisenseLaserPanel.usable(context) }
+    PollBrightness(vm, laser, poll)
     val first = remember { FocusRequester() }
     val networkFocus = remember { FocusRequester() }
     val settingsFocus = remember { FocusRequester() }
@@ -285,7 +299,18 @@ private fun MainPage(vm: HomeViewModel, now: LocalDateTime, takeFocus: Boolean, 
         Spacer(Modifier.height(12.dp))
         VolumeRow(vm, cameFrom)
         Spacer(Modifier.height(6.dp))
-        BrightnessRow(vm)
+        BrightnessRow(vm, laser)
+        // The set's own picture modes, as one row and one page the way the inputs are: seven labels
+        // do not fit across a 300 dp panel, and Left/Right on the slider above already means one
+        // notch of brightness, so the modes cannot sit beside it without giving up its keys.
+        if (laser) {
+            MenuRow(
+                Glyph.Switches,
+                stringResource(R.string.cc_brightness_mode),
+                onClick = { vm.overlay = Overlay.ControlCenter(CcPage.BrightnessMode) },
+                trailing = vm.brightnessMode?.let { modeLabels().getOrNull(it) }?.let { "$it ›" },
+            )
+        }
 
         Spacer(Modifier.height(6.dp))
         // How Home looks (wallpaper, screensaver, focus style, hidden apps, weather) lives in one place.
@@ -494,15 +519,23 @@ private fun SliderRow(
     steps: Int,
     onStep: (Int) -> Unit,
     modifier: Modifier = Modifier,
+    /** The TV holds this level itself: the row is shown, greyed, and every step bumps. */
+    locked: Boolean = false,
     onClick: () -> Unit,
 ) {
     // Each step ticks, as focus does; a step past either end bumps instead. Read through state:
     // the drag handler below is made once and outlives this composition's values.
     val atLevel by rememberUpdatedState(level)
     val doStep by rememberUpdatedState(onStep)
+    val isLocked by rememberUpdatedState(locked)
     val step = { by: Int ->
-        if ((by > 0 && atLevel >= 0.999f) || (by < 0 && atLevel <= 0.001f)) Sounds.limit() else Sounds.step()
-        doStep(by)
+        when {
+            // 超新 / 超频: the TV's own row is disabled here, so the end of the travel is everywhere.
+            isLocked -> Sounds.limit()
+            (by > 0 && atLevel >= 0.999f) || (by < 0 && atLevel <= 0.001f) -> Sounds.limit()
+            else -> Sounds.step()
+        }
+        if (!isLocked) doStep(by)
     }
     val stepCount by rememberUpdatedState(steps.coerceAtLeast(1))
     Pressable(
@@ -522,7 +555,9 @@ private fun SliderRow(
         Row(
             Modifier
                 .fillMaxWidth()
-                .pointerInput(Unit) {
+                .graphicsLayer { alpha = if (locked) 0.4f else 1f }
+                .pointerInput(isLocked) {
+                    if (isLocked) return@pointerInput
                     // The level only moves in the steps the system takes, so the drag is counted
                     // out in steps rather than set to an exact point.
                     var travelled = 0f
@@ -571,25 +606,42 @@ private fun VolumeRow(vm: HomeViewModel, returnTo: FocusRequester) {
  * Brightness where Aerial may change it; otherwise a row that opens the TV's picture settings, and
  * says so: a bare "Brightness" with no slider read as broken (Vidda 85V1F-S, FFalcon, issue #130).
  */
+/**
+ * Reads the level (and, on a laser set, the picture mode) every 700 ms while the row or the mode
+ * page is on screen. Neither the DLP light engine nor the picture service announces a change, and
+ * the TV's own slider can be moved with the panel still up, so nothing else would refresh either.
+ *
+ * Only the on-screen copy polls: the closed panel draws this page once at 1 %, so that its first
+ * opening is not its first draw (ControlCenter's warm path), and a LaunchedEffect runs from there
+ * too — that copy would read the picture service for a panel nobody can see.
+ */
 @Composable
-private fun BrightnessRow(vm: HomeViewModel) {
+private fun PollBrightness(vm: HomeViewModel, laser: Boolean, enabled: Boolean) {
     val context = LocalContext.current
-    // XGIMI (GMUI): the real brightness is the DLP light-engine level. It reads through the HAL
-    // class (SystemProbe.xgimiBrightnessLevel) and, on this firmware, writes through it too, so the
-    // row is a slider of the light engine's own levels (1..10) rather than a percentage of the
-    // system setting that moves nothing. Poll the HAL while the row is on screen: the level can be
-    // changed from the TV's own overlay, which does not pause Aerial, so no onResume or
-    // screen_brightness observer ever fires for it.
     val xgimi = remember { SystemProbe.xgimiBrightnessLevel() != null }
-    LaunchedEffect(xgimi) {
-        if (!xgimi) return@LaunchedEffect
+    LaunchedEffect(xgimi, laser, enabled) {
+        if (!enabled || (!xgimi && !laser)) return@LaunchedEffect
         vm.refreshBrightness()
         while (isActive) {
             delay(700)
             vm.refreshBrightness()
         }
     }
+}
+
+@Composable
+private fun BrightnessRow(vm: HomeViewModel, laser: Boolean) {
+    val context = LocalContext.current
+    // XGIMI (GMUI): the real brightness is the DLP light-engine level. It reads through the HAL
+    // class (SystemProbe.xgimiBrightnessLevel) and, on this firmware, writes through it too, so the
+    // row is a slider of the light engine's own levels (1..10) rather than a percentage of the
+    // system setting that moves nothing. [laser] comes from the page: it is the light source's own
+    // 0..10 level, which the system setting does not move either.
+    val xgimi = remember { SystemProbe.xgimiBrightnessLevel() != null }
     val level = vm.brightness
+    // 超新 / 超频: the set holds the level at 10 and disables its own slider, so the row greys out
+    // and stops taking steps rather than dropping the picture into 自定义 on the first Left.
+    val locked = laser && HisenseLaserPanel.levelLocked(vm.brightnessMode)
     if (level == null) {
         MenuRow(Glyph.Sun, stringResource(R.string.cc_brightness), onClick = {
             vm.overlay = Overlay.None
@@ -599,12 +651,82 @@ private fun BrightnessRow(vm: HomeViewModel) {
         SliderRow(
             glyph = Glyph.Sun,
             level = level,
-            value = Math.round(level * 100).toString(),
-            // Brightness.adjust moves 5% a step, and stops at 1%; XGIMI steps its own levels.
-            steps = if (xgimi) SystemProbe.xgimiBrightnessMax else 20,
+            // A laser set's level is 11 notches of its own, not a percentage of anything: show the
+            // notch, the number the TV's own slider shows (4, not 40).
+            value = if (laser) Math.round(level * HisenseLaserPanel.LEVEL_MAX).toString()
+                    else Math.round(level * 100).toString(),
+            // Brightness.adjust moves 5% a step, and stops at 1%; XGIMI steps its own levels and a
+            // Hisense laser set its own 11 notches. Only the drag pitch follows this; a key is one
+            // step either way.
+            steps = when {
+                laser -> HisenseLaserPanel.LEVEL_MAX
+                xgimi -> SystemProbe.xgimiBrightnessMax
+                else -> 20
+            },
             onStep = vm::adjustBrightness,
+            locked = locked,
             onClick = {},
         )
+    }
+}
+
+/**
+ * The name a picture mode goes by, in HisenseLaserPanel's order — the list is index-keyed like the
+ * panel's own table, so a mode that is not named here shows without a label rather than shifting
+ * every label by one. The words are the TV's own (设置 → 图像 → 亮度模式), not invented ones.
+ */
+@Composable
+private fun modeLabels(): List<String> = listOf(
+    stringResource(R.string.cc_mode_bright),
+    stringResource(R.string.cc_mode_standard),
+    stringResource(R.string.cc_mode_soft),
+    stringResource(R.string.cc_mode_dynamic),
+    stringResource(R.string.cc_mode_supernova),
+    stringResource(R.string.cc_mode_overclock),
+    stringResource(R.string.cc_mode_custom),
+)
+
+/**
+ * A laser set's picture modes, as the list of choices the input settings page already uses: the
+ * current one carries the check, and picking another is the whole of it — the TV writes that mode's
+ * own level and laser overlap itself, and the brightness row answers on the way back.
+ *
+ * 自定义 is one of the seven, and a choice like the others: the TV's own settings page lists it
+ * last, picks it, and brings back the level the owner left there (8 → 4 when it was picked after
+ * 标准). The list stays plain on purpose — no note under it. What each mode does with the level
+ * (明亮 / 标准 / 柔和 pin one and hand it over as soon as the slider moves, 动态 lets the set pick,
+ * 超新 / 超频 hold it at 10 and grey the row out, 自定义 keeps the level the owner left) shows up
+ * where it matters: on the brightness row when you come back.
+ */
+@Composable
+private fun BrightnessModePage(vm: HomeViewModel, takeFocus: Boolean, poll: Boolean) {
+    val first = remember { FocusRequester() }
+    val labels = modeLabels()
+    val current = vm.brightnessMode
+    // The TV's own picture menu can change the mode under this page, and a poll is what tells us.
+    PollBrightness(vm, laser = true, enabled = poll)
+    LaunchedEffect(Unit) {
+        if (!takeFocus) return@LaunchedEffect
+        withFrameNanos { }
+        runCatching { first.requestFocus() }
+    }
+    Column(Modifier.heightIn(max = 470.dp).verticalScroll(rememberScrollState())) {
+        MenuRow(
+            Glyph.ChevronLeft,
+            stringResource(R.string.cc_brightness_mode),
+            onClick = { vm.overlay = Overlay.ControlCenter(CcPage.Main) },
+        )
+        Spacer(Modifier.height(8.dp))
+        labels.forEachIndexed { i, label ->
+            ChoiceRow(
+                text = label,
+                selected = current == i,
+                // Focus starts on the mode the set is in: coming back here should not walk the list
+                // from the top, and the list is short enough that focusing it needs no scroll.
+                focusRequester = if (i == (current ?: 0)) first else null,
+                onClick = { vm.setBrightnessMode(i) },
+            )
+        }
     }
 }
 

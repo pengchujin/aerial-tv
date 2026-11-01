@@ -72,6 +72,14 @@
     <string name="unavailable">Not available on this TV</string>
     <string name="cc_brightness">Brightness</string>
     <string name="cc_brightness_in_settings">Picture Settings</string>
+    <string name="cc_brightness_mode">Brightness Mode</string>
+    <string name="cc_mode_bright">Bright</string>
+    <string name="cc_mode_standard">Standard</string>
+    <string name="cc_mode_soft">Soft</string>
+    <string name="cc_mode_dynamic">Dynamic</string>
+    <string name="cc_mode_supernova">Supernova</string>
+    <string name="cc_mode_overclock">Overclock</string>
+    <string name="cc_mode_custom">Custom</string>
     <string name="cc_personalize">Personalize</string>
     <string name="wp_title">Personalize</string>
     <string name="wp_wallpaper">Wallpaper</string>

@@ -64,6 +64,14 @@
     <string name="unavailable">Недоступно на этом телевизоре</string>
     <string name="cc_brightness">Яркость</string>
     <string name="cc_brightness_in_settings">Настройки изображения</string>
+    <string name="cc_brightness_mode">Режим яркости</string>
+    <string name="cc_mode_bright">Яркий</string>
+    <string name="cc_mode_standard">Стандартный</string>
+    <string name="cc_mode_soft">Мягкий</string>
+    <string name="cc_mode_dynamic">Динамический</string>
+    <string name="cc_mode_supernova">Сверхновый</string>
+    <string name="cc_mode_overclock">Разгон</string>
+    <string name="cc_mode_custom">Пользовательский</string>
     <string name="cc_personalize">Персонализация</string>
     <string name="wp_title">Персонализация</string>
     <string name="wp_wallpaper">Обои</string>

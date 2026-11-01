@@ -62,7 +62,7 @@ sealed interface Overlay {
     data class Pin(val mode: PinMode, val onDone: () -> Unit) : Overlay
 }
 
-enum class CcPage { Main, Inputs, InputSettings, Update, Setup }
+enum class CcPage { Main, BrightnessMode, Inputs, InputSettings, Update, Setup }
 
 /**
  * Tiles a cold start reads whole before showing Home (two rows and a half, as many as can show);
@@ -98,6 +98,12 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Panel brightness 0..1, or null when Aerial cannot change it on this TV. */
     var brightness by mutableStateOf<Float?>(null); private set
+
+    /**
+     * The picture mode of a laser set, as an index into HisenseLaserPanel's row, or null on a TV
+     * that has none. Only the TV writes it, so it is read back with the level.
+     */
+    var brightnessMode by mutableStateOf<Int?>(null); private set
 
     /**
      * When the Control Center row last took a step (uptime ms). The light engine reports the new
@@ -499,22 +505,48 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             val ctx = context
             homeStatus = withContext(Dispatchers.Default) { SystemProbe.homeStatus(ctx) }
-            brightness = withContext(Dispatchers.Default) { Brightness.level(ctx) }
+            val (level, mode) = withContext(Dispatchers.Default) { Brightness.level(ctx) to Brightness.mode(ctx) }
+            brightness = level
+            // Null is a picture service not bound yet (or a TV with no modes), not a mode going away.
+            if (mode != null) brightnessMode = mode
         }
     }
 
     /**
      * The brightness alone, off the main thread, for the level only the TV can change: XGIMI's DLP
      * light engine can be moved from the TV's own overlay, which does not pause Aerial, so Control
-     * Center polls this while its brightness row is up.
+     * Center polls this while its brightness row is up. The mode comes with it: a preset carries a
+     * level of its own, so the two change together and one read answers both.
      */
     fun refreshBrightness() {
         viewModelScope.launch {
-            val level = withContext(Dispatchers.Default) { Brightness.level(context) }
+            val ctx = context
+            val (level, mode) = withContext(Dispatchers.Default) { Brightness.level(ctx) to Brightness.mode(ctx) }
+            if (mode != null) brightnessMode = mode
             // A step taken while this read was in flight is newer than the level it read; the poll
             // after the key is released puts the light engine's own answer back.
             if (SystemClock.elapsedRealtime() - brightnessActedAt < POLL_QUIET_MS) return@launch
             brightness = level
+        }
+    }
+
+    /**
+     * Switches a laser set's picture to one of its seven modes. A preset carries a level of its
+     * own, so the level is read back with it and the row moves as the picture does.
+     */
+    fun setBrightnessMode(index: Int) {
+        // Shown at once, then confirmed: the write goes through the picture service, and a poll
+        // already in flight would otherwise put the previous mode back on screen.
+        brightnessMode = index
+        brightnessActedAt = SystemClock.elapsedRealtime()
+        viewModelScope.launch {
+            val ctx = context
+            val (level, mode) = withContext(Dispatchers.Default) {
+                Brightness.setMode(ctx, index)
+                Brightness.level(ctx) to Brightness.mode(ctx)
+            }
+            brightness = level
+            if (mode != null) brightnessMode = mode
         }
     }
 
