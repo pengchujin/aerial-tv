@@ -48,10 +48,11 @@ object Weather {
 
     var now by mutableStateOf<WeatherNow?>(null); private set
 
+    private var rawPlace by mutableStateOf<String?>(null)
+
     /** Where the weather is for, as a name to show; null until known. */
-    var place by mutableStateOf<String?>(null)
-        get() = field?.let { if (Locale.getDefault().language == "ru") RussianCities.translate(it) else it }
-        private set
+    val place: String?
+        get() = rawPlace?.let { if (Locale.getDefault().language == "ru") RussianCities.translate(it) else it }
 
     /** True when the owner named the place; false while it is guessed from the network. */
     var chosen by mutableStateOf(false); private set
@@ -68,7 +69,7 @@ object Weather {
         started = true
         app = context.applicationContext
         prefs = app.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        place = prefs.getString("place", null)
+        rawPlace = prefs.getString("place", null)
         chosen = prefs.getBoolean("chosen", false)
         if (System.currentTimeMillis() - prefs.getLong("fetched_at", 0) < STALE_MS) {
             val kind = runCatching { WeatherKind.valueOf(prefs.getString("kind", null) ?: "") }.getOrNull()
@@ -96,7 +97,7 @@ object Weather {
             val reading = withContext(Dispatchers.IO) {
                 runCatching { fetch() }.onFailure { Log.w(TAG, "weather unavailable", it) }.getOrNull()
             }
-            prefs.getString("place", null)?.let { place = it }
+            prefs.getString("place", null)?.let { rawPlace = it }
             failed = reading == null
             if (reading != null) {
                 now = reading
@@ -198,7 +199,7 @@ object Weather {
             putBoolean("checked_against_cities", true)
         }
         chosen = true
-        place = prefs.getString("place", null)
+        rawPlace = prefs.getString("place", null)
         refresh()
         return true
     }
