@@ -103,7 +103,6 @@ dependencies {
     implementation(composeBom)
     testImplementation(composeBom)
     testImplementation("androidx.compose.ui:ui-test-junit4")
-    debugImplementation("androidx.compose.ui:ui-test-manifest")
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.foundation:foundation")
     implementation("androidx.compose.animation:animation")

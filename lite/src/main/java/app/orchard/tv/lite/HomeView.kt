@@ -44,6 +44,7 @@ class HomeView(context: Context, private val host: Host) : FrameLayout(context) 
     }
 
     private val layer = FrameLayout(context)
+    private val tileFade = HomeTileFade()
     private val plate = PlateView(context)
     private val tiles = ArrayList<TileView>()
     private val names = ArrayList<TextView>()
@@ -76,15 +77,10 @@ class HomeView(context: Context, private val host: Host) : FrameLayout(context) 
 
     override fun drawChild(canvas: Canvas, child: View, drawingTime: Long): Boolean {
         if (child !== layer) return super.drawChild(canvas, child, drawingTime)
-        // The pill is already fixed, but transparent: older rows must not pass behind it
-        // (issue #1050). Clip in Home's coordinates, before the layer's animated translation,
-        // including tile zoom, rings and names. The clock and status remain unclipped siblings.
-        val saved = canvas.save()
-        canvas.clipRect(0f, Ui.px(GRID_TOP), width.toFloat(), height.toFloat())
-        return try {
+        // Keep the status area clear, but let departing rows fade into the wallpaper instead
+        // of cutting a hard horizontal line at 72dp (PR #1066). Only the tile layer is masked.
+        return tileFade.draw(canvas, width.toFloat(), height.toFloat(), Ui.px(GRID_TOP), Ui.px(24f)) {
             super.drawChild(canvas, child, drawingTime)
-        } finally {
-            canvas.restoreToCount(saved)
         }
     }
 

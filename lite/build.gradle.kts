@@ -117,6 +117,9 @@ android.sourceSets["main"].res.srcDir(sharedRes)
 tasks.named("preBuild") { dependsOn(copyAerials, copySources, copyStrings) }
 
 dependencies {
+    // Native Canvas pixel tests only; these dependencies do not enter the Lite APK.
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("org.robolectric:robolectric:4.17")
     // The phone page's server and its QR code. ZXing 3.3.0, the last before it used
     // StandardCharsets, which Android only has from 4.4.
     implementation("org.nanohttpd:nanohttpd:2.3.1")
