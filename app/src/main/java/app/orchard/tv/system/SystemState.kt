@@ -245,6 +245,10 @@ object SystemProbe {
             // Konka Android TV 553 (Hi3751V553, Android 5.1.1) has neither of the above: its settings
             // are a second app, opened by component on the TV by the reporter (issue #918).
             Intent(Intent.ACTION_MAIN).setComponent(ComponentName("com.konka.systemsetting", "com.konka.systemsetting.MainActivity")),
+            // Redmi Projector Lite (Projector_10, CVTE/ASU Android 9): no activity answers
+            // ACTION_SETTINGS; the vendor's main activity is still directly launchable.
+            Intent(Intent.ACTION_MAIN).setComponent(ComponentName(
+                "com.android.settings", "com.asu.settings.TvMainActivity")),
             // TCL MT5879 (China): nothing answers ACTION_SETTINGS; MAIN opens TCL's full settings panel.
             Intent(Intent.ACTION_MAIN).setComponent(ComponentName("com.tcl.settings", "com.tcl.settings.ui.MainActivity")),
             // PPTV K55U27 (MStar, Android 6): its settings app answers no standard action (issue #264).

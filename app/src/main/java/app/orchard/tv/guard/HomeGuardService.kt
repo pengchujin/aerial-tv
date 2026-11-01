@@ -892,7 +892,7 @@ class HomeGuardService : AccessibilityService() {
         val mouseHang = mouseAttached && xiaomiInput
         val wanted = !keysPassThrough && !screenOff && !padGame && !mouseHang &&
             (Build.VERSION.SDK_INT <= Build.VERSION_CODES.R || aerialInFront)
-        val homeWanted = wanted && !isDefaultHome()
+        val homeWanted = wanted && (!isDefaultHome() || defaultHomeNeedsHomeFilter)
         val cecWanted = !screenOff && !mouseHang && CecHome.active(this, lastWindow?.first)
         filteringForCecOnly = cecWanted && !homeWanted
         var want = if (homeWanted || cecWanted) info.flags or flag else info.flags and flag.inv()
@@ -982,14 +982,30 @@ class HomeGuardService : AccessibilityService() {
         VIDAA_PACKAGES.any { runCatching { packageManager.getPackageInfo(it, 0) }.isSuccess }
     }
 
+    /**
+     * Redmi Projector Lite (Projector_10, CVTE/ASU Android 9) runs a vendor cleanup in its normal
+     * HOME dispatch that force-stops the process in front. When Aerial is default, that process is
+     * Aerial itself, so every Home press becomes a 2-3 second cold start. Detect the firmware's AT
+     * package and take HOME before the system, even though Aerial is already default.
+     */
+    private val defaultHomeNeedsHomeFilter by lazy {
+        runCatching { packageManager.getPackageInfo("com.cvte.factory.at", 0) }.isSuccess
+    }
+
     override fun onKeyEvent(event: KeyEvent): Boolean {
         if (!GuardSetup.isUserUnlocked(this)) return false
-        if (event.keyCode in VOLUME_KEYS) return if (filteringForCecOnly) false else takeVolumeKey(event)
+        if (event.keyCode in VOLUME_KEYS) {
+            return if (filteringForCecOnly || (isDefaultHome() && defaultHomeNeedsHomeFilter)) {
+                false
+            } else {
+                takeVolumeKey(event)
+            }
+        }
         // Any key that is done: whatever it did to the volume (Control Center's slider) is in.
         if (event.action == KeyEvent.ACTION_UP) volumeSeen = volumeNow()
         if (event.keyCode != KeyEvent.KEYCODE_HOME) return false
         if (takeCecHome(event)) return true
-        if (isDefaultHome()) return false
+        if (isDefaultHome() && !defaultHomeNeedsHomeFilter) return false
         // Held, Home is the firmware's task center, which taking the key hid (Xiaomi, issue #185):
         // open the recent apps instead, and leave Home alone when the key comes up. Timed here:
         // the filter sees keys before Android makes the repeats that would say the key is held.

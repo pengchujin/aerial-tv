@@ -39,6 +39,17 @@ class GamepadDevicesTest {
         assertTrue(GamepadDevices.isPhysicalGamepad("aml_keypad pro", false, true, 0x0001, 0x0001))
     }
 
+    @Test fun filtersRedmiProjectorBluetoothRemote() {
+        assertFalse(GamepadDevices.isPhysicalGamepad("小米蓝牙语音遥控器", false, true, 0x2717, 0x32b8))
+        assertTrue(GamepadDevices.isPhysicalGamepad("USB Gamepad", false, true, 0x2717, 0x32b8))
+        assertTrue(GamepadDevices.isPhysicalGamepad("小米蓝牙语音遥控器", false, true, 0x2717, 0x0001))
+    }
+
+    @Test fun filtersRedmiProjectorBuiltInKeyboardWrapper() {
+        assertFalse(GamepadDevices.isPhysicalGamepad("Hi keyboard", false, true, 0x0001, 0x0001))
+        assertTrue(GamepadDevices.isPhysicalGamepad("Hi keyboard", false, true, 0x046d, 0xc21f))
+    }
+
     @Test fun rejectsDevicesWithoutGamepadSource() {
         assertFalse(GamepadDevices.isPhysicalGamepad("Keyboard", false, false, 0x1234, 0x5678))
     }
