@@ -59,6 +59,19 @@ import app.orchard.tv.ui.components.diagLayer
 import app.orchard.tv.ui.theme.LocalReducedMotion
 import app.orchard.tv.ui.theme.Motion
 import app.orchard.tv.ui.theme.Type
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
+import app.orchard.tv.R
+import app.orchard.tv.ui.theme.GlyphIcon
+import app.orchard.tv.weather.Weather
+import app.orchard.tv.weather.WeatherNow
 import app.orchard.tv.wallpaper.AerialStream
 import app.orchard.tv.wallpaper.Aerial
 import app.orchard.tv.wallpaper.AerialSet
@@ -269,7 +282,7 @@ private fun FilmCarry(film: LiveFilm, now: LocalDateTime, steps: SharedFlow<Int>
     LaunchedEffect(steps) { steps.collect { film.skip(context, it) } }
     // A new day's film comes in as the screensaver starts, over the wallpaper's film (AerialSet).
     LaunchedEffect(Unit) { if (AerialSet.due(context)) film.skip(context, 1) }
-    Labels(caption, now, showTime = false, shade = false)
+    Labels(caption, now, showTime = true, shade = false)
 }
 
 /** Where the labels' shade ends at the top and starts at the bottom, of the screen's height. */
@@ -324,18 +337,47 @@ private fun Labels(
             )
         }
         val drift = saverDrift(now)
-        if (time > 0f && AerialSettings.screensaverClock) BasicText(
-            timeText(now),
-            style = SaverClockStyle,
-            modifier = Modifier
-                .align(if (AerialSettings.clockRight) Alignment.TopEnd else Alignment.TopStart)
-                .padding(top = SaverClockTop, start = SaverClockSide, end = SaverClockSide)
-                .graphicsLayer {
-                    alpha = time
-                    translationX = drift.x.toPx()
-                    translationY = drift.y.toPx()
-                },
-        )
+        if (time > 0f && AerialSettings.screensaverClock) {
+            val alignEnd = AerialSettings.clockRight
+            Column(
+                modifier = Modifier
+                    .align(if (alignEnd) Alignment.TopEnd else Alignment.TopStart)
+                    .padding(top = SaverClockTop, start = SaverClockSide, end = SaverClockSide)
+                    .graphicsLayer {
+                        alpha = time
+                        translationX = drift.x.toPx()
+                        translationY = drift.y.toPx()
+                    },
+                horizontalAlignment = if (alignEnd) Alignment.End else Alignment.Start,
+            ) {
+                val shadow = Shadow(Color.Black.copy(alpha = 0.45f), Offset(0f, 2f), blurRadius = 14f)
+                BasicText(
+                    timeText(now),
+                    style = SaverClockStyle.copy(shadow = shadow),
+                )
+                Weather.now?.takeIf { AerialSettings.showWeather }?.let { w ->
+                    val place = Weather.place?.takeIf { it.length <= 12 }
+                    val cond = stringResource(conditionName(w.kind))
+                    val detail = listOfNotNull(place, cond).joinToString(" · ")
+                    val dim = Color.White.copy(alpha = 0.92f)
+                    val second = SpanStyle(fontWeight = FontWeight.W500)
+                    Row(
+                        modifier = Modifier.padding(top = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = if (alignEnd) Arrangement.End else Arrangement.Start,
+                    ) {
+                        GlyphIcon(glyphFor(w), dim, 18.dp, Modifier.padding(end = 6.dp))
+                        BasicText(
+                            buildAnnotatedString {
+                                append("${w.celsius}°")
+                                if (detail.isNotEmpty()) withStyle(second) { append("  $detail") }
+                            },
+                            style = Type.ClockDetail.copy(color = dim, shadow = shadow),
+                        )
+                    }
+                }
+            }
+        }
         AnimatedContent(
             targetState = caption.orEmpty(),
             // One after the other: two names fading across each other in the same place smeared.

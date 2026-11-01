@@ -730,7 +730,7 @@ fun HomeScreen(
                             // No offscreen buffer while it fades: it would be the clock's capBox, and the
                             // Chinese, the icon and the shadows above and below it were cut off (#727).
                             .graphicsLayer {
-                                alpha = 1f - (scroll.value / collapsePx * 1.6f).coerceIn(0f, 1f)
+                                alpha = (1f - (scroll.value / collapsePx * 1.6f).coerceIn(0f, 1f)) * (1f - clockToSaver.value)
                                 compositingStrategy = CompositingStrategy.ModulateAlpha
                             },
                         toSaver = { clockToSaver.value },
@@ -744,7 +744,7 @@ fun HomeScreen(
                             .diagLayer("clock")
                             .padding(start = metrics.margin, top = 28.dp)
                             .graphicsLayer {
-                                alpha = 1f - (scroll.value / collapsePx * 1.6f).coerceIn(0f, 1f)
+                                alpha = (1f - (scroll.value / collapsePx * 1.6f).coerceIn(0f, 1f)) * (1f - toSaver.value)
                                 compositingStrategy = CompositingStrategy.ModulateAlpha
                             },
                         toSaver = { toSaver.value },
@@ -859,7 +859,7 @@ fun HomeScreen(
                         .diagLayer("clock")
                         .padding(end = 14.dp)
                         .graphicsLayer {
-                            alpha = 1f - (scroll.value / collapsePx * 1.6f).coerceIn(0f, 1f)
+                            alpha = (1f - (scroll.value / collapsePx * 1.6f).coerceIn(0f, 1f)) * (1f - toSaver.value)
                             compositingStrategy = CompositingStrategy.ModulateAlpha
                         },
                     toSaver = { toSaver.value },

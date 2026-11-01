@@ -743,7 +743,7 @@ private fun Modifier.capBox(fontSize: TextUnit) = layout { measurable, constrain
     layout(p.width, baseline - top) { p.place(0, -top) }
 }
 
-private fun conditionName(kind: WeatherKind): Int = when (kind) {
+internal fun conditionName(kind: WeatherKind): Int = when (kind) {
     WeatherKind.Clear -> R.string.weather_clear
     WeatherKind.PartlyCloudy -> R.string.weather_partly_cloudy
     WeatherKind.Cloudy -> R.string.weather_cloudy
@@ -779,7 +779,7 @@ fun CornerClock(now: LocalDateTime, modifier: Modifier = Modifier, toSaver: () -
     }
 }
 
-private fun glyphFor(w: WeatherNow): Glyph = when (w.kind) {
+internal fun glyphFor(w: WeatherNow): Glyph = when (w.kind) {
     WeatherKind.Clear -> if (w.day) Glyph.Sun else Glyph.Moon
     WeatherKind.PartlyCloudy -> if (w.day) Glyph.CloudSun else Glyph.Cloud
     WeatherKind.Cloudy -> Glyph.Cloud
