@@ -105,6 +105,9 @@ import app.orchard.tv.ui.theme.Type
 import app.orchard.tv.update.SelfCompile
 import app.orchard.tv.update.Updates
 import app.orchard.tv.wallpaper.PhoneServer
+import app.orchard.tv.weather.Weather
+import app.orchard.tv.ui.home.conditionName
+import app.orchard.tv.ui.home.glyphFor
 import java.time.LocalDateTime
 
 /**
@@ -127,7 +130,7 @@ fun ControlCenter(
             CcPage.Main -> onClose()
             CcPage.Inputs -> vm.overlay = Overlay.ControlCenter(CcPage.Main)
             CcPage.InputSettings -> vm.overlay = Overlay.ControlCenter(CcPage.Inputs)
-            CcPage.Update, CcPage.Setup -> vm.overlay = Overlay.ControlCenter(CcPage.Main)
+            CcPage.Update, CcPage.Setup, CcPage.SleepTimer, CcPage.Weather -> vm.overlay = Overlay.ControlCenter(CcPage.Main)
         }
     }
 
@@ -191,6 +194,8 @@ fun ControlCenter(
                         CcPage.InputSettings -> InputSettingsPage(vm, visible)
                         CcPage.Update -> UpdatePage(vm, visible)
                         CcPage.Setup -> SetupPage(vm, visible, onOpen)
+                        CcPage.SleepTimer -> SleepTimerPage(vm, visible)
+                        CcPage.Weather -> WeatherPage(vm, visible)
                     }
                 }
             }
@@ -294,6 +299,20 @@ private fun MainPage(vm: HomeViewModel, now: LocalDateTime, takeFocus: Boolean, 
             stringResource(R.string.cc_personalize),
             onClick = { vm.overlay = Overlay.Wallpaper },
         )
+        MenuRow(
+            Glyph.Moon,
+            stringResource(R.string.sleep_timer_title),
+            onClick = { vm.overlay = Overlay.ControlCenter(CcPage.SleepTimer) },
+            trailing = vm.sleepTimerMinutes?.let { stringResource(R.string.sleep_timer_remaining, it) } ?: "›",
+        )
+        if (AerialSettings.showWeather && Weather.now != null) {
+            MenuRow(
+                Glyph.CloudSun,
+                stringResource(R.string.weather_page_title),
+                onClick = { vm.overlay = Overlay.ControlCenter(CcPage.Weather) },
+                trailing = "${Weather.now?.celsius}° ›",
+            )
+        }
         // What the TV opens when switched on: easy to forget, and puzzling when it happens.
         vm.bootTargetLabel()?.let { name ->
             MenuRow(
@@ -574,12 +593,6 @@ private fun VolumeRow(vm: HomeViewModel, returnTo: FocusRequester) {
 @Composable
 private fun BrightnessRow(vm: HomeViewModel) {
     val context = LocalContext.current
-    // XGIMI (GMUI): the real brightness is the DLP light-engine level. It reads through the HAL
-    // class (SystemProbe.xgimiBrightnessLevel) and, on this firmware, writes through it too, so the
-    // row is a slider of the light engine's own levels (1..10) rather than a percentage of the
-    // system setting that moves nothing. Poll the HAL while the row is on screen: the level can be
-    // changed from the TV's own overlay, which does not pause Aerial, so no onResume or
-    // screen_brightness observer ever fires for it.
     val xgimi = remember { SystemProbe.xgimiBrightnessLevel() != null }
     LaunchedEffect(xgimi) {
         if (!xgimi) return@LaunchedEffect
@@ -589,16 +602,23 @@ private fun BrightnessRow(vm: HomeViewModel) {
             vm.refreshBrightness()
         }
     }
-    val level = vm.brightness ?: 0.5f
-    SliderRow(
-        glyph = Glyph.Sun,
-        level = level,
-        value = Math.round(level * 100).toString(),
-        // Brightness.adjust moves 5% a step, and stops at 1%; XGIMI steps its own levels.
-        steps = if (xgimi) SystemProbe.xgimiBrightnessMax else 20,
-        onStep = vm::adjustBrightness,
-        onClick = {},
-    )
+    val level = vm.brightness
+    if (level == null) {
+        MenuRow(Glyph.Sun, stringResource(R.string.cc_brightness), onClick = {
+            vm.overlay = Overlay.None
+            SystemProbe.openPictureSettings(context)
+        }, trailing = stringResource(R.string.cc_brightness_in_settings) + " ›")
+    } else {
+        SliderRow(
+            glyph = Glyph.Sun,
+            level = level,
+            value = Math.round(level * 100).toString(),
+            // Brightness.adjust moves 5% a step, and stops at 1%; XGIMI steps its own levels.
+            steps = if (xgimi) SystemProbe.xgimiBrightnessMax else 20,
+            onStep = vm::adjustBrightness,
+            onClick = {},
+        )
+    }
 }
 
 @Composable
@@ -722,3 +742,125 @@ private fun ChoiceRow(text: String, selected: Boolean, focusRequester: FocusRequ
         }
     }
 }
+
+@Composable
+private fun SleepTimerPage(vm: HomeViewModel, takeFocus: Boolean) {
+    val first = remember { FocusRequester() }
+    LaunchedEffect(Unit) {
+        if (!takeFocus) return@LaunchedEffect
+        withFrameNanos { }
+        runCatching { first.requestFocus() }
+    }
+    Column(Modifier.heightIn(max = 470.dp).verticalScroll(rememberScrollState())) {
+        MenuRow(
+            Glyph.ChevronLeft,
+            stringResource(R.string.sleep_timer_title),
+            focusRequester = first,
+            onClick = { vm.overlay = Overlay.ControlCenter(CcPage.Main) },
+        )
+
+        Spacer(Modifier.height(10.dp))
+        vm.sleepTimerMinutes?.let { remaining ->
+            BasicText(
+                stringResource(R.string.sleep_timer_remaining, remaining),
+                style = Type.Callout.copy(color = Palette.Orange),
+                modifier = Modifier.padding(start = 14.dp, bottom = 8.dp),
+            )
+        }
+
+        ChoiceRow(
+            text = stringResource(R.string.sleep_timer_off),
+            selected = vm.sleepTimerMinutes == null,
+            focusRequester = null,
+            onClick = { vm.setSleepTimer(null) },
+        )
+        ChoiceRow(
+            text = stringResource(R.string.sleep_timer_15),
+            selected = vm.sleepTimerMinutes != null && vm.sleepTimerMinutes!! in 1..15,
+            focusRequester = null,
+            onClick = { vm.setSleepTimer(15) },
+        )
+        ChoiceRow(
+            text = stringResource(R.string.sleep_timer_30),
+            selected = vm.sleepTimerMinutes != null && vm.sleepTimerMinutes!! in 16..30,
+            focusRequester = null,
+            onClick = { vm.setSleepTimer(30) },
+        )
+        ChoiceRow(
+            text = stringResource(R.string.sleep_timer_60),
+            selected = vm.sleepTimerMinutes != null && vm.sleepTimerMinutes!! in 31..60,
+            focusRequester = null,
+            onClick = { vm.setSleepTimer(60) },
+        )
+        ChoiceRow(
+            text = stringResource(R.string.sleep_timer_90),
+            selected = vm.sleepTimerMinutes != null && vm.sleepTimerMinutes!! in 61..90,
+            focusRequester = null,
+            onClick = { vm.setSleepTimer(90) },
+        )
+        ChoiceRow(
+            text = stringResource(R.string.sleep_timer_120),
+            selected = vm.sleepTimerMinutes != null && vm.sleepTimerMinutes!! in 91..120,
+            focusRequester = null,
+            onClick = { vm.setSleepTimer(120) },
+        )
+    }
+}
+
+@Composable
+private fun WeatherPage(vm: HomeViewModel, takeFocus: Boolean) {
+    val first = remember { FocusRequester() }
+    LaunchedEffect(Unit) {
+        if (!takeFocus) return@LaunchedEffect
+        withFrameNanos { }
+        runCatching { first.requestFocus() }
+    }
+    Column(Modifier.heightIn(max = 470.dp).verticalScroll(rememberScrollState())) {
+        MenuRow(
+            Glyph.ChevronLeft,
+            stringResource(R.string.weather_page_title),
+            focusRequester = first,
+            onClick = { vm.overlay = Overlay.ControlCenter(CcPage.Main) },
+        )
+
+        Spacer(Modifier.height(12.dp))
+        val now = Weather.now
+        if (now != null) {
+            val place = Weather.place ?: ""
+            val condition = stringResource(conditionName(now.kind))
+            val range = if (now.high != null && now.low != null) stringResource(R.string.weather_high_low, now.high, now.low) else null
+
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .smoothBackground(Palette.Fill, 16.dp)
+                    .padding(16.dp),
+            ) {
+                if (place.isNotEmpty()) {
+                    BasicText(place, style = Type.Headline.copy(color = Palette.Label))
+                }
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.padding(vertical = 8.dp),
+                ) {
+                    GlyphIcon(glyphFor(now), Color.White, 36.dp)
+                    BasicText("${now.celsius}°", style = Type.LargeTitle.copy(color = Palette.Label))
+                }
+                BasicText(
+                    listOfNotNull(condition, range).joinToString(" · "),
+                    style = Type.Callout.copy(color = Palette.SecondaryLabel),
+                )
+            }
+            Spacer(Modifier.height(12.dp))
+        }
+
+        MenuRow(
+            Glyph.CloudSun,
+            stringResource(R.string.weather_refresh),
+            focusRequester = null,
+            onClick = { Weather.refresh() },
+        )
+    }
+}
+

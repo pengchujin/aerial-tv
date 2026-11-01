@@ -74,16 +74,6 @@ object Brightness {
         SystemProbe.xgimiBrightnessLevel()?.let { return it }
         val r = context.contentResolver
         if (isTcl(context)) TclPicture.backlight(context)?.let { return it / 100f }
-        if (isXiaomi(context)) {
-            mitvLevel?.let { return it / 100f }
-            MitvPanel.level(context)?.let { return it / 100f }
-            storedLevel(context)?.let { return it / 100f }
-            val normal = runCatching { Settings.System.getInt(r, MitvPanel.SETTING) }.getOrNull()
-            if (normal != null && normal in 1..100) return normal / 100f
-            val pic = runCatching { Settings.Global.getInt(r, XIAOMI_BACKLIGHT) }.getOrNull()
-            if (pic != null && pic in 1..100) return pic / 100f
-            return 0.5f
-        }
         return when {
             usesXiaomiBacklight(context) -> {
                 if (ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_SECURE_SETTINGS) != PackageManager.PERMISSION_GRANTED) return null
@@ -136,38 +126,38 @@ object Brightness {
             // Control Center's poll shows what it settled at — including where a TV drops the write.
             return if (SystemProbe.setXgimiBrightnessLevel(level)) next else current
         }
-        val current = level(context) ?: (storedLevel(context)?.let { it / 100f } ?: 0.5f)
+        val current = level(context) ?: return null
         val percent = Math.round(current * 100)
         val next = (if (direction > 0) (percent / 5 + 1) * 5 else ((percent + 4) / 5 - 1) * 5).coerceIn(1, 100)
         val r = context.contentResolver
-        if (isTcl(context)) {
-            TclPicture.setBacklight(context, next)
-        } else if (isXiaomi(context)) {
+        // The same order as level(): TCL's SDK and picture_backlight come first, so a Xiaomi that
+        // has both never has its panel probed or moved this way.
+        if (!isTcl(context) && !usesXiaomiBacklight(context) && MitvPanel.usable(context)) {
             runCatching {
+                // Start the relative step from the level Aerial set last: the middleware's getter is
+                // animated, so a panel reading taken mid-step is only the seed of the first step
+                // after a restart.
                 val from = mitvLevel ?: MitvPanel.level(context) ?: storedLevel(context) ?: percent
                 MitvPanel.setBacklight(context, from, next)
+                mitvLevel = next
+                context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+                    .edit().putInt(KEY_MITV_LEVEL, next).apply()
             }
-            runCatching {
-                Settings.Global.putInt(r, XIAOMI_BACKLIGHT, next)
-            }
-            runCatching {
-                Settings.System.putInt(r, MitvPanel.SETTING, next)
-            }
-            runCatching {
-                Settings.System.putInt(r, Settings.System.SCREEN_BRIGHTNESS_MODE, Settings.System.SCREEN_BRIGHTNESS_MODE_MANUAL)
-                Settings.System.putInt(r, Settings.System.SCREEN_BRIGHTNESS, (next * 255 / 100).coerceAtLeast(1))
-            }
-            mitvLevel = next
-            context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-                .edit().putInt(KEY_MITV_LEVEL, next).apply()
+            // Return what was asked for rather than reading it back: the MiTV middleware animates
+            // the panel and its getter reports the transient level, which made the slider jump.
             return next / 100f
-        } else {
-            runCatching {
+        }
+        runCatching {
+            if (isTcl(context)) {
+                TclPicture.setBacklight(context, next)
+            } else if (usesXiaomiBacklight(context)) {
+                Settings.Global.putInt(r, XIAOMI_BACKLIGHT, next)
+            } else {
                 Settings.System.putInt(r, Settings.System.SCREEN_BRIGHTNESS_MODE, Settings.System.SCREEN_BRIGHTNESS_MODE_MANUAL)
                 Settings.System.putInt(r, Settings.System.SCREEN_BRIGHTNESS, (next * 255 / 100).coerceAtLeast(1))
             }
         }
-        return level(context) ?: (next / 100f)
+        return level(context)
     }
 }
 

@@ -59,6 +59,7 @@ import androidx.compose.ui.unit.TextUnit
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
@@ -624,6 +625,11 @@ fun ShelfClock(
     saving: Boolean = false,
     /** The screensaver is carrying Home's wallpaper on: the date and weather go before the time moves. */
     away: Boolean = false,
+    onClockClick: (() -> Unit)? = null,
+    onWeatherClick: (() -> Unit)? = null,
+    onClockFocused: ((Boolean) -> Unit)? = null,
+    onWeatherFocused: ((Boolean) -> Unit)? = null,
+    downRequester: (() -> FocusRequester?)? = null,
 ) {
     val drift = heldDrift(saving, now)
     val shadow = Shadow(Color.Black.copy(alpha = 0.28f), Offset(0f, 2f), blurRadius = 18f)
@@ -658,26 +664,98 @@ fun ShelfClock(
             style = Type.ClockDate.copy(shadow = shadow),
             modifier = aside.capBox(Type.ClockDate.fontSize),
         )
-        BasicText(
-            timeText(now),
-            style = Type.Clock.copy(shadow = shadow),
-            modifier = Modifier.padding(top = 16.dp)
-                .toSaverClock(toSaver, Type.Clock.fontSize, 0.dp, drift)
-                .capBox(Type.Clock.fontSize),
-        )
+
+        val hasWeather = AerialSettings.showWeather && Weather.now != null
+        val timeMod = Modifier.padding(top = 16.dp)
+            .toSaverClock(toSaver, Type.Clock.fontSize, 0.dp, drift)
+
+        if (onClockClick != null && !saving && !away) {
+            Pressable(
+                onClick = onClockClick,
+                focusedScale = 1.04f,
+                modifier = timeMod.focusProperties {
+                    if (!hasWeather) {
+                        downRequester?.invoke()?.let { down = it }
+                    }
+                },
+            ) { state ->
+                LaunchedEffect(state.focused) { onClockFocused?.invoke(state.focused) }
+                val bg by animateColorAsState(
+                    if (state.focused) Palette.Focus else Color.Transparent,
+                    tween(160, easing = Motion.EaseOut), label = "clock-btn-bg",
+                )
+                val fg = if (state.focused) Palette.OnFocus else Color.White
+                val currentShadow = if (state.focused) null else shadow
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(bg)
+                        .padding(horizontal = 14.dp, vertical = 6.dp),
+                ) {
+                    BasicText(
+                        timeText(now),
+                        style = Type.Clock.copy(color = fg, shadow = currentShadow),
+                        modifier = Modifier.capBox(Type.Clock.fontSize),
+                    )
+                }
+            }
+        } else {
+            BasicText(
+                timeText(now),
+                style = Type.Clock.copy(shadow = shadow),
+                modifier = timeMod.capBox(Type.Clock.fontSize),
+            )
+        }
+
         Weather.now?.takeIf { AerialSettings.showWeather }?.let { w ->
             val place = Weather.place?.takeIf { it.length <= 12 }
             val range = if (w.high != null && w.low != null) stringResource(R.string.weather_high_low, w.high, w.low) else null
             val detail = listOfNotNull(place, stringResource(conditionName(w.kind)), range).joinToString(" · ")
-            Row(aside.padding(top = 18.dp).capBox(Type.ClockDetail.fontSize), verticalAlignment = Alignment.CenterVertically) {
-                GlyphIcon(glyphFor(w), Color.White, 18.dp, Modifier.padding(end = 7.dp))
-                BasicText(
-                    buildAnnotatedString {
-                        append("${w.celsius}°")
-                        withStyle(second) { append("  $detail") }
+
+            if (onWeatherClick != null && !saving && !away) {
+                Pressable(
+                    onClick = onWeatherClick,
+                    focusedScale = 1.06f,
+                    modifier = aside.padding(top = 14.dp).focusProperties {
+                        downRequester?.invoke()?.let { down = it }
                     },
-                    style = Type.ClockDetail.copy(shadow = shadow),
-                )
+                ) { state ->
+                    LaunchedEffect(state.focused) { onWeatherFocused?.invoke(state.focused) }
+                    val bg by animateColorAsState(
+                        if (state.focused) Palette.Focus else Color.Transparent,
+                        tween(160, easing = Motion.EaseOut), label = "weather-btn-bg",
+                    )
+                    val fg = if (state.focused) Palette.OnFocus else Color.White
+                    val currentShadow = if (state.focused) null else shadow
+                    Row(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(50))
+                            .background(bg)
+                            .padding(horizontal = 14.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        GlyphIcon(glyphFor(w), fg, 18.dp, Modifier.padding(end = 7.dp))
+                        BasicText(
+                            buildAnnotatedString {
+                                append("${w.celsius}°")
+                                withStyle(second) { append("  $detail") }
+                            },
+                            style = Type.ClockDetail.copy(color = fg, shadow = currentShadow),
+                            modifier = Modifier.capBox(Type.ClockDetail.fontSize),
+                        )
+                    }
+                }
+            } else {
+                Row(aside.padding(top = 18.dp).capBox(Type.ClockDetail.fontSize), verticalAlignment = Alignment.CenterVertically) {
+                    GlyphIcon(glyphFor(w), Color.White, 18.dp, Modifier.padding(end = 7.dp))
+                    BasicText(
+                        buildAnnotatedString {
+                            append("${w.celsius}°")
+                            withStyle(second) { append("  $detail") }
+                        },
+                        style = Type.ClockDetail.copy(shadow = shadow),
+                    )
+                }
             }
         }
     }
@@ -758,23 +836,100 @@ internal fun conditionName(kind: WeatherKind): Int = when (kind) {
  * pill, so the wallpaper keeps the rest of the screen. A soft shadow keeps it readable on photos.
  */
 @Composable
-fun CornerClock(now: LocalDateTime, modifier: Modifier = Modifier, toSaver: () -> Float = { 0f }, saving: Boolean = false) {
+fun CornerClock(
+    now: LocalDateTime,
+    modifier: Modifier = Modifier,
+    toSaver: () -> Float = { 0f },
+    saving: Boolean = false,
+    away: Boolean = false,
+    onClockClick: (() -> Unit)? = null,
+    onWeatherClick: (() -> Unit)? = null,
+    onClockFocused: ((Boolean) -> Unit)? = null,
+    onWeatherFocused: ((Boolean) -> Unit)? = null,
+    downRequester: (() -> FocusRequester?)? = null,
+) {
     val drift = heldDrift(saving, now)
     val dim = Color.White.copy(alpha = 0.92f)
     val shadow = Shadow(Color.Black.copy(alpha = 0.5f), blurRadius = 8f)
     Row(modifier.height(34.dp), verticalAlignment = Alignment.CenterVertically) {
-        BasicText(
-            timeText(now), style = Type.SmallClock.copy(fontSize = Type.Title.fontSize, color = dim, shadow = shadow),
-            modifier = Modifier.toSaverClock(toSaver, Type.Title.fontSize, Type.Title.fontSize.value.dp * CAP_TOP, drift),
-        )
+        val clockMod = Modifier.toSaverClock(toSaver, Type.Title.fontSize, Type.Title.fontSize.value.dp * CAP_TOP, drift)
+        if (onClockClick != null && !saving && !away) {
+            Pressable(
+                onClick = onClockClick,
+                focusedScale = 1.08f,
+                modifier = clockMod.focusProperties {
+                    downRequester?.invoke()?.let { down = it }
+                },
+            ) { state ->
+                LaunchedEffect(state.focused) { onClockFocused?.invoke(state.focused) }
+                val bg by animateColorAsState(
+                    if (state.focused) Palette.Focus else Color.Transparent,
+                    tween(160, easing = Motion.EaseOut), label = "corner-clock-bg",
+                )
+                val fg = if (state.focused) Palette.OnFocus else dim
+                val currentShadow = if (state.focused) null else shadow
+                Box(
+                    Modifier
+                        .clip(RoundedCornerShape(50))
+                        .background(bg)
+                        .height(34.dp)
+                        .padding(horizontal = 12.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    BasicText(
+                        timeText(now),
+                        style = Type.SmallClock.copy(fontSize = Type.Title.fontSize, color = fg, shadow = currentShadow),
+                    )
+                }
+            }
+        } else {
+            BasicText(
+                timeText(now),
+                style = Type.SmallClock.copy(fontSize = Type.Title.fontSize, color = dim, shadow = shadow),
+                modifier = clockMod,
+            )
+        }
+
         Weather.now?.takeIf { AerialSettings.showWeather }?.let { w ->
             val aside = Modifier.graphicsLayer {
                 alpha = 1f - (toSaver() * 2.5f).coerceIn(0f, 1f)
                 compositingStrategy = CompositingStrategy.ModulateAlpha
             }
-            GlyphIcon(glyphFor(w), dim, 18.dp, aside.padding(start = 16.dp, end = 6.dp))
             val place = Weather.place?.takeIf { it.length <= 12 }
-            BasicText(listOfNotNull(place, "${w.celsius}°").joinToString(" "), style = Type.Headline.copy(color = dim, shadow = shadow), modifier = aside)
+            if (onWeatherClick != null && !saving && !away) {
+                Pressable(
+                    onClick = onWeatherClick,
+                    focusedScale = 1.08f,
+                    modifier = aside.padding(start = 6.dp).focusProperties {
+                        downRequester?.invoke()?.let { down = it }
+                    },
+                ) { state ->
+                    LaunchedEffect(state.focused) { onWeatherFocused?.invoke(state.focused) }
+                    val bg by animateColorAsState(
+                        if (state.focused) Palette.Focus else Color.Transparent,
+                        tween(160, easing = Motion.EaseOut), label = "corner-weather-bg",
+                    )
+                    val fg = if (state.focused) Palette.OnFocus else dim
+                    val currentShadow = if (state.focused) null else shadow
+                    Row(
+                        Modifier
+                            .clip(RoundedCornerShape(50))
+                            .background(bg)
+                            .height(34.dp)
+                            .padding(horizontal = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        GlyphIcon(glyphFor(w), fg, 18.dp, Modifier.padding(end = 6.dp))
+                        BasicText(
+                            listOfNotNull(place, "${w.celsius}°").joinToString(" "),
+                            style = Type.Headline.copy(color = fg, shadow = currentShadow),
+                        )
+                    }
+                }
+            } else {
+                GlyphIcon(glyphFor(w), dim, 18.dp, aside.padding(start = 16.dp, end = 6.dp))
+                BasicText(listOfNotNull(place, "${w.celsius}°").joinToString(" "), style = Type.Headline.copy(color = dim, shadow = shadow), modifier = aside)
+            }
         }
     }
 }

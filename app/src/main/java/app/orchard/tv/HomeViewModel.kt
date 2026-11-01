@@ -62,7 +62,7 @@ sealed interface Overlay {
     data class Pin(val mode: PinMode, val onDone: () -> Unit) : Overlay
 }
 
-enum class CcPage { Main, Inputs, InputSettings, Update, Setup }
+enum class CcPage { Main, Inputs, InputSettings, Update, Setup, SleepTimer, Weather }
 
 /**
  * Tiles a cold start reads whole before showing Home (two rows and a half, as many as can show);
@@ -90,6 +90,30 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
 
     var overlay by mutableStateOf<Overlay>(Overlay.None)
     var movingKey by mutableStateOf<String?>(null); private set
+    var sleepTimerMinutes by mutableStateOf<Int?>(null); private set
+    private var sleepTimerJob: Job? = null
+
+    fun setSleepTimer(minutes: Int?) {
+        sleepTimerJob?.cancel()
+        sleepTimerMinutes = minutes
+        if (minutes == null || minutes <= 0) return
+
+        sleepTimerJob = viewModelScope.launch {
+            var left = minutes
+            while (left > 0) {
+                sleepTimerMinutes = left
+                delay(60_000L)
+                left--
+            }
+            sleepTimerMinutes = null
+            if (Build.VERSION.SDK_INT >= 28) {
+                app.orchard.tv.guard.HomeGuardService.instance?.performGlobalAction(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_LOCK_SCREEN)
+            }
+            runCatching { Runtime.getRuntime().exec("input keyevent 26") }
+            runCatching { Runtime.getRuntime().exec("input keyevent 223") }
+        }
+    }
+
 
     var network by mutableStateOf(NetworkStatus()); private set
     var volume by mutableStateOf(VolumeStatus()); private set

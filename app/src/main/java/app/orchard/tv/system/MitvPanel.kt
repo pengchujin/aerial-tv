@@ -93,6 +93,11 @@ object MitvPanel {
 
     private fun probe(context: Context): Boolean {
         val ok = run {
+            // Models that keep [SETTING] yet stay on the TV's own slider: MiTV-MFTP0 has a
+            // picture_backlight it does not honour (issues #284 and #335), and this path has not
+            // been tried on it. A model whose panel transaction 42 turns out not to move goes into
+            // devices.json the same way.
+            if (DeviceProfile.current(context).ignoresPictureBacklight) return@run false
             if (!isAvailable(context)) return@run false
             val before = readSettled(context) ?: return@run false
             if (before !in 1..100) return@run false

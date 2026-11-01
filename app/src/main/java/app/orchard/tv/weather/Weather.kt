@@ -87,7 +87,7 @@ object Weather {
         if (since >= REFRESH_MS || (failed && (networkCameUp || since >= RETRY_MS))) refresh()
     }
 
-    private fun refresh() {
+    fun refresh() {
         lastAttempt = System.currentTimeMillis()
         job?.cancel()
         job = scope.launch {

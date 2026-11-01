@@ -242,4 +242,14 @@
     <string name="st_play_hint">В покое: через 10 секунд на верхнем ряду (в двухрядном виде — на любом из двух); любая кнопка останавливает. Всегда: кнопки не останавливают, фон чуть затемнён; останавливается, когда вы переходите к приложениям ниже.</string>
     <string name="ss_show_time">Время</string>
     <string name="ss_show_time_hint">Время на заставках с аэросъёмкой и фото. Время и название места время от времени слегка сдвигаются, чтобы не выгорал экран.</string>
+    <string name="sleep_timer_title">Таймер сна</string>
+    <string name="sleep_timer_off">Выключен</string>
+    <string name="sleep_timer_15">15 минут</string>
+    <string name="sleep_timer_30">30 минут</string>
+    <string name="sleep_timer_60">1 час</string>
+    <string name="sleep_timer_90">1.5 часа</string>
+    <string name="sleep_timer_120">2 часа</string>
+    <string name="sleep_timer_remaining">Выключение через %1$d мин.</string>
+    <string name="weather_page_title">Погода</string>
+    <string name="weather_refresh">Обновить погоду</string>
 </resources>

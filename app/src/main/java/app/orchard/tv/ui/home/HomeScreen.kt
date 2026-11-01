@@ -718,6 +718,10 @@ fun HomeScreen(
                 val clockRight = AerialSettings.clockRight
                 // The large clock stands over the top row; the small one is the time and weather in
                 // one line, top left or beside the pill, so the wallpaper keeps the screen.
+                val downTarget: () -> FocusRequester? = {
+                    val key = focusedKey
+                    if (key != null && apps.indexOfFirst { it.key == key } in 0 until columns) requester(key) else null
+                }
                 if (AerialSettings.largeClock) {
                     ShelfClock(
                         now = now,
@@ -736,6 +740,15 @@ fun HomeScreen(
                         toSaver = { clockToSaver.value },
                         saving = vm.screensaverVisible,
                         away = carrying,
+                        onClockClick = { vm.overlay = Overlay.ControlCenter(CcPage.SleepTimer) },
+                        onWeatherClick = { vm.overlay = Overlay.ControlCenter(CcPage.Weather) },
+                        onClockFocused = { gained ->
+                            if (gained && focusedKey == null && apps.isNotEmpty()) focusApp(0)
+                        },
+                        onWeatherFocused = { gained ->
+                            if (gained && focusedKey == null && apps.isNotEmpty()) focusApp(0)
+                        },
+                        downRequester = downTarget,
                     )
                 } else if (!clockRight) {
                     CornerClock(
@@ -749,6 +762,16 @@ fun HomeScreen(
                             },
                         toSaver = { toSaver.value },
                         saving = vm.screensaverVisible,
+                        away = carrying,
+                        onClockClick = { vm.overlay = Overlay.ControlCenter(CcPage.SleepTimer) },
+                        onWeatherClick = { vm.overlay = Overlay.ControlCenter(CcPage.Weather) },
+                        onClockFocused = { gained ->
+                            if (gained && focusedKey == null && apps.isNotEmpty()) focusApp(0)
+                        },
+                        onWeatherFocused = { gained ->
+                            if (gained && focusedKey == null && apps.isNotEmpty()) focusApp(0)
+                        },
+                        downRequester = downTarget,
                     )
                 }
 
@@ -864,6 +887,19 @@ fun HomeScreen(
                         },
                     toSaver = { toSaver.value },
                     saving = vm.screensaverVisible,
+                    away = carrying,
+                    onClockClick = { vm.overlay = Overlay.ControlCenter(CcPage.SleepTimer) },
+                    onWeatherClick = { vm.overlay = Overlay.ControlCenter(CcPage.Weather) },
+                    onClockFocused = { gained ->
+                        if (gained && focusedKey == null && apps.isNotEmpty()) focusApp(0)
+                    },
+                    onWeatherFocused = { gained ->
+                        if (gained && focusedKey == null && apps.isNotEmpty()) focusApp(0)
+                    },
+                    downRequester = {
+                        val key = focusedKey
+                        if (key != null && apps.indexOfFirst { it.key == key } in 0 until columns) requester(key) else null
+                    },
                 )
             }
             StatusPill(
