@@ -79,6 +79,7 @@ import app.orchard.tv.apps.AppEntry
 import app.orchard.tv.ui.control.ControlCenter
 import app.orchard.tv.ui.wallpaper.SheetCovers
 import app.orchard.tv.ui.wallpaper.WallpaperSheet
+import app.orchard.tv.ui.weather.WeatherSheet
 import app.orchard.tv.wallpaper.AerialFormats
 import app.orchard.tv.wallpaper.ScreensaverMode
 import app.orchard.tv.wallpaper.Wallpapers
@@ -615,6 +616,7 @@ fun HomeScreen(
                 // off where the exact frame did not decode, Xiaomi MiTV-MFTR0 and TCL MT5879); the
                 // menu flashed so as it opened (the owner, MFTR0). In a folder Home is frosted.
                 standIn = overlay == Overlay.None || overlay is Overlay.ControlCenter || overlay is Overlay.Wallpaper ||
+                    overlay is Overlay.Weather ||
                     (overlay is Overlay.AppMenu && overlay.inFolder == null),
                 panel = overlay != Overlay.None,
                 otherFormatSaver = vm.screensaverVisible && !filmSaver && Wallpapers.screensaver == ScreensaverMode.Aerial &&
@@ -742,7 +744,7 @@ fun HomeScreen(
                         away = carrying,
                         enabled = gridEnabled && moving == null,
                         onClockClick = { vm.overlay = Overlay.ControlCenter(CcPage.SleepTimer) },
-                        onWeatherClick = { vm.overlay = Overlay.ControlCenter(CcPage.Weather) },
+                        onWeatherClick = { vm.overlay = Overlay.Weather },
                         onClockFocused = { gained ->
                             if (gained && focusedKey == null && apps.isNotEmpty()) focusApp(0)
                         },
@@ -766,7 +768,7 @@ fun HomeScreen(
                         away = carrying,
                         enabled = gridEnabled && moving == null,
                         onClockClick = { vm.overlay = Overlay.ControlCenter(CcPage.SleepTimer) },
-                        onWeatherClick = { vm.overlay = Overlay.ControlCenter(CcPage.Weather) },
+                        onWeatherClick = { vm.overlay = Overlay.Weather },
                         onClockFocused = { gained ->
                             if (gained && focusedKey == null && apps.isNotEmpty()) focusApp(0)
                         },
@@ -892,7 +894,7 @@ fun HomeScreen(
                     away = carrying,
                     enabled = gridEnabled && moving == null,
                     onClockClick = { vm.overlay = Overlay.ControlCenter(CcPage.SleepTimer) },
-                    onWeatherClick = { vm.overlay = Overlay.ControlCenter(CcPage.Weather) },
+                    onWeatherClick = { vm.overlay = Overlay.Weather },
                     onClockFocused = { gained ->
                         if (gained && focusedKey == null && apps.isNotEmpty()) focusApp(0)
                     },
@@ -1090,6 +1092,11 @@ fun HomeScreen(
                 if (on) vm.overlay = Overlay.Pin(PinMode.Create) { vm.overlay = Overlay.Wallpaper }
                 else vm.whenUnlocked { AerialSettings.choosePin(null); vm.overlay = Overlay.Wallpaper }
             },
+        )
+
+        WeatherSheet(
+            visible = overlay is Overlay.Weather,
+            onDismiss = { vm.overlay = Overlay.None },
         )
 
         val pin = overlay as? Overlay.Pin
