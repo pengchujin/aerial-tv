@@ -240,8 +240,13 @@ private fun liteGlass(frost: ImageBitmap): Color = synchronized(liteColors) {
 
 private val liteColors = java.util.WeakHashMap<ImageBitmap, Color>()
 
-/** A panel over a moving wallpaper: the glass colour, opaque, so the tiles under it do not show. */
-private val FilmPanel = Color(0xFF26262A)
+/**
+ * A panel over a moving wallpaper whose frames cannot be had: opaque, so the tiles under it do not
+ * show, and as light as the frosted glass is elsewhere (PanelTint over a daytime picture comes to
+ * about this grey). The old near-black (0x26262A) read as a dark slab, not glass (the owner, TCL
+ * MT5879, 2026-11-01).
+ */
+private val FilmPanel = Color(0xFF4A4B51)
 
 private val PanelTint = ColorFilter.colorMatrix(ColorMatrix(floatArrayOf(
     0.48f, 0f, 0f, 0f, 14f,

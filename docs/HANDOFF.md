@@ -4,6 +4,8 @@
 
 ## 现状（2026-10-31）
 
+- **未发布（main，1.76 之后）：取不到影片帧的电视上，玻璃不再发黑**（户主在 TCL 上看到底板「太黑，不像玻璃」，参考了 CleanTV 和 tigris）。只影响 `Wallpapers.filmGlassless` 的电视（TCL MT5879）放航拍 / 我的视频时：第一排底板原来是 40% 黑烟，改成 15% 白色乳白层（`HomeChrome.FILM_SMOKE_ALONE`，亮边照旧）；控制中心、个性化等面板原来是不透明 `#26262A`，改成 `#4A4B51`（`LiquidGlass.FilmPanel`，仍不透明，免得透出磁贴）。能取到帧的影片底板（小米 MFTR0 的实时磨砂，户主满意）、图片壁纸的玻璃、Lite 都没动。验证：TCL 多屏互动推 main + 这两处的 guard 包（versionCode 97），compile speed；航拍和用「我的视频」临时上传的 4 段明亮航拍（大峡谷、加勒比、大溪地、夏威夷）上看底板和控制中心，之后壁纸换回 aerial:live、4 个视频按上传 id 删除。小米上没装这一版（当时离线）。
+
 - **未发布（main，1.76 之后）**：「让 Aerial 更流畅」在已经编译之后还显示（户主在 TCL 上看到）：是否提供只在进程启动时判断一次，TCL 多屏互动装完 Aerial 先启动、判定没编译，之后 ADB 编译了也不收起。现在回到首页和打开控制中心时再读一次 odex 长度（`SelfCompile.recheck`）。TCL MT5879 上多屏互动推测试包验证：装完显示这一行（odex 93 KB），Aerial 在前台时 compile speed，再打开控制中心这一行没了（12434 KB）；守护、主页键（AIDA64）正常。没录屏看打开控制中心那一帧会不会先闪出这一行（回首页时的复查一般已经先收起）。小米安卓 14 不显示这一行，不涉及。TCL 上现在装的是这个测试包（versionCode 仍 97），下次发版 versionCode 要大于 97。
 
 - **1.76（versionCode 97）+ Aerial Lite 1.12（13），2026-10-31 晚发布**（[v1.76](https://github.com/pengchujin/aerial-tv/releases/tag/v1.76)）：下面这一轮晚巡检的全部代码，加上户主要求合的 PR #1005（连续圆角，e8e2869，#1003 关闭）。Lite 因连续圆角和 devices.json（MTTP0）加 1。TCL MT5879 多屏互动推 guard（uiautomator 确认焦点在「同意」再按确定，两个 walleve 服务保留），compile speed；用 `hid` 造外接蓝牙鼠标，1.76 下 AIDA64 里 `mouse=true filter=true`（#1039 的修复生效）；**注意 TCL 上 shell 的 `input keyevent 3` 本来就不经过守护过滤**（没插鼠标也先 START cyberui），主页键闪不闪要用实体遥控器看。TCL 主页键（AIDA64、HDMI 2）、信号源列表、屏保进出录屏回归通过。**留着查**：TCL 上 `PREVIEW_SCREENSAVER` 进系统 dream 的头 0.2 秒露出一张粉色晚霞图，随后 Aerial 被恢复又暂停一次、再黑屏等影片（TCL 首页是静态图，和这一轮改动无关，没和 1.75 对比过）。小米 MFTR0 `adb install -r` standard + compile speed，主页键（设置、HDMI 2）、信号源列表、屏保接力回归通过。三个包签名 e089…，官网 version.txt = v1.76，三个包 md5 和 Release 一致。#1039 #984 #933 #941 #1014 #1004 #1003 贴了发布链接（`local/triage/release-1.76-posts.py`）。

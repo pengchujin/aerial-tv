@@ -510,8 +510,13 @@ private const val FILM_FROST = 0.55f
  */
 private val FILM_SMOKE = android.graphics.Color.argb(72, 0, 0, 0)
 
-/** The same with no frosted frame under it (Wallpapers.filmGlassless): deeper, as nothing calms the film. */
-private val FILM_SMOKE_ALONE = android.graphics.Color.argb(102, 0, 0, 0)
+/**
+ * With no frosted frame under it (Wallpapers.filmGlassless): a milky white veil, not smoke. Black
+ * (40%) made the plate a dark slab over the film, nothing like glass (the owner, TCL MT5879,
+ * 2026-11-01). White lifts it as glass lit from within, as Tigris and CleanTV do with no blur; the
+ * lit edge does the rest. The plate with a frosted frame (FILM_SMOKE) the owner keeps as it is.
+ */
+private val FILM_SMOKE_ALONE = android.graphics.Color.argb(38, 255, 255, 255)
 
 /** A new key frame fades in over the last: slow, as the glass is soft, and seldom (GLASS_EVERY_MS). */
 private const val FILM_SWAP_MS = 700
