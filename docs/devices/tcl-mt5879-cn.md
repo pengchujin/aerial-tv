@@ -124,3 +124,7 @@ TCL 手机 App 有一个「把手机里的 APK 推到电视」的功能。电视
 - `/sdcard` 截图在 shell 下可以正常写入。
 - TCL 的 `com.tcl.guard`（安全卫士）是大部分 App 的 installerPackageName，其中的 `PackageInstallerService` 是 Binder 接口，shell 用不了。
 - `persist.tcl.installapk.enable=1` 和 `package_verifier_enable=0` 这些属性对上面的校验链都没有影响。
+
+## 按键偶尔卡 1–2 秒再一起到（#1081，2026-11-01 在这台上复现）
+
+雷鸟鹤 6 2025（同为 tcl_mt5879_cn，安卓 11）报告：每 3–5 分钟遥控器卡一下，然后连续触发好几次。在这台上用 `hid` 造的虚拟键盘、在 Aerial 首页每 1.5 秒按一次左右键共 5 分钟（守护开着按键过滤）：100 次按下里中位延迟 4 ms，有一次 1016 ms，按下和抬起一起到。同一时刻 system_server 主线程 `Slow dispatch took 2001ms ... AlarmManager$ListenerWrapper`，是 JobScheduler 的 `*job.delay*` 闹钟，旁边有 TCL 拦 Plex 后台任务的 `forbid bind service`。按键过滤后的按键要经 system_server 主线程重新注入（`AccessibilityInputFilter`，#774 也是这条路），主线程一卡按键就积压。不是 Aerial 的代码；能做的只有不过滤按键（主页键会先显示 TCL 桌面几秒），要户主决定。
