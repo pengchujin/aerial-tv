@@ -353,7 +353,7 @@ object SystemProbe {
     }
     private fun xgimiDisplayManagerClass(): Class<*>? = xgimiDisplayManagerClassOnce
 
-    private fun xgimiDisplayManager(): Any? {
+    internal fun xgimiDisplayManager(): Any? {
         val c = xgimiDisplayManagerClass() ?: return null
         return runCatching { c.getMethod("getInstance").invoke(null) }.getOrNull()
             ?: runCatching { c.getDeclaredConstructor().also { it.isAccessible = true }.newInstance() }.getOrNull()
@@ -373,6 +373,9 @@ object SystemProbe {
     fun setXgimiBrightnessLevel(level: Int): Boolean {
         val c = xgimiDisplayManagerClass() ?: return false
         val dm = xgimiDisplayManager() ?: return false
+        // X7 Max's 10+ Boost ignores ordinary DLP writes. Exit only the detected Boost mode;
+        // other XGIMI light engines keep their existing path.
+        if (XgimiBoost.enabled() == true && !XgimiBoost.setEnabled(false)) return false
         val target = level.coerceIn(1, XGIMI_DLP_LUMENS_MAX)
         return runCatching { c.getMethod("setDlpLumensLevel", java.lang.Byte.TYPE).invoke(dm, target.toByte()) }.isSuccess
     }
