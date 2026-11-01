@@ -1659,6 +1659,11 @@ class HomeGuardService : AccessibilityService() {
             // resolve-activity stays on FallbackHome and set-home-activity rejects Aerial with
             // "cannot be home". Verified on device; dumpsys and logs in the linked issue.
             "com.mylejia.launcher" to listOf("com.mylejia.launcher.activity.DesktopActivity"),
+            // TCL's launcher on sugarcane_mi (MStar m7221, Android 8.0): a Home query from Aerial
+            // found nothing at all, not even this, so it stayed in front after every power-on until
+            // Aerial was opened once (issue #1076, the reporter's agent sampling every 2 minutes).
+            // Other TCLs list it as a Home; the class is theirs (sugarcane #898, MT5879).
+            "com.tcl.cyberui" to listOf("com.tcl.cyberui.MainActivity"),
             // Hisense VIDAA's 聚好看 on VIDAA_TV V7N_Ultra (MT9653, Android 11): Home showed it, the
             // diagnostics list it as a Home candidate (priority 50), yet the guard did not keep it
             // away, so Home stayed there and its usage stats were not watched (issue #700). Not
