@@ -282,6 +282,7 @@ NanoHTTPD 监听 8790 端口，路径前缀是 8 位随机令牌（每次打开�
     或者电视自己「开机播放上次的信号源」（小米 PatchWall 的 autoPlay），都以电视为准
   - adb_enabled 的 ContentObserver → keep_adb 时写回 1；开机几分钟内 5555 不通时把 adb_enabled 切 0 再切 1 重启 adbd（#454），只在安卓 6–10 做：小米电视 3 安卓 5.0.1 上这一切把 TCP 模式的 adbd 停死了（#1099）
   - 音量键（创维酷开，#937 #1058 #1091）：守护过滤按键时，音量键的抬起到不了 Aerial 窗口，系统每 50 ms 补一次连发、每次调一格。守护在 `takeVolumeKey` 记下看到的抬起（`volumeKeyCameUp`），`MainActivity.dispatchKeyEvent` 丢掉抬起之后还在连发的音量键；两边都写 DiagLog（`guard: KEYCODE_VOLUME_... down/up`、`repeats after it came up at the guard; dropped`）。没有创维真机验证；如果抬起连守护都收不到，诊断里会只有 down
+  - 开机 3 分钟内复活时，Aerial 的主页不在前台被当成「用户在别的 App」（#989）；但守护看到原桌面的主页面到前台时会记进 prefs（`GuardSetup.noteStockHomeInFront`），原桌面是在 Aerial 离开之后上来的就照样拉回（#1047，小米 MTEQ0 开机 40 秒后被固件推回 PatchWall、2 秒后被强停）
 被杀（小米待机 killAllThirdApp）：系统移除无障碍授权
   → 通知监听绑定断开 → 系统约 0.5 秒后重绑 RevivalListener（进程复活）
   → GuardSetup.ensureEnabled() → 守护重新启用 → onServiceConnected 判断为「刚被复活」→ 打开 Aerial
