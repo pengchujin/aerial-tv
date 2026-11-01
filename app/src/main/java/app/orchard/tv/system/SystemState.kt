@@ -683,6 +683,11 @@ object SystemProbe {
                 val cec = infos.firstOrNull { it.parentId == info.id }
                 val generic = genericRoute(cec ?: info, kind)
                 val intent = (if (xiaomi) xiaomiRoute(info, kind, label, profile)?.takeIf { resolves(context, it) } else null)
+                    // TCL's own inputs go to TCL's player before the generic intent: a file manager
+                    // answers any content:// VIEW (with the provider's cursor type), so the
+                    // passthrough intent "resolved" and every source tile opened Solid Explorer
+                    // (TCL 75Q10L, MT9655, Android 14, issue #1107, the reporter's adb).
+                    ?: tclPlayer?.takeIf { info.id.startsWith(TCL_INPUTS) }?.let { tclRoute(it, kind, label, hw(info.id)) }
                     ?: generic.takeIf { resolves(context, it) }
                     ?: droidLogicRoute(context, info)
                     ?: tclPlayer?.let { tclRoute(it, kind, label, hw(info.id)) }
@@ -758,6 +763,9 @@ object SystemProbe {
 
     private const val TCL_PLAYER = "com.tcl.tv"
 
+    /** The input service TCL registers its inputs with in the framework (Q9L Pro, 75Q10L, T966D5). */
+    private const val TCL_INPUTS = "com.tcl.tvinput/"
+
     private fun tclPlayer(context: Context): ComponentName? =
         ComponentName(TCL_PLAYER, "$TCL_PLAYER.TVActivity")
             .takeIf { runCatching { context.packageManager.getActivityInfo(it, 0) }.isSuccess }
@@ -771,7 +779,8 @@ object SystemProbe {
      * the passthrough intent: every input said this TV could not switch to it (issue #395). TCL's
      * player takes the input's hardware id: on TCL Q9L Pro (Android 14) HDMI 1-4 are HW15-18 and
      * `targetSourceId` 15-18 switch to them, while MT5879's 8-11 gave "device_id:0 is invalid" and
-     * no picture (issue #792, the reporter's adb); TV and AV, HW2 and HW3, are 2 and 3 on MT5879
+     * no picture (issue #792, the reporter's adb); the same on TCL 75Q10L (MT9655, Android 14,
+     * 16-18 switched to HDMI 2-4, issue #1107); TV and AV, HW2 and HW3, are 2 and 3 on MT5879
      * too. Without a hardware id, the MT5879 ordinals by the input's name (see tclSources).
      */
     private fun tclRoute(player: ComponentName, kind: SourceKind, label: String, hw: Int?): Intent? {
