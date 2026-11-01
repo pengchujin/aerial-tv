@@ -3,7 +3,9 @@ package app.orchard.tv.lite
 import android.app.Activity
 import android.content.BroadcastReceiver
 import android.content.Context
+import android.content.ComponentName
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.content.IntentFilter
 import android.content.res.Resources
 import android.graphics.Bitmap
@@ -324,8 +326,32 @@ class HomeActivity : Activity(), HomeView.Host {
             startActivity(app.launchIntent())
         } catch (t: Throwable) {
             Log.w(TAG, "could not open ${app.key}", t)
+            if (t is SecurityException && openStandIn(app)) return
             Toast.makeText(this, getString(R.string.launch_failed, app.label), Toast.LENGTH_SHORT).show()
         }
+    }
+
+    /**
+     * An entry of the same page that Aerial may start, for one that needs a permission it cannot
+     * hold: Xiaomi's PatchWall lists `.MainActivityUserMode`, which requires its signature
+     * permission HOME_STATE, beside `.MainActivity`, which shows the same home and needs none
+     * (MiTV-ANSP0, Android 9, issue #971; the full app's StandIn).
+     */
+    private fun openStandIn(app: AppEntry): Boolean {
+        val pkg = app.component.packageName
+        val blocked = app.component.className
+        val open = runCatching {
+            packageManager.queryIntentActivities(Intent(Intent.ACTION_MAIN).setPackage(pkg), 0)
+        }.getOrNull().orEmpty().mapNotNull { r ->
+            val a = r.activityInfo ?: return@mapNotNull null
+            val allowed = a.exported && (a.permission == null ||
+                checkPermission(a.permission, android.os.Process.myPid(), android.os.Process.myUid()) == PackageManager.PERMISSION_GRANTED)
+            if (allowed) a.name else null
+        }
+        val name = open.filter { it != blocked && blocked.startsWith(it) }.maxByOrNull { it.length } ?: return false
+        return runCatching {
+            startActivity(Intent(Intent.ACTION_MAIN).setComponent(ComponentName(pkg, name)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        }.isSuccess
     }
 
     private fun isSettingsApp(pkg: String) = pkg in SETTINGS_APPS ||

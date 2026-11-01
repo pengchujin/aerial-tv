@@ -958,6 +958,9 @@ class MainActivity : ComponentActivity() {
             // XGIMI (GMUI): nothing answers the passthrough intent a source tile carries, so the tile
             // opens the source page of its settings service instead (issue #241).
             if (app.source != null && SystemProbe.openInputPicker(this)) return
+            // PatchWall's entry needs its permission whether or not the guard runs, and with the
+            // guard switched off its tile did nothing (MiTV-ANSP0, Android 9, issue #971).
+            if (e is SecurityException && startStockLauncher(app)) return
             Toast.makeText(this, getString(R.string.launch_failed, app.label), Toast.LENGTH_SHORT).show()
         }
     }

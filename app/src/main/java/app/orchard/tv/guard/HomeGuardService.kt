@@ -75,8 +75,6 @@ class HomeGuardService : AccessibilityService() {
      */
     private var fallbackHomes: Set<Pair<String, String>> = emptySet()
 
-    /** Set when the user opens the stock launcher on purpose from Aerial's grid. */
-    private var allowStockUntil = 0L
 
     /**
      * When the guard itself pressed Home to open the stock launcher from its tile. The system sends
@@ -111,7 +109,7 @@ class HomeGuardService : AccessibilityService() {
     private val endBootStockHold = Runnable {
         if (!bootStockHolding) return@Runnable
         bootStockHolding = false
-        allowStockUntil = 0L
+        endStockVisit("the boot hold is over")
         DiagLog.i("guard: stock launcher left on screen at boot (${if (bootStockShown) "it showed" else "it never said so"}); taking Home")
         takeOverOnceSettled("after the stock launcher showed at boot", woke = true)
     }
@@ -387,7 +385,7 @@ class HomeGuardService : AccessibilityService() {
             // back; starting it again redid Home's resume (MiTV-MFTR0: 0.2 s apart).
             if (SystemClock.uptimeMillis() - broughtBackAt < 1_000) return
             Log.i(TAG, "Home pressed with ${front ?: "an unknown app"} in front; bringing Aerial back")
-            allowStockUntil = 0L
+            endStockVisit("Home pressed")
             goHome()
         }
     }
@@ -428,7 +426,7 @@ class HomeGuardService : AccessibilityService() {
         }
         Log.i(TAG, "Home pressed, no window change since, and usage stats say ${front.first} is in front; bringing Aerial back")
         lastWindow = front
-        allowStockUntil = 0L
+        endStockVisit("Home pressed, seen by usage stats")
         goHome()
         homeFrom?.let { noteQuietHomeApp(this, it) }
         deafAfterHome = true
@@ -1263,13 +1261,14 @@ class HomeGuardService : AccessibilityService() {
                 return
             }
             Log.i(TAG, "stock home $pkg came to the front; bringing Aerial back")
+            DiagLog.i("guard: stock home $pkg/$cls in front, not opened on purpose${if (allowStockUntil != 0L) " (allowance ran out)" else ""}; bringing Aerial back")
             // Shortly after the screen lit, this is the wake itself (issue #111).
             goHome(woke = SystemClock.elapsedRealtime() - screenOnAt < WAKE_WINDOW_MS)
             return
         }
         updateKeyFilter()
         // Leaving the stock launcher for a real app ends the visit: Home goes to Aerial again.
-        if (allowed && pkg != packageName && isApp(pkg)) allowStockUntil = 0L
+        if (allowed && pkg != packageName && isApp(pkg)) endStockVisit("$pkg in front")
     }
 
     private val activityCache = HashMap<Pair<String, String>, Boolean>()
@@ -1688,7 +1687,7 @@ class HomeGuardService : AccessibilityService() {
             val s = instance ?: return "Home Guard bound=false resumed=$aerialResumed"
             val flag = AccessibilityServiceInfo.FLAG_REQUEST_FILTER_KEY_EVENTS
             return "Home Guard bound=true resumed=$aerialResumed filter=${s.serviceInfo?.flags?.and(flag) != 0} " +
-                "screenOff=${s.screenOff} gamepad=${s.gamepadAttached} mouse=${s.mouseAttached} stockAllowed=${SystemClock.uptimeMillis() < s.allowStockUntil} " +
+                "screenOff=${s.screenOff} gamepad=${s.gamepadAttached} mouse=${s.mouseAttached} stockAllowed=${SystemClock.uptimeMillis() < allowStockUntil} " +
                 "front=${s.lastWindow} windowEvents=${s.windowsSeen} resolved=${s.resolvedHome()} homes=${s.stockHomes}"
         }
 
@@ -1741,9 +1740,26 @@ class HomeGuardService : AccessibilityService() {
             return startDirectly() || s.pressHomeForStock()
         }
 
+        /**
+         * Set when the viewer opens the stock launcher on purpose from Aerial's grid. Kept for the
+         * process, not the service: on Xiaomi MiTV-ASTP0 and MiTV-ANSP0 (Android 9) PatchWall
+         * opened from its tile was taken away 0.3-5 s later as if Home had been pressed, with the
+         * guard's allowance already gone and no path that ends it logged (issues #971 #1055, the
+         * reporters' logs); one guess is a service bound again in between. Each end is logged now.
+         */
+        @Volatile
+        private var allowStockUntil = 0L
+
+        private fun endStockVisit(why: String) {
+            if (allowStockUntil == 0L) return
+            if (SystemClock.uptimeMillis() < allowStockUntil) DiagLog.i("guard: stock launcher visit over ($why)")
+            allowStockUntil = 0L
+        }
+
         /** Lets the stock launcher stay in front until Aerial is back: the viewer opened it on purpose. */
         fun allowStockLauncher() {
-            instance?.allowStockUntil = SystemClock.uptimeMillis() + 60 * 60 * 1000L
+            allowStockUntil = SystemClock.uptimeMillis() + 60 * 60 * 1000L
+            DiagLog.i("guard: the stock launcher opened on purpose; leaving it in front")
         }
 
         /** Whether Aerial's Home is resumed; set by MainActivity, in this same process. */
@@ -1761,7 +1777,7 @@ class HomeGuardService : AccessibilityService() {
             val s = instance ?: return
             // Back in Aerial: an installer opened from Control Center was left without updating.
             GuardSetup.installerJustClosed(s)
-            s.allowStockUntil = 0L
+            endStockVisit("Aerial back")
             s.updateKeyFilter()
             if (SystemClock.uptimeMillis() - s.recentsWhenBackAt < 2_000) {
                 s.recentsWhenBackAt = Long.MIN_VALUE / 2
