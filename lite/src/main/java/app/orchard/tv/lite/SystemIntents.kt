@@ -50,6 +50,30 @@ object SystemIntents {
     }
 
     /**
+     * HDMI 1-3 through Xiaomi's player, which takes the port as its `input` number: 23-25, the
+     * full app's xiaomiSources. Mi TV 2 (49", Android 4.3) lists no inputs, and its owner opened
+     * them this way from another launcher (issue #1094); Mi TV 2 and 3 on Android 5.1 did the same
+     * in the full app (#599 #309). Not on boxes, which have the player but no HDMI inputs, and
+     * only before Android 5, where no TV lists its inputs: later Mi TV 4 boards number them
+     * otherwise, which the full app knows.
+     * CLEAR_TOP: a player task in the background is otherwise only brought back, its input unchanged.
+     */
+    fun xiaomiInputs(context: Context): List<Pair<String, Intent>> {
+        if (Build.VERSION.SDK_INT >= 21) return emptyList()
+        val player = ComponentName("com.xiaomi.mitv.tvplayer", "com.xiaomi.mitv.tvplayer.ExternalSourceActivity")
+        if (runCatching { context.packageManager.getActivityInfo(player, 0) }.isFailure) return emptyList()
+        val traits = runCatching {
+            Class.forName("android.os.SystemProperties").getMethod("get", String::class.java).invoke(null, "ro.build.characteristics") as String
+        }.getOrNull().orEmpty()
+        if ("stb" in traits || "mbx" in traits) return emptyList()
+        return (1..3).map { port ->
+            "HDMI $port" to Intent("com.xiaomi.mitv.tvplayer.EXTSRC_PLAY").setComponent(player)
+                .putExtra("input", 22 + port)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+        }
+    }
+
+    /**
      * The TV's own input panel where Android lists no inputs (every 4.x TV): Hisense's service,
      * TCL's panel, Coocaa's source dialog. False when the TV has none of them.
      */

@@ -100,8 +100,8 @@ private fun LinearLayout.add(v: View, w: Int = LinearLayout.LayoutParams.MATCH_P
     return v
 }
 
-/** Control Center's pages, as the full app's CcPage: Lite has no inputs list and no updates. */
-enum class CcPage { Main, Boot }
+/** Control Center's pages, as the full app's CcPage: inputs only where Lite can list them, no updates. */
+enum class CcPage { Main, Boot, Inputs }
 
 /**
  * Control Center, as the full app's ControlCenter main page: the time and date with the network,
@@ -135,6 +135,7 @@ class ControlCenter(
         when (page) {
             CcPage.Main -> main()
             CcPage.Boot -> boot()
+            CcPage.Inputs -> inputs()
         }
         focusFirst()
     }
@@ -159,7 +160,10 @@ class ControlCenter(
         // The round buttons, spread across the panel.
         val buttons = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL }
         val inputs = RoundButton(context, Glyph.Input, context.getString(R.string.cc_inputs)).apply {
-            action = { if (!SystemIntents.openInputPicker(context)) noInputs() }
+            action = {
+                if (SystemIntents.xiaomiInputs(context).isNotEmpty()) goTo(CcPage.Inputs)
+                else if (!SystemIntents.openInputPicker(context)) noInputs()
+            }
         }
         val netButton = RoundButton(context, netGlyph, context.getString(R.string.cc_network)).apply {
             level = netLevel
@@ -246,6 +250,18 @@ class ControlCenter(
             val app = MenuRow(context, Glyph.Check, name)
             col.addView(app)
             row(app)
+        }
+    }
+
+    /** The inputs Lite can open itself (SystemIntents.xiaomiInputs), as the full app's list. */
+    private fun inputs() {
+        val back = MenuRow(context, Glyph.ChevronLeft, context.getString(R.string.cc_inputs)).apply { action = { goTo(CcPage.Main) } }
+        col.addView(back)
+        row(back)
+        for ((label, intent) in SystemIntents.xiaomiInputs(context)) {
+            val input = MenuRow(context, Glyph.Input, label).apply { action = { open(intent) } }
+            col.add(input, top = 6f)
+            row(input)
         }
     }
 
