@@ -46,7 +46,9 @@ esac
                        TV='example.invalid', APK_FILE=str(root/'test.apk'),
                        CALL_LOG=str(log), INSTALL_OUTPUT=failure,
                        INSTALL_STATUS=str(status), STAY_CONNECTED='1',
-                       MOCK_STATE=str(root/'pushed'), BUILD='0', KEEP_ADB='0')
+                       MOCK_STATE=str(root/'pushed'), BUILD='0', KEEP_ADB='0',
+                       # No build tools: the test APK is not a real one for aapt2 to read.
+                       ANDROID_HOME=str(root))
             result = subprocess.run(['bash', str(SCRIPT), flavor], env=env,
                                     capture_output=True, text=True, timeout=5)
             return result, log.read_text()
