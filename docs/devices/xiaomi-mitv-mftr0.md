@@ -100,6 +100,18 @@
 - 修复：`HomeGuardService.onAerialPaused()` 返回「这次暂停只是主页键的回弹、正在拉回」，MainActivity 就设 `vm.homeBounce`，航拍和视频壁纸按 `vm.filmFront`（resumed 或回弹中）继续播放；500ms 内没回来或进了 `onStop` 就照常释放。信号源壁纸不跟这个开关。
 - 实测（standard release，uinput）：单按 4 次之后都没有 `wallpaper film starts`，没有 `onStop`；间隔 120ms 连按两下照旧打开最近任务（`RecentsPanel`）；Aerial 在前台时仍不过滤按键（音量连发不受影响）。回弹期间 PatchWall 没有开解码器。户主还没有在电视前看。
 
+### 别的 App 里按主页键先闪 PatchWall（2026-11-01 修，未发版）
+
+- 现象：小米 Android 12+ 在别的 App（夸克、HDMI 信号源等）里按主页键，先闪一下 PatchWall 再回 Aerial。Aerial 自己在前台时没有（那里靠上面的 onPause 拉回）。
+- 在小米显示器 MFFU1（Android 14）上用 uinput 量的时间（抬键为 0）：+30ms 系统把 PatchWall 切到前台，约 +220ms PatchWall 画出第一帧，+290ms 守护才收到它的窗口事件开始拉回，Aerial 约 +550ms 画出来。录屏里 PatchWall 露出 7 帧。
+- 主页键广播帮不上：Android 14 对 `CLOSE_SYSTEM_DIALOGS` 用「等 App 活跃再送」（`deferralPolicy=2`），Aerial 在后台时广播被扣着，Aerial 被拉回前台后才送到（`dumpsys activity broadcasts history`：其他接收者 +1–3ms，Aerial +363ms）。
+- 试过、太晚的：用量统计本身有 100–250ms 延迟；`addOnUidImportanceListener`（反射能调到）夸克变后台要 +274ms。
+- 修复（`HomeGuardService.stockHomeMayHaveCome`）：两个早信号到了就读用量统计，是 PatchWall 的主界面就马上拉回，Aerial 在 PatchWall 画出来之前盖上去：
+  - 小米的界面加速：`services.jar` 里 `com.mitv.server.tvqs.TVQSService.startBoostInternal` 在界面切换开始时把 `global mitv_fast_cur_anim_scale` 写成 0.5（结束写回 1.0），按键后 +45–62ms，用 ContentObserver 监听。MFTR0 也有这个设置。
+  - 无障碍的窗口变化（焦点离开、窗口移除），+120–230ms，系统按 100ms 节流。要 `canRetrieveWindowContent`（只能在 `home_guard.xml` 里声明，所以所有电视都声明了），事件类型和 `FLAG_RETRIEVE_INTERACTIVE_WINDOWS` 只在 backOnPause 的机器上运行时打开，其他电视收到的事件不变。
+  - 开机、唤醒窗口内和从「桌面」磁贴进的 PatchWall 都不走这条，原来的窗口事件仍是兜底。
+- 实测（MFFU1，standard release，夸克里 uinput 按主页键，screenrecord 逐帧比对）：两个信号都用时 12 次里 11 次 PatchWall 0 帧（+116–216ms 确认），+279ms 才确认的 1 次仍闪 11 帧；只用窗口变化时 16 次里 14 次不闪。回归：Aerial 前台按主页键不闪、按键过滤仍关着；从 Aerial 开 App、App 内切页、App 叠 App、按返回都没被误拉；「桌面」磁贴留在 PatchWall；HDMI 里按主页键走新路径（HDMI 画面录屏录不到，没用眼睛看）。户主用实体遥控器看过，认可。
+
 ## 其他
 
 - 背光：`Settings.Global picture_backlight`（0–100），改了以后 `tvmenusettingsservice` 会立即应用。需要 `WRITE_SECURE_SETTINGS`。
