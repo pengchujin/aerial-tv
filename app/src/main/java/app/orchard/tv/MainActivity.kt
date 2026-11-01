@@ -2,6 +2,7 @@ package app.orchard.tv
 
 import android.app.ActivityOptions
 import android.content.BroadcastReceiver
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
@@ -54,6 +55,7 @@ import app.orchard.tv.apps.AppNames
 import app.orchard.tv.apps.SourceLooks
 import app.orchard.tv.apps.StandIn
 import app.orchard.tv.apps.TileArtFactory
+import app.orchard.tv.apps.rewritesLauncher
 import app.orchard.tv.guard.GuardSetup
 import app.orchard.tv.guard.HomeGuardService
 import app.orchard.tv.ui.home.FilmAfterInput
@@ -985,7 +987,7 @@ class MainActivity : ComponentActivity() {
     private fun open(intent: Intent) {
         FilmAfterInput.noteOpened(this, intent)
         try {
-            SystemProbe.startSettingsIntent(this, intent)
+            SystemProbe.startSettingsIntent(this, bareOnRewritingFirmware(intent))
         } catch (e: Exception) {
             // XGIMI (GMUI): its inputs carry a passthrough intent that nothing answers, so switching
             // goes through the source page of its settings service (issue #241).
@@ -993,6 +995,22 @@ class MainActivity : ComponentActivity() {
             LaunchFallback.next()?.let { return open(it) }
             Toast.makeText(this, R.string.unavailable, Toast.LENGTH_SHORT).show()
         }
+    }
+
+    /**
+     * An intent naming the activity it resolves to, on the firmware that hands every start the
+     * launcher's own package: uninstall and app info carry `ACTION_DELETE` /
+     * `ACTION_APPLICATION_DETAILS_SETTINGS` and die on the way in exactly like a tile does (#590, see
+     * [app.orchard.tv.apps.AppEntry.launchIntent]). Extras go when the action does, so intents that
+     * already name a component, and every firmware without the property, are returned untouched.
+     */
+    private fun bareOnRewritingFirmware(intent: Intent): Intent {
+        if (!rewritesLauncher || intent.component != null) return intent
+        val target = runCatching { packageManager.resolveActivity(intent, 0)?.activityInfo }.getOrNull()
+            ?: return intent
+        return Intent().setComponent(ComponentName(target.packageName, target.name))
+            .setData(intent.data)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
     }
 
     companion object {
