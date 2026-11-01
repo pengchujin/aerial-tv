@@ -791,7 +791,19 @@ class HomeGuardService : AccessibilityService() {
         // take-over in onCreate and the one at the connection are a few seconds apart, and the
         // second redid Home's resume (MiTV-MFTR0).
         if (last == null && SystemClock.uptimeMillis() - broughtBackAt < 30_000) return
-        val stockInFront = last == null || last.first in stockHomes
+        // XGIMI Z9X (MT9660-class, Android 13, GMUI v6.17.12): with no HOME preferred-activity on
+        // record, power-on and wake land on the firmware's own Home chooser
+        // (com.xgimi.xgimiframeworkui/.resolver.ResolverActivity) and stay there: usage stats name
+        // com.xgimi.xgimiframeworkui, which is no stock home, so the guard left it ("leaving it
+        // there") on every take-over, and the firmware force-stopped Aerial every ~30 s during the
+        // boot on top. The chooser's own "always" does not persist across reboots there, and
+        // set-home-activity reports success without changing what HOME resolves to. Treat the
+        // chooser like a stock launcher so the take-over covers boot and wake, the same condition
+        // frontAfterHome already accepts right after a Home press (issue #44). The same chooser
+        // also serves "open with", but only right after a revival or a wake, which is rarer than a
+        // boot and was already accepted there.
+        val stockInFront = last == null || last.first in stockHomes ||
+            (last.first == XGIMI_FRAMEWORK && last.second.endsWith(".resolver.ResolverActivity"))
         // Aerial is in front after a wake because the guard already brought it back when the stock
         // launcher showed, or because it survived standby; either way the input the TV starts on
         // still has to open. Only with one chosen: bringing Aerial back also resets its focus.
