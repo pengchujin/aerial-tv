@@ -978,8 +978,21 @@ class HomeGuardService : AccessibilityService() {
      * service passes them on (VIDAA_TV, RTD2851D, Android 10, issue #7). Home is no help there
      * either: VIDAA starts its launcher by component, or Aerial through persist.vt.use_home_pkg.
      */
+    /**
+     * Skyworth / Coocaa firmware (e.g. 8A002_A3, T963, Android 9) drops ACTION_UP when
+     * AccessibilityInputFilter is attached, leading to endless repeating volume keys (runaway volume #448, #451).
+     * Passing keys through disables FLAG_REQUEST_FILTER_KEY_EVENTS entirely, leaving volume keys to the native system.
+     */
+    private val isSkyworthDevice by lazy {
+        Build.MANUFACTURER.equals("Skyworth", ignoreCase = true) ||
+            Build.BRAND.equals("Skyworth", ignoreCase = true) ||
+            Build.BRAND.equals("Coocaa", ignoreCase = true) ||
+            Build.MODEL.contains("8A002", ignoreCase = true) ||
+            Build.DEVICE.contains("T963", ignoreCase = true)
+    }
+
     private val keysPassThrough by lazy {
-        VIDAA_PACKAGES.any { runCatching { packageManager.getPackageInfo(it, 0) }.isSuccess }
+        isSkyworthDevice || VIDAA_PACKAGES.any { runCatching { packageManager.getPackageInfo(it, 0) }.isSuccess }
     }
 
     /**
@@ -995,7 +1008,7 @@ class HomeGuardService : AccessibilityService() {
     override fun onKeyEvent(event: KeyEvent): Boolean {
         if (!GuardSetup.isUserUnlocked(this)) return false
         if (event.keyCode in VOLUME_KEYS) {
-            return if (filteringForCecOnly || (isDefaultHome() && defaultHomeNeedsHomeFilter)) {
+            return if (filteringForCecOnly || isSkyworthDevice || (isDefaultHome() && defaultHomeNeedsHomeFilter)) {
                 false
             } else {
                 takeVolumeKey(event)
@@ -1012,6 +1025,10 @@ class HomeGuardService : AccessibilityService() {
         if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
             homeHeld = false
             handler.removeCallbacks(homeHold)
+            if (isSkyworthDevice) {
+                // Preemptively bring Aerial to front on down to minimize stock launcher flicker
+                goHome()
+            }
             // Pressed twice, Home is the task center on Xiaomi too (MiTV-MFTP0, issue #335). The
             // first press already brought Aerial back; the second opens the recent apps.
             if (event.eventTime - lastHomeUpAt < DOUBLE_HOME_MS) {
