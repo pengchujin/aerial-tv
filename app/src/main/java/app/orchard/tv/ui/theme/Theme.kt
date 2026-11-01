@@ -13,6 +13,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import app.orchard.tv.R
+import app.orchard.tv.settings.ClockWeight
 
 /**
  * Pixels per dp of Aerial's 960×540 design canvas on this screen: 2 for a 1080p UI, 4 for a TV
@@ -75,6 +76,16 @@ private fun inter(opticalSize: Float) = if (Build.VERSION.SDK_INT < 26) FontFami
 
 val InterText = inter(14f)
 val InterDisplay = inter(32f)
+
+/**
+ * The clock's digits at the weight chosen in Personalize's clock settings. Inter's one variable file
+ * carries every weight, so each is a real cut of the font rather than a synthetic emboldening.
+ */
+val ClockWeight.fontWeight: FontWeight get() = when (this) {
+    ClockWeight.Bold -> FontWeight.W700
+    ClockWeight.Regular -> FontWeight.W400
+    ClockWeight.Light -> FontWeight.W300
+}
 
 object Type {
     val Clock = TextStyle(

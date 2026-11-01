@@ -123,6 +123,11 @@
     <string name="st_clock_small">Кіші</string>
     <string name="st_clock_large">Үлкен</string>
     <string name="st_clock_size_hint">«Кіші» уақыт пен ауа райын бұрышта бір жолда көрсетеді. «Үлкен» экранның жоғарғы жағына үлкен сағатты, оның үстіне күнді, астына ауа райын қояды.</string>
+    <string name="st_clock_weight">Цифр қалыңдығы</string>
+    <string name="st_clock_weight_bold">Жуан</string>
+    <string name="st_clock_weight_normal">Қалыпты</string>
+    <string name="st_clock_weight_light">Жіңішке</string>
+    <string name="st_clock_weight_hint">Сағат цифрларының қалыңдығы. «Жуан» — бұрыннан келе жатқан көрініс.</string>
     <string name="st_names">Қолданба атаулары</string>
     <string name="st_names_focused">Таңдалған қолданба</string>
     <string name="st_names_all">Барлық қолданбалар</string>

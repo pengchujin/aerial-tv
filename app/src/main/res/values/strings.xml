@@ -131,6 +131,11 @@
     <string name="st_clock_small">Small</string>
     <string name="st_clock_large">Large</string>
     <string name="st_clock_size_hint">Small puts the time and weather in one line in the corner. Large puts a big clock at the top of the screen, the date over it and the weather under it.</string>
+    <string name="st_clock_weight">Clock Weight</string>
+    <string name="st_clock_weight_bold">Bold</string>
+    <string name="st_clock_weight_normal">Regular</string>
+    <string name="st_clock_weight_light">Light</string>
+    <string name="st_clock_weight_hint">How heavy the clock\'s digits are drawn. Bold is how Aerial has always drawn them.</string>
     <string name="st_names">App Names</string>
     <string name="st_names_focused">Selected App</string>
     <string name="st_names_all">All Apps</string>

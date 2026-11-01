@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import app.orchard.tv.apps.TileSheet
 import app.orchard.tv.settings.AerialSettings
+import app.orchard.tv.settings.ClockWeight
 import app.orchard.tv.settings.Effects
 import app.orchard.tv.system.DeviceProfile
 import app.orchard.tv.system.DiagLog
@@ -109,6 +110,16 @@ class ConfigReceiver : BroadcastReceiver() {
         if (intent.hasExtra("home_columns")) {
             AerialSettings.init(context)
             AerialSettings.chooseHomeColumns(intent.getIntExtra("home_columns", 5))
+        }
+        // ... --es clock_weight bold|regular|light   (the clock's digits, as in Personalize)
+        intent.getStringExtra("clock_weight")?.let { key ->
+            val weight = ClockWeight.entries.firstOrNull { it.key == key }
+            if (weight == null) resultData = "clock_weight: no such weight $key (bold, regular, light)"
+            else {
+                AerialSettings.init(context)
+                AerialSettings.chooseClockWeight(weight)
+                resultData = "clock_weight=${weight.key}"
+            }
         }
         // ... --ez diag true / --ez mode_switch false / --ez soft_layer true   (see DiagLog;
         //                                 the last two apply the next time Home starts)
