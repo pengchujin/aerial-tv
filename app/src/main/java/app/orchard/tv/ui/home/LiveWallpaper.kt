@@ -365,6 +365,7 @@ fun LiveWallpaper(
             // that moment behind the app (LaunchedEffect(keep)); if it has not yet, it does under
             // the moving film. Catching up first held Home still for about 3 s (Xiaomi MiTV-MFTR0).
             val left = if (player == null) Wallpapers.leftLiveSpot() else null
+            if (player == null) FilmAfterInput.await()
             val p = player ?: open().also { player = it }
             DiagLog.i("wallpaper film starts (state ${p.playbackState}, ${p.currentMediaItem?.mediaId} at ${p.currentPosition} ms)")
             // It moves on from the frame the picture is: that picture's glass until the first sample.

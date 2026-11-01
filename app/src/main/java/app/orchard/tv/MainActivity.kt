@@ -56,6 +56,7 @@ import app.orchard.tv.apps.StandIn
 import app.orchard.tv.apps.TileArtFactory
 import app.orchard.tv.guard.GuardSetup
 import app.orchard.tv.guard.HomeGuardService
+import app.orchard.tv.ui.home.FilmAfterInput
 import app.orchard.tv.ui.home.HomeScreen
 import app.orchard.tv.ui.home.AerialStart
 import app.orchard.tv.ui.home.LiveFilm
@@ -950,6 +951,7 @@ class MainActivity : ComponentActivity() {
         // Xiaomi's settings tile can close at once like Control Center's button (issue #834).
         LaunchFallback.arm(if (app.packageName == "com.xiaomi.mitv.settings") SystemProbe.settingsFallbacks(this) else emptyList())
         try {
+            FilmAfterInput.noteOpened(this, app.launchIntent())
             if (HisenseSources.open(this, app.launchIntent())) return
             startActivity(settingsLaunchIntent(this, app.launchIntent()), options)
         } catch (e: Exception) {
@@ -978,6 +980,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun open(intent: Intent) {
+        FilmAfterInput.noteOpened(this, intent)
         try {
             SystemProbe.startSettingsIntent(this, intent)
         } catch (e: Exception) {
