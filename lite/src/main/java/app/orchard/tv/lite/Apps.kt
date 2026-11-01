@@ -67,6 +67,7 @@ object AppCatalog {
     private val UNLISTED_ENTRIES = listOf(
         ComponentName("com.xiaomi.mitv.mediaexplorer", "com.xiaomi.mitv.mediaexplorer.NewScraperMainEntryActivity"),
         ComponentName("com.xiaomi.smarthome.tv", "com.xiaomi.smarthome.tv.ui.MainActivity"),
+        ComponentName("com.sony.dtv.searchapp", "com.ktcp.aiagent.xwability.activity.VoipHomeActivity"), // #1074
     )
 
     /** Firmware apps drawn as Aerial's own tiles, by package, as in the full app. */
