@@ -130,6 +130,8 @@ fun ControlCenter(
     onClose: () -> Unit,
     /** Draw the closed panel once, nearly transparent, so that its first opening is not its first draw (HomeScreen). */
     warm: Boolean = false,
+    /** Home is on its top row: no tiles under the panel, only the wallpaper (see liquidGlass). */
+    onShelf: Boolean = false,
 ) {
     BackHandler(enabled = visible) {
         when (page) {
@@ -177,7 +179,7 @@ fun ControlCenter(
                 Modifier
                     .width(300.dp)
                     .consumeTaps()
-                    .liquidGlass(24.dp)
+                    .liquidGlass(24.dp, seeThroughFilm = onShelf)
                     .padding(16.dp),
             ) {
                 AnimatedContent(

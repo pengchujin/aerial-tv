@@ -57,9 +57,10 @@ import kotlin.math.roundToInt
  *
  * Replaces clip + background + border; [bottomCorners] false for a sheet rising from the bottom.
  * The continuous outline is a baked mask (see SmoothCorners.kt); children are clipped to a plain
- * rounded rect, which holds it.
+ * rounded rect, which holds it. [seeThroughFilm]: nothing but the film lies under the panel, which
+ * over a film without frames (Wallpapers.filmGlassless) is then see-through like the plate.
  */
-fun Modifier.liquidGlass(corner: Dp, bottomCorners: Boolean = true): Modifier = composed {
+fun Modifier.liquidGlass(corner: Dp, bottomCorners: Boolean = true, seeThroughFilm: Boolean = false): Modifier = composed {
     // The glass a panel opened with stays while it is open, unless the wallpaper itself changes
     // (chosen in Personalize). A moving film that stops as a panel opens gets its glass made again
     // twice within the next second or so, from a frame near where it stopped and then from that
@@ -68,7 +69,10 @@ fun Modifier.liquidGlass(corner: Dp, bottomCorners: Boolean = true): Modifier = 
     // Over a moving wallpaper whose frames cannot be had (Wallpapers.filmGlassless) one solid
     // colour: the frosted frame there is one from minutes before, and Control Center and
     // Personalize showed its colours over the paused film, another shot (TCL MT5879, 2026-10-30).
-    // See-through instead would show the tiles under the panel.
+    // See-through instead would show the tiles under the panel; Control Center over the top row,
+    // with only the film under it, is see-through as the plate is: solid, it was a grey slab beside
+    // a plate the film shows through (seen on Xiaomi MiTV-MFFU1 while a slow copy kept it from
+    // the film's frames, 2026-11-01; TCL MT5879 is such a TV for good).
     val solid = Wallpapers.moves() && Wallpapers.filmGlassless
     val latest = Wallpapers.frosted.takeIf { Wallpapers.backdrop != null }
     val held = remember(Wallpapers.selectedId, latest == null) { latest }
@@ -102,7 +106,7 @@ fun Modifier.liquidGlass(corner: Dp, bottomCorners: Boolean = true): Modifier = 
             var drawnT = -1f
             onDrawBehind {
                 if (solid) {
-                    drawImage(flat, dstSize = IntSize(w, h), colorFilter = ColorFilter.tint(FilmPanel))
+                    drawImage(flat, dstSize = IntSize(w, h), colorFilter = ColorFilter.tint(if (seeThroughFilm) FilmGlass else FilmPanel))
                     drawGlassEdge(size, radius, bottomCorners)
                 } else if (shader == null || brush == null || root == IntSize.Zero) {
                     drawImage(flat, dstSize = IntSize(w, h), colorFilter = ColorFilter.tint(Palette.Glass))
@@ -247,6 +251,12 @@ private val liteColors = java.util.WeakHashMap<ImageBitmap, Color>()
  * MT5879, 2026-11-01).
  */
 private val FilmPanel = Color(0xFF4A4B51)
+
+/**
+ * The same see-through, over the film and Control Center's dimming (28% black): the film comes out
+ * at 48% of its light lifted by 14, as [PanelTint] makes the frosted picture of the glass.
+ */
+private val FilmGlass = Color(red = 42, green = 42, blue = 42, alpha = 85)
 
 private val PanelTint = ColorFilter.colorMatrix(ColorMatrix(floatArrayOf(
     0.48f, 0f, 0f, 0f, 14f,

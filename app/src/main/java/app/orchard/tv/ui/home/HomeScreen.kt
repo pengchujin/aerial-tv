@@ -952,6 +952,7 @@ fun HomeScreen(
             onOpen = { vm.overlay = Overlay.None; onOpen(it) },
             onClose = { vm.overlay = Overlay.None },
             warm = ccWarm,
+            onShelf = !pastShelf,
         )
 
         FolderView(
