@@ -61,6 +61,8 @@ adb shell am broadcast -a app.orchard.tv.CONFIG -n app.orchard.tv/.guard.ConfigR
 | `"xiaomiSources": {"6": 23}` | 小米电视：HW6 用播放器的信号源编号 23 打开（HDMI 一般在 19–32 之间） |
 | `"ignoresPictureBacklight": true` | 电视有 `picture_backlight` 设置但不跟着变（亮度条没反应的小米），改用电视自己的亮度条 |
 | `"ignoresScreenBrightness": true` | 电视没有 `picture_backlight`，系统的 `screen_brightness` 写得进去但画面不变（海信 VIDAA 等），亮度一行改为打开电视自己的图像设置 |
+| `"hisenseNativeVolume": true` | 已核实原生接口的 VIDAA 电视使用原生音量服务，见 V3K_PRO 设备笔记 |
+| `"hisenseBacklightMax": 30` | 已实测的 VIDAA 原生背光上限；先确认范围和实际变暗效果，其他固件不要直接套用 30 |
 
 步骤：
 

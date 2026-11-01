@@ -114,6 +114,7 @@ object SystemProbe {
     }
 
     fun volume(context: Context): VolumeStatus {
+        HisenseControls.volume(context)?.let { return it }
         val am = context.getSystemService<AudioManager>() ?: return VolumeStatus()
         return VolumeStatus(
             level = am.getStreamVolume(AudioManager.STREAM_MUSIC),
@@ -143,6 +144,10 @@ object SystemProbe {
      * #15). Setting the level is the way left there.
      */
     fun adjustVolume(context: Context, direction: Int, fromKey: Boolean = false) {
+        if (DeviceProfile.current(context).hisenseNativeVolume) {
+            HisenseControls.adjustVolume(context, direction)
+            return
+        }
         val am = context.getSystemService<AudioManager>() ?: return
         val flags = volumeFlags(context, fromKey)
         try {
@@ -160,6 +165,10 @@ object SystemProbe {
     }
 
     fun toggleMute(context: Context) {
+        if (DeviceProfile.current(context).hisenseNativeVolume) {
+            HisenseControls.toggleMute(context)
+            return
+        }
         val am = context.getSystemService<AudioManager>() ?: return
         if (Build.VERSION.SDK_INT >= 23) {
             // See adjustVolume: no other way to mute there.
@@ -478,6 +487,11 @@ object SystemProbe {
                     // its brightness one step in; opened by component on the TV (issue #895). Before
                     // the display action, which those TVs answer with the settings' main page.
                     Intent(Intent.ACTION_MAIN).setComponent(TIANCI_PICTURE),
+                    // VIDAA's DISPLAY_SETTINGS is an old screen with only dream/calibration.
+                    // Its native settings activity opens the picture category (V3K_PRO, Android 11).
+                    Intent(Settings.ACTION_SETTINGS).setComponent(ComponentName(
+                        "com.android.tv.settings", "com.hisense.systemsettings.MainActivity",
+                    )),
                     Intent(Settings.ACTION_DISPLAY_SETTINGS),
                     // PPTV K55U27: picture and sound, where its brightness is (issue #264).
                     Intent("com.pptv.intent.action.PICTUREAUDIO_ACTIVITY")

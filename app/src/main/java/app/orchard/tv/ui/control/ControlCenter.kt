@@ -601,7 +601,8 @@ private fun BrightnessRow(vm: HomeViewModel) {
             level = level,
             value = Math.round(level * 100).toString(),
             // Brightness.adjust moves 5% a step, and stops at 1%; XGIMI steps its own levels.
-            steps = if (xgimi) SystemProbe.xgimiBrightnessMax else 20,
+            steps = if (xgimi) SystemProbe.xgimiBrightnessMax else
+                app.orchard.tv.system.DeviceProfile.current(context).hisenseBacklightMax.takeIf { it > 0 } ?: 20,
             onStep = vm::adjustBrightness,
             onClick = {},
         )

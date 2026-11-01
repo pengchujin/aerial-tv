@@ -506,22 +506,26 @@ object GuardSetup {
     /**
      * A persisted component override survives an APK update. On Skyworth 8N312_H5D the boot
      * receiver was disabled even though the manifest enables it. Android 8's shell cannot
-     * change another app's component, but the owning app can clear its own override. Only do
+     * change another app's component, but the owning app can clear its own override. Vidda's
+     * startup manager also disables ConfigReceiver (V3K_PRO, Android 11), preventing even the
+     * owner's protected ADB configuration broadcasts from being delivered. Only do
      * so after the owner has granted the ADB takeover permission, as for the guard itself.
      */
-    private fun restoreBootReceiver(context: Context) {
+    private fun restoreReceivers(context: Context) {
         val pm = context.packageManager
-        val component = ComponentName(context, BootReceiver::class.java)
-        runCatching {
-            val state = pm.getComponentEnabledSetting(component)
-            if (state == PackageManager.COMPONENT_ENABLED_STATE_DEFAULT ||
-                state == PackageManager.COMPONENT_ENABLED_STATE_ENABLED) return
-            pm.setComponentEnabledSetting(
-                component, PackageManager.COMPONENT_ENABLED_STATE_DEFAULT, PackageManager.DONT_KILL_APP,
-            )
-            DiagLog.i("revival: cleared disabled BootReceiver override (was $state)")
-        }.onFailure {
-            DiagLog.e("revival: could not restore BootReceiver", it)
+        for (receiver in listOf(BootReceiver::class.java, ConfigReceiver::class.java)) {
+            val component = ComponentName(context, receiver)
+            runCatching {
+                val state = pm.getComponentEnabledSetting(component)
+                if (state == PackageManager.COMPONENT_ENABLED_STATE_DEFAULT ||
+                    state == PackageManager.COMPONENT_ENABLED_STATE_ENABLED) return@runCatching
+                pm.setComponentEnabledSetting(
+                    component, PackageManager.COMPONENT_ENABLED_STATE_DEFAULT, PackageManager.DONT_KILL_APP,
+                )
+                DiagLog.i("revival: cleared disabled ${receiver.simpleName} override (was $state)")
+            }.onFailure {
+                DiagLog.e("revival: could not restore ${receiver.simpleName}", it)
+            }
         }
     }
 
@@ -529,7 +533,7 @@ object GuardSetup {
     fun ensureEnabled(context: Context): Boolean {
         ensureAdb(context)
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_SECURE_SETTINGS) != PackageManager.PERMISSION_GRANTED) return false
-        restoreBootReceiver(context)
+        restoreReceivers(context)
         keepScreensaver(context)
         RevivalSync.ensure(context)
         if (standingOut(context)) { watchScreenOn(context); return false }

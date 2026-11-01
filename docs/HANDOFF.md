@@ -4,6 +4,9 @@
 
 ## 现状（2026-11-01）
 
+- **未发布：Vidda V3K_PRO / MT9653 音量与背光适配**：新增显式 profile `hisenseNativeVolume` / `hisenseBacklightMax`，通过固件原生服务设置音量，通过命名背光选项及原生手动模式调节面板；不把 Android 镜像值变化当作硬件成功。V3K_PRO / Android 11 / 02.02.70.01 的独立 release 包上，户主确认背光 30→15 实际变暗、音量 15→8 实际变小，随后恢复原值；同时兼容启动管理停用自身 ConfigReceiver 的情况。范围、启用方法和并装测试包的开机限制见 [设备笔记](devices/hisense-v3k-pro.md)。没有改正式版签名、包名、版本或更新路线。
+
+
 - **1.77（versionCode 99）+ Aerial Lite 1.13（14），2026-11-01 傍晚发布**（[v1.77](https://github.com/pengchujin/aerial-tv/releases/tag/v1.77)）：下面这一轮巡检的全部代码，加上 1.76 之后 main 上的小米主页键不闪 PatchWall（04f29a5 9129859）、影片玻璃（52dda0a 8cd0c92）、「让 Aerial 更流畅」复查（8c9f171）。户主说小米电视暂时不用，所以这次**小米 MFTR0 没装**，装的是显示器 MFFU1（`adb install -r` standard，compile speed，主页键从设置和 HDMI 2 拉回，信号源 5 个）。TCL MT5879 多屏互动推 guard（uiautomator 确认焦点在「同意」再按确定，两个 walleve 服务保留），compile speed，虚拟遥控器的主页键从 AIDA64 和 HDMI 2 拉回，信号源 7 个。三个包签名 e089…，官网 `download/version.txt` = v1.77，三个包大小、md5 和 Release 一致。17 个修过的 issue 贴了发布链接（`local/triage/release-1.77-posts.py`），都还开着等复测。
 
 - **2026-11-01 下午巡检（已随 1.77 发布）**，记录见 `local/triage/2026-11-01-full.md`。310 issue / 54 PR，用户最后发言 80 + 12。户主说小米电视暂时不用、TCL 也没碰，真机只用小米显示器 MFFU1。在 worktree `/Users/jzb/Documents/ATV-triage` 上做（`ATV` 在 smooth-corners-everywhere、`ATV-main` 有别的会话未提交的 #1004 改动，都没碰）。
