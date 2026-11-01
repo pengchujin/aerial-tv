@@ -238,6 +238,7 @@ Most TVs sold in China only accept their own home screen and clear third-party a
 | Skyworth | Xiaopai P3 (Q5001 / cupid-p2) box | Android 10 | ⚠️ Needs a renamed package to take over Home; boot broadcasts are all blocked ([notes](docs/devices/skyworth-p3-box.md)) |
 | Panasonic | TH-55HX560C (built by Skyworth) | Android 8 | ⚠️ No inputs listed |
 | Konka | KKTV U86V9, 2861 | Android 9 | ✅ U86V9 brightness does not work ([notes](docs/devices/konka-kktv-u86v9.md)) |
+| Konka | Android TV 551 (Hi3751V551) | Android 5.1.1 | ✅ Boots straight into Aerial once it is chosen under Konka's Settings → General → Shortcuts → Boot to; Home Guard takes Home; the firmware has no `cmd` ([#1089](https://github.com/pengchujin/aerial-tv/issues/1089)) |
 | LeTV | Super4 X55 (f608) | Android 6 | ✅ Installs, starts at boot, takes over Home ([#510](https://github.com/pengchujin/aerial-tv/issues/510)) |
 | LeTV | Super3 X65 (X65-168CQ) | Android 5.0.1 | ⚠️ Installs and draws; the firmware kills third-party launchers on Home, so takeover is unreliable ([notes](docs/devices/letv-x3-65.md)) |
 | Hisense / Vidda | VIDAA models | Android 5–14 | ⚠️ Home works, most boot into Hisense's home first; VIDAA C1 projector can't be taken over ([notes](docs/devices/hisense-vidaa.md)) |
@@ -250,6 +251,7 @@ Most TVs sold in China only accept their own home screen and clear third-party a
 | Sharp | LCD-50SU671A | Android 6 | ✅ Needs QuickShortcutMaker to open ADB |
 | OPPO | K9 | Android 9 | ⚠️ Needs a renamed package ([notes](docs/devices/oppo-coloros-tv.md)) |
 | XGIMI | Z7X, m7642 | Android 9 | ✅ Z7X needs a third-party tool to open ADB ([notes](docs/devices/xgimi-z7x.md)) |
+| XGIMI | Z9X 4K Bright (goat_elegant) | Android 13 | ⚠️ Limited test on 1.76: first launch, UID app-op and the front after reboot; boot screen and standby not yet ([notes](docs/devices/xgimi-z9x-4k.md)) |
 | XGIMI | Lamp L1 (m7642, pig_chivalrous) | Android 9 | ✅ The default Home is lost at boot; the reporter's two-rule fix is in the [notes](docs/devices/xgimi-z7x.md) ([#767](https://github.com/pengchujin/aerial-tv/issues/767)) |
 | XGIMI | Z6X Gen 4 (XK03U / ironman / m7221) | Android 8 | ⚠️ HDMI 1 listing and switching verified; video output not tested ([notes](docs/devices/xgimi-xk03u-android8.md)) |
 | XGIMI | H3, m7221 | Android 8 | ✅ Needs a third-party tool to open ADB; boot handover and screensaver match Z7X ([notes](docs/devices/xgimi-h3.md)) |
@@ -259,6 +261,7 @@ Most TVs sold in China only accept their own home screen and clear third-party a
 | Dangbei | Box Max1, H5, HAQU K2 (Dangbei OS) | Android 9 | ✅ |
 | Dangbei | H3S box (RK3566) | Android 11 | ⚠️ The firmware stops third-party apps on Home; Aerial comes back after 7–12 s ([#849](https://github.com/pengchujin/aerial-tv/issues/849)) |
 | Dangbei | F3 projector | Android 6 | ❌ The firmware refuses third-party launchers and has no accessibility service ([#789](https://github.com/pengchujin/aerial-tv/issues/789)) |
+| China Mobile | CM101s box (Hi3798MV100) | Android 4.4.2 | ✅ Aerial Lite, installed with the one-line command ([#1052](https://github.com/pengchujin/aerial-tv/issues/1052)) |
 | JMGO | S621 | Android 13 | ❌ The firmware refuses writes to the accessibility setting; Home cannot be taken over ([#793](https://github.com/pengchujin/aerial-tv/issues/793)) |
 | Epson | DTP9733 projector | Android 11 | ✅ |
 | ZHIYING / RIGAL | HS350 projector (HiSilicon, YunOS) | Android 9 | ⚠️ The firmware stops apps sent to the background; Home from another app takes 10–30 s back to Aerial; installed without the script it needs two grants ([#853](https://github.com/pengchujin/aerial-tv/issues/853)) |

@@ -236,6 +236,7 @@ curl -fsSL https://aerial.qust.me/install.sh | TV=192.168.1.20 bash -s restore
 | 创维 | 小湃 P3（Q5001 / cupid-p2）盒子 | Android 10 | ⚠️ 要改包名才能接管 HOME；开机广播全被拦（[笔记](docs/devices/skyworth-p3-box.md)） |
 | 松下 | TH-55HX560C（创维代工） | Android 8 | ⚠️ 信号源列不出来 |
 | 康佳 | KKTV U86V9、2861 | Android 9 | ✅ U86V9 亮度调不了（[笔记](docs/devices/konka-kktv-u86v9.md)） |
+| 康佳 | Android TV 551（Hi3751V551） | Android 5.1.1 | ✅ 在康佳「设置 → 通用 → 快捷 → 开机直达」里选 Aerial 后开机直达，主页键由守护接管；固件没有 `cmd` 命令（[#1089](https://github.com/pengchujin/aerial-tv/issues/1089)） |
 | 乐视 | 超4 X55（f608） | Android 6 | ✅ 安装、开机自启、主页键接管（[#510](https://github.com/pengchujin/aerial-tv/issues/510)） |
 | 乐视 | 超3 X65（X65-168CQ） | Android 5.0.1 | ⚠️ 能装能显示；按主页键时系统会强杀第三方桌面，接管不稳定（[笔记](docs/devices/letv-x3-65.md)） |
 | 海信 / Vidda | VIDAA 各型号 | Android 5–14 | ⚠️ 主页键能接管，开机多数先进聚好看；VIDAA C1 投影接管不了（[笔记](docs/devices/hisense-vidaa.md)） |
@@ -258,6 +259,7 @@ curl -fsSL https://aerial.qust.me/install.sh | TV=192.168.1.20 bash -s restore
 | 当贝 | 盒子 Max1、H5，哈趣 K2（当贝 OS） | Android 9 | ✅ |
 | 当贝 | H3S 盒子（RK3566） | Android 11 | ⚠️ 固件按主页键时强停第三方 App，Aerial 要 7–12 秒才回来（[#849](https://github.com/pengchujin/aerial-tv/issues/849)） |
 | 当贝 | F3 投影仪 | Android 6 | ❌ 固件不让第三方当桌面，也没有无障碍服务（[#789](https://github.com/pengchujin/aerial-tv/issues/789)） |
+| 中国移动 | CM101s 盒子（Hi3798MV100） | Android 4.4.2 | ✅ Aerial Lite，一行命令安装（[#1052](https://github.com/pengchujin/aerial-tv/issues/1052)） |
 | 坚果 | S621 | Android 13 | ❌ 固件不让写无障碍设置，主页键接管不了（[#793](https://github.com/pengchujin/aerial-tv/issues/793)） |
 | 爱普生 | DTP9733 投影仪 | Android 11 | ✅ |
 | 志影 / 喜瑞 | HS350 投影仪（海思，YunOS） | Android 9 | ⚠️ 固件强停退到后台的第三方 App，从别的 App 按主页键要 10–30 秒才回 Aerial；不是用安装脚本装的要补两条授权（[#853](https://github.com/pengchujin/aerial-tv/issues/853)） |
