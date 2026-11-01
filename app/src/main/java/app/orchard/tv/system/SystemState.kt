@@ -237,6 +237,10 @@ object SystemProbe {
             // Konka V563 (Hi3751V563, Android 9) answers no ACTION_SETTINGS; the reporter opened its
             // settings panel here by component (issue #771).
             Intent(Intent.ACTION_MAIN).setComponent(ComponentName("com.konka.tvsettings", "com.konka.settingcenter.settings.view.MainSettingsActivity")),
+            // Hisense VIDAA_TV (NOVA72691, Android 9): ACTION_SETTINGS goes to AOSP's
+            // com.android.settings (priority 1) over Hisense's own page, which declares it too and
+            // is what the TV's System Settings tile opens (issue #1085, the reporter's adb).
+            Intent(Settings.ACTION_SETTINGS).setComponent(ComponentName("com.android.tv.settings", "com.hisense.systemsettings.MainActivity")),
             Intent(Settings.ACTION_SETTINGS),
             // Konka Android TV 553 (Hi3751V553, Android 5.1.1) has neither of the above: its settings
             // are a second app, opened by component on the TV by the reporter (issue #918).
