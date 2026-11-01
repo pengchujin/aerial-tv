@@ -25,6 +25,13 @@ root 后把 `/system/pcfg/<型号目录>/config/general_config.xml` 里的 `DEFA
 - 遥控器信号源键：固件弹自己的 Quick Panel（`com.coocaa.os.ccosservice/com.coocaa.os.controlcenter.quicksettings.service.FeatureService`），同时把按键交给前台 App。有这个服务时 Aerial 不再响应信号源键，和 TCL 的 `tclInputPanel` 一样。
 - 亮度：`screen_brightness` 一直是 2/255，写它不改背光（画质中间件管）；`ACTION_DISPLAY_SETTINGS` 也解析不到。图像侧栏是启动 `com.skyworth.setting/.service.HalfScreenService`、带 `Key = "android.settings.PICTURE_SETTINGS"`（导出、无权限）。有这个服务时控制中心不画亮度滑条，改成打开它。两个包都要写进 `<queries>`。
 
+## 75A7D 开机先出酷开桌面：bootintent.xml 的 modelhome（#894，报告人实测，未合入）
+
+8R134_A7D（固件 `RP1A.200720.011` / `eng.www-da.20231205.132148`，Android 11，SELinux **permissive**）开机先出酷开桌面 3–6 秒。报告人查到原因：`services.jar` 在解析 HOME 之前按 `/system/ccos/etc/bootintent.xml` 选开机首页，其中 `modelhome` 一项在 `persist.service.model.pkg` / `persist.service.model.cls` 都非空时直接启动它们指向的组件；`com.tianci.system` 每次开机约 24 秒时把这两个属性清空。
+
+- 手动 `setprop` 这两个属性只管下一次开机。报告人的改法是 Aerial 每次开机后 30 秒用 `/system/bin/setprop` 写回（只在 bootintent.xml 有这一项时；enforcing 的固件写不进去），实测断电、重启都直接进 Aerial。
+- 没有合进 Aerial：要由 App 写固件的开机属性，卸载 Aerial 后下一次开机会指向不存在的组件，固件怎么处理没验证；`restore.sh` 也还不会清这两个属性。要不要做由户主决定。
+
 ## 75A7D 的信号源接口
 
 2026-10-24，报告人在 75A7D（`8R134_A7D`，RTD2885N，酷开 CCOS 9.0 / Android 11）上实测：
@@ -46,7 +53,27 @@ root 后把 `/system/pcfg/<型号目录>/config/general_config.xml` 里的 `DEFA
 - 9S52_Q4A（Android 6）：开机时固件按组件拉起 `com.tianci.movieplatform/com.ccos.cooui.movieplatform.MainActivity`（intent 带私有类别 `android.intent.category.HOME.CC`），Aerial 约 1.8 秒后接管（#397）。1.43 的 standard 版声明了 `HOME.CC`，是否能让固件开机直接选 Aerial 还没验证。
 - 8R734_Q7H（titanite，Android 13）：和 8R710 一样，Aerial 拿不到窗口焦点，5 秒后 ANR 被杀（#421）。目前没有办法。
 - 70A9（7S70_A9，MStar m7221，Android 8，低内存）：`TvInputManager` 没有输入，信号源走 `com.skyworth.tv.sdk.provider`（查询必须带 projection，`displayName` 是实时的，HDMI 从 0 编号，AV、VOD 是 -1）；遥控器「信号源」键被固件截走，打开原桌面；待机唤醒先经过 `com.tianci.system/...WakeLockActivity` 10–12 秒再到 Aerial（#461）。
-- 7AA46_H5D、8A002_H5D（T963，Android 9）：Aerial 在前台、守护过滤按键时，音量键的抬起到不了守护，1.41–1.46 按一下音量就一直加到 100 或减到 0（#448 #451），1.47 修了。把 Aerial 设为默认桌面（`cmd package set-home-activity`）后守护不过滤按键，音量正常，开机和主页键也正常（#449）。
+- 7AA46_H5D、8A002_H5D（T963，Android 9）：Aerial 在前台、守护过滤按键时，音量键的抬起到不了守护，1.41–1.46 按一下音量就一直加到 100 或减到 0（#448 #451），1.47 修了（后来又出现，见下面「音量键连冲」）。把 Aerial 设为默认桌面（`cmd package set-home-activity`）后守护不过滤按键，音量正常，开机和主页键也正常（#449）。
 - 酷开 aigc 系（C10 投影仪 3H352_C10 Android 9 #487、P60 Android 11、7T863_N6E Android 10 #106）：主页键在 WindowManager 里变成创维热键广播，`com.tianci.system` 的 SLauncher 按组件拉起 `com.coocaa.aigc.home/.home.rootpage.HomeActivity`，不走 HOME 解析；这个桌面不声明任何 Home 类别。1.48 起守护把它算原桌面（未在真机验证）。7T863_N6E 上改 `persist.service.model.pkg/.cls`（加上 `homepage.*`）后主页键进 Aerial，但每次开机被固件写回。
 - 8R145_P3DM（Android 11）：`SkyProcManager` 会强停「不可见的非系统应用」，从 Aerial 打开别的 App 后 Aerial 就被杀，这时按主页键先到酷开桌面，等复活约 20–30 秒才回 Aerial（#106 的日志）。目前没有办法。
 - 创维/酷开 Whaley 55D2UK（helios，MStar，Android 5.0.2，arm64）：standard 版能装能接管，原桌面 `com.helios.guide` priority 1，设不成默认桌面，靠守护（主页键约 4 秒、先闪原桌面）；信号源走微鲸的 `com.whaley.tv.tvplayer.ui/.RootActivity`；亮度 `screen_brightness` 可调（#457）。
+
+- 5S09_A3（Tianci，MStar maserati，Android 6，#895，报告人在电视前核对）：`screen_brightness` 能写、`mActualBacklight` 跟着变，但面板亮度不变；背光在 `com.tianci.setting/.activity.PictureSoundSetting`（图像与声音）里，酷开自己调背光时 Settings 不变。没有 `com.skyworth.setting`。1.71 起 devices.json 标 `ignoresScreenBrightness`，亮度按钮打开这个页面。信号源：TvInputManager 为空，控制中心「信号源」打开 `coocaa.intent.action.SOURCE_DIALOG` 能切；切换由 `com.tianci.tv/.SkyLauncher` 带 extras 完成，报告人试的 `source`/`sourceIndex`/`inputSource`/`index` 都不行；HDMI 1 = 23，HDMI 2 = 24。
+- C10 投影（3H352_C10，Android 9，#915）：遥控器「对焦」（扫描码 742，KeyCode 1116 `QUICK_START6`）和「设置」（176）的按下被 `com.cvte.tv.hotkey` 消费，只把抬起给 App。1.71 起屏保收到没有按下的抬起也退出。
+
+## 飞利浦 50PUF6192/T3（创维代工，海思 Hi3751V553，安卓 5.1，#1038）
+
+遥控器关机走海思的 BlackScreen 待机，再开机时固件清空 `enabled_accessibility_services`，并连着强停 Aerial 两次（`is not system and isn't Visibility kill`，再由 `com.tianci.system` 深度清理），日志 `hisi is force killing, no way to start: app.orchard.tv`，这次开机内系统不再拉起它，回到酷开。`adb reboot` 开机正常。App 改不了。
+
+## 音量键连冲（#937 8R134_A7D、#1091 8R145_P3DM，Realtek RTD2885N，安卓 11；#1058 8A002_A3，T963，安卓 9）
+
+1.76 上按一下音量键，音量一路到 100 或 0，反方向键打断不了，按返回才停。三份诊断里 Aerial 自己的按键日志一样：`KEYCODE_VOLUME_UP down #0`，0.5 秒后 `#1`，之后每 50 ms 一次 `#2 #3 …`，一直没有 `up`，直到别的键按下。也就是守护开着按键过滤时，音量键的抬起没到 Aerial 窗口，系统一直补「还按着」，每次经 PhoneWindow 交给 MediaSessionService（`dispatchVolumeKeyEvent pkg=app.orchard.tv`），酷开的 `ccSystem` 每次调一格。关掉守护（#460 的对照、#937 评论里 7R301 的用户）或把 Aerial 设成默认桌面（#449，守护不再过滤）就正常。
+
+2026-11-01 起（未发版时写）：守护在 `takeVolumeKey` 记下看到的抬起，`MainActivity` 丢掉抬起之后还在连发的音量键；按下 / 抬起都写进诊断。没有创维真机验证。如果诊断里守护也只有 `down` 没有 `up`，说明抬起在过滤之前就被固件吃掉了，这个办法不够，要再想。
+
+## 开机属性 `persist.service.model.*`（#1046 7AA49_D4 T963 安卓 9，#1096 65G650P / #1069 7S77_V40 sky848_9s60 安卓 8.0）
+
+- 固件开机按 `persist.service.model.pkg / .cls` 直接启动组件；7S77_V40 上只改 `persist.service.homepage.*` 反而让 Aerial 被反复强停（#1069 实验 6）；65G650P 上清空 `model.*` 后固件写回 `com.tianci.movieplatform`。
+- 7AA49_D4：第三方 App 能执行 `setprop` 写这几个属性；`adb install -r` 后酷开清掉本包的无障碍登记；`com.coocaa.*` 包名会被 SkyProcManager 放过。
+- 65G650P：第三方收不到 `BOOT_COMPLETED`；`pm install` 报 `INSTALL_FAILED_USER_RESTRICTED`，要用 `cmd package install-create/write/commit` 会话装；`cmd notification allow_listener` 报 No shell command implementation，用 `settings put secure enabled_notification_listeners`。
+- 报告人的办法是改包名或多装一个「壳」App 占住 `model.*`，都和原则冲突（只装 Aerial 自己、不冒充厂商包名），Aerial 不做。

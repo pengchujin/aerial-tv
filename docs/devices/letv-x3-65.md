@@ -50,3 +50,12 @@ standard/guard 版、改不改包名都一样；强杀还会清空无障碍绑�
 改包名后完全稳定——两代 EUI 的内存管理器放行规则不同。
 
 卸载还原：`pm uninstall com.stv.tvhome`
+
+## 超3 X55（X3-55）的信号源（#818 #998）
+
+同代的 X3-55（MStar monaco / guava，安卓 5.0.1，两位用户）没有 `tv_input` 服务（`service check tv_input` 为 not found，`service list` 里只有 MStar 的 `com.mstar.android.tv.ITvService`），Aerial 一个信号源都列不出。乐视自己的 `com.stv.signalsourcemanager/.MainActivity` 用 `am start` 能直接切到信号源画面，但只回到上次用的口，`sourceId` 之类参数不认（三张截图逐字节对比）。main 上（未发版）控制中心「信号源」在没有信号源时打开它（`SystemProbe.openInputPicker` 最后一条，Lite 同），没有真机验证。按主页键时 EUI 自己会拉起桌面和这个信号源应用，和守护抢（见上文），这次没改。
+
+## 超4 X4-50 / X4-75（安卓 6.0 eUI）
+
+- **应用内升级后守护要等约 1 分钟才回来**（X4-75，#1021）：固件在 Aerial 退到后台时就强停它（打开系统安装器那一刻），装好新版后应用仍是「已停止」，安卓不给已停止的应用发 `MY_PACKAGE_REPLACED`，只能等同步服务复活（安卓 5.0 模拟器上模拟强停 + 覆盖安装，60 秒回来）。App 改不了；更新后从应用列表打开一次 Aerial 即可。这台 `settings get secure enabled_accessibility_services` 读出来是空的，守护其实已绑定，以 `dumpsys accessibility` 为准。
+- **退出最后一个 App 后黑屏**（X4-50，#1023）：固件不拉起任何桌面，`mCurrentFocus=null`。守护重新开启后问用量统计，原来只看最后一次「移到前台」，把已退出的 App 当成还在前台。main 上改成看它之后的「移到后台」（`UsageFront`），未在真机验证。这台的用量统计也会报一个早就不在前台的 App（`com.chinasoul.bt`），不可全信。

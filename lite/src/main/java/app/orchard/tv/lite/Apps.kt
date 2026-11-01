@@ -67,6 +67,7 @@ object AppCatalog {
     private val UNLISTED_ENTRIES = listOf(
         ComponentName("com.xiaomi.mitv.mediaexplorer", "com.xiaomi.mitv.mediaexplorer.NewScraperMainEntryActivity"),
         ComponentName("com.xiaomi.smarthome.tv", "com.xiaomi.smarthome.tv.ui.MainActivity"),
+        ComponentName("com.sony.dtv.searchapp", "com.ktcp.aiagent.xwability.activity.VoipHomeActivity"), // #1074
     )
 
     /** Firmware apps drawn as Aerial's own tiles, by package, as in the full app. */
@@ -193,7 +194,7 @@ object AppCatalog {
         val component = ComponentName(pkg, info.name)
         val fw = faceW
         val fh = faceH
-        val key = "v2|$stamp|$fw|$fh"
+        val key = "v3|$stamp|$fw|$fh"
         val file = File(dir, "$pkg.png")
         val cached = index.getString(pkg, null)
         if (cached != null && cached.startsWith("$key|") && file.exists()) {

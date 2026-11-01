@@ -12,6 +12,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
@@ -33,6 +34,7 @@ import app.orchard.tv.wallpaper.Wallpapers
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
@@ -96,6 +98,8 @@ fun VideoWallpaper(
 
                 override fun onPlayerError(error: PlaybackException) {
                     DiagLog.i("video wallpaper failed (${error.errorCodeName})")
+                    // Behind an app or a screensaver the decoder is theirs: no retry.
+                    if (!keepNow) return
                     // One film this TV cannot decode; the others may still play.
                     if (mediaItemCount > 1) {
                         removeMediaItem(currentMediaItemIndex)
@@ -120,7 +124,17 @@ fun VideoWallpaper(
         sampleGlass({ player }, canTake = { copyGlassPossible }) { surface?.let { copyGlass(it) } }
     }
 
-    LaunchedEffect(play) {
+    // Let go as Aerial stops, not at the next frame, which does not come then (rememberStops).
+    val scope = rememberCoroutineScope()
+    val stops = rememberStops {
+        if (player == null) return@rememberStops false
+        DiagLog.i("video wallpaper lets go as Aerial stops")
+        release()
+        scope.launch { cover.snapTo(0f) }
+        true
+    }
+
+    LaunchedEffect(play, stops) {
         if (play) {
             val p = player ?: open()?.also { player = it } ?: return@LaunchedEffect
             DiagLog.i("video wallpaper starts (${p.currentMediaItem?.mediaId} at ${p.currentPosition} ms, idle $idle)")

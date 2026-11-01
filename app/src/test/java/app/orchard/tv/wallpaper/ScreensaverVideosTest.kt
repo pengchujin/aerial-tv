@@ -96,4 +96,17 @@ class ScreensaverVideosTest {
         assertTrue(photo.exists())
         assertFalse(ScreensaverVideos.delete(context, film.name))
     }
+
+    @Test
+    fun longTitleKeepsItsExtension() {
+        val title = ScreensaverVideos.titleOf("C:\\films\\" + "a".repeat(200) + ".MP4")
+        assertEquals(120, title!!.length)
+        assertTrue(title.endsWith(".MP4"))
+        assertEquals("trip.mov", ScreensaverVideos.titleOf("/sdcard/trip.mov"))
+        assertNull(ScreensaverVideos.titleOf("photo.jpg"))
+        assertNull(ScreensaverVideos.titleOf("noextension"))
+        // Not cut through a surrogate pair.
+        val emoji = "a".repeat(115) + "\uD83C\uDF04" + ".mp4"
+        assertEquals("a".repeat(115) + ".mp4", ScreensaverVideos.titleOf(emoji))
+    }
 }

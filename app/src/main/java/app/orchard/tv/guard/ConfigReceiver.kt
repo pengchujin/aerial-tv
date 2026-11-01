@@ -33,6 +33,8 @@ import kotlinx.coroutines.launch
  *   ... --ez check_update true      (look for a new version now, not within three hours)
  *   ... --ez update_test true       ("Download and Install" takes files/update-test.apk instead,
  *                                   until Aerial restarts; for trying an update before a release)
+ *   ... --ez update_test_self true  (the same with the APK Aerial runs from: a reinstall, for TVs whose
+ *                                   shell cannot write Android/data, as TCL MT5879's)
  * The manifest requires the sender to hold WRITE_SECURE_SETTINGS, which the ADB shell has and
  * ordinary apps cannot get, so no other app on the TV can flip these.
  */
@@ -125,6 +127,9 @@ class ConfigReceiver : BroadcastReceiver() {
                 java.io.File(context.getExternalFilesDir(null) ?: context.filesDir, "update-test.apk")
             } else null
         }
+        if (intent.getBooleanExtra("update_test_self", false)) Updates.testApk = java.io.File(context.applicationInfo.sourceDir)
+        // ... --ez self_compile true   (reinstall the running APK with its dex metadata now, SelfCompile)
+        if (intent.getBooleanExtra("self_compile", false)) app.orchard.tv.update.SelfCompile.runNow(context)
         if (intent.getBooleanExtra("check_update", false)) {
             Updates.init(context)
             Updates.checkIfStale(force = true)

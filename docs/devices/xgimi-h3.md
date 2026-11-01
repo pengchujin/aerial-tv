@@ -29,3 +29,7 @@ Z7X 笔记里的黑屏个例、长按 Home 和 logcat 限制，这次没有单�
 ## 信号源
 
 H3 和 [Z6X 第四代 XK03U](xgimi-xk03u-android8.md) 是同一平台（`ironman` / m7221 / Android 8）。XK03U 的信号源适配（从 `GimiConfigManager` 读真实 HDMI 口、用 `com.xgimi.xhplayer/.InputActivity` 打开）按功能检测，H3 上如果也有这两样就会自动生效；还没有在 H3 上实测。
+
+## H3S：设成默认桌面后开机黑屏（#942，未复现）
+
+2026-10-30 一位用户报告：原版极米 H3S（系统 V6.12.61，Android 9）用 Aerial 1.70 设成默认桌面（极米桌面 `com.xgimi.home` 仍装着、启用）后重启，开机画面之后黑屏，主页键、设置键无效，ADB 5555 连不上，两次都只能刷机恢复。没有日志，原因不明。在弄清楚之前，H3S 上不要把 Aerial 设成默认桌面，只当普通 App 或靠守护接管；如果有人愿意再试，先确认 ADB 在黑屏时还能连（有线 / USB），以便还原。

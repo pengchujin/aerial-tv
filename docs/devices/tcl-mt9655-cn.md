@@ -75,7 +75,7 @@ HTTP 服务日志里完全没有来自电视的请求（本机 macOS 防火墙�
 
 ## 仍未解决
 
-无障碍入口被固件删除 ⇒ 无法手动开启「Aerial 桌面守护」；ADB 又是 TLS-only 且无授权通道 ⇒ 死锁。
+无障碍入口被固件删除 ⇒ 无法手动开启「Aerial 桌面守护」；无线 ADB 是 TLS-only 且没有配对入口，只能先走有线 adb 授权（见下面「用户找到的办法」）。
 现状：Aerial 只能当普通 App 用（点图标进，按 HOME 回 TCL 桌面）。
 
 已试过且**无效**的手段（避免重复排查）：
@@ -89,6 +89,8 @@ HTTP 服务日志里完全没有来自电视的请求（本机 macOS 防火墙�
 ## 用户找到的办法：有线 adb（2026-10，#52 #588）
 
 - 鹤 6 Ultra（Android 14）上几位用 **USB A 对 A 线**把电视的 USB 口接到电脑，先走有线 adb，电视上能弹出授权；授权后无线 adb 也能用（断电后要重新接线）。
+- 接口有讲究（cleanyourtv 的 `docs/devices/tcl-mt9655-cn-android14.md`，MT9655_4K_CN，2026-10-21 实测）：电脑那头插 **USB 3.0** 口，电视那头插 **USB 2.0** 口；ADB 开关要一直开着。电视插错口或用了只能充电的线，电脑上什么设备都不出现，很容易误判成「没有 USB ADB」。Windows 上能识别出 `USB\VID_18D1&PID_4EE7`。授权后执行 `adb tcpip 5555`，重启后要重新接线再执行一次。
+- 安装策略可以直接读出来：`content query --uri content://com.tcl.providers.config/all | grep InstallConfig`。`launcherStrategy` 开着、名单为空时，带 HOME 的包会被拒，只能装 `guard` 版。这一行 shell 改不了（`content update` 返回 0，不生效）。
 - 有了 adb，部分固件的无障碍仍然打不开（设置写进去不生效），守护起不来，只能当普通 App 用。
 - #588 停用「软件包安装程序」后装上 standard 版并设成默认桌面，主页键能回 Aerial，开机仍先进原桌面。**停用安装程序有变砖风险，装完必须马上启用**，官方流程不推荐。
 
@@ -111,3 +113,13 @@ TCL Q10L（MT9655，1.67-guard，2026-10-28 报告人实测）：Aerial 的 4K �
 ## 75T7M Pro（MT9655，Android 14）：守护开不起来（#829）
 
 诊断里 `enabled_accessibility_services = null`，`appops` 有 `ACCESS_RESTRICTED_SETTINGS: deny`（APK 是用文件装的）。先 `adb shell appops set app.orchard.tv ACCESS_RESTRICTED_SETTINGS allow` 再打开 Aerial，看守护能不能留住；留不住就和雷鸟 T966D5 一样，是固件定时清掉第三方无障碍（见 [ffalcon-t966d5.md](ffalcon-t966d5.md)）。待报告人确认。
+
+## 75T7L Pro（MT9655，Android 14）：standard 当默认桌面（#983）
+
+报告人的 75T7L Pro（`tcl9655_cn_an64-user 14 UTT2.240216.001 AU01`，无 root）上 standard 1.72 是默认桌面，主页键和开机都直接是 Aerial，没有 TCL 桌面闪现：
+
+- `cmd role add-role-holder android.app.role.HOME app.orchard.tv` 和 `cmd package set-home-activity` 都可用，`resolve-activity -c HOME` 解析到 `app.orchard.tv/.MainActivity`。
+- 开机进 Aerial：`settings put system boot_app_componentname app.orchard.tv/.MainActivity`。日志里 `TclBootAppPolicy: boot launcher, just use native process`，TCL 的开机钩子让位。（MT5879 上同样的设置无效，雷鸟 T966D5 上有效。）
+- 屏保：`--ez own_screensaver true` 有效，否则 TCL 每次开机把屏保改回自带的。
+- 应用内更新原来被拒：`W/verifier: fetch signature info from :app.orchard.tv`，接着 `metaData is null,so return false`，`INSTALL_FAILED_VERIFICATION_FAILURE`。签名比的是当前默认桌面（Aerial 自己），能过，只差 `com.tcl.app.type = com.tcl.ui`（逻辑见 [tcl-mt5879-cn.md](tcl-mt5879-cn.md)「安装限制」）。下一版 standard 带上了它，待报告人确认更新能走通。
+

@@ -48,6 +48,7 @@ import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import app.orchard.tv.ui.components.smoothBackground
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -102,6 +103,7 @@ import app.orchard.tv.ui.theme.LocalReducedMotion
 import app.orchard.tv.ui.theme.Motion
 import app.orchard.tv.ui.theme.Palette
 import app.orchard.tv.ui.theme.Type
+import app.orchard.tv.update.SelfCompile
 import app.orchard.tv.update.Updates
 import app.orchard.tv.wallpaper.PhoneServer
 import java.time.LocalDateTime
@@ -132,6 +134,11 @@ fun ControlCenter(
     }
 
     LaunchedEffect(visible) { if (visible) Updates.checkIfStale(maxAgeMs = Updates.CONTROL_CENTER_MAX_AGE_MS) }
+    // Whether Aerial is the default home, read again each time the panel opens. Recreated after a
+    // standby kill, Aerial kept the "not the default home screen" it read while the firmware was
+    // still waking, and the activity's polling (MainActivity) never ran: Xiaomi MiTV-AZFP0,
+    // Android 9, whose log showed onCreate but no onStart for that instance (issue #892).
+    LaunchedEffect(visible) { if (visible) vm.refreshPanel() }
 
     AnimatedVisibility(
         visible = visible,
@@ -271,7 +278,12 @@ private fun MainPage(vm: HomeViewModel, now: LocalDateTime, takeFocus: Boolean, 
                 Glyph.Gear, stringResource(R.string.cc_settings),
                 focusRequester = settingsFocus,
                 modifier = Modifier.onFocusChanged { if (it.isFocused) cameFrom = settingsFocus },
-            ) { vm.whenUnlocked { onOpen(SystemProbe.settingsIntent(context)) } }
+            ) {
+                vm.whenUnlocked {
+                    LaunchFallback.arm(SystemProbe.settingsFallbacks(context))
+                    onOpen(SystemProbe.settingsIntent(context))
+                }
+            }
         }
 
         Spacer(Modifier.height(12.dp))
@@ -301,6 +313,13 @@ private fun MainPage(vm: HomeViewModel, now: LocalDateTime, takeFocus: Boolean, 
                 stringResource(R.string.cc_update_available, latest),
                 onClick = { vm.overlay = Overlay.ControlCenter(CcPage.Update) },
             )
+        }
+
+        // Android 9 to 11, Aerial running uncompiled: reinstalling itself has the system compile it,
+        // which needs the owner's confirmation there (SelfCompile; 12+ does it by itself).
+        LaunchedEffect(Unit) { SelfCompile.recheck(context) }
+        if (SelfCompile.offered) {
+            MenuRow(Glyph.Download, stringResource(R.string.cc_self_compile), onClick = { SelfCompile.run(context, auto = false) })
         }
 
         // Installed from the APK alone: how to finish, on the TV or with a computer.
@@ -384,7 +403,7 @@ private fun UpdatePage(vm: HomeViewModel, takeFocus: Boolean) {
             BasicText(status, style = Type.Caption)
             Spacer(Modifier.height(16.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(104.dp).clip(RoundedCornerShape(12.dp)).background(Color.White).padding(8.dp)) {
+                Box(Modifier.size(104.dp).smoothBackground(Color.White, 12.dp).padding(8.dp)) {
                     qr?.let { Image(it, contentDescription = null, contentScale = ContentScale.Fit, filterQuality = FilterQuality.None, modifier = Modifier.fillMaxSize()) }
                 }
                 Spacer(Modifier.width(16.dp))
@@ -429,7 +448,7 @@ private fun SetupPage(vm: HomeViewModel, takeFocus: Boolean, onOpen: (android.co
         home?.let { MenuRow(Glyph.Check, stringResource(R.string.cc_setup_home), onClick = { vm.whenUnlocked { onOpen(it) } }, trailing = "›") }
         revival?.let { MenuRow(Glyph.Moon, stringResource(R.string.cc_setup_revival), onClick = { vm.whenUnlocked { onOpen(it) } }, trailing = stringResource(R.string.cc_setup_revival_where) + " ›") }
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 14.dp, end = 14.dp, top = 14.dp)) {
-            Box(Modifier.size(104.dp).clip(RoundedCornerShape(12.dp)).background(Color.White).padding(8.dp)) {
+            Box(Modifier.size(104.dp).smoothBackground(Color.White, 12.dp).padding(8.dp)) {
                 qr?.let { Image(it, contentDescription = null, contentScale = ContentScale.Fit, filterQuality = FilterQuality.None, modifier = Modifier.fillMaxSize()) }
             }
             Spacer(Modifier.width(16.dp))
@@ -519,7 +538,7 @@ private fun SliderRow(
                         while (travelled <= -pitch) { step(-1); travelled += pitch }
                     }
                 }
-                .clip(RoundedCornerShape(14.dp)).background(bg).height(40.dp).padding(horizontal = 14.dp),
+                .smoothBackground(bg, 14.dp).height(40.dp).padding(horizontal = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
@@ -706,7 +725,7 @@ private fun ChoiceRow(text: String, selected: Boolean, focusRequester: FocusRequ
         val bg by animateColorAsState(if (state.focused) Palette.Focus else Color.Transparent, tween(140, easing = Motion.EaseOut), label = "choice-bg")
         val fg = if (state.focused) Palette.OnFocus else Palette.Label
         Row(
-            Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(bg).height(44.dp).padding(horizontal = 14.dp),
+            Modifier.fillMaxWidth().smoothBackground(bg, 12.dp).height(44.dp).padding(horizontal = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             BasicText(text, style = Type.Body.copy(color = fg), modifier = Modifier.weight(1f))

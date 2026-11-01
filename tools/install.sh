@@ -12,6 +12,7 @@
 # (and python3 on TCL TVs).
 #   BUILD=1        build it from this checkout instead (JDK 17 + Android SDK)
 #   APK_FILE=<apk> install this file instead
+#   STAY_CONNECTED=1  stay connected to the TV afterwards (otherwise adb lets go of it at the end)
 #
 # Takeover, gentlest first. Nothing is uninstalled or disabled:
 #   1. Ask Android: HOME role / preferred home activity. Works on stock Android TV and Google TV.
@@ -46,6 +47,12 @@ fi
 
 case "$TV" in *:*) SERIAL="$TV" ;; *) SERIAL="$TV:5555" ;; esac
 export ANDROID_SERIAL="$SERIAL"
+# Let go of the TV at the end unless it was connected before: some TVs take one computer at a time,
+# and the phone apps the owner uses next (甲壳虫 and the like) could not connect until this
+# computer's adb server dropped it (issue #764). STAY_CONNECTED=1 keeps it.
+if [ "${STAY_CONNECTED:-0}" != 1 ] && ! adb devices 2>/dev/null | grep -q "^$SERIAL[[:space:]]"; then
+  trap 'adb disconnect "$SERIAL" >/dev/null 2>&1 || true; [ -n "${MAIN_SERIAL:-}" ] && adb disconnect "$MAIN_SERIAL" >/dev/null 2>&1; true' EXIT
+fi
 adb connect "$SERIAL" >/dev/null
 STATE=$(adb get-state 2>&1 || true)
 if [ "$STATE" != device ]; then
@@ -264,7 +271,12 @@ tcast_install() {
 BEFORE=$(installed_code)
 APK=$(build "$FLAVOR")
 echo "Installing $APK"
-if ! OUT=$(adb install -r "$APK" 2>&1); then
+# Some firmwares exit 0 on a failed install (TCL p331, Android 5.1: "Failure [INSTALL_PARSE_FAILED_
+# INCONSISTENT_CERTIFICATES]" with exit 0, issue #1017), so only "Success" counts.
+# Catch a nonzero exit here so errexit does not skip the fallback and error explanations below.
+RC=0
+OUT=$(adb install -r "$APK" 2>&1) || RC=$?
+if [ "$RC" -ne 0 ] || ! printf '%s\n' "$OUT" | grep -q Success; then
   echo "$OUT" >&2
   case "$OUT" in
     *VERIFICATION_FAILURE*)
@@ -298,6 +310,11 @@ if ! OUT=$(adb install -r "$APK" 2>&1); then
       fi
       [ "$TCAST_OK" = 1 ] || installed_now || { echo "Aerial was not installed; nothing else was changed." >&2; exit 1; }
       FLAVOR=guard
+      ;;
+    *INCONSISTENT_CERTIFICATES*|*UPDATE_INCOMPATIBLE*)
+      echo "The Aerial on this TV is signed with another key (a build of someone else's), so it cannot be updated in place." >&2
+      echo "Uninstall it first (this drops its settings, wallpapers and photos): adb uninstall $PKG" >&2
+      exit 1
       ;;
     *)
       [ "$FLAVOR" = standard ] && echo "This firmware may refuse apps that declare a home screen. Try: TV=$TV $0 guard" >&2
@@ -360,8 +377,14 @@ if [ "$FLAVOR" = standard ]; then
     adb shell setprop persist.vt.use_home_pkg "$PKG"
     echo "Hisense: Home now opens Aerial instead of $VT_HOME."
   fi
-  adb shell cmd role add-role-holder --user 0 android.app.role.HOME "$PKG" >/dev/null 2>&1 \
-    || adb shell cmd package set-home-activity --user 0 "$PKG/.MainActivity" >/dev/null 2>&1 || true
+  # Not on Xiaomi (PatchWall, com.mitv.tvhome installed): most firmwares ignore it, but one Android 9
+  # set took it, PatchWall then ran as an ordinary app outside the home stack, and Xiaomi's short
+  # press of the power key crashed its settings app and never put the TV to sleep (#848). Home
+  # Guard takes over there as everywhere else on Xiaomi.
+  if [ -z "$(adb shell pm path com.mitv.tvhome 2>/dev/null | tr -d '\r')" ]; then
+    adb shell cmd role add-role-holder --user 0 android.app.role.HOME "$PKG" >/dev/null 2>&1 \
+      || adb shell cmd package set-home-activity --user 0 "$PKG/.MainActivity" >/dev/null 2>&1 || true
+  fi
   HOME_NOW=$(resolve_home)
   case "$HOME_NOW" in
     "$PKG"/*)

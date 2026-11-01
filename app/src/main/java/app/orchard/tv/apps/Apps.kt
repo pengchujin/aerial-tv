@@ -115,6 +115,9 @@ object AppCatalog {
     private val UNLISTED_ENTRIES = listOf(
         ComponentName("com.xiaomi.mitv.mediaexplorer", "com.xiaomi.mitv.mediaexplorer.NewScraperMainEntryActivity"), // 高清播放器
         ComponentName("com.xiaomi.smarthome.tv", "com.xiaomi.smarthome.tv.ui.MainActivity"), // 米家
+        // 小微畅聊, Tencent's video calls inside Sony's search app; MAIN only, no category
+        // (BRAVIA XR-75X91L, Android 12, issue #1074, found by the reporter).
+        ComponentName("com.sony.dtv.searchapp", "com.ktcp.aiagent.xwability.activity.VoipHomeActivity"),
     )
 
     /**

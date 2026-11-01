@@ -3,6 +3,7 @@ package app.orchard.tv.system
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.os.SystemClock
 import android.provider.Settings
 import android.util.Log
 import app.orchard.tv.dream.AerialDream
@@ -53,6 +54,43 @@ object SystemScreensaver {
         return runCatching { Settings.System.getLong(resolver, Settings.System.SCREEN_OFF_TIMEOUT) }.getOrNull()
             ?.takeIf { it in 1 until 24 * 60 * 60 * 1000L }
     }
+
+    /**
+     * When Home last asked for Aerial's dream, and when Home's window went away after that (both
+     * elapsed time, -1 for none): how long the screen had nothing to show is measured from there to
+     * the dream's first frame (dreamFirstFrame). Coocaa C10 (Android 9, issue #915) showed the dream
+     * every time, but only after cold-starting SystemUI, with 1.2 to 2.7 s of black after Home went.
+     */
+    @Volatile private var dreamAskedAt = -1L
+    @Volatile private var homeHiddenAt = -1L
+
+    fun noteDreamAsked() {
+        dreamAskedAt = SystemClock.elapsedRealtime()
+        homeHiddenAt = -1L
+    }
+
+    fun forgetDreamAsked() { dreamAskedAt = -1L }
+
+    fun noteHomeHidden() {
+        val asked = dreamAskedAt
+        if (asked >= 0 && homeHiddenAt < 0 && SystemClock.elapsedRealtime() - asked < DREAM_ANSWER_MS) homeHiddenAt = SystemClock.elapsedRealtime()
+    }
+
+    /**
+     * For the screensaver's first frame: how long the screen was black before it, when Home had
+     * asked for the dream a moment ago; null for any other first frame (Home's own screensaver,
+     * the dream the TV started by its own timer).
+     */
+    fun dreamFirstFrame(): Long? {
+        val asked = dreamAskedAt
+        val now = SystemClock.elapsedRealtime()
+        if (asked < 0 || now - asked > DREAM_FRAME_MS) return null
+        dreamAskedAt = -1L
+        return now - (homeHiddenAt.takeIf { it >= 0 } ?: asked)
+    }
+
+    private const val DREAM_ANSWER_MS = 5_000L
+    private const val DREAM_FRAME_MS = 15_000L
 
     /** Starts the TV's dream now, whichever it is; false where that is not possible. */
     fun startDream(context: Context): Boolean {

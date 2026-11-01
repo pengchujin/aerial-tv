@@ -1,5 +1,6 @@
 package app.orchard.tv.ui.components
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.HardwareRenderer
@@ -219,6 +220,7 @@ object UhdCanvas {
      * frames are late, the TV is marked too slow for it. Not measured while forced on, nor in the
      * first seconds, when tiles and pictures load.
      */
+    @RequiresApi(29)
     private class Pace(private val context: Context) {
         private val period = 1e9 / (context.getSystemService(DisplayManager::class.java)
             ?.getDisplay(Display.DEFAULT_DISPLAY)?.refreshRate?.takeIf { it > 0f } ?: 60f)
@@ -282,6 +284,8 @@ class FilmSlot(context: Context) : FrameLayout(context) {
         viewTreeObserver.addOnPreDrawListener(follow)
     }
 
+    // host is only ever a Host, which exists on Android 10+ only.
+    @SuppressLint("NewApi")
     override fun onDetachedFromWindow() {
         host?.let { h ->
             viewTreeObserver.removeOnPreDrawListener(follow)

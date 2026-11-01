@@ -1,5 +1,8 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import java.util.Properties
+import java.util.zip.ZipEntry
+import java.util.zip.ZipFile
+import java.util.zip.ZipOutputStream
 
 plugins {
     id("com.android.application")
@@ -16,8 +19,8 @@ android {
         // Android 5.0. Compose 1.10 and later need 6.0, so the Compose BOM below stays on 1.9.
         minSdk = 21
         targetSdk = 34
-        versionCode = 85
-        versionName = "1.69"
+        versionCode = 99
+        versionName = "1.77"
         buildConfigField("boolean", "PREVIEW", "false")
         buildConfigField("boolean", "MANAGED_FORK", "false")
         resValue("string", "revival_account_type", "app.orchard.tv")
@@ -26,6 +29,13 @@ android {
         val diag = project.hasProperty("diag")
         buildConfigField("boolean", "DIAG", diag.toString())
         if (diag) versionNameSuffix = "-diag"
+    }
+
+    // A call newer than minSdk fails the release build (lintVital runs with assembleRelease):
+    // 1.74 shipped Context.getSystemService(Class), Android 6+, in the guard's onServiceConnected,
+    // and the guard crashed on every bind on Android 5 (issues #1010 #1012 #1017 #1018).
+    lint {
+        fatal += "NewApi"
     }
 
     // standard: a normal HOME app. guard: no HOME intent filter at all, for China-market firmwares
@@ -124,4 +134,60 @@ dependencies {
     // Phone setup page (a tiny LAN web server) and the QR code that opens it.
     implementation("org.nanohttpd:nanohttpd:2.3.1")
     implementation("com.google.zxing:core:3.5.3")
+}
+
+/**
+ * Release builds carry their own dex metadata (assets/aerial-dm/28.dm and 31.dm): the in-app update
+ * writes the matching one into its install session beside the APK, and the system then compiles
+ * Aerial with its Baseline Profile as it installs. System installers ignore the profile inside the
+ * APK (assets/dexopt), and the background job that would compile it later needs an idle device,
+ * which a TV that is on never is (Xiaomi MiTV-MFTR0: not once in 8 hours), so without this an
+ * updated Aerial ran uncompiled until the next update (docs/PERF-2026-10-30.md).
+ *
+ * AGP's dex metadata maps API levels to files in dex-metadata-map.properties (28-30: profile format
+ * 010, 31 and up: 015; the wrong one is ignored with "Profile version mismatch"). Xiaomi's Android
+ * 14 refuses a .dm without manifest.json (INSTALL_FAILED_BAD_DEX_METADATA), so one is added.
+ */
+abstract class DexMetadataAssets : DefaultTask() {
+    @get:InputDirectory abstract val dmDir: DirectoryProperty
+    @get:Input abstract val packageName: Property<String>
+    @get:Input abstract val versionCode: Property<Int>
+    @get:OutputDirectory abstract val outputDir: DirectoryProperty
+
+    @TaskAction
+    fun run() {
+        val dir = dmDir.get().asFile
+        val map = Properties().apply { File(dir, "dex-metadata-map.properties").inputStream().use { load(it) } }
+        val out = File(outputDir.get().asFile, "aerial-dm").apply { deleteRecursively(); mkdirs() }
+        val manifest = """{"packageName":"${packageName.get()}","versionCode":${versionCode.get()}}"""
+        for (api in listOf("28", "31")) {
+            val source = File(dir, map.getProperty(api) ?: error("no dex metadata for API $api in $dir"))
+            ZipOutputStream(File(out, "$api.dm").outputStream()).use { zip ->
+                ZipFile(source).use { from ->
+                    for (entry in from.entries()) {
+                        if (entry.name == "manifest.json") continue
+                        zip.putNextEntry(ZipEntry(entry.name))
+                        from.getInputStream(entry).use { it.copyTo(zip) }
+                        zip.closeEntry()
+                    }
+                }
+                zip.putNextEntry(ZipEntry("manifest.json"))
+                zip.write(manifest.toByteArray())
+                zip.closeEntry()
+            }
+        }
+    }
+}
+
+androidComponents {
+    onVariants(selector().withBuildType("release")) { variant ->
+        val name = variant.name.replaceFirstChar { it.uppercase() }
+        val task = tasks.register<DexMetadataAssets>("${variant.name}DexMetadataAssets") {
+            dependsOn("compile${name}ArtProfile")
+            dmDir.set(layout.buildDirectory.dir("intermediates/dex_metadata_directory/${variant.name}/compile${name}ArtProfile"))
+            packageName.set(variant.applicationId)
+            versionCode.set(variant.outputs.single().versionCode.map { it ?: 0 })
+        }
+        variant.sources.assets?.addGeneratedSourceDirectory(task, DexMetadataAssets::outputDir)
+    }
 }

@@ -48,7 +48,9 @@ internal object KonkaSources {
                     id = "konka:${source.name}",
                     label = label,
                     kind = kind,
-                    connected = source in connected,
+                    // Before Android 6 the list is not what is plugged in: Konka 553 (Hi3751V553,
+                    // Android 5.1.1) named only HDMI 1, with nothing in any port (issue #918).
+                    connected = android.os.Build.VERSION.SDK_INT >= 23 && source in connected,
                     deviceName = null,
                     // RootActivity expects the public Konka enum ordinal, not its chipset source id.
                     // A new task each time: with its task still there, Android only brought it

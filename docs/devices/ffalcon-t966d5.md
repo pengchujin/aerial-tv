@@ -24,3 +24,16 @@ adb shell settings put system boot_app_componentname com.tcl.cyberui/.MainActivi
 ```
 
 报告人连续重启 3 次，开机 26 秒内前台都是 Aerial，之后没被打回。主页键仍然回 TCL 桌面（守护被清）。
+
+## 雷鸟鹤 6 Ultra 2027 款 85 英寸（同为 T966D5 / AU01，#885）
+
+报告人 2026-10-29 用 1.69 standard 跑完 `selftest.sh STANDBY=1 REBOOT=1 INPUTS=1`，全部通过：
+
+- Aerial 是默认 HOME（`role holder: app.orchard.tv`，`resolve-activity` 解析到 Aerial），守护绑着，**没有**出现上面每 52 秒被清的情况。主页键从 App 回来 0.9 秒，待机唤醒 0.7 秒，重启后 2 秒采样就是 Aerial。
+- 信号源 7 个（HDMI 1–4 = HW15–18、TV = HW2、AV = HW3、USB）都走 `com.tcl.tv/.TVActivity`（USB 走媒体中心），报告人确认画面对应正确，不用设备配置。
+- 安装：普通 `adb install` 同样被拒；报告人临时改了 TCL 的桌面安装校验，用多屏互动推送装上后又改回了原样（细节在 #885，我们没有验证，也不建议照做）。
+- 和 #817 那台差在哪里没查清：同一个 device 和固件号，一台能当默认 HOME、一台守护被清。单台结果，长期是否稳定没有验证。
+
+## 信号源编号：用系统登记的硬件编号（#792）
+
+TCL Q9L Pro（安卓 14）和这台一样，系统登记 HDMI 1–4 = HW15–18、TV = HW2、AV = HW3，但没有 Activity 接标准的 passthrough 意图。Aerial 原来给 `com.tcl.tv/.TVActivity` 带 MT5879 的编号（HDMI 1–4 = 8–11），Q9L Pro 上 TCL 底层报 `thal_tvinput_get_info: devicde_id:0 is invalid`、无信号；报告人用 adb 试出 `--ei targetSourceId 15–18` 能切到 HDMI 1–4。TV、AV 的 2、3 和 MT5879 一致，所以 `targetSourceId` 就是硬件编号。2026-11-01 起系统登记了的输入一律用硬件编号，没登记的（MT5879）照旧。TCL 75Q10L（MT9655，安卓 14，#1107）同样是 HW15–18，报告人用 16–18 切到了 HDMI 2–4；那台装了 Solid Explorer，它能「解析」passthrough 的 `content://` 意图（按 provider 的 cursor 类型），磁贴就打开了文件管理器。所以 `com.tcl.tvinput` 的输入先走 TCL 播放器，再轮到通用意图。**本页 #885 那台报过 8–11 能切，这次改成 15–18 后没有复测**，发版后要请 T966D5 的用户确认。

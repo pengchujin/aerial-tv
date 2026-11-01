@@ -111,6 +111,7 @@
     <string name="ss_quality_hd">1080p</string>
     <string name="ss_quality_uhd">4K</string>
     <string name="ss_quality_dv">4K Dolby Vision</string>
+    <string name="ss_aerial_keeps">Aerial зберігає на телевізорі %2$d останні фільми (до %1$s); шпалери й заставка показують їх по черзі, щодня додається новий. У заставці вправо — новий фільм, вліво — попередній.</string>
     <string name="st_focus_style">Стиль фокуса</string>
     <string name="st_home_layout">Головний екран</string>
     <string name="st_layout">Розкладка</string>
@@ -188,6 +189,7 @@
     <string name="cc_update_failed_blocked">Цей телевізор не дозволяє застосункам встановлювати інші застосунки. Оновіться командою нижче.</string>
     <string name="cc_update_failed_signature">Aerial на цьому телевізорі підписаний інакше, ніж офіційний, тому оновити його поверх неможливо.</string>
     <string name="cc_update_failed_older">Новішої версії на сайті ще немає. Повторіть спробу пізніше.</string>
+    <string name="cc_self_compile">Зробити Aerial плавнішим</string>
     <string name="st_pin">Батьківський PIN-код</string>
     <string name="st_pin_off">Вимк.</string>
     <string name="st_pin_on">Увімк.</string>

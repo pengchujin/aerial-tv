@@ -12,7 +12,6 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -34,6 +33,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.withFrameNanos
@@ -44,8 +44,12 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.FilterQuality
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asAndroidBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.layout.layout
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.LocalDensity
@@ -66,11 +70,16 @@ import app.orchard.tv.ui.components.consumeTaps
 import app.orchard.tv.ui.components.dismissOnTap
 import app.orchard.tv.ui.components.liquidGlass
 import app.orchard.tv.settings.AerialSettings
+import app.orchard.tv.ui.components.smoothBackground
+import app.orchard.tv.ui.components.smoothBorder
+import app.orchard.tv.ui.components.smoothCut
 import app.orchard.tv.ui.theme.Glyph
 import app.orchard.tv.ui.theme.GlyphIcon
 import app.orchard.tv.ui.theme.Motion
 import app.orchard.tv.ui.theme.Palette
 import app.orchard.tv.ui.theme.Type
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlin.math.roundToInt
 
 /** Keeps the last non-null value, so an overlay still has its content while it animates out. */
@@ -105,8 +114,7 @@ fun MenuRow(
         Row(
             Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
-                .background(bg)
+                .smoothBackground(bg, 12.dp)
                 .height(44.dp)
                 .padding(horizontal = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -310,15 +318,27 @@ fun AppMenu(
     }
 }
 
+private val MiniCorner = 10.dp
+
 /** A small, flat copy of a tile for lists. */
 @Composable
 fun MiniTile(app: AppEntry, focused: Boolean, modifier: Modifier = Modifier) {
+    // As AppTile: the artwork cut to the continuous outline once, in the background, and until then
+    // drawn as it is inside the layer's plain rounded clip, which holds the outline.
+    var px by remember { mutableStateOf(IntSize.Zero) }
+    val corner = with(LocalDensity.current) { MiniCorner.toPx() }
+    val face by produceState<ImageBitmap?>(null, app.art.back, px) {
+        if (px.width > 0 && px.height > 0) {
+            value = withContext(Dispatchers.Default) { smoothCut(app.art.back.asAndroidBitmap(), px.width, px.height, corner).asImageBitmap() }
+        }
+    }
     Canvas(
         modifier
-            .clip(RoundedCornerShape(10.dp))
-            .border(if (focused) 2.dp else 1.dp, if (focused) Palette.Focus else Palette.Hairline, RoundedCornerShape(10.dp)),
+            .onSizeChanged { px = it }
+            .clip(RoundedCornerShape(MiniCorner))
+            .smoothBorder(if (focused) 2.dp else 1.dp, if (focused) Palette.Focus else Palette.Hairline, MiniCorner),
     ) {
-        drawImage(app.art.back, dstSize = IntSize(size.width.roundToInt(), size.height.roundToInt()), filterQuality = FilterQuality.Medium)
+        drawImage(face ?: app.art.back, dstSize = IntSize(size.width.roundToInt(), size.height.roundToInt()), filterQuality = FilterQuality.Medium)
         app.art.fore?.let {
             val at = app.art.foreAt
             drawImage(

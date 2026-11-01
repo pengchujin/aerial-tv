@@ -140,3 +140,7 @@ adb install -r -g Aerial-<版本>-oppo.apk
 - 装第二个「桌面」应用会清掉默认桌面的选择。装完把默认桌面指回 Aerial：
   `adb shell cmd package set-home-activity com.oneplus.tv.launcher2/app.orchard.tv.MainActivity`。
   这台机器的设置里也有「设置主屏幕」一项，可以当开关用。
+
+## 「原桌面」误开工厂模式（#1028，OPPOCNM632，m7332）
+
+CVTE 代工固件里的工厂测试 `com.cvte.factory.at/.job.StartActivity` 声明了 `android.intent.category.CVTE_AT_HOME`，守护按「以 `_HOME` 结尾的类别是厂商桌面」把它算进原桌面，点「原桌面」磁贴就进了工厂模式（左上角黄底 K，`persist.sys.konka_mode` 等置 1，报告人用固件的退出接口关掉）。1.75 之后排除 `_AT_HOME`。报告人用的是改了包名的构建，没在官方包上复现。

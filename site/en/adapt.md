@@ -58,6 +58,7 @@ These are fixed on the spot, with no new release. Aerial keeps each TV's correct
 | `"labels": {"6": "HDMI 1"}` | Show HW6 as HDMI 1 |
 | `"xiaomiSources": {"6": 23}` | Xiaomi: open HW6 with tvplayer source id 23 (HDMI is usually 19-32) |
 | `"ignoresPictureBacklight": true` | The TV has `picture_backlight` but does not follow it: leave brightness to the TV's own slider |
+| `"ignoresScreenBrightness": true` | No `picture_backlight`, and the system's `screen_brightness` takes writes without the picture changing (Hisense VIDAA and others): the brightness row opens the TV's own picture settings |
 
 1. List the inputs: `CONFIG --ez list_sources true`; after `data=` is JSON with `id`, `label`, `hw`, `firmwareLabel`, `xiaomiInput` and `shown`.
 2. Open each: `CONFIG --es open_source '<id>'`, ask the user which port on the TV it switched to (or none), then `adb shell input keyevent KEYCODE_HOME`.
@@ -89,7 +90,7 @@ The self-test logs what was in front each second after boot. The old launcher fi
 
 ### Brightness slider does nothing
 
-Read `adb shell settings get global picture_backlight`, move the slider, read again. The number changes but the picture does not: add `"ignoresPictureBacklight": true` to the device profile.
+Read `adb shell settings get global picture_backlight`, move the slider, read again. The number changes but the picture does not: add `"ignoresPictureBacklight": true` to the device profile. If it reads `null` (no such setting), do the same with `adb shell settings get system screen_brightness`; the number changes but the picture does not: add `"ignoresScreenBrightness": true`.
 
 ## Step 4: send it in
 

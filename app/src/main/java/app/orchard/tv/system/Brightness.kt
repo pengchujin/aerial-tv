@@ -17,8 +17,8 @@ import androidx.core.content.ContextCompat
  *   "backLightForNormal" (0–100). The setting alone does not move the backlight: the value has to
  *   be pushed to TvService as well, and only once [MitvPanel.usable] has found that the
  *   transactions match this firmware (issues #23, #346).
- * - TCL: TTvPictureManager in TCL's framework (see TclPicture); where it is missing, Control
- *   Center opens TCL's picture panel.
+ * - TCL: TTvPictureManager in TCL's framework (see TclPicture), or on newer MT9655 firmware
+ *   TvBacklightManager (see TclPq); where neither answers, Control Center opens TCL's picture panel.
  * - Sony BRAVIA: the screen brightness setting changes but the backlight does not (no backlight in
  *   the display config); Control Center opens Sony's picture settings, which DISPLAY_SETTINGS
  *   resolves to. Reported on a BRAVIA VH1, Android 12 (GitHub issue #2).
@@ -89,6 +89,7 @@ object Brightness {
             // ignore the system setting; Control Center opens their picture panels.
             // Before Android 6.0 WRITE_SETTINGS is granted at install.
             isTcl(context) || isSony(context) || SystemProbe.skyworthPicturePanel(context) ||
+                DeviceProfile.current(context).ignoresScreenBrightness ||
                 Build.VERSION.SDK_INT >= 23 && !Settings.System.canWrite(context) -> null
             else -> Settings.System.getInt(r, Settings.System.SCREEN_BRIGHTNESS, 128) / 255f
         }
@@ -177,7 +178,7 @@ private object TclPicture {
             .invoke(null, context.applicationContext)
     }.getOrNull()
 
-    fun backlight(context: Context): Int? {
+    private fun graphicBacklight(context: Context): Int? {
         val pm = manager(context) ?: return null
         return runCatching { pm.javaClass.getMethod("getGraphicBacklight").invoke(pm) as Int }
             // MT5879 (Android 11) answers 0 with the screen lit: there the graphic backlight is
@@ -186,8 +187,60 @@ private object TclPicture {
             .getOrNull()?.takeIf { it in 1..100 }
     }
 
+    fun backlight(context: Context): Int? = graphicBacklight(context) ?: TclPq.backlight(context)
+
     fun setBacklight(context: Context, percent: Int) {
+        if (graphicBacklight(context) == null && TclPq.backlight(context) != null) {
+            TclPq.setBacklight(context, percent.coerceIn(1, 100))
+            return
+        }
         val pm = manager(context) ?: return
         pm.javaClass.getMethod("setGraphicBacklight", Int::class.javaPrimitiveType).invoke(pm, percent.coerceIn(1, 100))
+    }
+}
+
+/**
+ * The newer TCL picture interface, com.tcl.tv.pq.TvBacklightManager in the shared library
+ * com.tcl.tv.display (/system_ext/framework), which the manifest asks for as optional. Found and
+ * checked by a user on a TCL 85T7MPRO (MT9655, Android 14), whose TTvPictureManager does not
+ * drive the panel: from a local build of Aerial, setBacklight(EN_APPLY_CURRENT, level,
+ * EN_TCL_ACT_EXEC_SAVE) moved the panel 38 → 39 → 38 and read back the same, no permission
+ * needed (issue #656). Scale 1–100, as TCL's slider. A write that fails or does not read back
+ * gives it up for the process, and Control Center opens TCL's picture panel as before.
+ * Not on TCL MT5879, which has no such library.
+ */
+private object TclPq {
+    private class Api(val manager: Any, val get: java.lang.reflect.Method, val set: java.lang.reflect.Method, val current: Any, val save: Any)
+
+    private var failed = false
+
+    private fun api(context: Context): Api? {
+        if (failed) return null
+        return runCatching {
+            val loader = context.applicationContext.classLoader
+            val managerClass = Class.forName("com.tcl.tv.pq.TvBacklightManager", true, loader)
+            val applyClass = Class.forName("com.tcl.tv.pq.EnApplyType", true, loader)
+            val actClass = Class.forName("com.tcl.tv.pq.EnTclActType", true, loader)
+            Api(
+                manager = managerClass.getMethod("getInstance").invoke(null) ?: return null,
+                get = managerClass.getMethod("getBacklight"),
+                set = managerClass.getMethod("setBacklight", applyClass, Int::class.javaPrimitiveType, actClass),
+                current = applyClass.getField("EN_APPLY_CURRENT").get(null)!!,
+                save = actClass.getField("EN_TCL_ACT_EXEC_SAVE").get(null)!!,
+            )
+        }.getOrNull()
+    }
+
+    fun backlight(context: Context): Int? {
+        val api = api(context) ?: return null
+        return runCatching { api.get.invoke(api.manager) as Int }.getOrNull()?.takeIf { it in 1..100 }
+    }
+
+    fun setBacklight(context: Context, percent: Int) {
+        val api = api(context) ?: return
+        val ok = runCatching {
+            api.set.invoke(api.manager, api.current, percent, api.save) == true && api.get.invoke(api.manager) as Int == percent
+        }.getOrDefault(false)
+        if (!ok) failed = true
     }
 }

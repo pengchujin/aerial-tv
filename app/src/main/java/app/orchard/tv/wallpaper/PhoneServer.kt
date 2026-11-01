@@ -316,14 +316,19 @@ class PhoneServer private constructor(private val context: Context, private val 
     /** The tile as Home shows it; with [own], as the app's own art would draw it. */
     private fun tile(pkg: String, own: Boolean = false): Response {
         val app = (AppCatalog.pinnedSources + AppCatalog.loaded + AppCatalog.folders).firstOrNull { it.key == pkg } ?: return text(Response.Status.NOT_FOUND, "")
-        val art = if (own && app.source == null && app.folder == null) AppCatalog.ownArt(context, app) ?: app.art else app.art
-        val bmp = TileArtFactory.flatten(art)
+        // An upload replies before Home's asynchronous reload has finished. Read the saved picture
+        // directly, so the phone cannot cache the old tile under the new upload's versioned URL.
+        val custom = if (own) null else CustomIcons.load(pkg)
+        val bmp = custom ?: run {
+            val art = if (own && app.source == null && app.folder == null) AppCatalog.ownArt(context, app) ?: app.art else app.art
+            TileArtFactory.flatten(art)
+        }
         val out = ByteArrayOutputStream()
         bmp.compress(Bitmap.CompressFormat.JPEG, 85, out)
         bmp.recycle()
         val bytes = out.toByteArray()
         return newFixedLengthResponse(Response.Status.OK, "image/jpeg", ByteArrayInputStream(bytes), bytes.size.toLong()).apply {
-            addHeader("Cache-Control", "max-age=600")
+            addHeader("Cache-Control", "no-store")
         }
     }
 

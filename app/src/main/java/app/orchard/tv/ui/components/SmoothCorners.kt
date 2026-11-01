@@ -2,15 +2,28 @@ package app.orchard.tv.ui.components
 
 import android.graphics.Bitmap
 import android.graphics.Canvas
+import android.graphics.BitmapShader
+import android.graphics.Matrix
 import android.graphics.Paint
+import android.graphics.PorterDuff
+import android.graphics.PorterDuffXfermode
+import android.graphics.Shader
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.asAndroidPath
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntSize
 import androidx.core.graphics.createBitmap
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.min
+import kotlin.math.roundToInt
 import kotlin.math.sin
 import kotlin.math.sqrt
 import kotlin.math.tan
@@ -42,6 +55,59 @@ fun smoothMask(w: Int, h: Int, radius: Float, bottomRadius: Float = radius): Bit
         }.frozen()
     }
 
+/** White in a band [width] wide just inside a [w]×[h] continuous outline, clear elsewhere; made once per size. */
+fun smoothRing(w: Int, h: Int, radius: Float, width: Float): Bitmap =
+    baked(listOf("ring-in", w, h, radius, width)) {
+        createBitmap(w, h).also {
+            val canvas = Canvas(it)
+            canvas.drawPath(
+                smoothRectPath(Rect(0f, 0f, w.toFloat(), h.toFloat()), radius).asAndroidPath(),
+                Paint(Paint.ANTI_ALIAS_FLAG).apply { color = android.graphics.Color.WHITE },
+            )
+            canvas.drawPath(
+                smoothRectPath(Rect(width, width, w - width, h - width), (radius - width).coerceAtLeast(0f)).asAndroidPath(),
+                Paint(Paint.ANTI_ALIAS_FLAG).apply { xfermode = PorterDuffXfermode(PorterDuff.Mode.CLEAR) },
+            )
+        }.frozen()
+    }
+
+/**
+ * [src] stretched over [w]×[h] and cut to continuous corners, for a picture that would otherwise
+ * be clipped every frame. Not kept here: the caller holds it. Off the main thread where it can be.
+ */
+fun smoothCut(src: Bitmap, w: Int, h: Int, radius: Float): Bitmap =
+    createBitmap(w.coerceAtLeast(1), h.coerceAtLeast(1)).also {
+        val fill = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG).apply {
+            shader = BitmapShader(src, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP)
+                .apply { setLocalMatrix(Matrix().apply { setScale(w.toFloat() / src.width, h.toFloat() / src.height) }) }
+        }
+        Canvas(it).drawPath(smoothRectPath(Rect(0f, 0f, w.toFloat(), h.toFloat()), radius).asAndroidPath(), fill)
+    }.frozen()
+
+/**
+ * clip + background with continuous corners: the baked mask in [color], one image draw, nothing
+ * clipped. Children are not clipped, so it suits a plate of color with padded content on it.
+ */
+fun Modifier.smoothBackground(color: Color, radius: Dp): Modifier = drawWithCache {
+    val w = size.width.roundToInt()
+    val h = size.height.roundToInt()
+    val mask = if (w > 0 && h > 0 && color.alpha > 0f) smoothMask(w, h, radius.toPx()).asImageBitmap() else null
+    val tint = ColorFilter.tint(color)
+    onDrawBehind { if (mask != null) drawImage(mask, dstSize = IntSize(w, h), colorFilter = tint) }
+}
+
+/** border with continuous corners: a baked band [width] wide inside the edge, over the content. */
+fun Modifier.smoothBorder(width: Dp, color: Color, radius: Dp): Modifier = drawWithCache {
+    val w = size.width.roundToInt()
+    val h = size.height.roundToInt()
+    val ring = if (w > 0 && h > 0 && color.alpha > 0f) smoothRing(w, h, radius.toPx(), width.toPx()).asImageBitmap() else null
+    val tint = ColorFilter.tint(color)
+    onDrawWithContent {
+        drawContent()
+        if (ring != null) drawImage(ring, dstSize = IntSize(w, h), colorFilter = tint)
+    }
+}
+
 /**
  * An immutable copy. The renderer uploads an immutable bitmap once; a mutable one used in a shader
  * is copied and uploaded again whenever the drawing that uses it is recorded, which for the plate
@@ -51,7 +117,8 @@ fun Bitmap.frozen(): Bitmap = copy(Bitmap.Config.ARGB_8888, false).also { recycl
 
 private val bakes = object : LinkedHashMap<List<Any>, Any>(16, 0.75f, true) {
     // Sizes come and go with layout (a panel opens, the screen rotates); a few dozen is plenty.
-    override fun removeEldestEntry(eldest: MutableMap.MutableEntry<List<Any>, Any>?) = size > 32
+    // 64: panels' rows, keys, cards and their borders are baked too, each one small.
+    override fun removeEldestEntry(eldest: MutableMap.MutableEntry<List<Any>, Any>?) = size > 64
 }
 
 /** A drawing made once per [key] (its kind and sizes) and kept while it is in use. */

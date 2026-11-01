@@ -70,6 +70,28 @@ object MitvPanel {
      */
     fun usable(context: Context): Boolean {
         verified?.let { return it }
+        // A box has no panel. Mi Box MiTV-AZFP0 keeps [SETTING] all the same, and after standby
+        // its TvService stopped answering: the lookup below never returned, and every refresh
+        // that read the brightness waited behind it (issue #892).
+        if (isBox()) return false.also { verified = it }
+        // One probe at a time: a binder call that hangs then holds one thread, not all of them.
+        if (!probing.compareAndSet(false, true)) return false
+        try {
+            return probe(context)
+        } finally {
+            probing.set(false)
+        }
+    }
+
+    private val probing = java.util.concurrent.atomic.AtomicBoolean(false)
+
+    /** A set-top box (ro.build.characteristics stb or mbx). Here, not in SystemProbe: Lite shares this file. */
+    private fun isBox(): Boolean = runCatching {
+        Class.forName("android.os.SystemProperties").getMethod("get", String::class.java)
+            .invoke(null, "ro.build.characteristics") as String
+    }.getOrNull().orEmpty().let { "stb" in it || "mbx" in it }
+
+    private fun probe(context: Context): Boolean {
         val ok = run {
             // Models that keep [SETTING] yet stay on the TV's own slider: MiTV-MFTP0 has a
             // picture_backlight it does not honour (issues #284 and #335), and this path has not

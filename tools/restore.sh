@@ -49,6 +49,14 @@ elif [ "$(adb shell getprop persist.vt.use_home_pkg | tr -d '\r')" = "$PKG" ] &&
   adb shell setprop persist.vt.use_home_pkg com.jamdeo.tv.vod
 fi
 adb shell cmd role remove-role-holder --user 0 android.app.role.HOME "$PKG" >/dev/null 2>&1 || true
+# Xiaomi where an older install made Aerial the default Home and the firmware took it: PatchWall then
+# runs outside the home stack and the short press of the power key no longer sleeps the TV (#848).
+# Home goes back to PatchWall; the fix takes a reboot.
+if adb shell pm path com.mitv.tvhome 2>/dev/null | grep -q package: &&
+   adb shell cmd package resolve-activity --brief -a android.intent.action.MAIN -c android.intent.category.HOME -c android.intent.category.DEFAULT 2>/dev/null | tail -n 1 | grep -q "^$PKG/"; then
+  adb shell cmd package set-home-activity --user 0 com.mitv.tvhome/.MainActivityUserMode >/dev/null 2>&1 &&
+    echo "Xiaomi: Home is PatchWall again; restart the TV once."
+fi
 
 # Aerial Lite (Android 4.x) takes over only as the home app the owner chose; nothing else to undo.
 LITE=app.orchard.tv.lite

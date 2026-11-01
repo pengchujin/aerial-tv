@@ -1,10 +1,11 @@
 # Baseline Profile: what ART compiles ahead of time when Aerial is installed.
 #
-# Only tools/install.sh runs `cmd package compile -m speed`. Updating from Control Center, pushing
-# the APK from a phone (TCL 多屏互动) or installing from a USB drive goes through the system
-# installer, which compiles just what this profile names (Android 7+; Android 5 and 6 compile
-# everything at install anyway). Without it Home ran interpreted and JIT-compiled until the
-# system's idle-and-charging background job got round to it, if ever: a TV is rarely "idle".
+# Only tools/install.sh runs `cmd package compile -m speed`. The system installer does not read
+# the copy of this profile inside the APK (assets/dexopt): only a .dm file installed beside the APK
+# has it compile at install. Updating from Control Center brings one (assets/aerial-dm, Android 9+,
+# see app/build.gradle.kts and Updates.installBySession). Pushed from a phone (TCL 多屏互动), from a
+# USB drive or Dangbei, the profile waits for the system's idle-and-charging background job, which
+# a TV that is on never gets (docs/PERF-2026-10-30.md); Android 5 and 6 compile everything at install.
 #
 # Home, Control Center and the panels are all Aerial's own code on top of Compose, and all of it
 # runs within seconds of a start, so the whole of both is marked hot.

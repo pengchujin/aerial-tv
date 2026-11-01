@@ -9,6 +9,7 @@ import android.graphics.Matrix
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.PorterDuff
+import android.graphics.PorterDuffColorFilter
 import android.graphics.PorterDuffXfermode
 import android.graphics.RectF
 import android.graphics.Shader
@@ -88,7 +89,8 @@ object Shapes {
     }
 
     private val bakes = object : LinkedHashMap<List<Any>, Any>(16, 0.75f, true) {
-        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<List<Any>, Any>?) = size > 32
+        // 64: panels' rows, keys and borders are baked too, each one small.
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<List<Any>, Any>?) = size > 64
     }
 
     @Suppress("UNCHECKED_CAST")
@@ -109,6 +111,26 @@ object Shapes {
             val c = Canvas(it)
             c.drawPath(smoothRect(RectF(0f, 0f, w.toFloat(), h.toFloat()), radius), Paint(Paint.ANTI_ALIAS_FLAG).apply { color = android.graphics.Color.argb((alpha * 255).toInt(), 255, 255, 255) })
             c.drawPath(smoothRect(RectF(width, width, w - width, h - width), radius - width), Paint(Paint.ANTI_ALIAS_FLAG).apply { xfermode = PorterDuffXfermode(PorterDuff.Mode.CLEAR) })
+        }
+    }
+
+    /** White in a band [width] wide just inside a [w]×[h] continuous outline: a border. */
+    fun band(w: Int, h: Int, radius: Float, width: Float): Bitmap = rim(w, h, radius, width, 1f)
+
+    /**
+     * Draws a baked white shape ([mask], [band]) in one color, as the full app's smoothBackground and
+     * smoothBorder: a plate or a border with continuous corners is one bitmap draw.
+     */
+    class Tint {
+        private val paint = Paint(Paint.FILTER_BITMAP_FLAG)
+        private var color = 0
+
+        fun draw(canvas: Canvas, shape: Bitmap, x: Float, y: Float, color: Int) {
+            if (paint.colorFilter == null || color != this.color) {
+                paint.colorFilter = PorterDuffColorFilter(color, PorterDuff.Mode.SRC_IN)
+                this.color = color
+            }
+            canvas.drawBitmap(shape, x, y, paint)
         }
     }
 

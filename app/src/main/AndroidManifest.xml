@@ -17,6 +17,9 @@
     <!-- Installing a new version from Control Center (update/Updates.kt). On TVs without the
          "install unknown apps" page (TCL) tools/install.sh allows it over ADB. -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!-- Android 12+: the update from Control Center installs without the system's confirmation page,
+         which some firmwares lack (Xiaomi MiTV-MFTR0), so its dex metadata is not lost. -->
+    <uses-permission android:name="android.permission.UPDATE_PACKAGES_WITHOUT_USER_ACTION" />
     <!-- Some Android 5/6 TV firmwares deny even their app-specific external cache without these.
          Requested at runtime on Android 6 only when the update directory is not writable (#592). -->
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="23" />
@@ -79,6 +82,10 @@
         android:hardwareAccelerated="true"
         android:largeHeap="true"
         android:networkSecurityConfig="@xml/network_security_config">
+
+        <!-- TCL MT9655's picture interface (TvBacklightManager, see Brightness.kt TclPq); optional,
+             so TVs without it install as before (#656). -->
+        <uses-library android:name="com.tcl.tv.display" android:required="false" />
 
         <!-- The HOME intent filter is added by the "standard" flavor (src/standard).
              Not in recent apps: where the firmware keeps Home for itself, Aerial's task is a standard

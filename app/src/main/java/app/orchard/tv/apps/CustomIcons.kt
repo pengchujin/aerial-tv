@@ -24,6 +24,17 @@ object CustomIcons {
     /** Bumped on every change, so Home reloads its tiles. */
     var version by mutableIntStateOf(0); private set
 
+    /**
+     * Told of every change on the main thread, even while Home's Compose window is stopped (an
+     * upload from the phone, PR #997). A plain callback: this file is shared with Lite, which has
+     * no coroutines.
+     */
+    private val listeners = java.util.concurrent.CopyOnWriteArrayList<() -> Unit>()
+
+    fun onChange(listener: () -> Unit) { listeners += listener }
+
+    fun removeOnChange(listener: () -> Unit) { listeners -= listener }
+
     private lateinit var dir: File
 
     fun init(context: Context) {
@@ -66,6 +77,7 @@ object CustomIcons {
     /** Called on the main thread after a save or clear. */
     fun changed() {
         version++
+        for (listener in listeners) listener()
     }
 
     /** A package name, kept as a plain file name. */

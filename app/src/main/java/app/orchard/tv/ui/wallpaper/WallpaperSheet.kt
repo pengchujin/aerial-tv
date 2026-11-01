@@ -13,7 +13,11 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.relocation.BringIntoViewResponder
+import androidx.compose.foundation.relocation.bringIntoViewResponder
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -49,15 +53,18 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntSize
@@ -72,6 +79,9 @@ import app.orchard.tv.ui.components.Pressable
 import app.orchard.tv.ui.components.consumeTaps
 import app.orchard.tv.ui.components.dismissOnTap
 import app.orchard.tv.ui.components.liquidGlass
+import app.orchard.tv.ui.components.smoothBackground
+import app.orchard.tv.ui.components.smoothBorder
+import app.orchard.tv.ui.components.smoothCut
 import app.orchard.tv.ui.theme.Glyph
 import app.orchard.tv.ui.theme.GlyphIcon
 import app.orchard.tv.ui.theme.Motion
@@ -80,6 +90,8 @@ import app.orchard.tv.ui.theme.Type
 import app.orchard.tv.wallpaper.PhoneServer
 import app.orchard.tv.wallpaper.AerialFormats
 import app.orchard.tv.wallpaper.AerialQuality
+import app.orchard.tv.wallpaper.AerialSet
+import app.orchard.tv.wallpaper.AerialStream
 import app.orchard.tv.wallpaper.ScreensaverMode
 import app.orchard.tv.system.SystemScreensaver
 import app.orchard.tv.wallpaper.Wallpaper
@@ -276,8 +288,16 @@ fun WallpaperSheet(
                     // Only the qualities this TV can play; a 1080p-only TV has nothing to choose.
                     val qualities = remember { AerialFormats.supported(context) }
                     if (qualities.size > 1) {
+                        // The films kept on the TV (AerialSet, AerialStream): how many, how much
+                        // space at most, and how they change. In place of the quality's own note,
+                        // as a note shows two lines at most.
+                        val keeps = stringResource(
+                            R.string.ss_aerial_keeps,
+                            remember { android.text.format.Formatter.formatShortFileSize(context, AerialStream.keepLimit(context)) },
+                            AerialSet.MAX,
+                        )
                         Choices(
-                            R.string.ss_quality, stringResource(R.string.ss_quality_hint), note,
+                            R.string.ss_quality, keeps, note,
                             listOf(AerialQuality.Auto to R.string.ss_quality_auto, AerialQuality.Hd to R.string.ss_quality_hd) +
                                 listOf(AerialQuality.Uhd to R.string.ss_quality_uhd, AerialQuality.DolbyVision to R.string.ss_quality_dv)
                                     .filter { it.first in qualities },
@@ -396,7 +416,14 @@ private fun WallpaperRows(takeFocus: Boolean) {
     // A row clips to its bounds, and the focused card grows by 8%: room on the left for that,
     // with the row moved back by as much so the cards still line up with the titles.
     LazyRow(
-        modifier = Modifier.offset(x = (-10).dp),
+        modifier = Modifier.offset(x = (-10).dp).drawWithContent {
+            // Keep the cards out of the phone column on old GPUs (#557), independently of the
+            // scroll layer's clip. Leave vertical room for the focused card's 8% zoom.
+            val focusRoom = 16.dp.toPx()
+            clipRect(top = -focusRoom, bottom = size.height + focusRoom) {
+                this@drawWithContent.drawContent()
+            }
+        },
         horizontalArrangement = Arrangement.spacedBy(18.dp),
         contentPadding = PaddingValues(start = 14.dp, end = 24.dp, top = 6.dp, bottom = 4.dp),
     ) {
@@ -425,11 +452,24 @@ private fun wallpaperNote(wp: Wallpaper): String? = when {
     else -> null
 }
 
+private val CardCorner = 12.dp
+
 @Composable
 private fun WallpaperCard(wp: Wallpaper, focusRequester: FocusRequester?, onFocused: () -> Unit) {
     val selected = Wallpapers.selectedId == wp.id
-    val thumb by produceState<ImageBitmap?>(null, wp.id, Wallpapers.items) {
-        value = withContext(Dispatchers.Default) { Wallpapers.thumbnail(wp.id)?.asImageBitmap() }
+    // A moving wallpaper's card is made again when the frame it stopped on changes, also while the
+    // sheet is open: the film stopped as the sheet opened is decoded seconds later (Xiaomi MiTV-MFTR0).
+    val picture = if (wp.kind == WallpaperKind.Live || wp.kind == WallpaperKind.Video) Wallpapers.pictureVersion else 0
+    // The picture is cut to the card's continuous outline once, at the size it is drawn, so the
+    // card is one image draw and nothing is clipped (see SmoothCorners.kt).
+    val density = LocalDensity.current
+    val cardW = with(density) { 168.dp.roundToPx() }
+    val cardH = with(density) { 94.dp.roundToPx() }
+    val corner = with(density) { CardCorner.toPx() }
+    val thumb by produceState<ImageBitmap?>(null, wp.id, Wallpapers.items, picture, cardW, cardH) {
+        value = withContext(Dispatchers.Default) {
+            Wallpapers.thumbnail(wp.id)?.let { smoothCut(it, cardW, cardH, corner).asImageBitmap() }
+        }
     }
     Pressable(onClick = { Wallpapers.select(wp.id) }, focusRequester = focusRequester, focusedScale = 1.08f) { state ->
         LaunchedEffect(state.focused) { if (state.focused) onFocused() }
@@ -437,16 +477,15 @@ private fun WallpaperCard(wp: Wallpaper, focusRequester: FocusRequester?, onFocu
             Box(
                 Modifier
                     .size(168.dp, 94.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(Palette.Fill)
-                    .border(
+                    .smoothBackground(if (thumb == null) Palette.Fill else Color.Transparent, CardCorner)
+                    .smoothBorder(
                         if (state.focused || selected) 3.dp else 1.dp,
                         when {
                             state.focused -> Palette.Focus
                             selected -> Palette.Focus.copy(alpha = 0.55f)
                             else -> Palette.Hairline
                         },
-                        RoundedCornerShape(12.dp),
+                        CardCorner,
                     ),
             ) {
                 thumb?.let {
@@ -493,16 +532,32 @@ private fun SectionTitle(title: Int) {
 private fun Group(note: String? = null, rows: @Composable ColumnScope.(note: (String?) -> Unit) -> Unit) {
     var focusedNote by remember { mutableStateOf<String?>(null) }
     var inside by remember { mutableStateOf(false) }
-    Column(
-        Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .background(Color.White.copy(alpha = 0.05f))
-            .onFocusChanged { inside = it.hasFocus },
-    ) { rows { focusedNote = it } }
-    Box(Modifier.height(38.dp).padding(start = 16.dp, top = 7.dp)) {
-        (if (inside) focusedNote ?: note else note)?.let {
-            BasicText(it, style = Type.Caption.copy(color = Palette.TertiaryLabel), maxLines = 2, overflow = TextOverflow.Ellipsis)
+    var height by remember { mutableStateOf(0f) }
+    // A focused row asks the sheet to show it from its top down to the group's note: the
+    // screensaver's group sits at the sheet's bottom, and showing the row alone (on TV, Compose
+    // keeps a focused row about a third down) left the quality's note below the screen. One
+    // request, so the sheet scrolls once; a second scroll after the focus's own made the sheet
+    // jump back and forth on every press (TCL MT5879).
+    val withNote = remember {
+        @OptIn(ExperimentalFoundationApi::class)
+        object : BringIntoViewResponder {
+            override fun calculateRectForParent(localRect: Rect) =
+                Rect(localRect.left, localRect.top, localRect.right, maxOf(localRect.bottom, height))
+            override suspend fun bringChildIntoView(localRect: () -> Rect?) {}
+        }
+    }
+    @OptIn(ExperimentalFoundationApi::class)
+    Column(Modifier.fillMaxWidth().onSizeChanged { height = it.height.toFloat() }.bringIntoViewResponder(withNote)) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .smoothBackground(Color.White.copy(alpha = 0.05f), 16.dp)
+                .onFocusChanged { inside = it.hasFocus },
+        ) { rows { focusedNote = it } }
+        Box(Modifier.height(38.dp).padding(start = 16.dp, top = 7.dp)) {
+            (if (inside) focusedNote ?: note else note)?.let {
+                BasicText(it, style = Type.Caption.copy(color = Palette.TertiaryLabel), maxLines = 2, overflow = TextOverflow.Ellipsis)
+            }
         }
     }
 }
@@ -656,7 +711,7 @@ private fun ScreensaverChoice(onStart: () -> Unit) {
 private fun PhoneCard(url: String?, qr: ImageBitmap?) {
     Column(Modifier.width(220.dp).padding(top = 6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         Box(
-            Modifier.size(176.dp).clip(RoundedCornerShape(18.dp)).background(Color.White).padding(14.dp),
+            Modifier.size(176.dp).smoothBackground(Color.White, 18.dp).padding(14.dp),
             contentAlignment = Alignment.Center,
         ) {
             if (qr != null) {

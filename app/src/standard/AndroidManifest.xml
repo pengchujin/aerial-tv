@@ -1,11 +1,31 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
     <application>
+        <!-- TCL's install verifier (LauncherStrategy in com.android.packageinstaller) lets an APK that declares
+             HOME through only if it is signed like the current default home and carries this tag. With Aerial
+             as the default home, the signature matches on an update, so this tag lets in-app updates install.
+             Read from MT5879's verifier; failing log without it from a 75T7L Pro (MT9655, Android 14), #983.
+             Other firmwares ignore it. -->
+        <meta-data android:name="com.tcl.app.type" android:value="com.tcl.ui" />
         <activity android:name="app.orchard.tv.MainActivity">
+            <!-- CVTE firmware (ro.CVT_EN_COMMON_HOME_INTENT=1) sends Home and boot as MAIN + HOME + COMMON_HOME,
+                 which only matches a filter listing all of them. Kept in this filter, not a second one: a plain
+                 HOME intent still matches, and a second filter would list this activity twice. Reported on
+                 cleanyourtv #1201; not verified on a CVTE set here.
+                 LAUNCHER for the same reason: China Mobile's NEWBOX (Android 9) sends Home as MAIN + HOME +
+                 LAUNCHER, which matched no filter, so Home did nothing (#946, verified there by the reporter).
+                 The launcher filter of the main manifest goes, so that app lists still show Aerial once. -->
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.HOME" />
+                <category android:name="android.intent.category.COMMON_HOME" />
+                <category android:name="android.intent.category.LAUNCHER" />
                 <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+            <intent-filter tools:node="remove">
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
             <!-- Coocaa's private Home category, which its firmware picks the launcher by (Skyworth
                  9S52_Q4A, Android 6, issue #397; also what makes Dangbei's launcher selectable there).

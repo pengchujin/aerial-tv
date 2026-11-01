@@ -57,6 +57,10 @@ object GuardSetup {
 
     private const val KEY_OWN_SCREENSAVER = "own_screensaver"
     private const val KEY_HOME_IN_FRONT = "home_in_front"
+    private const val KEY_HOME_IN_FRONT_AT = "home_in_front_at"
+    private const val KEY_HOME_IN_FRONT_BOOT = "home_in_front_boot"
+    private const val KEY_STOCK_HOME_AT = "stock_home_at"
+    private const val KEY_STOCK_HOME_BOOT = "stock_home_boot"
     private const val KEY_INSTALLER_OPENED = "installer_opened_at"
     private const val KEY_SCREENSAVER_SWITCHED_OFF = "screensaver_switched_off"
     private const val KEY_SCREENSAVER_ENABLED = "screensaver_enabled"
@@ -131,7 +135,46 @@ object GuardSetup {
      * and whatever the viewer sees now was uncovered rather than chosen.
      */
     fun setHomeInFront(context: Context, inFront: Boolean) =
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(KEY_HOME_IN_FRONT, inFront).apply()
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(KEY_HOME_IN_FRONT, inFront)
+            .putLong(KEY_HOME_IN_FRONT_AT, SystemClock.elapsedRealtime())
+            .putLong(KEY_HOME_IN_FRONT_BOOT, System.currentTimeMillis() - SystemClock.elapsedRealtime()).apply()
+
+    /**
+     * [wasHomeInFront], when it was written in this boot; null when it was not (a power-on, or a
+     * clock set since then). Tells a guard bound at boot from one bound after the firmware killed
+     * Aerial while the viewer was in an app.
+     */
+    fun homeInFrontThisBoot(context: Context): Boolean? {
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val at = prefs.getLong(KEY_HOME_IN_FRONT_AT, -1L)
+        val boot = prefs.getLong(KEY_HOME_IN_FRONT_BOOT, 0L)
+        val bootNow = System.currentTimeMillis() - SystemClock.elapsedRealtime()
+        if (at !in 0..SystemClock.elapsedRealtime() || kotlin.math.abs(boot - bootNow) > 2 * 60 * 1000L) return null
+        return prefs.getBoolean(KEY_HOME_IN_FRONT, false)
+    }
+
+    /**
+     * The guard saw a stock launcher's home come to the front; kept on disk, as the firmware may
+     * stop Aerial a moment later (see [stockHomeSinceHomeLeft]).
+     */
+    fun noteStockHomeInFront(context: Context) =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .putLong(KEY_STOCK_HOME_AT, SystemClock.elapsedRealtime())
+            .putLong(KEY_STOCK_HOME_BOOT, System.currentTimeMillis() - SystemClock.elapsedRealtime()).apply()
+
+    /**
+     * Whether, in this boot, a stock launcher's home came to the front after Aerial's Home last left
+     * it. Xiaomi MiTV-MTEQ0 (Android 10) pushed PatchWall back over Aerial 40 s after power-on and
+     * stopped Aerial 2 s later; revived, the guard read "Home was not in front when Aerial died" as
+     * an app the viewer had opened and left PatchWall there (issue #1047, the reporter's boot log).
+     */
+    fun stockHomeSinceHomeLeft(context: Context): Boolean {
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val at = prefs.getLong(KEY_STOCK_HOME_AT, -1L)
+        val bootNow = System.currentTimeMillis() - SystemClock.elapsedRealtime()
+        if (at !in 0..SystemClock.elapsedRealtime() || kotlin.math.abs(prefs.getLong(KEY_STOCK_HOME_BOOT, 0L) - bootNow) > 2 * 60 * 1000L) return false
+        return at >= prefs.getLong(KEY_HOME_IN_FRONT_AT, -1L)
+    }
 
     fun wasHomeInFront(context: Context): Boolean =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_HOME_IN_FRONT, false)
@@ -243,10 +286,14 @@ object GuardSetup {
      * minutes after a boot, and once: that is when the setting can lie; a TV used over USB
      * debugging also has the port closed, by choice. Up to Android 10: from 11 network ADB is
      * mostly wireless debugging on a port of its own, 5555 is closed by design, and switching
-     * ADB off ends wireless debugging too.
+     * ADB off ends wireless debugging too. From Android 6: on Xiaomi Mi TV 3 (MiTV3_48, Android
+     * 5.0.1) the walk through 0 stopped adbd in TCP mode for good, and ADB could not be reached
+     * again until keep_adb was switched off (issue #1099, the reporter's agent).
      */
     private fun ensureAdbListening(context: Context) {
-        if (adbDancing || adbDanced || Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) return
+        if (adbDancing || adbDanced || Build.VERSION.SDK_INT >= Build.VERSION_CODES.R ||
+            Build.VERSION.SDK_INT < Build.VERSION_CODES.M
+        ) return
         if (SystemClock.elapsedRealtime() > ADB_BOOT_WINDOW_MS) return
         Thread {
             if (adbdListens(adbProbePort)) return@Thread

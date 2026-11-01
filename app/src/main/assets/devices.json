@@ -15,7 +15,8 @@
     },
     {
       "models": ["MiTV_MFFU1", "MiTV-MFFU1"],
-      "note": "Redmi monitor G Pro 27U registers its DP port (HW9) and USB-C port (HW10) both as DisplayPort; tvplayer sources 29 and 30 (#62, its MonitorUtils).",
+      "note": "Redmi monitor G Pro 27U registers its DP port (HW9) and USB-C port (HW10) both as DisplayPort; tvplayer sources 29 and 30 (#62, its MonitorUtils). It also registers two tuners (HW0, HW1, reported connected) and a composite input (HW2) that a monitor does not have (#815; the same on the owner's MFFU1, OS3.0.120). The 2025 model has no USB-C either, but it shares the model name with the 2026 one, so HW10 stays.",
+      "hidden": [0, 1, 2],
       "labels": {"9": "DP", "10": "USB-C"},
       "xiaomiSources": {"9": 29, "10": 30}
     },
@@ -48,6 +49,21 @@
       "models": ["MiTV-MFTP0", "MiTV_MFTP0"],
       "note": "Android 9: has picture_backlight, yet changing it leaves the panel as it was (#284, #335).",
       "ignoresPictureBacklight": true
+    },
+    {
+      "models": ["MiTV-MTTP0"],
+      "note": "Android 9, m7332: the TV's menu writes picture_backlight (100 to 15), Aerial's write leaves the panel as it was; backLightForNormal is kept, so the mitv panel path is probed instead (#1014).",
+      "ignoresPictureBacklight": true
+    },
+    {
+      "models": ["5S09_A3", "6S58_K6S"],
+      "note": "Coocaa (Tianci, MStar maserati, Android 6): screen_brightness moves mActualBacklight but not the panel; the backlight is in com.tianci.setting's picture page (#895, the owner watched the TV; 6S58_K6S, Android 6, the same, slider 5 -> 95 changed nothing).",
+      "ignoresScreenBrightness": true
+    },
+    {
+      "models": ["WTV43K1J"],
+      "note": "Whaley (Helios, Android 5.0.2): the power light breathes after a cold boot until the stock launcher has been on screen once (#902, the reporter's adb test).",
+      "bootStockMs": 1000
     }
   ]
 }

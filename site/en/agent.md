@@ -104,6 +104,7 @@ Run these in PowerShell, with the adb from step 1. Everything inside `adb shell 
 2. Install it: `adb install -r aerial-standard.apk`. Go on when it prints `Success`. If it fails:
    - With **`INSTALL_FAILED_VERIFICATION_FAILURE`**: this is a TCL, which refuses every adb install. Follow "TCL" below, then continue from item 3.
    - With **`INSTALL_FAILED_USER_RESTRICTED`** (Skyworth and others): see the Skyworth entry under "Common cases", then install again.
+   - With **`INSTALL_PARSE_FAILED_INCONSISTENT_CERTIFICATES`** or `INSTALL_FAILED_UPDATE_INCOMPATIBLE`: the Aerial on the TV was signed with someone else's key and cannot be updated in place. Ask the owner first: uninstalling it (`adb uninstall app.orchard.tv`) drops its settings, wallpapers and photos. Some firmwares (TCL, Android 5.1) exit 0 on a failed install, so go by the `Success` line only.
    - Otherwise (for example, the firmware refuses home-screen apps; OPPO TVs print `INSTALL_FAILED_DUPLICATE_PERMISSION: App installation is banned, because of launcher categories`): install `aerial-guard.apk` instead (same address with `guard` in place of `standard`).
 
 3. Grant the permissions only adb can grant. If one fails, go on with the next:
@@ -144,7 +145,7 @@ Run these in PowerShell, with the adb from step 1. Everything inside `adb shell 
 
 6. Start Aerial: `adb shell am start -W -n app.orchard.tv/.MainActivity`. The output must include `Status: ok`.
 
-7. Make it the default home screen (skip this for the guard build):
+7. Make it the default home screen (skip this for the guard build, **and on Xiaomi**: `adb shell pm path com.mitv.tvhome` prints a line there. Some Xiaomi Android 9 sets do take it, and the short press of the power key then no longer puts the TV to sleep, issue #848; Home Guard in the next item takes over on Xiaomi):
    ```
    adb shell cmd role add-role-holder --user 0 android.app.role.HOME app.orchard.tv
    ```
@@ -244,6 +245,8 @@ A Home press sent with `input keyevent` skips Home Guard's key filter, so on a f
 
 Once all of it passes, ask the user before running `adb reboot`. After the TV has started again (a minute or two), `adb connect <IP>:5555` and run line 6 again to confirm the TV starts into Aerial.
 
+When everything is done, run `adb disconnect`: some TVs accept one device at a time, and phone tools such as 甲壳虫 cannot connect until this computer lets go (#764). The one-line install disconnects by itself.
+
 ## Undo
 
 macOS / Linux:
@@ -275,6 +278,7 @@ Then:
 
 - If `adb shell settings get secure screensaver_components` is `app.orchard.tv/...`, put back the default: `adb shell settings put secure screensaver_components <value of adb shell settings get secure screensaver_default_component>`.
 - `adb shell settings get secure enabled_accessibility_services`: remove `app.orchard.tv/app.orchard.tv.guard.HomeGuardService` (and the colon next to it) and write the rest back unchanged. If nothing else is left, run `adb shell settings delete secure enabled_accessibility_services`.
+- Xiaomi (`adb shell pm path com.mitv.tvhome` prints a line): if the last line of `adb shell cmd package resolve-activity --brief -a android.intent.action.MAIN -c android.intent.category.HOME -c android.intent.category.DEFAULT` is `app.orchard.tv/...`, run `adb shell cmd package set-home-activity --user 0 com.mitv.tvhome/.MainActivityUserMode` and restart the TV once (issue #848: with Aerial as the default Home the short press of the power key no longer sleeps the TV).
 - Hisense VIDAA: if `adb shell settings get global aerial_vt_home_pkg` prints a value (not `null`), run `adb shell setprop persist.vt.use_home_pkg <that value>` and `adb shell settings delete global aerial_vt_home_pkg`. If it prints nothing but `adb shell getprop persist.vt.use_home_pkg` is `app.orchard.tv` (set by hand on 1.15 and earlier) and `com.jamdeo.tv.vod` is installed, run `adb shell setprop persist.vt.use_home_pkg com.jamdeo.tv.vod`.
 - To uninstall: `adb uninstall app.orchard.tv`.
 - Finally `adb shell input keyevent KEYCODE_HOME`; the TV goes back to its own home screen.

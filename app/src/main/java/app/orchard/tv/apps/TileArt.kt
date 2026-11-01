@@ -13,6 +13,7 @@ import android.graphics.drawable.BitmapDrawable
 import androidx.annotation.RequiresApi
 import android.os.Build
 import android.graphics.drawable.Drawable
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.CanvasDrawScope
@@ -24,10 +25,12 @@ import app.orchard.tv.ui.theme.Glyph
 import app.orchard.tv.ui.theme.drawGlyph
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asAndroidBitmap
+import androidx.compose.ui.graphics.asAndroidPath
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.core.graphics.ColorUtils
 import androidx.core.graphics.createBitmap
 import androidx.core.graphics.scale
+import app.orchard.tv.ui.components.smoothRectPath
 import app.orchard.tv.wallpaper.Images
 import kotlin.math.max
 import kotlin.math.roundToInt
@@ -291,7 +294,7 @@ object TileArtFactory {
                 paint.shader = android.graphics.BitmapShader(flat, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP).apply {
                     setLocalMatrix(android.graphics.Matrix().apply { setScale(tw / flat.width, th / flat.height); postTranslate(x, y) })
                 }
-                drawRoundRect(RectF(x, y, x + tw, y + th), th * 0.14f, th * 0.14f, paint)
+                drawPath(smoothRect(RectF(x, y, x + tw, y + th), th * 0.14f), paint)
             }
         }
         return finish(back, null)
@@ -752,8 +755,7 @@ object TileArtFactory {
         val out = layer {
             val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
             if (round) {
-                val r = at.width() * 0.225f
-                drawRoundRect(at, r, r, paint.apply {
+                drawPath(smoothRect(at, at.width() * 0.225f), paint.apply {
                     shader = android.graphics.BitmapShader(icon, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP).apply {
                         setLocalMatrix(android.graphics.Matrix().apply {
                             setScale(at.width() / size, at.height() / size)
@@ -926,3 +928,7 @@ object TileArtFactory {
 
     private fun black(alpha: Float) = android.graphics.Color.argb((alpha * 255).roundToInt(), 0, 0, 0)
 }
+
+/** [r] with continuous corners, as tiles have them. */
+private fun smoothRect(r: RectF, radius: Float): android.graphics.Path =
+    smoothRectPath(Rect(r.left, r.top, r.right, r.bottom), radius).asAndroidPath()

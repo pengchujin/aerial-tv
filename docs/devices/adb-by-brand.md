@@ -50,7 +50,7 @@ adb connect <电视IP>:<无线调试主页上的端口>   # 和上面不是同�
 这台电脑已经配对过，不用再配对。`install.sh` 和 `site/agent.md` 会引导这一步。
 部分同平台的 TCL 固件没有配对码入口：Q10M（[#31](https://github.com/pengchujin/aerial-tv/issues/31)
 的实机反馈，只有动态端口，没有无线调试详情页）。鹤 6 Ultra（Android 14）上有用户用 USB A 对 A 线
-把电视连到电脑，先走有线 adb 授权，再执行一次 `adb tcpip 5555`，见 [tcl-mt9655-cn.md](tcl-mt9655-cn.md)。
+把电视连到电脑（电脑插 USB 3.0 口、电视插 USB 2.0 口），先走有线 adb 授权，再执行一次 `adb tcpip 5555`，见 [tcl-mt9655-cn.md](tcl-mt9655-cn.md)。
 
 海信 VIDAA 的额外设置见 [hisense-vidaa.md](hisense-vidaa.md)。
 

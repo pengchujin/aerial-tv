@@ -25,13 +25,13 @@ class HisenseSettingsTest {
     private val aosp = ComponentName("com.android.tv.settings", "com.android.tv.settings.connectivity.NetworkActivity")
 
     @Test
-    fun exportedOemPagePrecedesAospForBothConnectionTypes() {
+    fun exportedOemNetworkCategoryPrecedesAospForBothConnectionTypes() {
         addHisense()
         pm.addActivityIfNotPresent(aosp).exported = true
         for (ethernet in listOf(false, true)) {
             val pages = SystemProbe.networkSettingsIntents(context, ethernet)
             assertEquals(hisense, pages.first().component)
-            assertEquals(Settings.ACTION_WIFI_SETTINGS, pages.first().action)
+            assertEquals("android.settings.NETWORK_SETTINGS", pages.first().action)
             assertEquals(Intent.FLAG_ACTIVITY_NEW_TASK, pages.first().flags)
             assertEquals(aosp, pages[1].component)
             // Generic Wi-Fi/settings resolve to the same OEM activity, not extra retries.
@@ -64,6 +64,13 @@ class HisenseSettingsTest {
     }
 
     @Test
+    fun disabledOemApplicationIsNotSelected() {
+        addHisense()
+        pm.addActivityIfNotPresent(hisense).applicationInfo.enabled = false
+        assertFalse(SystemProbe.networkSettingsIntents(context).any { it.component == hisense })
+    }
+
+    @Test
     fun xiaomiKeepsWiredAndWirelessPriorities() {
         val wifi = ComponentName("com.xiaomi.mitv.settings", "com.xiaomi.mitv.settings.wifi.MitvWifiActivity")
         val wired = ComponentName("com.xiaomi.mitv.settings", "com.xiaomi.mitv.settings.EthernetActivity")
@@ -87,7 +94,7 @@ class HisenseSettingsTest {
     }
 
     @Test
-    fun startsNativeNetworkActionWithoutChangingGeneralSettings() {
+    fun startsNativeNetworkCategoryWithoutChangingGeneralSettings() {
         addHisense()
         val launched = mutableListOf<Intent>()
         val caller = object : ContextWrapper(context) {
@@ -96,13 +103,15 @@ class HisenseSettingsTest {
         SystemProbe.startSettingsIntent(caller, SystemProbe.networkSettingsIntents(caller).first())
         assertEquals(1, launched.size)
         assertEquals(hisense, launched.single().component)
-        assertEquals(Settings.ACTION_WIFI_SETTINGS, launched.single().action)
+        assertEquals("android.settings.NETWORK_SETTINGS", launched.single().action)
+        assertTrue(launched.single().extras == null || launched.single().extras!!.isEmpty)
         assertTrue(launched.single().flags and Intent.FLAG_ACTIVITY_NEW_TASK != 0)
         assertEquals(Settings.ACTION_SETTINGS, SystemProbe.settingsIntent(context).action)
     }
 
     private fun addHisense() {
         pm.addActivityIfNotPresent(hisense).exported = true
+        pm.addIntentFilterForActivity(hisense, IntentFilter("android.settings.NETWORK_SETTINGS"))
         pm.addIntentFilterForActivity(hisense, IntentFilter(Settings.ACTION_WIFI_SETTINGS))
         pm.addIntentFilterForActivity(hisense, IntentFilter(Settings.ACTION_SETTINGS))
     }

@@ -40,7 +40,7 @@ object TileDiskCache {
     }
 
     /** Bumped when tiles are drawn differently, so a build with the same version code redraws them. */
-    private const val ART = 3
+    private const val ART = 4
 
     fun key(stamp: Long): String =
         "$stamp|${TileArtFactory.W}|${TileArtFactory.unified}|${Locale.getDefault().toLanguageTag()}|${BuildConfig.VERSION_CODE}|$ART"

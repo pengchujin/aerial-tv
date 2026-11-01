@@ -624,8 +624,7 @@ object TileFactory {
         val out = layer {
             val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
             if (round) {
-                val r = at.width() * 0.225f
-                drawRoundRect(at, r, r, paint.apply {
+                drawPath(Shapes.smoothRect(at, at.width() * 0.225f), paint.apply {
                     shader = android.graphics.BitmapShader(icon, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP).apply {
                         setLocalMatrix(android.graphics.Matrix().apply {
                             setScale(at.width() / size, at.height() / size)

@@ -52,10 +52,13 @@ import app.orchard.tv.apps.CustomIcons
 import app.orchard.tv.apps.IconLibrary
 import app.orchard.tv.apps.AppNames
 import app.orchard.tv.apps.SourceLooks
+import app.orchard.tv.apps.StandIn
 import app.orchard.tv.apps.TileArtFactory
 import app.orchard.tv.guard.GuardSetup
 import app.orchard.tv.guard.HomeGuardService
+import app.orchard.tv.ui.home.FilmAfterInput
 import app.orchard.tv.ui.home.HomeScreen
+import app.orchard.tv.ui.home.AerialStart
 import app.orchard.tv.ui.home.LiveFilm
 import app.orchard.tv.ui.home.asFocusedTile
 import app.orchard.tv.ui.theme.LocalReducedMotion
@@ -80,6 +83,7 @@ import app.orchard.tv.system.SystemProbe
 import app.orchard.tv.system.HisenseSources
 import app.orchard.tv.system.LaunchFallback
 import app.orchard.tv.system.settingsLaunchIntent
+import app.orchard.tv.update.SelfCompile
 import app.orchard.tv.update.Updates
 import app.orchard.tv.weather.Weather
 import kotlinx.coroutines.Dispatchers
@@ -115,7 +119,7 @@ class MainActivity : ComponentActivity() {
             vm.refreshNetwork()
             Wallpapers.refreshDailyIfStale(networkCameUp = true)
             Weather.refreshIfStale(networkCameUp = true)
-            Updates.checkIfStale()
+            Updates.checkIfStale(networkCameUp = true)
         }
         override fun onLost(network: Network) = runOnUiThread { vm.refreshNetwork() }
         override fun onCapabilitiesChanged(network: Network, caps: NetworkCapabilities) = runOnUiThread { vm.refreshNetwork() }
@@ -216,6 +220,7 @@ class MainActivity : ComponentActivity() {
         Wallpapers.init(this)
         Weather.init(this)
         Updates.init(this)
+        lifecycleScope.launch(Dispatchers.IO) { SelfCompile.init(this@MainActivity) }
         CustomIcons.init(this)
         IconLibrary.init(this)
         SourceLooks.init(this)
@@ -301,6 +306,7 @@ class MainActivity : ComponentActivity() {
         }
         if (fresh && firstStartSinceBoot()) openBootSource("boot")
         if (intent.getBooleanExtra(EXTRA_WOKE, false)) openBootSource("brought back on wake")
+        if (intent.getBooleanExtra(EXTRA_REOPEN_BOOT, false)) openBootSource("covered by the stock launcher", again = true)
         if (fromLocked) {
             // This window already went through onStart and onResume while locked (both returned
             // early) and the system will not call them again unless it stops and starts the
@@ -361,7 +367,14 @@ class MainActivity : ComponentActivity() {
 
     /** Once per boot (Settings.Global.BOOT_COUNT, Android 7+), within a few minutes of it. */
     private fun firstStartSinceBoot(): Boolean {
-        if (SystemClock.elapsedRealtime() > 3 * 60 * 1000L) return false
+        if (SystemClock.elapsedRealtime() > 3 * 60 * 1000L) {
+            // In the diagnostics: an app to start on that never opened at power-on (MiTV4-ANSM0,
+            // Android 6.0.1, issue #1009) may be Home created later than this.
+            if (AerialSettings.bootSource != null || AerialSettings.bootApp != null) {
+                DiagLog.i("boot target: Home first created ${SystemClock.elapsedRealtime() / 1000} s after boot, too late to open it")
+            }
+            return false
+        }
         if (Build.VERSION.SDK_INT < 24) return true
         val boot = Settings.Global.getInt(contentResolver, Settings.Global.BOOT_COUNT, -1)
         val prefs = getSharedPreferences("system", MODE_PRIVATE)
@@ -374,13 +387,14 @@ class MainActivity : ComponentActivity() {
      * Opens the input or app the owner wants the TV to start on, if any. Both list with the apps,
      * so wait for them a moment. Several routes may fire for one wake; the first wins.
      */
-    private fun openBootSource(reason: String) {
+    /** [again]: the target was opened and then covered at once (Home Guard's EXTRA_REOPEN_BOOT). */
+    private fun openBootSource(reason: String, again: Boolean = false) {
         val id = AerialSettings.bootSource
         val pkg = AerialSettings.bootApp
         if (id == null && pkg == null) return
-        if (SystemClock.elapsedRealtime() - bootSourceOpenedAt < 15_000) return
-        if (!BootOpen.due(this)) {
-            android.util.Log.i("Aerial", "$reason: already opened ${id ?: pkg} since the TV came on")
+        if (!again && SystemClock.elapsedRealtime() - bootSourceOpenedAt < 15_000) return
+        if (!again && !BootOpen.due(this)) {
+            DiagLog.i("$reason: already opened ${id ?: pkg} since the TV came on")
             return
         }
         bootSourceOpenedAt = SystemClock.elapsedRealtime()
@@ -402,7 +416,7 @@ class MainActivity : ComponentActivity() {
                     else vm.entry(pkg!!)?.let { it.label to it.launchIntent() }
                 }.filterNotNull().first()
             } ?: run {
-                android.util.Log.w("Aerial", "$reason: ${id ?: pkg} not listed; not opening it")
+                DiagLog.i("$reason: ${id ?: pkg} not listed; not opening it")
                 return@launch
             }
             // A live TV app opened before the network is up shows an error and stays on it: a box
@@ -412,7 +426,7 @@ class MainActivity : ComponentActivity() {
                     while (SystemProbe.network(this@MainActivity).kind == NetKind.Offline) delay(500)
                 }
             }
-            android.util.Log.i("Aerial", "$reason: opening ${intent.first}, what the TV starts on")
+            DiagLog.i("$reason: opening ${intent.first}, what the TV starts on")
             BootOpen.noteOpened(this@MainActivity)
             openedAppSinceHome = true
             open(intent.second)
@@ -449,6 +463,9 @@ class MainActivity : ComponentActivity() {
 
     private var draws = 0
     private var keysLogged = 0
+
+    /** The press whose leftover volume repeats were last dropped; see dispatchKeyEvent. */
+    private var staleVolumeDown = Long.MIN_VALUE
 
     private fun logWindow() {
         val m = resources.displayMetrics
@@ -489,19 +506,39 @@ class MainActivity : ComponentActivity() {
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
         DiagLog.i("window focus $hasFocus")
+        if (!hasFocus) SystemScreensaver.noteHomeHidden()
+        // A window of the TV's over Aerial's screensaver, still resumed beneath it: a key of the
+        // firmware's own was pressed. Coocaa C10's hotkey popup sometimes took focus before the
+        // key's lift reached Aerial, and the screensaver went on under it (issue #915, the
+        // reporter's WindowManager log).
+        if (!hasFocus && vm.resumed && vm.screensaverVisible) {
+            DiagLog.i("a window came over the screensaver; ending it")
+            hideScreensaver()
+        }
     }
 
     override fun dump(prefix: String, fd: java.io.FileDescriptor?, writer: java.io.PrintWriter, args: Array<out String>?) {
         super.dump(prefix, fd, writer, args)
         if (locked) return
-        // `... MainActivity report`: what tools/report.sh pastes into an issue.
-        if (args?.contains("report") == true) writer.print(Diagnostics.report(this)) else DiagLog.dump(writer)
+        // `... MainActivity report`: what tools/report.sh pastes into an issue. The guard's state
+        // names the app in front, so only in the plain dump, which stays on the computer.
+        if (args?.contains("report") == true) {
+            writer.print(Diagnostics.report(this))
+        } else {
+            writer.println(HomeGuardService.diagnosticState())
+            DiagLog.dump(writer)
+        }
     }
 
     // ---- Screensaver: Aerial's own, before the firmware's ad-carrying one can start ----
 
     private val idleHandler = Handler(Looper.getMainLooper())
-    private val showScreensaver = Runnable { startScreensaver(asked = false) }
+    private val showScreensaver = Runnable { if (vm.resumed) startScreensaver(asked = false) }
+
+    /** The Dolby Vision screensaver's start, fetched to disk while Home is still up (AerialStart.prepareAhead). */
+    private val prepareScreensaver = Runnable {
+        if (vm.resumed && !vm.screensaverVisible) lifecycleScope.launch { AerialStart.prepareAhead(this@MainActivity, SAVER_AHEAD_MS) }
+    }
 
     /** Home's bounce did not bring Aerial back in time: the film lets its decoder go as usual. */
     private val endHomeBounce = Runnable {
@@ -529,13 +566,14 @@ class MainActivity : ComponentActivity() {
         // which the wallpaper does not play (AerialFormats.screensaverCarriesWallpaper).
         val carry = Wallpapers.selectedId == Wallpapers.LIVE && Wallpapers.screensaver == ScreensaverMode.Aerial &&
             AerialFormats.screensaverCarriesWallpaper(this)
-        if (!carry && !dreamFails && SystemScreensaver.isAerials(this)) {
+        if (!carry && !dreamFails(this) && SystemScreensaver.isAerials(this)) {
             // The dream's film needs the decoder the wallpaper's holds: TCL MT5879 failed Dolby
             // Vision beside it and the dream fell back to 4K HEVC.
             LiveFilm.onHome?.letDecoderGo()
             if (SystemScreensaver.startDream(this)) {
                 DiagLog.i("screensaver starts as the system's dream")
                 dreamAskedAt = SystemClock.uptimeMillis()
+                SystemScreensaver.noteDreamAsked()
                 return
             }
             LiveFilm.onHome?.goOn()
@@ -558,15 +596,22 @@ class MainActivity : ComponentActivity() {
      * wallpaper's film let go for nothing.
      */
     private var dreamAskedAt = Long.MIN_VALUE / 2
+    private var dreamChecking = false
     private val dreamCheck = Runnable {
+        dreamChecking = false
         // Up to Android 10 the dream is a window over Home, which stays resumed: the focus says.
+        // Shown: whether it came in time is for its first frame to say (dreamShowedAfter).
         if (!vm.resumed || !hasWindowFocus()) return@Runnable
-        dreamFails = true
+        SystemScreensaver.forgetDreamAsked()
+        noteDreamFails(this)
         DiagLog.i("the system's dream did not show; Aerial's own screensaver instead")
         LiveFilm.onHome?.goOn()
         startScreensaver(asked = false)
     }
     private var swallowKeyUp = -1
+
+    /** Keys whose press reached Aerial and which have not been lifted yet; see dispatchKeyEvent. */
+    private val keysDown = HashSet<Int>()
 
     /**
      * Until when every key only finishes waking the screensaver. An IR remote can send one press as
@@ -582,8 +627,15 @@ class MainActivity : ComponentActivity() {
     private fun restartIdleTimer() {
         vm.lastInputAt = SystemClock.uptimeMillis()
         idleHandler.removeCallbacks(showScreensaver)
+        idleHandler.removeCallbacks(prepareScreensaver)
+        // Not once paused: keys still reach Aerial between onPause and the opened app's window
+        // taking focus (TCL MT5879: a press 18 ms after onPause, focus gone 400 ms later), and a
+        // timer set then would start the screensaver over the app's video (issue #974).
+        if (!vm.resumed) return
         if (AerialSettings.screensaverMinutes != AerialSettings.NEVER) {
-            idleHandler.postDelayed(showScreensaver, idleBeforeScreensaver())
+            val idle = idleBeforeScreensaver()
+            idleHandler.postDelayed(showScreensaver, idle)
+            if (idle > SAVER_AHEAD_MS) idleHandler.postDelayed(prepareScreensaver, idle - SAVER_AHEAD_MS)
             if (holdsOffTheDream() && window.attributes.flags and WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON == 0) {
                 window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
             }
@@ -655,12 +707,35 @@ class MainActivity : ComponentActivity() {
             if (event.repeatCount > 0) return true
             dreamWokeKey = -1 // a new press of the same key
         }
+        // A volume key repeating in Aerial after it came up at the guard's filter: Coocaa's lift
+        // never got here, and every repeat was a step to 0 or 100 (see HomeGuardService.volumeKeyCameUp).
+        if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount > 0 &&
+            (event.keyCode == KeyEvent.KEYCODE_VOLUME_UP || event.keyCode == KeyEvent.KEYCODE_VOLUME_DOWN) &&
+            HomeGuardService.volumeKeyCameUp(event.keyCode, event.downTime)
+        ) {
+            if (event.downTime != staleVolumeDown) {
+                staleVolumeDown = event.downTime
+                DiagLog.i("key ${KeyEvent.keyCodeToString(event.keyCode)} #${event.repeatCount} repeats after it came up at the guard; dropped")
+            }
+            return true
+        }
         if (keysLogged++ < 200) DiagLog.i("key ${KeyEvent.keyCodeToString(event.keyCode)} ${if (event.action == KeyEvent.ACTION_DOWN) "down" else "up"} #${event.repeatCount} at ${event.eventTime}, view focused ${currentFocus != null}")
         restartIdleTimer()
+        // A lift whose press never reached Aerial: Coocaa C10's hotkey service takes the press of
+        // its focus and settings keys and lets only the lift through (issue #915, the reporter's
+        // WindowManager log). In the screensaver that lift ends it as a press would.
+        val loneLift = event.action == KeyEvent.ACTION_UP && !event.isCanceled && event.keyCode !in keysDown
+        if (event.action == KeyEvent.ACTION_DOWN) keysDown += event.keyCode else keysDown -= event.keyCode
         // The key that wakes the screensaver only wakes it, silently.
         if (!vm.screensaverVisible && event.keyCode != swallowKeyUp) Sounds.onKey(event)
         // Left / right step through the films or photos and keep the screensaver up.
         if (vm.screensaverVisible && vm.screensaverSkips.onKey(event)) return true
+        if (vm.screensaverVisible && loneLift) {
+            DiagLog.i("key ${KeyEvent.keyCodeToString(event.keyCode)} lifted with no press; ending the screensaver")
+            hideScreensaver()
+            wakeQuietUntil = SystemClock.uptimeMillis() + WAKE_QUIET_MS
+            return true
+        }
         if (vm.screensaverVisible && event.action == KeyEvent.ACTION_DOWN) {
             // The key that wakes the screen only wakes it; it does not also move focus or open an app.
             hideScreensaver()
@@ -700,6 +775,7 @@ class MainActivity : ComponentActivity() {
         if (locked) return
         DiagLog.i("onNewIntent ${intent.action}")
         if (intent.getBooleanExtra(EXTRA_WOKE, false)) openBootSource("brought back on wake")
+        if (intent.getBooleanExtra(EXTRA_REOPEN_BOOT, false)) openBootSource("covered by the stock launcher", again = true)
         if (intent.action == ACTION_PREVIEW_SCREENSAVER) {
             idleHandler.post { startScreensaver(asked = true) }
             return
@@ -721,6 +797,7 @@ class MainActivity : ComponentActivity() {
     /** What onStart does once the user is unlocked; also run by a start that was locked before. */
     private fun startWork() {
         DiagLog.i("onStart")
+        SelfCompile.onHomeStarted(this)
         // The phone and computer page, at any time the TV is on (only once unlocked: its token is
         // in credential-protected storage).
         lifecycleScope.launch(Dispatchers.IO) { PhoneServer.listen(this@MainActivity) }
@@ -757,8 +834,14 @@ class MainActivity : ComponentActivity() {
             // A request leaves VPNs out unless told otherwise; the status pill shows one coming up (issue #809).
             else cm.registerNetworkCallback(NetworkRequest.Builder().removeCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN).build(), networkCallback)
         }
-        // reloadIfPackagesChanged above already catches background package changes. An
-        // unconditional reload here cancelled the cold-start load and scanned every app twice.
+        // Apps can change while Aerial is in the background without it hearing about it: the
+        // package receiver above is unregistered in onStop, so nothing arrives then.
+        // reloadIfPackagesChanged (above) already reloads when PackageManager's change counter has
+        // moved (Android 8+), and reloads unconditionally on older Android, where there is none.
+        // Reloading here as well threw that check away: every return to Home rebuilt all the tiles
+        // for nothing (measured 100-380 ms, main thread held 204 ms at times), and on a cold start
+        // it cancelled the load init() had begun and ran it again. On this TCL the guard brings
+        // Aerial back several times a minute, so each bounce cost a full rebuild.
         Wallpapers.refreshDailyIfStale()
         Wallpapers.rotateIfDue()
         Weather.refreshIfStale()
@@ -777,18 +860,36 @@ class MainActivity : ComponentActivity() {
         idleHandler.removeCallbacks(endHomeBounce)
         vm.homeBounce = false
         DiagLog.i("onResume; screensaver after ${idleBeforeScreensaver() / 1000} s")
-        if (SystemClock.uptimeMillis() - dreamAskedAt < 1_000) idleHandler.postDelayed(dreamCheck, 1_500)
+        if (SystemClock.uptimeMillis() - dreamAskedAt < 1_000) {
+            dreamChecking = true
+            idleHandler.postDelayed(dreamCheck, 1_500)
+        }
         restartIdleTimer()
         GuardSetup.setHomeInFront(this, true)
         HomeGuardService.onAerialResumed()
         Updates.onHomeResumed()
         vm.refreshSystem()
+        if (!resumedInProcess) {
+            resumedInProcess = true
+            val age = if (Build.VERSION.SDK_INT >= 24) SystemClock.elapsedRealtime() - android.os.Process.getStartElapsedRealtime() else -1L
+            if (BootOpen.dueAfterColdWake(this, age)) openBootSource("first in front after a cold wake")
+        }
         // Back in front by any route (Home was handled in onNewIntent, which runs first; Back from
         // the app lands here directly), so the next Home press is a Home-on-Home again.
         openedAppSinceHome = false
-        LaunchFallback.next()?.let {
-            DiagLog.i("the page just opened closed at once; opening ${it.component ?: it.action}")
-            open(it)
+        leftForAnApp = false
+        LaunchFallback.next()?.let { page ->
+            // Only where the page truly closed: Hisense's network page (85E5N, MT9653, Android 11)
+            // is a panel over Aerial, which resumes beneath it without window focus, and the next
+            // page then opened beside the panel (issues #948 #976, the reporters' logs).
+            idleHandler.postDelayed({
+                if (vm.resumed && hasWindowFocus()) {
+                    DiagLog.i("the page just opened closed at once; opening ${page.component ?: page.action}")
+                    open(page)
+                } else {
+                    DiagLog.i("back in front under a window of the page just opened; not opening ${page.component ?: page.action}")
+                }
+            }, FALLBACK_FOCUS_MS)
         }
     }
 
@@ -796,7 +897,9 @@ class MainActivity : ComponentActivity() {
         super.onPause()
         if (locked) return
         vm.resumed = false
+        Updates.onHomePaused()
         DiagLog.i("onPause")
+        leftForAnApp = openedAppSinceHome
         GuardSetup.setHomeInFront(this, false)
         if (HomeGuardService.onAerialPaused()) {
             // Only Home's bounce: the film plays on, unless Aerial is not back soon after all
@@ -807,6 +910,9 @@ class MainActivity : ComponentActivity() {
         }
         idleHandler.removeCallbacks(showScreensaver)
         idleHandler.removeCallbacks(dreamCheck)
+        // From Android 11 the dream is an activity: paused while waiting for it, it showed, and its
+        // first frame says whether in time (dreamShowedAfter).
+        dreamChecking = false
         hideScreensaver()
     }
 
@@ -814,6 +920,7 @@ class MainActivity : ComponentActivity() {
         super.onStop()
         if (locked) return
         DiagLog.i("onStop")
+        SelfCompile.onHomeStopped()
         // Out of sight after all: no bounce to wait out (homeBounce).
         idleHandler.removeCallbacks(endHomeBounce)
         vm.homeBounce = false
@@ -836,7 +943,7 @@ class MainActivity : ComponentActivity() {
         // The stock launcher (Xiaomi's PatchWall, with the maker's own iQIYI / Mango content) opens
         // through the system Home action where it can; see HomeGuardService.openStockLauncher.
         if (HomeGuardService.isStockHome(app.packageName) &&
-            HomeGuardService.openStockLauncher(app.packageName) { runCatching { startActivity(app.launchIntent()) }.isSuccess }
+            HomeGuardService.openStockLauncher(app.packageName) { startStockLauncher(app) }
         ) return
         val options = bounds?.asFocusedTile()?.let {
             ActivityOptions.makeScaleUpAnimation(
@@ -849,18 +956,42 @@ class MainActivity : ComponentActivity() {
                 if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) remove("android:activity.packageName")
             }
         }
+        // Xiaomi's settings tile can close at once like Control Center's button (issue #834).
+        LaunchFallback.arm(if (app.packageName == "com.xiaomi.mitv.settings") SystemProbe.settingsFallbacks(this) else emptyList())
         try {
+            FilmAfterInput.noteOpened(this, app.launchIntent())
             if (HisenseSources.open(this, app.launchIntent())) return
             startActivity(settingsLaunchIntent(this, app.launchIntent()), options)
         } catch (e: Exception) {
             // XGIMI (GMUI): nothing answers the passthrough intent a source tile carries, so the tile
             // opens the source page of its settings service instead (issue #241).
             if (app.source != null && SystemProbe.openInputPicker(this)) return
+            // PatchWall's entry needs its permission whether or not the guard runs, and with the
+            // guard switched off its tile did nothing (MiTV-ANSP0, Android 9, issue #971).
+            if (e is SecurityException && startStockLauncher(app)) return
             Toast.makeText(this, getString(R.string.launch_failed, app.label), Toast.LENGTH_SHORT).show()
         }
     }
 
+    /** The stock launcher's own entry, or one of the same page Aerial may start (StandIn, issue #971). */
+    private fun startStockLauncher(app: AppEntry): Boolean {
+        val intent = app.launchIntent()
+        return try {
+            startActivity(intent)
+            true
+        } catch (e: SecurityException) {
+            val standIn = StandIn.find(this, app.component)
+            DiagLog.i("${app.component.className} needs a permission; opening ${standIn?.className ?: "nothing"} instead")
+            standIn != null && runCatching {
+                startActivity(Intent(Intent.ACTION_MAIN).setComponent(standIn).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            }.isSuccess
+        } catch (e: Exception) {
+            false
+        }
+    }
+
     private fun open(intent: Intent) {
+        FilmAfterInput.noteOpened(this, intent)
         try {
             SystemProbe.startSettingsIntent(this, intent)
         } catch (e: Exception) {
@@ -876,8 +1007,75 @@ class MainActivity : ComponentActivity() {
         /** How long the film waits for Aerial to come back from Home's bounce (MFTR0: 120-290 ms). */
         private const val HOME_BOUNCE_MS = 500L
 
-        /** The system's dream did not show when asked (see dreamCheck); for this process. */
-        private var dreamFails = false
+        /**
+         * How long after coming back from a page that closed at once Aerial waits for its window's
+         * focus before opening the next page (LaunchFallback). Focus followed onResume within
+         * 50 ms on Xiaomi MiTV-MFFU0 (issue #984's log).
+         */
+        private const val FALLBACK_FOCUS_MS = 400L
+
+        /**
+         * How long before the screensaver its start is fetched: the moment's 6 MB took 1-2 s from
+         * Apple on Xiaomi MiTV-MFTR0, after the index.
+         */
+        private const val SAVER_AHEAD_MS = 8_000L
+
+        /**
+         * The system's dream did not show when asked (see dreamCheck): for the rest of the process,
+         * and from the second time on this firmware build also for later ones. Known only for the
+         * process, every first screensaver after Aerial restarted waited on a dream that never came
+         * and showed black meanwhile (Coocaa C10, Android 9, issue #915). Twice, so that one slow
+         * start does not give up a dream that works; a dream that shows, or a firmware update,
+         * starts the count again.
+         */
+        private var dreamFailsNow = false
+
+        private fun dreamFails(context: Context): Boolean = dreamFailsNow || dreamFailCount(context) >= 2
+
+        private fun dreamFailCount(context: Context): Int {
+            val prefs = context.getSharedPreferences("system", MODE_PRIVATE)
+            return if (prefs.getString(DREAM_FAILS_ON, null) == Build.FINGERPRINT) prefs.getInt(DREAM_FAILS, 0) else 0
+        }
+
+        private fun noteDreamFails(context: Context) {
+            dreamFailsNow = true
+            context.getSharedPreferences("system", MODE_PRIVATE).edit()
+                .putString(DREAM_FAILS_ON, Build.FINGERPRINT).putInt(DREAM_FAILS, dreamFailCount(context) + 1).apply()
+        }
+
+        /**
+         * The dream Home asked for showed its first frame [blackMs] after Home's window went. Slower
+         * than Home's own screensaver would have been counts as not showing: Coocaa C10 (Android 9,
+         * issue #915) cold-started SystemUI for every dream, 1.2 to 2.7 s of black each time, for
+         * the first eight screensavers after every boot, since the dream did show in the end.
+         */
+        fun dreamShowedAfter(context: Context, blackMs: Long) {
+            if (blackMs <= DREAM_BLACK_MS) return noteDreamShown(context)
+            DiagLog.i("the system's dream showed after $blackMs ms of black; Aerial's own screensaver from now on")
+            noteDreamFails(context)
+        }
+
+        private const val DREAM_BLACK_MS = 2_000L
+
+        private fun noteDreamShown(context: Context) {
+            if (dreamFailCount(context) > 0) context.getSharedPreferences("system", MODE_PRIVATE).edit().remove(DREAM_FAILS).apply()
+        }
+
+        private const val DREAM_FAILS_ON = "dream_fails_on"
+        private const val DREAM_FAILS = "dream_fails"
+
+        /**
+         * Whether Aerial was last left for an app it opened itself, and has not been back since.
+         * BootReceiver leaves such an app in front: Xiaomi MiTV-ANTL0 (Android 5.1.1) sent
+         * BOOT_COMPLETED three minutes after Aerial had come up as Home, and Aerial then covered
+         * the live TV or Bilibili the user had opened from it, once per boot (issue #1024's log).
+         */
+        @Volatile
+        var leftForAnApp = false
+            private set
+
+        /** Whether Home has been resumed in this process yet (BootOpen.dueAfterColdWake). */
+        private var resumedInProcess = false
 
         /** See handOverToFirmwareFallbackHome; for this process. */
         private var handedOverAtBoot = false
@@ -902,6 +1100,12 @@ class MainActivity : ComponentActivity() {
 
         /** Set by Home Guard when it brings Aerial back after standby or a boot. */
         const val EXTRA_WOKE = "app.orchard.tv.WOKE"
+
+        /**
+         * Set by Home Guard when the stock launcher covered what the TV starts on just after it
+         * opened: its boot screen, or its home activity that comes before it (issue #963).
+         */
+        const val EXTRA_REOPEN_BOOT = "app.orchard.tv.REOPEN_BOOT"
 
         /** How long after the key that woke a screensaver other keys are still taken as waking it. */
         const val WAKE_QUIET_MS = 400L

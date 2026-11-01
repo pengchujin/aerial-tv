@@ -35,6 +35,9 @@ class DeviceProfileTest {
         assertEquals(mapOf(4 to 23, 5 to 24, 6 to 25), mfzp0.xiaomiSourceIds)
 
         assertTrue(DeviceProfile.match(json, "MiTV_MFTP0", 0)!!.ignoresPictureBacklight)
+        // Whaley WTV43K1J lets its launcher show at boot (#902); nothing else does.
+        assertEquals(1000, DeviceProfile.match(json, "WTV43K1J", 0)!!.bootStockMs)
+        assertEquals(0, DeviceProfile.match(json, "MiTV-NSOP0", 22)!!.bootStockMs)
         assertNull(DeviceProfile.match(json, "MiTV-MFTP1", 0))
     }
 
@@ -50,14 +53,16 @@ class DeviceProfileTest {
     }
 
     @Test fun jsonRoundTrips() {
-        val p = DeviceProfile(setOf(8, 3), mapOf(6 to "HDMI 1"), mapOf(6 to 23), mapOf(7 to 25), true)
+        val p = DeviceProfile(setOf(8, 3), mapOf(6 to "HDMI 1"), mapOf(6 to 23), mapOf(7 to 25), true, bootStockMs = 1500)
         val back = DeviceProfile.parse(JSONObject(p.toJson().toString()))
         assertEquals(p.hiddenHardware, back.hiddenHardware)
         assertEquals(p.labels, back.labels)
         assertEquals(p.xiaomiSourceIds, back.xiaomiSourceIds)
         assertEquals(p.xiaomiFallbackSourceIds, back.xiaomiFallbackSourceIds)
         assertTrue(back.ignoresPictureBacklight)
+        assertEquals(1500, back.bootStockMs)
         assertTrue(DeviceProfile().isEmpty)
+        assertFalse(DeviceProfile(bootStockMs = 1000).isEmpty)
         assertEquals("{}", DeviceProfile().toJson().toString())
     }
 

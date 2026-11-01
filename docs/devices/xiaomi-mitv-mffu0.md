@@ -82,3 +82,7 @@ Home Guard is running. Press Home on the remote.
 - 深睡 STR 走 `killAllThirdAppForStr()`，按包名强停，但跳过 `Settings.System` 的 `str_killbackgroud_pkg_white_list`（逗号分隔，ADB 可写，不用 root）：`adb shell settings put system str_killbackgroud_pkg_white_list app.orchard.tv`。
 - 音箱模式待机走 `gotoSleepStayAliveProcess()`：不在名单就回原桌面、2 秒后 `killAllThirdApp`，这就是唤醒时闪 PatchWall。`disable_back_home_whitelist` 只认字面量 `disable`（写包名无效），设成 `disable` 后所有第三方应用待机都保活。
 - 这两项是机主自己的选择，install.sh 不设。
+
+## 别的 App 里按主页键闪 PatchWall
+
+在小米显示器 MFFU1（Android 14，和这台同一套固件）上查的，记录和修复见 [xiaomi-mitv-mftr0.md](xiaomi-mitv-mftr0.md) 的「别的 App 里按主页键先闪 PatchWall」。

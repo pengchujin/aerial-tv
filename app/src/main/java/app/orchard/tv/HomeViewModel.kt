@@ -156,6 +156,12 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
 
     private var loadJob: Job? = null
 
+    /** A tile picture set or removed from the phone page; see CustomIcons.onChange; before init, which registers it. */
+    private val customIconsChanged: () -> Unit = {
+        DiagLog.i("custom icons changed; reloading Home")
+        reload()
+    }
+
     init {
         AppCatalog.renameFolder = ::renameFolder
         AppCatalog.pinSource = ::pinSourceById
@@ -167,7 +173,7 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
             for (level in brightnessSteps) SystemProbe.setXgimiBrightnessLevel(level)
         }
         // A tile picture set or removed from the phone page.
-        viewModelScope.launch { snapshotFlow { CustomIcons.version }.drop(1).collect { reload() } }
+        CustomIcons.onChange(customIconsChanged)
         // Library pictures that arrived, or the library turned on or off.
         viewModelScope.launch { snapshotFlow { IconLibrary.version }.drop(1).collect { reload() } }
         offerSetupOnce()
@@ -473,16 +479,16 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
             val (n, v, s) = withContext(Dispatchers.Default) {
                 Triple(SystemProbe.network(ctx), SystemProbe.volume(ctx), if (refreshInputs) SystemProbe.sources(ctx) else null)
             }
-            val (level, home) = withContext(Dispatchers.Default) {
-                Brightness.level(ctx) to SystemProbe.homeStatus(ctx)
-            }
+            // Home status before the brightness, apart from it: a brightness read that waits on a
+            // vendor binder must not keep the panel saying "not the default home" (issue #892).
+            homeStatus = withContext(Dispatchers.Default) { SystemProbe.homeStatus(ctx) }
+            val level = withContext(Dispatchers.Default) { Brightness.level(ctx) }
             network = n; volume = v
             // TvSource holds an Intent, which has no value equality; compare what a tile shows.
             fun shown(list: List<TvSource>) = list.map { listOf(it.id, it.label, it.deviceName, it.intent.toUri(0)) }
             if (s != null) {
                 if (shown(s) != shown(sources)) { sources = s; arrange() } else sources = s
             }
-            homeStatus = home
             brightness = level
         }
     }
@@ -510,9 +516,8 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
     fun refreshPanel() {
         viewModelScope.launch {
             val ctx = context
-            val (home, level) = withContext(Dispatchers.Default) { SystemProbe.homeStatus(ctx) to Brightness.level(ctx) }
-            homeStatus = home
-            brightness = level
+            homeStatus = withContext(Dispatchers.Default) { SystemProbe.homeStatus(ctx) }
+            brightness = withContext(Dispatchers.Default) { Brightness.level(ctx) }
         }
     }
 
@@ -620,6 +625,7 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     override fun onCleared() {
+        CustomIcons.removeOnChange(customIconsChanged)
         if (AppCatalog.renameFolder == ::renameFolder) AppCatalog.renameFolder = null
         if (AppCatalog.pinSource == ::pinSourceById) AppCatalog.pinSource = null
         if (AppCatalog.layout === layoutOps) AppCatalog.layout = null

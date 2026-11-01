@@ -118,6 +118,7 @@
     <string name="ss_quality_hd">1080p</string>
     <string name="ss_quality_uhd">4K</string>
     <string name="ss_quality_dv">4K 杜比视界</string>
+    <string name="ss_aerial_keeps">航拍会在电视上存最近 %2$d 部（最多占 %1$s），壁纸和屏保轮流放这几部，每天换一部新的；在屏保里按右键换新片，左键回到上一部。</string>
     <string name="st_focus_style">焦点样式</string>
     <string name="st_home_layout">主屏幕</string>
     <string name="st_layout">布局</string>
@@ -195,6 +196,7 @@
     <string name="cc_update_failed_blocked">这台电视不让 App 安装别的 App，请用下面的命令升级。</string>
     <string name="cc_update_failed_signature">这台电视上的 Aerial 和官方版本签名不同，不能直接覆盖。</string>
     <string name="cc_update_failed_older">官网上的版本还不比这台电视上的新，过一会儿再试。</string>
+    <string name="cc_self_compile">让 Aerial 更流畅</string>
     <string name="st_pin">家长密码</string>
     <string name="st_pin_off">关闭</string>
     <string name="st_pin_on">开启</string>

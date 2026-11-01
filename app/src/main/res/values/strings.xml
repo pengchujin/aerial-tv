@@ -119,6 +119,7 @@
     <string name="ss_quality_hd">1080p</string>
     <string name="ss_quality_uhd">4K</string>
     <string name="ss_quality_dv">4K Dolby Vision</string>
+    <string name="ss_aerial_keeps">Aerial keeps the last %2$d films on the TV (up to %1$s); wallpaper and screensaver play them in turn, with a new one each day. In the screensaver, right brings a new film, left goes back.</string>
     <string name="st_focus_style">Focus Style</string>
     <string name="st_home_layout">Home Screen</string>
     <string name="st_layout">Layout</string>
@@ -196,6 +197,7 @@
     <string name="cc_update_failed_blocked">This TV does not let apps install other apps. Update with the command below.</string>
     <string name="cc_update_failed_signature">The Aerial on this TV is signed differently from the official one, so it cannot be updated over.</string>
     <string name="cc_update_failed_older">The website does not have a newer version yet. Try again in a while.</string>
+    <string name="cc_self_compile">Make Aerial Smoother</string>
     <string name="st_pin">Parental PIN</string>
     <string name="st_pin_off">Off</string>
     <string name="st_pin_on">On</string>

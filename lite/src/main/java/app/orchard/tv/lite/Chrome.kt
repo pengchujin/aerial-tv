@@ -217,17 +217,13 @@ class StatusPill(context: Context) : View(context) {
 class VpnBadge(context: Context, size: Float) {
     private val label = context.getString(R.string.net_vpn)
     private val text = Ui.text(size, 700)
-    private val frame = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeWidth = Ui.px(1.2f) }
-    private val rect = RectF()
+    private val frame = Shapes.Tint()
     val width: Float = Ui.width(label, text, 0.04f) + Ui.px(8f)
     val height: Float = size * 1.2f * Ui.px(1f) + Ui.px(2f)
 
     /** Drawn from [x], centred on [centerY]; returns its width. */
     fun draw(canvas: Canvas, x: Float, centerY: Float, color: Int): Float {
-        val half = frame.strokeWidth / 2
-        rect.set(x + half, centerY - height / 2 + half, x + width - half, centerY + height / 2 - half)
-        frame.color = color
-        canvas.drawRoundRect(rect, Ui.px(4f), Ui.px(4f), frame)
+        frame.draw(canvas, Shapes.band(Math.round(width), Math.round(height), Ui.px(4f), Ui.px(1.2f)), x, centerY - height / 2, color)
         text.color = color
         Ui.draw(canvas, label, x + Ui.px(4f), centerY - (text.descent() + text.ascent()) / 2, text, 0.04f)
         return width

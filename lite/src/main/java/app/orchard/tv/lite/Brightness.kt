@@ -41,6 +41,7 @@ object Brightness {
             // A Xiaomi TV where neither works: the TV's own slider rather than one that changes nothing.
             installed(context, "com.xiaomi.mitv.settings") -> null
             installed(context, "com.tcl.settings") || installed(context, "com.sony.dtv.configsettings") -> null
+            DeviceProfile.current(context).ignoresScreenBrightness -> null
             Build.VERSION.SDK_INT >= 23 && !Settings.System.canWrite(context) -> null
             else -> runCatching { Settings.System.getInt(r, Settings.System.SCREEN_BRIGHTNESS, 128) / 255f }.getOrNull()
         }
@@ -88,7 +89,14 @@ object Brightness {
             val shown = runCatching { context.startService(Intent("com.tcl.settings.SHOW_WINDOW").setPackage("com.tcl.settings")) }.getOrNull() != null
             if (shown) return true
         }
-        return runCatching { context.startActivity(Intent(Settings.ACTION_DISPLAY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }.isSuccess
+        val pm = context.packageManager
+        val picture = listOf(
+            // Older Coocaa (Tianci): picture and sound (5S09_A3, 6S58_K6S, issue #895), before the
+            // display action, which those TVs answer with the settings' main page.
+            Intent(Intent.ACTION_MAIN).setComponent(ComponentName("com.tianci.setting", "com.tianci.setting.activity.PictureSoundSetting")),
+            Intent(Settings.ACTION_DISPLAY_SETTINGS),
+        ).firstOrNull { runCatching { pm.resolveActivity(it, 0) }.getOrNull() != null } ?: Intent(Settings.ACTION_DISPLAY_SETTINGS)
+        return runCatching { context.startActivity(picture.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }.isSuccess
     }
 }
 

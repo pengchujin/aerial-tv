@@ -63,8 +63,12 @@ class HomeGuardWakeTest {
     @Test fun pausedHomeIsNotEvidenceThatItIsStillInFront() {
         event(stock, UsageEvents.Event.MOVE_TO_FOREGROUND, 3000)
         event(stock, UsageEvents.Event.MOVE_TO_BACKGROUND, 1000)
+        val front = HomeGuardService::class.java.getDeclaredMethod("frontByUsage")
+            .apply { isAccessible = true }.invoke(service)
+        assertNull(front)
+        // Upstream #1023 recovers a known empty screen after the last activity closes.
         takeover()
-        assertNull(shadowOf(service).nextStartedActivity)
+        assertEquals("app.orchard.tv.MainActivity", shadowOf(service).nextStartedActivity?.component?.className)
     }
 
     @Test fun missingPermissionKeepsRepeatedRevivalProtection() {
