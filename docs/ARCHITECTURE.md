@@ -280,18 +280,23 @@ NanoHTTPD 监听 8790 端口，路径前缀是 8 位随机令牌（每次打开�
   - 亮屏、开机、复活、解锁 → 等 1.5 秒，前台还是原桌面（或者不知道）才打开 Aerial（takeOverOnceSettled）。
     只有 Activity 窗口算前台，浮层和对话框不算（TCL 语音助手）。前台是信号源时不动：CEC 切过去的，
     或者电视自己「开机播放上次的信号源」（小米 PatchWall 的 autoPlay），都以电视为准
-  - adb_enabled 的 ContentObserver → keep_adb 时写回 1
+  - adb_enabled 的 ContentObserver → keep_adb 时写回 1；开机几分钟内 5555 不通时把 adb_enabled 切 0 再切 1 重启 adbd（#454），只在安卓 6–10 做：小米电视 3 安卓 5.0.1 上这一切把 TCP 模式的 adbd 停死了（#1099）
+  - 音量键（创维酷开，#937 #1058 #1091）：守护过滤按键时，音量键的抬起到不了 Aerial 窗口，系统每 50 ms 补一次连发、每次调一格。守护在 `takeVolumeKey` 记下看到的抬起（`volumeKeyCameUp`），`MainActivity.dispatchKeyEvent` 丢掉抬起之后还在连发的音量键；两边都写 DiagLog（`guard: KEYCODE_VOLUME_... down/up`、`repeats after it came up at the guard; dropped`）。没有创维真机验证；如果抬起连守护都收不到，诊断里会只有 down
 被杀（小米待机 killAllThirdApp）：系统移除无障碍授权
   → 通知监听绑定断开 → 系统约 0.5 秒后重绑 RevivalListener（进程复活）
   → GuardSetup.ensureEnabled() → 守护重新启用 → onServiceConnected 判断为「刚被复活」→ 打开 Aerial
-  （例外，#845：Aerial 死的时候不在前台、又没有用量统计权限、不在开机窗口内 → 当成用户在看别的 App，不动）
+  （例外，#845 #1068：Aerial 死的时候不在前台、用量统计说不出前台是谁（没有权限，或 6 小时内没有记录）、不在开机窗口内 → 当成用户在看别的 App，不动；用量统计明确说原桌面在前，或 App 退到后台后什么都没上来（#1023），照样拉回。前台未知时诊断写一行原因）
 ```
 
 通知服务的启动恢复不只依赖 `onListenerConnected`：`RevivalListener.onCreate` 也启动有限次数的检查，在服务创建后约 5、10、20、35、65、125 秒检查用户是否解锁、守护是否绑定，最后再等 5 秒确认。已绑定就停止；尚未解锁只等待，不读凭据存储；解锁广播即使丢失也会由下一次检查发现。重绑复用 `GuardSetup.rebindIfStalled`，保留其他无障碍服务，并遵守 `guard_off_in_standby`。窗口耗尽后不再轮询；较晚才收到解锁或通知连接回调时可以启动新窗口。服务销毁取消尚未执行的检查。
 
 `GuardSetup.ensureEnabled` 在确认户主已授予 `WRITE_SECURE_SETTINGS` 后，也会清除 Aerial 自己的 `BootReceiver` 禁用覆盖（不是修改别人的组件）。组件覆盖会跨 APK 更新保留；Android 8 的 ADB shell 不能改普通应用的单个组件，由应用自己恢复。恢复过程进 `DiagLog`；`adb shell dumpsys activity service app.orchard.tv/.guard.RevivalListener` 也打印重试状态和内存诊断，避免只能在首页已经打开后才能取日志。
 
-`allowStockLauncher`：用户从网格里主动打开原桌面时，1 小时内不拦截。
+`allowStockLauncher`：用户从网格里主动打开原桌面时，1 小时内不拦截。这个放行记在 `HomeGuardService` 的 companion 里（进程级），守护被系统重新绑定也不丢；每种结束放行的情况（回到 Aerial、在 App 里按主页键、打开别的 App、开机暂留结束）都写 DiagLog，原桌面被拉回时也写一行（#971 #1055：小米安卓 9 上磁贴打开的 PatchWall 0.3–5 秒后被拉回，日志里看不出放行是怎么没的）。撞上 `HOME_STATE` 这类权限时，不管守护在不在都退到同一页的 `.MainActivity`（`StandIn`，Lite 同步）。
+
+`BootReceiver`：守护没在运行时自己打开 Aerial；但 Aerial 上一次是因为它自己打开了 App 而退到后面（`MainActivity.leftForAnApp`），就不动。小米 ANTL0（安卓 5.1.1）开机 3 分钟后才发 BOOT_COMPLETED，原来会把 Aerial 盖到用户刚打开的视频上（#1024）。
+
+`ui/home/FilmAfterInput`：安卓 6 及以下、装有小米播放器的电视上，Aerial 打开过信号源后回来，壁纸影片等 2.5 秒才开解码器。小米电视 4（MiTV4-ANSM0）上播放器回来后约 0.8 秒才拆 HDMI 会话，期间开解码器会整机重启（#1072 #1079，两位报告人的日志；静态壁纸不会）。
 
 电视的播放器（`com.tcl.tv`、`com.xiaomi.mitv.tvplayer`、`com.skyworth.tv`，以及海思的 `com.hisilicon.tvui`：它声明 `TV_HOME`，酷开 C10 从固件信号源选择器切 HDMI 后被拉回，#779）即使声明了 HOME，也不算原桌面，除非它就是系统解析出来的 HOME：TCL 85G60E 把 `com.tcl.tv` 列为 HOME，每次切信号源都被守护当成原桌面拉回（#223，用户日志；家里的 TCL MT5879 没有这个 HOME，没有真机验证）。
 

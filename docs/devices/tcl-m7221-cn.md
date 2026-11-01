@@ -285,3 +285,7 @@ adb shell cmd package install-existing com.tcl.common.weather
 
 一个屡试不爽的技巧：**先让它失败一次，拿报错字符串当 grep 关键词**
 （例如 `disable install launcher app not signature by tcl`）。
+
+## sugarcane_mi（MStar m7221，安卓 8.0，#1076）
+
+这台对 App 的 HOME 查询什么都不返回（`cmd package query-activities` 也是 `No activity found`），连 `com.tcl.cyberui` 都不列，守护就不知道原桌面是谁，开机后一直停在 cyberui（报告人的 Agent 在 2.5 / 4.5 / 6.4 分钟采样），打开一次 Aerial 后主页键才正常（走主页键广播那条判断）。2026-11-01 起把 `com.tcl.cyberui/.MainActivity` 列进守护的 `FIRMWARE_HOMES_WITHOUT_FILTER`。没有真机验证。同为 sugarcane 的 #898 能正常解析 HOME。

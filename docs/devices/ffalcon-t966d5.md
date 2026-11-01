@@ -33,3 +33,7 @@ adb shell settings put system boot_app_componentname com.tcl.cyberui/.MainActivi
 - 信号源 7 个（HDMI 1–4 = HW15–18、TV = HW2、AV = HW3、USB）都走 `com.tcl.tv/.TVActivity`（USB 走媒体中心），报告人确认画面对应正确，不用设备配置。
 - 安装：普通 `adb install` 同样被拒；报告人临时改了 TCL 的桌面安装校验，用多屏互动推送装上后又改回了原样（细节在 #885，我们没有验证，也不建议照做）。
 - 和 #817 那台差在哪里没查清：同一个 device 和固件号，一台能当默认 HOME、一台守护被清。单台结果，长期是否稳定没有验证。
+
+## 信号源编号：用系统登记的硬件编号（#792）
+
+TCL Q9L Pro（安卓 14）和这台一样，系统登记 HDMI 1–4 = HW15–18、TV = HW2、AV = HW3，但没有 Activity 接标准的 passthrough 意图。Aerial 原来给 `com.tcl.tv/.TVActivity` 带 MT5879 的编号（HDMI 1–4 = 8–11），Q9L Pro 上 TCL 底层报 `thal_tvinput_get_info: devicde_id:0 is invalid`、无信号；报告人用 adb 试出 `--ei targetSourceId 15–18` 能切到 HDMI 1–4。TV、AV 的 2、3 和 MT5879 一致，所以 `targetSourceId` 就是硬件编号。2026-11-01 起系统登记了的输入一律用硬件编号，没登记的（MT5879）照旧。**本页 #885 那台报过 8–11 能切，这次改成 15–18 后没有复测**，发版后要请 T966D5 的用户确认。

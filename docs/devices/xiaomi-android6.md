@@ -40,3 +40,21 @@ Amlogic 平台、Android 6.0.x 的一批小米电视和盒子，问题基本相�
 ## 米家 App 的主页键要等 5 秒（#933，MiTV4 pulpfiction 6.0.1）
 
 米家 App 的遥控器按主页键不经过守护的按键过滤，系统自己打开 PatchWall，之后 5 秒内 App 的 `startActivity` 都被挂起（`stopAppSwitches`）。安卓 5–8.1 的 PendingIntent 由系统身份发出，不受这个限制（报告人在这台上实测 0.25 s）；1.75 之后守护拉回 Aerial 一律走 PendingIntent（安卓 8.0 模拟器对照 5.0 s → 0.05 s）。安卓 9 起系统按真实发送者算，不管用。
+
+## 从 HDMI 回来整机重启（#1072 #1079，MiTV4-ANSM0 22.10.20 等）
+
+用航拍等视频壁纸时，从 HDMI（IPTV 机顶盒）按返回回到 Aerial，电视死机、带一声噪音，约 10 秒后自动重启；静态壁纸不会。两位报告人的日志一致：Aerial `onResume` 后立刻起 ExoPlayer 的硬解码（OMX），小米播放器约 0.8 秒后才 `stopTvPlay` 拆 HDMI 会话，日志到此为止。没有 Java 崩溃、没有 watchdog，像是 Amlogic 内核或音频 HAL 在 vdin 还开着时被打断。
+
+2026-11-01 起（未发版时写）：安卓 6 及以下、装有 `com.xiaomi.mitv.tvplayer` 的电视上，Aerial 打开过信号源后回来，壁纸影片先停在画面上等 2.5 秒再开解码器（`ui/home/FilmAfterInput`）。没有真机验证。
+
+## 开机 3 分钟后被拉回 Aerial（#1024，MiTV-ANTL0 / 小米 EA43 2022，安卓 5.1.1）
+
+这台没开守护、Aerial 是默认桌面。系统在开机约 3 分钟后才发 `BOOT_COMPLETED`，`BootReceiver` 收到就打开 Aerial，正好盖住用户从 Aerial 打开的视频 App，每次开机一次。改为：Aerial 上一次是自己打开 App 才退到后面的，就不动（`MainActivity.leftForAnApp`）。没有真机验证。
+
+## keep_adb 把 TCP 模式的 adbd 停死（#1099，小米电视 3 MiTV3_48，安卓 5.0.1）
+
+开机窗口里 5555 不通时，`keep_adb` 会把 `adb_enabled` 切 0 再切 1 来重启 adbd（为本页的 MiTV4 安卓 6 写的，#454）。小米电视 3 上这一切让 TCP 模式的 adbd 停掉、再也起不来，报告人的 Agent 关掉 `keep_adb` 后恢复。改为只在安卓 6–10 做这一步。
+
+## 米家 App 里电视离线（#1071，MiTV4-ANSM0 22.4.15；#1071 评论里 EA75 安卓 9 也有）
+
+米家的局域网控制（MiIO，UDP 54321，属 uid 1000）只在 PatchWall 上过前台之后才启动；Aerial 接管开机后 PatchWall 一直不上前台，它就不起来，米家显示离线。起来之后被 Aerial 盖住也不会停。推送通道（`SmartHome-Push`）是好的。App 没法直接启动这个系统服务；可能的办法是开机先让 PatchWall 露一下（像 `bootStockMs`），代价是每次开机先看到几秒小米桌面。待报告人查清 54321 属于哪个进程再定。
