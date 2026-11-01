@@ -675,8 +675,12 @@ class HomeGuardService : AccessibilityService() {
         // list with it, so that putting it back counts as revived: with no usage stats to ask, the
         // unknown front was taken for the stock launcher, and Aerial came up over the video every
         // few minutes (XGIMI MT9660, Android 13, fongmi; issue #845, from Aerial's own log). Aerial
-        // was not on screen when it died, so an app is what is in front.
-        if (revived && !diedInFront && !GuardSetup.wasHomeInFront(this) && !usageStatsAllowed(this) &&
+        // was not on screen when it died, so an app is what is in front. Also where usage stats are
+        // allowed but name nothing: XGIMI Z9X (MT9660, Android 13, usage allowed) pulled Aerial
+        // over TVBox the same way (issue #1068, PR #1090, checked there for an hour). Where they
+        // name the stock launcher, or an app gone to the back with nothing after it (#1023), Home
+        // is still taken back.
+        if (revived && !diedInFront && !GuardSetup.wasHomeInFront(this) && frontByUsage() == null && !nothingInFrontByUsage() &&
             SystemClock.elapsedRealtime() >= BOOT_WINDOW_MS && !fastBootTakeOver
         ) {
             // In Aerial's own diagnostics too: on these TVs the owner often cannot read logcat.
@@ -770,6 +774,10 @@ class HomeGuardService : AccessibilityService() {
         val empty = seen == null && nothingInFrontByUsage()
         if (empty) Log.i(TAG, "$reason; usage stats say the app in front went to the back and nothing came up")
         val last = seen ?: if (empty) null else frontByUsage()?.also { Log.i(TAG, "$reason; usage stats say ${it.first} is in front") }
+        // Why nothing is known, for TVs whose logcat cannot be read (XGIMI GMUI; PR #1090).
+        if (last == null && !empty) {
+            DiagLog.i("guard: $reason; front unknown (${if (usageStatsAllowed(this)) "usage stats name no app in ${UNKNOWN_FRONT_LOOKBACK_MS / 3_600_000} h" else "usage stats not allowed"})")
+        }
         // Unknown means we were only just bound, which happens after a standby kill. Any screen of
         // the stock launcher counts: when Aerial is killed, whatever was on top of the launcher's
         // task is uncovered, not always its home activity (PatchWall's StrategicLayerActivity).
