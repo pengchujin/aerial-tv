@@ -589,23 +589,16 @@ private fun BrightnessRow(vm: HomeViewModel) {
             vm.refreshBrightness()
         }
     }
-    val level = vm.brightness
-    if (level == null) {
-        MenuRow(Glyph.Sun, stringResource(R.string.cc_brightness), onClick = {
-            vm.overlay = Overlay.None
-            SystemProbe.openPictureSettings(context)
-        }, trailing = stringResource(R.string.cc_brightness_in_settings) + " ›")
-    } else {
-        SliderRow(
-            glyph = Glyph.Sun,
-            level = level,
-            value = Math.round(level * 100).toString(),
-            // Brightness.adjust moves 5% a step, and stops at 1%; XGIMI steps its own levels.
-            steps = if (xgimi) SystemProbe.xgimiBrightnessMax else 20,
-            onStep = vm::adjustBrightness,
-            onClick = {},
-        )
-    }
+    val level = vm.brightness ?: 0.5f
+    SliderRow(
+        glyph = Glyph.Sun,
+        level = level,
+        value = Math.round(level * 100).toString(),
+        // Brightness.adjust moves 5% a step, and stops at 1%; XGIMI steps its own levels.
+        steps = if (xgimi) SystemProbe.xgimiBrightnessMax else 20,
+        onStep = vm::adjustBrightness,
+        onClick = {},
+    )
 }
 
 @Composable
