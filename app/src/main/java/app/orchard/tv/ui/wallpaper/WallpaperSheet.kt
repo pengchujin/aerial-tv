@@ -172,7 +172,7 @@ fun WallpaperSheet(
             // How Home looks, in the order you see it: the picture behind everything, how Home
             // is laid out over it, what replaces it when idle, then the weather and the PIN.
             // Settings sit in tvOS-style grouped rows; each group's note follows the focused row.
-            Column(Modifier.weight(1f).fillMaxHeight().verticalScroll(scroll)) {
+            Column(Modifier.weight(1f).fillMaxHeight().verticalScroll(scroll).latestBringIntoView(scroll)) {
                 BasicText(stringResource(R.string.wp_title), style = Type.LargeTitle)
                 Spacer(Modifier.height(16.dp))
                 SectionTitle(R.string.wp_wallpaper)
