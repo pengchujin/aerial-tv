@@ -576,7 +576,11 @@ class HomeGuardService : AccessibilityService() {
         // unknown front was taken for the stock launcher, and Aerial came up over the video every
         // few minutes (XGIMI MT9660, Android 13, fongmi; issue #845, from Aerial's own log). Aerial
         // was not on screen when it died, so an app is what is in front.
-        if (revived && !diedInFront && !GuardSetup.wasHomeInFront(this) && !usageStatsAllowed(this) &&
+        // FIX (also for #1068): The protection now applies regardless of usage stats permission.
+        // If usage stats ARE allowed but frontByUsage() returns null (unknown front),
+        // we still don't pull Aerial back. The unknown front is most likely the app
+        // the viewer was in, not the stock launcher.
+        if (revived && !diedInFront && !GuardSetup.wasHomeInFront(this) &&
             SystemClock.elapsedRealtime() >= BOOT_WINDOW_MS && !fastBootTakeOver
         ) {
             // In Aerial's own diagnostics too: on these TVs the owner often cannot read logcat.
@@ -666,6 +670,18 @@ class HomeGuardService : AccessibilityService() {
         // it uncovered when it died, so it stays unknown.
         val last = lastWindow?.takeIf { it !in fallbackHomes }?.let { (if (coveredSilently) coveredAerial(it) else null) ?: it }
             ?: frontByUsage()?.also { Log.i(TAG, "$reason; usage stats say ${it.first} is in front") }
+        // Diagnose why frontByUsage returned null: helps distinguish "no usage stats" vs "no events".
+        // On TVs without logcat (e.g., XGIMI GMUI), this DiagLog is the only evidence source.
+        if (last == null) {
+            val usageAllowed = usageStatsAllowed(this)
+            val frontState = if (!usageAllowed) "usage stats not allowed"
+            else {
+                val f = foreground(UNKNOWN_FRONT_LOOKBACK_MS)
+                if (f == null) "usage stats: no MOVE_TO_FOREGROUND in ${UNKNOWN_FRONT_LOOKBACK_MS / 1000}s"
+                else "usage stats: last front ${f.first.first}/${f.first.second} at ${f.second}"
+            }
+            DiagLog.i("guard: $reason; front unknown (usageAllowed=$usageAllowed, $frontState)")
+        }
         // Unknown means we were only just bound, which happens after a standby kill. Any screen of
         // the stock launcher counts: when Aerial is killed, whatever was on top of the launcher's
         // task is uncovered, not always its home activity (PatchWall's StrategicLayerActivity).
@@ -679,7 +695,10 @@ class HomeGuardService : AccessibilityService() {
         // take-over in onCreate and the one at the connection are a few seconds apart, and the
         // second redid Home's resume (MiTV-MFTR0).
         if (last == null && SystemClock.uptimeMillis() - broughtBackAt < 30_000) return
-        val stockInFront = last == null || last.first in stockHomes
+        // An unknown front is not the stock launcher: Aerial was killed in the background, so its
+        // record of what was in front died with it. Only bring Home back where usage stats
+        // positively name a stock launcher.
+        val stockInFront = last != null && last.first in stockHomes
         // Aerial is in front after a wake because the guard already brought it back when the stock
         // launcher showed, or because it survived standby; either way the input the TV starts on
         // still has to open. Only with one chosen: bringing Aerial back also resets its focus.
