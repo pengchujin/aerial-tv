@@ -609,7 +609,7 @@ class HomeGuardService : AccessibilityService() {
         // own record of this boot says an app was in front; usage stats, where they show the stock
         // launcher, still win.
         val appLeftInFront = GuardSetup.isUserUnlocked(this) && SystemClock.elapsedRealtime() < BOOT_WINDOW_MS && !justUpdated() &&
-            GuardSetup.homeInFrontThisBoot(this) == false &&
+            GuardSetup.homeInFrontThisBoot(this) == false && !GuardSetup.stockHomeSinceHomeLeft(this) &&
             (Build.VERSION.SDK_INT < 24 || SystemClock.elapsedRealtime() - Process.getStartElapsedRealtime() < 60_000) &&
             !stockLauncherByUsageStats()
         if (appLeftInFront) DiagLog.i("guard: bound again soon after boot with an app in front when Aerial died; leaving it")
@@ -1257,6 +1257,7 @@ class HomeGuardService : AccessibilityService() {
                 return
             }
             updateKeyFilter()
+            if (cls in stockHomes.getValue(pkg)) GuardSetup.noteStockHomeInFront(this)
             if (bootStockHolding && !bootStockShown && cls in stockHomes.getValue(pkg)) {
                 bootStockShown = true
                 handler.removeCallbacks(endBootStockHold)

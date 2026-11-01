@@ -58,6 +58,8 @@ object GuardSetup {
     private const val KEY_HOME_IN_FRONT = "home_in_front"
     private const val KEY_HOME_IN_FRONT_AT = "home_in_front_at"
     private const val KEY_HOME_IN_FRONT_BOOT = "home_in_front_boot"
+    private const val KEY_STOCK_HOME_AT = "stock_home_at"
+    private const val KEY_STOCK_HOME_BOOT = "stock_home_boot"
     private const val KEY_INSTALLER_OPENED = "installer_opened_at"
     private const val KEY_SCREENSAVER_SWITCHED_OFF = "screensaver_switched_off"
     private const val KEY_SCREENSAVER_ENABLED = "screensaver_enabled"
@@ -148,6 +150,29 @@ object GuardSetup {
         val bootNow = System.currentTimeMillis() - SystemClock.elapsedRealtime()
         if (at !in 0..SystemClock.elapsedRealtime() || kotlin.math.abs(boot - bootNow) > 2 * 60 * 1000L) return null
         return prefs.getBoolean(KEY_HOME_IN_FRONT, false)
+    }
+
+    /**
+     * The guard saw a stock launcher's home come to the front; kept on disk, as the firmware may
+     * stop Aerial a moment later (see [stockHomeSinceHomeLeft]).
+     */
+    fun noteStockHomeInFront(context: Context) =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .putLong(KEY_STOCK_HOME_AT, SystemClock.elapsedRealtime())
+            .putLong(KEY_STOCK_HOME_BOOT, System.currentTimeMillis() - SystemClock.elapsedRealtime()).apply()
+
+    /**
+     * Whether, in this boot, a stock launcher's home came to the front after Aerial's Home last left
+     * it. Xiaomi MiTV-MTEQ0 (Android 10) pushed PatchWall back over Aerial 40 s after power-on and
+     * stopped Aerial 2 s later; revived, the guard read "Home was not in front when Aerial died" as
+     * an app the viewer had opened and left PatchWall there (issue #1047, the reporter's boot log).
+     */
+    fun stockHomeSinceHomeLeft(context: Context): Boolean {
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val at = prefs.getLong(KEY_STOCK_HOME_AT, -1L)
+        val bootNow = System.currentTimeMillis() - SystemClock.elapsedRealtime()
+        if (at !in 0..SystemClock.elapsedRealtime() || kotlin.math.abs(prefs.getLong(KEY_STOCK_HOME_BOOT, 0L) - bootNow) > 2 * 60 * 1000L) return false
+        return at >= prefs.getLong(KEY_HOME_IN_FRONT_AT, -1L)
     }
 
     fun wasHomeInFront(context: Context): Boolean =
