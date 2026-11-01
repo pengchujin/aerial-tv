@@ -403,7 +403,7 @@ object AppCatalog {
             IconLibrary.stamp(pkg) + if (stockHome) 1 else 0
         // Offline library artwork must also be invalidated when the owner selects Own.
         val cacheKey = TileDiskCache.key(stamp) +
-            if (pkg in BundledIcons.assets) "|bundled=${IconLibrary.uses(pkg)}" else ""
+            if (pkg in BundledIcons.assets) "|bundled-v2=${IconLibrary.uses(pkg)}" else ""
         val system = (info.applicationInfo.flags and ApplicationInfo.FLAG_SYSTEM) != 0
         val inMemory = synchronized(cache) { cache[pkg] }?.takeIf { it.key == cacheKey }
         if (inMemory == null && later) {
@@ -428,10 +428,10 @@ object AppCatalog {
             val own = if (stockHome) SystemTile.Home
                 else if (system) SYSTEM_TILES[pkg] ?: byCategory[pkg]?.takeIf { banner == null } else null
             val custom = CustomIcons.load(pkg)
-            // Aerial's own tiles for the firmware's apps keep their look; any other app's
-            // ready-made picture comes before what Aerial would draw from its banner or icon.
-            val library = if (custom == null && (own == null || IconLibrary.pick(pkg) == IconLibrary.Pick.Library)) IconLibrary.load(pkg) else null
-            val bundled = if (custom == null && library == null && IconLibrary.uses(pkg)) BundledIcons.load(context, pkg) else null
+            // Owner uploads win; bundled HD artwork takes precedence over downloaded defaults.
+            // Respect the owner's explicit choice to use the app's own artwork.
+            val bundled = if (custom == null && IconLibrary.uses(pkg)) BundledIcons.load(context, pkg) else null
+            val library = if (custom == null && bundled == null && (own == null || IconLibrary.pick(pkg) == IconLibrary.Pick.Library)) IconLibrary.load(pkg) else null
             val recipe = TileRecipes.of(pkg)
             // A tile that cannot be drawn used to drop the app from Home altogether, without a word
             // in the log (com.fongmi.androidtv on TCL MT5879, issue #415). Its icon then, or
