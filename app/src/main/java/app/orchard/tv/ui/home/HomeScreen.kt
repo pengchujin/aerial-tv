@@ -80,6 +80,7 @@ import app.orchard.tv.ui.control.ControlCenter
 import app.orchard.tv.ui.wallpaper.SheetCovers
 import app.orchard.tv.ui.wallpaper.WallpaperSheet
 import app.orchard.tv.ui.weather.WeatherSheet
+import app.orchard.tv.ui.sleep.SleepTimerSheet
 import app.orchard.tv.wallpaper.AerialFormats
 import app.orchard.tv.wallpaper.ScreensaverMode
 import app.orchard.tv.wallpaper.Wallpapers
@@ -616,7 +617,7 @@ fun HomeScreen(
                 // off where the exact frame did not decode, Xiaomi MiTV-MFTR0 and TCL MT5879); the
                 // menu flashed so as it opened (the owner, MFTR0). In a folder Home is frosted.
                 standIn = overlay == Overlay.None || overlay is Overlay.ControlCenter || overlay is Overlay.Wallpaper ||
-                    overlay is Overlay.Weather ||
+                    overlay is Overlay.Weather || overlay is Overlay.SleepTimer ||
                     (overlay is Overlay.AppMenu && overlay.inFolder == null),
                 panel = overlay != Overlay.None,
                 otherFormatSaver = vm.screensaverVisible && !filmSaver && Wallpapers.screensaver == ScreensaverMode.Aerial &&
@@ -743,7 +744,7 @@ fun HomeScreen(
                         saving = vm.screensaverVisible,
                         away = carrying,
                         enabled = gridEnabled && moving == null,
-                        onClockClick = { vm.overlay = Overlay.ControlCenter(CcPage.SleepTimer) },
+                        onClockClick = { vm.overlay = Overlay.SleepTimer },
                         onWeatherClick = { vm.overlay = Overlay.Weather },
                         onClockFocused = { gained ->
                             if (gained && focusedKey == null && apps.isNotEmpty()) focusApp(0)
@@ -767,7 +768,7 @@ fun HomeScreen(
                         saving = vm.screensaverVisible,
                         away = carrying,
                         enabled = gridEnabled && moving == null,
-                        onClockClick = { vm.overlay = Overlay.ControlCenter(CcPage.SleepTimer) },
+                        onClockClick = { vm.overlay = Overlay.SleepTimer },
                         onWeatherClick = { vm.overlay = Overlay.Weather },
                         onClockFocused = { gained ->
                             if (gained && focusedKey == null && apps.isNotEmpty()) focusApp(0)
@@ -893,7 +894,7 @@ fun HomeScreen(
                     saving = vm.screensaverVisible,
                     away = carrying,
                     enabled = gridEnabled && moving == null,
-                    onClockClick = { vm.overlay = Overlay.ControlCenter(CcPage.SleepTimer) },
+                    onClockClick = { vm.overlay = Overlay.SleepTimer },
                     onWeatherClick = { vm.overlay = Overlay.Weather },
                     onClockFocused = { gained ->
                         if (gained && focusedKey == null && apps.isNotEmpty()) focusApp(0)
@@ -1096,6 +1097,12 @@ fun HomeScreen(
 
         WeatherSheet(
             visible = overlay is Overlay.Weather,
+            onDismiss = { vm.overlay = Overlay.None },
+        )
+
+        SleepTimerSheet(
+            visible = overlay is Overlay.SleepTimer,
+            vm = vm,
             onDismiss = { vm.overlay = Overlay.None },
         )
 

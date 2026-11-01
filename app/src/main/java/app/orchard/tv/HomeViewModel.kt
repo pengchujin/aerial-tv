@@ -60,6 +60,7 @@ sealed interface Overlay {
     data object HiddenApps : Overlay
     data object Wallpaper : Overlay
     data object Weather : Overlay
+    data object SleepTimer : Overlay
     data class Pin(val mode: PinMode, val onDone: () -> Unit) : Overlay
 }
 
