@@ -273,8 +273,10 @@ installed_now() {
 # speaks that protocol. The TV downloads the APK from this computer through an ADB reverse tunnel,
 # so nothing is served on the network. The viewer confirms once on the TV (同意).
 tcast_install() {
-  local apk=$1 want=$2 dir srv rc=0
-  nc -z -G 3 "${SERIAL%%:*}" 6553 >/dev/null 2>&1 || return 1
+  local apk=$1 want=$2 dir srv rc=0 timeout_flag=-w
+  # Apple's nc uses -G for the connection timeout; Linux/OpenBSD nc has no -G.
+  [ "$(uname -s)" != Darwin ] || timeout_flag=-G
+  nc -z "$timeout_flag" 3 "${SERIAL%%:*}" 6553 >/dev/null 2>&1 || return 1
   dir=$(mktemp -d)
   cp "$apk" "$dir/Aerial.apk"
   python3 -m http.server 8765 --bind 127.0.0.1 --directory "$dir" >/dev/null 2>&1 &
