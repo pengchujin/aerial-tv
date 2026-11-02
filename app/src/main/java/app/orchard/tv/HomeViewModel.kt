@@ -181,7 +181,7 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
                     is BrightnessTarget.Level -> SystemProbe.setXgimiBrightnessLevel(target.value)
                     is BrightnessTarget.Boost -> if (target.enabled) XgimiBoost.enable() else XgimiBoost.disable()
                 }
-                if (!applied && target is BrightnessTarget.Boost) withContext(Dispatchers.Main) {
+                if (!applied && target is BrightnessTarget.Boost && target.enabled) withContext(Dispatchers.Main) {
                     android.widget.Toast.makeText(context, R.string.cc_boost_unavailable, android.widget.Toast.LENGTH_LONG).show()
                 }
             }
