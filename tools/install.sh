@@ -153,6 +153,15 @@ grant() {
     adb shell appops set "$PKG" "$op" allow >/dev/null 2>&1 || true
   done
   adb shell cmd notification allow_listener "$PKG/$PKG.guard.RevivalListener" 2>/dev/null || true  # come back after a kill
+  # Android 6 and 7 have no `cmd` (LeTV X4-43 and Dangbei F3, Android 6: "cmd: not found", issues
+  # #1127 #1145): add the listener to the setting itself, keeping the ones already there.
+  LISTENER="$PKG/$PKG.guard.RevivalListener"
+  LISTENERS=$(adb shell settings get secure enabled_notification_listeners 2>/dev/null | tr -d '\r')
+  case "$LISTENERS" in
+    *"$LISTENER"*) ;;
+    ""|null) adb shell settings put secure enabled_notification_listeners "$LISTENER" >/dev/null 2>&1 || true ;;
+    *) adb shell settings put secure enabled_notification_listeners "${LISTENERS}:${LISTENER}" >/dev/null 2>&1 || true ;;
+  esac
 }
 
 # Android 4.0-4.4 cannot run the full app (Jetpack Compose needs Android 5.0). Aerial Lite is a

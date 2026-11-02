@@ -15,6 +15,14 @@ adb connect "$SERIAL" >/dev/null
 # First take away what lets Aerial switch the guard back on, or it would simply do so.
 adb shell am broadcast -a "$PKG.CONFIG" -n "$PKG/.guard.ConfigReceiver" --ez keep_adb false --ez own_screensaver false >/dev/null 2>&1 || true
 adb shell cmd notification disallow_listener "$PKG/$PKG.guard.RevivalListener" >/dev/null 2>&1 || true
+# Android 6 and 7 have no `cmd`: take it out of the setting itself, leaving the other listeners.
+LISTENERS=$(adb shell settings get secure enabled_notification_listeners 2>/dev/null | tr -d '\r')
+case "$LISTENERS" in
+  *"$PKG/$PKG.guard.RevivalListener"*)
+    REST=$(printf '%s' "$LISTENERS" | tr ':' '\n' | grep -v "^$PKG/" | paste -sd: -)
+    if [ -n "$REST" ]; then adb shell settings put secure enabled_notification_listeners "$REST" >/dev/null 2>&1 || true
+    else adb shell settings delete secure enabled_notification_listeners >/dev/null 2>&1 || true; fi ;;
+esac
 adb shell pm revoke "$PKG" android.permission.WRITE_SECURE_SETTINGS >/dev/null 2>&1 || true
 adb shell appops set "$PKG" SYSTEM_ALERT_WINDOW default >/dev/null 2>&1 || true
 adb shell appops set "$PKG" REQUEST_INSTALL_PACKAGES default >/dev/null 2>&1 || true
