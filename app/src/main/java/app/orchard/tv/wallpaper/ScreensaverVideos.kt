@@ -5,14 +5,18 @@ import android.media.MediaMetadataRetriever
 import android.util.Log
 import org.json.JSONObject
 import java.io.File
+import java.io.IOException
+import java.io.InputStream
 import java.util.UUID
 
 data class ScreensaverVideo(val id: String, val name: String, val file: File)
 
 /** The owner's local films. No videos are bundled with Aerial or fetched from a third-party host. */
 object ScreensaverVideos {
-    const val MAX_FILE_BYTES = 200L * 1024 * 1024
-    private const val MAX_TOTAL_BYTES = 512L * 1024 * 1024
+    /** Under 2^31, so a film never reaches a path that counts bytes in an int. */
+    const val MAX_FILE_BYTES = 2_000_000_000L
+    /** Always left free on the TV, whatever the films' share allows. */
+    private const val KEEP_FREE_BYTES = 1024L * 1024 * 1024
     private const val MAX_VIDEOS = 64
     private val idPattern = Regex("[a-f0-9]{32}")
 
@@ -30,6 +34,46 @@ object ScreensaverVideos {
             }.getOrNull()
         }.sortedBy { it.id }
 
+    /**
+     * How large one more film may be (issue #1164; 512 MB in all before). The films may take half of
+     * the room they and the free space make together, never the last [KEEP_FREE_BYTES]: the owner
+     * chose them, unlike the aerial cache, which takes a quarter and evicts itself. [pending] is an
+     * upload already written to the same storage, so its bytes count as free.
+     */
+    fun room(context: Context, pending: Long = 0): Long {
+        val films = all(context)
+        if (films.size >= MAX_VIDEOS) return 0
+        val stored = films.sumOf { it.file.length() }
+        val free = directory(context).usableSpace + pending
+        return minOf((free + stored) / 2 - stored, free - KEEP_FREE_BYTES, MAX_FILE_BYTES).coerceAtLeast(0)
+    }
+
+    /**
+     * A film sent as the request body, [length] bytes, written straight into the library's directory:
+     * no copy in the cache, so a 2 GB film needs 2 GB free, not 4 (#1164). Returns null, having read
+     * nothing, when it cannot fit. The lock is not held while the bytes arrive.
+     */
+    fun receive(context: Context, input: InputStream, length: Long, name: String): ScreensaverVideo? {
+        if (length <= 0 || length > room(context) || titleOf(name) == null) return null
+        val part = File(directory(context), "import-${UUID.randomUUID().toString().replace("-", "")}.part")
+        return try {
+            part.outputStream().use { out ->
+                val buffer = ByteArray(256 * 1024)
+                var left = length
+                while (left > 0) {
+                    val n = input.read(buffer, 0, minOf(buffer.size.toLong(), left).toInt())
+                    if (n < 0) return null
+                    out.write(buffer, 0, n)
+                    left -= n
+                }
+            }
+            add(context, part, name)
+        } catch (e: IOException) {
+            Log.w("AerialVideos", "screensaver video upload broke off", e)
+            null
+        } finally { part.delete() }
+    }
+
     /** The upload is already on disk and is taken over. Validate it first, and publish a complete directory. */
     @Synchronized
     fun add(context: Context, upload: File, name: String): ScreensaverVideo? {
@@ -38,9 +82,7 @@ object ScreensaverVideos {
         root.listFiles()?.filter { it.name.startsWith("import-") && it.lastModified() < System.currentTimeMillis() - 3_600_000 }
             ?.forEach { it.deleteRecursively() }
         val size = upload.length()
-        val films = all(context)
-        if (size <= 0 || size > MAX_FILE_BYTES || films.size >= MAX_VIDEOS ||
-            films.sumOf { it.file.length() } + size > MAX_TOTAL_BYTES || root.usableSpace < size + 16L * 1024 * 1024) return null
+        if (size <= 0 || size > room(context, pending = size)) return null
         val title = titleOf(name) ?: return null
         val metadata = MediaMetadataRetriever()
         val valid = try {
@@ -55,8 +97,8 @@ object ScreensaverVideos {
         val target = File(root, id)
         return try {
             check(staging.mkdir())
-            // The upload is the phone server's temp file in the cache, on the same volume: moving it
-            // saves writing up to 200 MB again on a TV's slow storage. Copy where it cannot move.
+            // The upload is already on the same volume: moving it saves writing up to 2 GB again on
+            // a TV's slow storage. Copy where it cannot move.
             val film = File(staging, "video.mp4")
             if (!upload.renameTo(film)) upload.copyTo(film)
             File(staging, "info.json").writeText(JSONObject().put("name", title).toString())

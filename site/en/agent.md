@@ -123,6 +123,7 @@ Run these in PowerShell, with the adb from step 1. Everything inside `adb shell 
    adb shell appops set app.orchard.tv AUTO_START allow
    adb shell appops set app.orchard.tv ASSOC_START allow
    ```
+   Android 6 and 7 have no `cmd` (the `allow_listener` line prints `cmd: not found`): run `adb shell settings get secure enabled_notification_listeners` first. If it prints `null` or nothing, run `adb shell settings put secure enabled_notification_listeners app.orchard.tv/app.orchard.tv.guard.RevivalListener`; otherwise append `:app.orchard.tv/app.orchard.tv.guard.RevivalListener` to the value and `settings put` that, keeping what was there. Firmwares that force-stop apps in the background, LeTV's among them, rely on it to bring Aerial back (issue #1127).
    The last four app ops exist only on TCL and FFALCON (each firmware knows two of them); elsewhere they fail, which is fine.
    `ACCESS_RESTRICTED_SETTINGS` exists from Android 13 only: there an app installed from a file may not switch its accessibility service on, and Home Guard kept going off (#811 #829).
 
@@ -237,7 +238,7 @@ adb shell "sleep 8; dumpsys window | grep mCurrentFocus"
 - Line 3 includes `app.orchard.tv/app.orchard.tv.guard.HomeGuardService`: Home Guard is on. (On stock Android TV, where Aerial is already the default home screen, it may not be; line 6 decides.)
 - Line 4 is above 0: Home Guard is running.
 - **Line 6 includes `app.orchard.tv`: Home leads to Aerial and the install worked.** Don't tell the user it's installed until it does. On some firmwares the stock launcher stays a few seconds after Home before Home Guard brings Aerial back (about 5 s on OPPO ColorOS TV, #664): if line 6 shows the stock launcher, run `adb shell "sleep 5; dumpsys window | grep mCurrentFocus"` once more, and only call it a failure when neither shows `app.orchard.tv`.
-- Paste the raw output of lines 2, 3 and 6 to the user, not just "success". If line 2 errors on an old system without `cmd`, run `adb shell pm resolve-activity --brief -a android.intent.action.MAIN -c android.intent.category.HOME -c android.intent.category.DEFAULT` instead.
+- Paste the raw output of lines 2, 3 and 6 to the user, not just "success". If line 2 errors on an old system without `cmd`, run `adb shell pm resolve-activity --brief -a android.intent.action.MAIN -c android.intent.category.HOME -c android.intent.category.DEFAULT` instead. On Android 6 neither may exist (`cmd: not found`, `pm` says `unknown command`; issues #1127 #1145): then skip line 2 and go by lines 3, 4 and 6. On some old firmwares `input keyevent KEYCODE_HOME` does not pass the guard; if line 6 looks wrong, ask the user to press Home once on the real remote and look again.
 
 If line 6 shows something else, wait 5 seconds and run lines 5 and 6 again (Home Guard starts slowly on some TVs). If it still does, see "Common cases".
 
@@ -273,6 +274,8 @@ adb shell appops set app.orchard.tv ACCESS_RESTRICTED_SETTINGS default
 adb shell am force-stop app.orchard.tv
 adb shell cmd role remove-role-holder --user 0 android.app.role.HOME app.orchard.tv
 ```
+
+On Android 6 and 7 without `cmd`, replace the `disallow_listener` line: `settings get secure enabled_notification_listeners`, take `app.orchard.tv/app.orchard.tv.guard.RevivalListener` (and the `:` before it) out of the value and `settings put` the rest; if it was the only one, `adb shell settings delete secure enabled_notification_listeners`.
 
 Then:
 

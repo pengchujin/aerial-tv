@@ -26,6 +26,7 @@ import app.orchard.tv.apps.TileArtFactory
 import app.orchard.tv.apps.folderEntry
 import app.orchard.tv.apps.sourceEntry
 import app.orchard.tv.settings.AerialSettings
+import app.orchard.tv.settings.Restricted
 import app.orchard.tv.system.XgimiBoost
 import app.orchard.tv.system.Brightness
 import app.orchard.tv.system.DiagLog
@@ -38,6 +39,7 @@ import app.orchard.tv.system.VolumeStatus
 import app.orchard.tv.ui.home.PinMode
 import app.orchard.tv.ui.home.ScreensaverSkips
 import app.orchard.tv.ui.home.TileFaces
+import app.orchard.tv.ui.theme.Glyph
 import app.orchard.tv.ui.theme.canvasDensity
 import app.orchard.tv.wallpaper.Wallpapers
 import kotlinx.coroutines.Dispatchers
@@ -61,6 +63,8 @@ sealed interface Overlay {
     data object HiddenApps : Overlay
     data object Wallpaper : Overlay
     data class Pin(val mode: PinMode, val onDone: () -> Unit) : Overlay
+    /** Setting up Kids and Elders mode (Restricted), from Personalize. */
+    data object Kids : Overlay
 }
 
 enum class CcPage { Main, Inputs, InputSettings, Update, Setup }
@@ -81,6 +85,13 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
 
     var apps by mutableStateOf<List<AppEntry>>(emptyList()); private set
     var hiddenApps by mutableStateOf<List<AppEntry>>(emptyList()); private set
+
+    /**
+     * Every tile Kids and Elders mode can show, in the owner's Home order: Home's apps with each
+     * folder's in its place, the hidden apps, then the inputs not pinned to Home. Only filled while
+     * the mode is on or being set up.
+     */
+    var kidsCandidates by mutableStateOf<List<AppEntry>>(emptyList()); private set
 
     /** Each folder's apps, by folder id, in the folder's order. */
     var folderApps by mutableStateOf<Map<String, List<AppEntry>>>(emptyMap()); private set
@@ -222,6 +233,19 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
         // An app renamed on the phone page.
         viewModelScope.launch { snapshotFlow { AppNames.all }.drop(1).collect { if (loaded) arrange() } }
         viewModelScope.launch { snapshotFlow { AerialSettings.previewApps }.drop(1).collect { if (loaded) arrange() } }
+        // Into or out of Kids and Elders mode, or its tiles chosen: another Home.
+        viewModelScope.launch {
+            snapshotFlow { listOf(Restricted.active, Restricted.enabled, Restricted.allowed, overlay == Overlay.Kids, AerialSettings.pinSet) }.drop(1).collect {
+                if (loaded) { arrange(); prepareFaces() }
+            }
+        }
+        // What the mode keeps away or warns of, said at the top of Home.
+        viewModelScope.launch {
+            snapshotFlow { Restricted.blocked }.drop(1).collect { b ->
+                if (b != null) notify(context.getString(R.string.kids_blocked, b.first), Glyph.Kids)
+            }
+        }
+        viewModelScope.launch { snapshotFlow { Restricted.warning }.drop(1).collect { w -> if (w != null) notify(w.first, Glyph.Kids) } }
         // Another number of apps a row: the artwork again if four a row wants it larger, else
         // every face at the new size, before the tiles draw them.
         viewModelScope.launch {
@@ -385,13 +409,54 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
                 ?: TileArtFactory.forFolder(shown).also { folderArt[folder.id] = shown to it }
             folderEntry(folder, art)
         }
-        apps = AerialSettings.previewApps.takeIf { it > 0 }?.let { arrangement.home.take(it) } ?: arrangement.home
+        // With a PIN set the phone page can set the mode up too.
+        val kids = Restricted.enabled || overlay == Overlay.Kids || AerialSettings.pinSet
+        kidsCandidates = if (!kids) emptyList() else {
+            val unpinned = sources.filter { it.id !in AerialSettings.pinnedSources }.map { sourceEntry(context, it) }
+            arrangement.home.flatMap { e -> e.folder?.let { arrangement.folders[it.id].orEmpty() } ?: listOf(e) } +
+                arrangement.hidden + unpinned
+        }
+        AppCatalog.kidsCandidates = kidsCandidates
+        if (kids) noteKidsPackages()
+        apps = when {
+            Restricted.active -> Restricted.allowed.mapNotNull { key -> kidsCandidates.firstOrNull { it.key == key } }
+            else -> AerialSettings.previewApps.takeIf { it > 0 }?.let { arrangement.home.take(it) } ?: arrangement.home
+        }
         AppCatalog.home = arrangement.home
         AppCatalog.folderApps = arrangement.folders
         AppCatalog.hiddenApps = arrangement.hidden
         AppCatalog.folders = arrangement.home.filter { it.folder != null }
         folderApps = arrangement.folders
         hiddenApps = arrangement.hidden
+    }
+
+    /** Each input intent's player package, by the intent's URI: resolving it is a PackageManager query. */
+    private val players = HashMap<String, String?>()
+
+    private fun playerOf(source: TvSource): String? = players.getOrPut(source.intent.toUri(0)) {
+        source.intent.component?.packageName
+            ?: runCatching { context.packageManager.resolveActivity(source.intent, 0)?.activityInfo?.packageName }.getOrNull()
+    }
+
+    /** The packages Home Guard lets through in the mode, and the inputs' players it keeps away otherwise. */
+    private fun noteKidsPackages() {
+        val allowed = kidsCandidates.filter { it.key in Restricted.allowed }
+            .mapNotNullTo(HashSet()) { e -> e.source?.let(::playerOf) ?: e.component.packageName }
+        Restricted.notePackages(allowed, sources.mapNotNullTo(HashSet(), ::playerOf))
+    }
+
+    /** Leaves Kids and Elders mode for now, once the PIN is right; it comes back by itself. */
+    fun leaveKidsMode() {
+        overlay = Overlay.Pin(PinMode.Verify) {
+            Restricted.suspend()
+            overlay = Overlay.None
+        }
+    }
+
+    /** Opens the mode's setup: with the PIN, or choosing one first, since leaving the mode needs it. */
+    fun setUpKidsMode() {
+        if (!AerialSettings.pinSet) overlay = Overlay.Pin(PinMode.Create) { overlay = Overlay.Kids }
+        else whenUnlocked { overlay = Overlay.Kids }
     }
 
     /** An app or folder on Home, or an app inside a folder. */
@@ -442,10 +507,12 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
 
     /** A line at the top of Home that goes away by itself, confirming a choice made out of sight. */
     var notice by mutableStateOf<String?>(null); private set
+    var noticeGlyph by mutableStateOf(Glyph.Power); private set
     private var noticeJob: Job? = null
 
-    fun notify(text: String) {
+    fun notify(text: String, glyph: Glyph = Glyph.Power) {
         notice = text
+        noticeGlyph = glyph
         noticeJob?.cancel()
         noticeJob = viewModelScope.launch {
             delay(4000)

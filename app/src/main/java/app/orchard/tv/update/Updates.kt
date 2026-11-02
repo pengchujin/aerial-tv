@@ -32,6 +32,7 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
+import java.util.Locale
 
 /**
  * Whether a newer release is out (issues #24, #76). Most owners stay on the version they installed
@@ -48,6 +49,7 @@ object Updates {
     private const val TAG = "AerialUpdates"
     private const val PREFS = "updates"
     private const val VERSION_URL = "https://aerial.qust.me/download/version.txt"
+    private const val NOTES_URL = "https://aerial.qust.me/download/notes.json"
 
     /**
      * A source that delivers less than [STALL_BYTES] in [STALL_MS] is given up for the next one
@@ -62,6 +64,13 @@ object Updates {
 
     /** The newer release's version, or null when this is the latest (or nothing is known yet). */
     var available by mutableStateOf<String?>(null); private set
+
+    /**
+     * What the update brings: each release after this one up to [available], newest first. Empty
+     * until read, and when the website has no notes (sites deployed before notes.json).
+     */
+    var notes by mutableStateOf<List<ReleaseNotes>>(emptyList()); private set
+    private var readingNotes = false
 
     /** Where an install started from Control Center has got to. */
     var install by mutableStateOf<Install>(Install.Idle); private set
@@ -85,9 +94,11 @@ object Updates {
             save = { latest, checkedAt ->
                 prefs.edit { putString("latest", latest); putLong("checked_at", checkedAt) }
                 available = latest.takeIf { newer(it, current) }
+                loadNotes()
             },
             log = { Log.i(TAG, it); DiagLog.i("update check: $it") },
         )
+        loadNotes()
         // A download left from an install that has since finished or been given up.
         scope.launch(Dispatchers.IO) {
             apkFile(context).takeIf { System.currentTimeMillis() - it.lastModified() > 60 * 60 * 1000L }?.delete()
@@ -113,7 +124,35 @@ object Updates {
     }
 
     fun diagnostics(): String = if (!started) "not initialized" else
-        "known=${prefs.getString("latest", null) ?: "unknown"}; ${checker?.diagnostics}"
+        "known=${prefs.getString("latest", null) ?: "unknown"}; notes=${notes.size}; ${checker?.diagnostics}"
+
+    /**
+     * The release notes for [available], from the copy kept with the version it was read for, else
+     * from the website (once per new version; the update page asks again while it has none). The
+     * file is about 30 KB. A missing or bad file leaves the page as it was, without notes.
+     */
+    fun loadNotes() {
+        if (!started) return
+        val latest = available ?: run { notes = emptyList(); return }
+        val zh = Locale.getDefault().language == "zh"
+        if (prefs.getString("notes_for", null) == latest) {
+            prefs.getString("notes", null)?.let { json ->
+                runCatching { ReleaseNotesParser.parse(json, current, latest, zh) }.getOrNull()?.let { notes = it; return }
+            }
+        }
+        if (readingNotes) return
+        readingNotes = true
+        scope.launch {
+            val json = runCatching { withContext(Dispatchers.IO) { read(NOTES_URL) } }
+                .onFailure { Log.i(TAG, "release notes: ${it.javaClass.simpleName}") }.getOrNull()
+            readingNotes = false
+            val parsed = json?.let { runCatching { ReleaseNotesParser.parse(it, current, latest, zh) }.getOrNull() }
+            // Only notes that already have this release: the site's file may be a deploy behind.
+            if (parsed.isNullOrEmpty() || parsed.first().version != latest || available != latest) return@launch
+            prefs.edit { putString("notes", json); putString("notes_for", latest) }
+            notes = parsed
+        }
+    }
 
     /** Whether version [a] comes after [b], comparing dotted numbers ("1.10" after "1.9"). */
     fun newer(a: String, b: String): Boolean {
@@ -143,6 +182,8 @@ object Updates {
     sealed interface Install {
         data object Idle : Install
         data class Downloading(val fraction: Float) : Install
+        /** A session was submitted; neither a result nor a visible confirmation is known yet. */
+        data object Waiting : Install
         /** The system installer is open; it asks the owner and replaces Aerial, which restarts. */
         data object Opened : Install
         /** Aerial may not install apps yet; the TV's setting for it is open. */
@@ -179,7 +220,7 @@ object Updates {
      * with this copy's key and no older, or the installer would only fail with a less clear message.
      */
     fun install(context: Context) {
-        if (install is Install.Downloading) return
+        if (install is Install.Downloading || install == Install.Opened) return
         // A second press while the first session's confirmation is awaited (#1004: two sessions).
         if (awaiting != null) return
         val app = context.applicationContext
@@ -223,7 +264,7 @@ object Updates {
                 return@launch
             }
             val opened = if (Build.VERSION.SDK_INT >= 28) installBySession(app, file) else openInstaller(context, app, file)
-            install = if (opened) Install.Opened else Install.Failed(Failure.Blocked)
+            if (!opened) install = Install.Failed(Failure.Blocked)
         }
     }
 
@@ -247,10 +288,10 @@ object Updates {
         val id = commitSession(app, file, dm, Intent(app, UpdateResult::class.java).putExtra(EXTRA_WITH_DM, dm != null))
         Log.i(TAG, "install session $id committed for ${file.length()} bytes, dex metadata ${dm?.size ?: "none"}")
         DiagLog.i("update: session $id, dex metadata ${dm?.size ?: "none"}")
-        // Before Android 12 the system always asks the owner, and says so right after the commit.
-        // From 12 the update may go through without asking, and a session still installing must
-        // not be abandoned, so there only the confirmation page is waited for (onSessionResult).
-        if (Build.VERSION.SDK_INT < 31) awaitSession(app, id, ANSWER_TIMEOUT_MS, "no answer from session $id")
+        // Hisense VIDAA_TV / MT9655 (Android 14, #1162) also accepts sessions without answering.
+        // Silent updates need time to install and compile, not the short confirmation deadline.
+        val timeout = if (mayInstallSilently(app)) SILENT_INSTALL_TIMEOUT_MS else ANSWER_TIMEOUT_MS
+        awaitSession(app, id, timeout, "no answer from session $id")
         true
     }.getOrElse {
         if (withDm) {
@@ -338,29 +379,55 @@ object Updates {
     private const val SELF_AUTO = 2
 
     /**
-     * The update's session while its confirmation page is awaited, else null. Hisense VIDAA_TV
+     * The update's session while its answer or confirmation page is awaited, else null. Hisense VIDAA_TV
      * (Android 9, Amlogic T963, issue #1004) took the session and then showed nothing: no answer
      * in the log, no confirmation page, Home never paused. Before 1.72 the installer's ACTION_VIEW
      * worked there. So a session whose page does not come up in time is abandoned for it.
      */
     private var awaiting: Awaiting? = null
-    private class Awaiting(val id: Int) { var homeLeft = false; lateinit var check: Runnable }
+    private class Awaiting(val id: Int, val confirmation: Boolean, val showConfirmation: Runnable?) {
+        var homeLeft = false
+        var timedOut = false
+        lateinit var check: Runnable
+    }
+    private var homeInFront = false
     private val main by lazy { Handler(Looper.getMainLooper()) }
     /** Sessions given up on: their answers, should they still come, are ignored. */
     private val abandoned = mutableSetOf<Int>()
 
     /** From the commit to the system's answer; it comes within a second on the TVs at hand. */
     private const val ANSWER_TIMEOUT_MS = 8_000L
+    /** Android 12+ may compile and replace the app without any intermediate answer or page. */
+    private const val SILENT_INSTALL_TIMEOUT_MS = 120_000L
+    /**
+     * Whether Android may install the update without asking: from 12, and only for the app that
+     * installed Aerial last (USER_ACTION_NOT_REQUIRED). Installed by adb (#1162's Hisense: none) or
+     * by the system installer, it always asks, and an answer is due as soon as before 12.
+     */
+    private fun mayInstallSilently(app: Context): Boolean = Build.VERSION.SDK_INT >= 31 && runCatching {
+        app.packageManager.getInstallSourceInfo(app.packageName).installingPackageName == app.packageName
+    }.getOrDefault(true)
+
     /** From starting the confirmation page to Home pausing beneath it. */
     private const val CONFIRM_TIMEOUT_MS = 4_000L
 
-    /** Unless Home has paused (a page came up) within [ms], [giveUpOnSession]. */
-    private fun awaitSession(app: Context, id: Int, ms: Long, why: String) {
+    /** Wait for an answer, or for a requested confirmation page to pause Home. */
+    private fun awaitSession(
+        app: Context, id: Int, ms: Long, why: String,
+        confirmation: Boolean = false, showConfirmation: Runnable? = null,
+    ) {
         awaiting?.let { main.removeCallbacks(it.check) }
-        val a = Awaiting(id)
-        a.check = Runnable { if (awaiting === a && !a.homeLeft) giveUpOnSession(app, id, why) }
+        val a = Awaiting(id, confirmation, showConfirmation)
+        a.check = Runnable {
+            if (awaiting !== a || (a.confirmation && a.homeLeft)) return@Runnable
+            a.timedOut = true
+            // Do not open an installer over another app or while the TV is asleep.
+            if (homeInFront) giveUpOnSession(app, id, why)
+        }
         awaiting = a
-        main.postDelayed(a.check, ms)
+        install = Install.Waiting
+        // A confirmation requested while away is opened on resume; its timer starts then.
+        if (showConfirmation == null) main.postDelayed(a.check, ms)
     }
 
     private fun stopAwaiting(id: Int) {
@@ -370,7 +437,7 @@ object Updates {
     }
 
     private fun giveUpOnSession(app: Context, id: Int, why: String) {
-        awaiting = null
+        stopAwaiting(id)
         abandoned += id
         runCatching { app.packageManager.packageInstaller.abandonSession(id) }
         Log.w(TAG, "$why; abandoned, opening the installer")
@@ -396,20 +463,13 @@ object Updates {
                 @Suppress("DEPRECATION")
                 val confirm = intent.getParcelableExtra<Intent>(Intent.EXTRA_INTENT)
                 if (confirm == null) return giveUpOnSession(app, id, "session $id asks to confirm but has no page")
-                runCatching { app.startActivity(confirm.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }.onSuccess {
-                    DiagLog.i("update: session $id asks to confirm; page started")
-                    awaitSession(app, id, CONFIRM_TIMEOUT_MS, "confirmation page of session $id did not come up")
-                }.onFailure {
-                    // Some Android 13+ firmware installers have no CONFIRM_INSTALL page but still
-                    // take the APK by ACTION_VIEW (issue #827, model not known yet).
-                    Log.w(TAG, "could not ask to confirm the update; opening the installer", it)
-                    DiagLog.i("update: session $id has no confirmation page (${it.javaClass.simpleName}); installer")
-                    if (id >= 0) runCatching { app.packageManager.packageInstaller.abandonSession(id) }
-                    val file = apkFile(app)
-                    if (!file.isFile || !openInstaller(app, app, file)) install = Install.Failed(Failure.Blocked)
-                }
+                if (homeInFront) openConfirmation(app, id, confirm)
+                else awaitSession(
+                    app, id, CONFIRM_TIMEOUT_MS, "confirmation page of session $id did not come up",
+                    confirmation = true, showConfirmation = Runnable { openConfirmation(app, id, confirm) },
+                )
             }
-            PackageInstaller.STATUS_SUCCESS -> Unit // this process is replaced
+            PackageInstaller.STATUS_SUCCESS -> install = Install.Idle // normally this process is replaced
             PackageInstaller.STATUS_FAILURE_ABORTED -> {
                 Log.i(TAG, "update not confirmed")
                 install = Install.Idle
@@ -429,6 +489,17 @@ object Updates {
                 DiagLog.i("update: session failed ($status, $message); installer")
                 if (!file.isFile || !openInstaller(app, app, file)) install = Install.Failed(Failure.Blocked)
             }
+        }
+    }
+
+    private fun openConfirmation(app: Context, id: Int, confirm: Intent) {
+        runCatching { app.startActivity(confirm.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }.onSuccess {
+            DiagLog.i("update: session $id asks to confirm; page started")
+            awaitSession(app, id, CONFIRM_TIMEOUT_MS, "confirmation page of session $id did not come up", confirmation = true)
+        }.onFailure {
+            // Some Android 13+ firmware has no CONFIRM_INSTALL page but accepts ACTION_VIEW (#827).
+            Log.w(TAG, "could not ask to confirm the update; opening the installer", it)
+            giveUpOnSession(app, id, "session $id has no confirmation page (${it.javaClass.simpleName})")
         }
     }
 
@@ -453,20 +524,30 @@ object Updates {
 
     /** Resume failed checks; if the installer closed without replacing Aerial, reset its button. */
     fun onHomeResumed() {
+        homeInFront = true
         checker?.setActive(true)
-        // Back from the confirmation page without an answer: the button works again.
-        awaiting?.takeIf { it.homeLeft }?.let { stopAwaiting(it.id) }
         if (install == Install.Opened) install = Install.Idle
+        awaiting?.let {
+            // Only returning from a requested confirmation releases the session's button.
+            // Visiting another app while awaiting an answer must not forget the update.
+            if (it.showConfirmation != null) it.showConfirmation.run()
+            else if (it.confirmation && it.homeLeft) stopAwaiting(it.id)
+            else if (it.timedOut) it.check.run()
+        }
     }
 
     fun onHomePaused() {
+        homeInFront = false
         checker?.setActive(false)
-        awaiting?.homeLeft = true
+        awaiting?.takeIf { it.confirmation }?.let {
+            it.homeLeft = true
+            install = Install.Opened
+        }
     }
 
     /** Back to the button, when the update page is left. */
     fun resetInstall() {
-        if (install !is Install.Downloading) install = Install.Idle
+        if (awaiting == null && install !is Install.Downloading) install = Install.Idle
     }
 
     private fun apkFile(context: Context): File {
@@ -591,6 +672,7 @@ object Updates {
         return try {
             GuardSetup.noteInstallerOpened(app)
             context.startActivity(intent)
+            install = Install.Opened
             Log.i(TAG, "installer opened for ${file.length()} bytes")
             true
         } catch (e: ActivityNotFoundException) {

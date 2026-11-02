@@ -135,6 +135,19 @@
   }
   .field input::placeholder { color: var(--tertiary); }
   .field .link { font-weight: 600; }
+  .kids-arrows { justify-content: space-between; }
+  .kids-arrows .dots { letter-spacing: 6px; font-size: 20px; color: var(--secondary); }
+  .kids-arrows .link { font-size: 22px; font-weight: 600; min-width: 36px; }
+  .kids-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+  .kids-actions .wide { grid-column: span 2; }
+  .ks-in { width: 76px; font: inherit; font-size: 17px; text-align: right; color: var(--label); background: none; border: 0; outline: none; padding: 0; }
+  .ks-in[type="time"] { width: 132px; }
+  /* Save stays in reach under the long list of apps. */
+  .sheet .ks-save { position: sticky; bottom: 0; box-shadow: 0 -12px 16px var(--sheet); }
+  .ks-in::placeholder { color: var(--tertiary); }
+  .ks-unit { color: var(--secondary); }
+  .sheet h4 { font-size: 13px; font-weight: 400; color: var(--secondary); margin: 18px 16px 7px; }
+  .sheet .item .num { color: var(--tint); font-weight: 600; min-width: 18px; text-align: right; }
   .field .link[disabled] { opacity: .4; }
   /* A <pre>, not a textarea: focusing a field under 16px makes iOS zoom and scroll the page. */
   .diag {
@@ -282,6 +295,19 @@
 
 <!-- Home screen: the TV's tiles, arranged here -->
 <section data-tab="home">
+  <div id="kidsBox" hidden>
+    <h2 id="kidsH"></h2>
+    <div class="list">
+      <div class="item"><span class="txt" id="kidsLine"></span></div>
+      <form class="item field" id="kidsPinForm">
+        <input id="kidsPin" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="off" data-i18n-placeholder="kids_pin_ph">
+        <button class="link" data-i18n="kids_unlock"></button>
+      </form>
+      <div class="item kids-arrows" id="kidsArrows"></div>
+    </div>
+    <div class="kids-actions" id="kidsActions"></div>
+    <p class="foot" id="kidsFoot"></p>
+  </div>
   <div id="homeBody"></div>
   <div id="inputsBox" hidden>
     <h2 data-i18n="inputs_h"></h2>
@@ -339,6 +365,7 @@
   </div>
   <p class="foot" id="wxHint"></p>
 
+  <div id="moreKids"></div>
   <h2 data-i18n="this_tv"></h2>
   <div class="list">
     <div class="item"><span class="txt" data-i18n="tv_model"></span><span class="val">{{DEVICE}}</span></div>
@@ -380,7 +407,7 @@ let state = null, stateJson = '';
 
 // The language: ?lang=ru in the address, else the one picked under More (kept on the phone), else the
 // first of the phone's preferred languages that has a table, else English. Keys are in KEYS, one array of texts per language.
-const KEYS = ["screensaver", "screensaver_short", "ss_aerial", "ss_photos", "ss_clock", "focus", "focus_high", "focus_standard", "weather", "city_ph", "set", "upload_label", "feedback_h", "feedback_hint", "diag_show", "diag_copy", "diag_github", "hint_aerial", "hint_photos", "hint_clock", "g_live", "g_live_sub", "g_daily", "g_daily_sub", "g_photo", "g_builtin", "g_auto", "toast_wallpaper", "aria_delete", "confirm_delete", "wx_clear", "wx_partlycloudy", "wx_cloudy", "wx_fog", "wx_rain", "wx_snow", "wx_thunder", "wx_chosen", "wx_auto_btn", "toast_auto", "wx_guessed", "wx_none", "tag_source", "aria_rename", "toast_renamed", "toast_name_reset", "toast_rename_fail", "aria_reset_icon", "toast_icon_reset", "focus_hint_standard", "focus_hint_high", "daily_title", "daily_caption", "rotate_title", "rotate_caption", "empty_photos", "add_second", "toast_tv_updated", "sending_n", "toast_added", "toast_no_photos", "toast_send_fail", "toast_city_set", "toast_city_nf", "toast_set_fail", "toast_sending_icon", "toast_icon_set", "toast_icon_bad", "diag_collecting", "toast_diag_fail", "toast_copied", "toast_copy_manual", "language", "hint_follows", "ss_videos", "hint_videos", "videos_h", "videos_upload", "videos_hint", "videos_empty", "confirm_video_delete", "toast_videos_added", "toast_video_bad", "sending_video", "hint_system", "tab_home", "tab_more", "current_wp", "cancel", "save", "name_ph", "rename_hint", "change_icon", "this_tv", "folder_count", "folder_ph", "inputs_h", "inputs_hint", "rename_hint_app", "was_named", "arrange_hint", "arrange_unready", "hidden_h", "hidden_none", "hidden_locked", "show_app", "hide_app", "to_folder", "new_folder", "out_of_folder", "ungroup", "ungroup_confirm", "folder_hint", "toast_hidden", "toast_shown", "toast_in_folder", "toast_out_folder", "toast_ungrouped", "tab_looks", "looks_title", "show_on_home", "source_device", "source_plain", "source_device_hint", "tv_model", "sw_always", "sw_always_sub", "sw_weather", "sw_saver_time", "sw_saver_time_sub", "g_source_sub", "icon_h", "icon_library", "icon_own", "icon_custom", "toast_icon_picked", "drop_hint", "drop_sub", "drop_none", "toast_diag_paste"];
+const KEYS = ["screensaver", "screensaver_short", "ss_aerial", "ss_photos", "ss_clock", "focus", "focus_high", "focus_standard", "weather", "city_ph", "set", "upload_label", "feedback_h", "feedback_hint", "diag_show", "diag_copy", "diag_github", "hint_aerial", "hint_photos", "hint_clock", "g_live", "g_live_sub", "g_daily", "g_daily_sub", "g_photo", "g_builtin", "g_auto", "toast_wallpaper", "aria_delete", "confirm_delete", "wx_clear", "wx_partlycloudy", "wx_cloudy", "wx_fog", "wx_rain", "wx_snow", "wx_thunder", "wx_chosen", "wx_auto_btn", "toast_auto", "wx_guessed", "wx_none", "tag_source", "aria_rename", "toast_renamed", "toast_name_reset", "toast_rename_fail", "aria_reset_icon", "toast_icon_reset", "focus_hint_standard", "focus_hint_high", "daily_title", "daily_caption", "rotate_title", "rotate_caption", "empty_photos", "add_second", "toast_tv_updated", "sending_n", "toast_added", "toast_no_photos", "toast_send_fail", "toast_city_set", "toast_city_nf", "toast_set_fail", "toast_sending_icon", "toast_icon_set", "toast_icon_bad", "diag_collecting", "toast_diag_fail", "toast_copied", "toast_copy_manual", "language", "hint_follows", "ss_videos", "hint_videos", "videos_h", "videos_upload", "videos_hint", "videos_empty", "confirm_video_delete", "toast_videos_added", "toast_video_bad", "sending_video", "hint_system", "tab_home", "tab_more", "current_wp", "cancel", "save", "name_ph", "rename_hint", "change_icon", "this_tv", "folder_count", "folder_ph", "inputs_h", "inputs_hint", "rename_hint_app", "was_named", "arrange_hint", "arrange_unready", "hidden_h", "hidden_none", "hidden_locked", "show_app", "hide_app", "to_folder", "new_folder", "out_of_folder", "ungroup", "ungroup_confirm", "folder_hint", "toast_hidden", "toast_shown", "toast_in_folder", "toast_out_folder", "toast_ungrouped", "tab_looks", "looks_title", "show_on_home", "source_device", "source_plain", "source_device_hint", "tv_model", "sw_always", "sw_always_sub", "sw_weather", "sw_saver_time", "sw_saver_time_sub", "g_source_sub", "icon_h", "icon_library", "icon_own", "icon_custom", "toast_icon_picked", "drop_hint", "drop_sub", "drop_none", "toast_diag_paste", "kids_h", "elders_h", "kids_used", "kids_left", "kids_nolimit", "kids_allowed", "kids_lock_day", "kids_lock_late", "kids_lock_break", "kids_pin_ph", "kids_unlock", "kids_wrong", "kids_need_pin", "kids_locked_foot", "kids_add", "kids_day", "kids_leave_k", "kids_leave_e", "kids_paused", "kids_resume", "kids_min", "kids_hm", "kids_erase", "kids_hr", "kids_both", "kids_off_line", "kids_settings", "kids_no_pin", "kids_pin_foot", "ks_meta", "ks_on", "ks_on_sub", "ks_block", "ks_block_sub", "ks_block_noguard", "ks_time_h", "ks_weekday", "ks_weekend", "ks_minutes", "ks_nolimit", "ks_window", "ks_from", "ks_to", "ks_break", "ks_break_every", "ks_break_len", "ks_time_foot", "ks_apps", "ks_apps_sub", "ks_input", "ks_save", "ks_saved", "ks_invalid", "ks_for"];
 const TEXTS = {
  "zh": [
   "屏幕保护程序",
@@ -461,7 +488,7 @@ const TEXTS = {
   "离线轮播已添加的视频；没有可播放的视频时显示照片。",
   "我的视频",
   "添加视频",
-  "可以当屏保，也可以在「动态」壁纸里选。MP4 / MOV，建议 1080p H.264。每段最多 200 MB，总共 512 MB。",
+  "可以当屏保，也可以在「动态」壁纸里选。MP4 / MOV，建议 1080p H.264。每段最多 2 GB，所有视频最多占电视剩余空间的一半，现在还能放 {room} GB。",
   "还没有视频，屏保暂时显示照片。",
   "删除“{name}”？",
   "视频：添加 {n} 段，失败 {failed} 段",
@@ -522,7 +549,61 @@ const TEXTS = {
   "松开即可发送到电视",
   "照片用作壁纸，视频加入屏保",
   "只能发送照片和视频（MP4、MOV）",
-  "诊断信息已复制。在 GitHub 打开的页面里，把它粘贴到「诊断信息」一栏。"
+  "诊断信息已复制。在 GitHub 打开的页面里，把它粘贴到「诊断信息」一栏。",
+  "儿童模式",
+  "长辈模式",
+  "今天看了 {used}",
+  "还剩 {left}",
+  "今天不限时",
+  "家长允许看到 {time}",
+  "今天的时间用完了",
+  "现在不能看电视（可以看的时间是 {from}–{to}）",
+  "正在休息",
+  "家长密码",
+  "解锁",
+  "密码不对。连错 5 次要等一分钟再试。",
+  "这个模式开着，先在「主屏幕」最上面输入家长密码",
+  "这个模式开着：在手机上修改设置要先输入家长密码。",
+  "再看 {n} 分钟",
+  "今天不限",
+  "退出儿童模式",
+  "退出长辈模式",
+  "已暂停。电视进屏保或待机后会自动回到这个模式。",
+  "现在回到这个模式",
+  "{n} 分钟",
+  "{h} 小时 {m} 分钟",
+  "删除",
+  "{h} 小时",
+  "儿童与长辈模式",
+  "没有开启",
+  "设置",
+  "先在电视的个性化里设家长密码，才能在这里设置。",
+  "输入家长密码后可以在手机上设置这个模式。",
+  "修改后按最下面的「保存」，电视马上生效。",
+  "开启这个模式",
+  "在手机上开启时电视马上进入这个模式",
+  "拦住其他 App",
+  "用遥控器按键、语音助手或从别的 App 打开的其他 App 会马上回到桌面",
+  "这台电视没有开启桌面守护，从别处打开的 App 拦不住",
+  "时间",
+  "工作日每天",
+  "周末每天",
+  "分钟",
+  "不限",
+  "限制可以看的时段",
+  "从",
+  "到",
+  "定时休息",
+  "每看多少分钟",
+  "休息多少分钟",
+  "分钟数空着就是不限。停在桌面上的时间不算。时段的开始要早于结束。改了时间设置后，之前额外给的时间会取消，新设置马上生效。",
+  "显示的 App",
+  "按勾选的顺序显示在电视桌面上",
+  "信号源",
+  "保存",
+  "已保存，电视已更新",
+  "保存失败：时段的结束要晚于开始，分钟数在 0–1440 之间；开启时至少选一个 App。",
+  "给谁用"
  ],
  "en": [
   "Screensaver",
@@ -603,7 +684,7 @@ const TEXTS = {
   "Loops your videos offline; shows photos when none can play.",
   "My videos",
   "Add videos",
-  "For the screensaver, or as a moving wallpaper. MP4 / MOV, 1080p H.264 recommended. Up to 200 MB each, 512 MB in all.",
+  "For the screensaver, or as a moving wallpaper. MP4 / MOV, 1080p H.264 recommended. Up to 2 GB each; all films together take at most half the TV's free space. Room for {room} GB now.",
   "No videos yet; the screensaver shows photos until you add some.",
   "Delete “{name}”?",
   "Videos: {n} added, {failed} failed",
@@ -664,7 +745,61 @@ const TEXTS = {
   "Drop to send to the TV",
   "Photos become wallpapers, videos join the screensaver",
   "Only photos and videos (MP4, MOV) can be sent",
-  "Diagnostics copied. On the GitHub page that opens, paste them into Diagnostics."
+  "Diagnostics copied. On the GitHub page that opens, paste them into Diagnostics.",
+  "Kids Mode",
+  "Elders Mode",
+  "{used} of TV today",
+  "{left} left",
+  "No limit today",
+  "Allowed until {time}",
+  "That’s all for today",
+  "TV time is over (the TV is on from {from} to {to})",
+  "Taking a break",
+  "Parental PIN",
+  "Unlock",
+  "Wrong PIN. After 5 wrong tries, wait a minute.",
+  "The mode is on: enter the parental PIN at the top of Home first",
+  "The mode is on: changing settings from the phone takes the parental PIN.",
+  "{n} more minutes",
+  "No limit today",
+  "Leave Kids Mode",
+  "Leave Elders Mode",
+  "Paused. The mode comes back by itself when the screensaver starts or the TV goes to sleep.",
+  "Back to the mode now",
+  "{n} min",
+  "{h} h {m} min",
+  "Delete",
+  "{h} h",
+  "Kids and Elders",
+  "Off",
+  "Set Up",
+  "Set a parental PIN in Personalize on the TV first; then the mode can be set up here.",
+  "Enter the parental PIN to set up the mode from the phone.",
+  "Tap Save at the bottom; the TV follows at once.",
+  "Turn the mode on",
+  "Turned on from the phone, the TV goes into the mode at once",
+  "Keep other apps away",
+  "Apps opened by the remote's keys, the voice assistant or another app go straight back to Home",
+  "Home Guard is not on for this TV: apps opened another way cannot be kept away",
+  "Time",
+  "Weekdays",
+  "Weekends",
+  "min",
+  "No limit",
+  "Only between certain hours",
+  "From",
+  "To",
+  "Breaks",
+  "After minutes of watching",
+  "Break minutes",
+  "Leave minutes empty for no limit. Time on Home does not count. The hours must start before they end. Changed times hold at once: extra time given before ends.",
+  "Shown apps",
+  "Home shows them in the order ticked",
+  "Input",
+  "Save",
+  "Saved; the TV is updated",
+  "Not saved: the hours must end after they start, minutes must be 0–1440, and the mode needs at least one app to be on.",
+  "For"
  ],
  "ru": [
   "Заставка",
@@ -745,7 +880,7 @@ const TEXTS = {
   "Видео повторяются без сети; если они недоступны, показываются фото.",
   "Мои видео",
   "Добавить видео",
-  "Для заставки или как движущиеся обои. MP4 / MOV, лучше 1080p H.264. До 200 МБ каждое, всего 512 МБ.",
+  "Для заставки или как движущиеся обои. MP4 / MOV, лучше 1080p H.264. До 2 ГБ каждое; все видео вместе занимают не больше половины свободного места. Сейчас можно ещё {room} ГБ.",
   "Видео пока нет; до их добавления заставка показывает фото.",
   "Удалить «{name}»?",
   "Видео: добавлено {n}, не удалось {failed}",
@@ -806,7 +941,61 @@ const TEXTS = {
   "Отпустите, чтобы отправить на телевизор",
   "Фото станут обоями, видео — заставкой",
   "Можно отправлять только фото и видео (MP4, MOV)",
-  "Диагностика скопирована. На открывшейся странице GitHub вставьте её в поле «Диагностика»."
+  "Диагностика скопирована. На открывшейся странице GitHub вставьте её в поле «Диагностика».",
+  "Детский режим",
+  "Режим для пожилых",
+  "Сегодня {used} телевизора",
+  "Осталось {left}",
+  "Сегодня без лимита",
+  "Разрешено до {time}",
+  "На сегодня всё",
+  "Время телевизора закончилось (доступен с {from} до {to})",
+  "Перерыв",
+  "Родительский PIN",
+  "Открыть",
+  "Неверный PIN. После 5 ошибок подождите минуту.",
+  "Режим включён: сначала введите родительский PIN вверху вкладки «Главный экран»",
+  "Режим включён: чтобы менять настройки с телефона, нужен родительский PIN.",
+  "Ещё {n} мин",
+  "Сегодня без лимита",
+  "Выйти из детского режима",
+  "Выйти из режима для пожилых",
+  "Пауза. Режим вернётся сам, когда включится заставка или телевизор уснёт.",
+  "Вернуться в режим",
+  "{n} мин",
+  "{h} ч {m} мин",
+  "Стереть",
+  "{h} ч",
+  "Дети и пожилые",
+  "Выключен",
+  "Настроить",
+  "Сначала задайте родительский PIN в разделе «Оформление» на телевизоре, тогда режим можно будет настроить здесь.",
+  "Введите родительский PIN, чтобы настроить режим с телефона.",
+  "Нажмите «Сохранить» внизу — телевизор применит сразу.",
+  "Включить режим",
+  "Включённый с телефона, режим начинается на телевизоре сразу",
+  "Не пускать другие приложения",
+  "Приложения, открытые кнопками пульта, голосовым помощником или из другого приложения, сразу возвращают на главный экран",
+  "На этом телевизоре не включена защита главного экрана: открытые иначе приложения остановить нельзя",
+  "Время",
+  "Будни",
+  "Выходные",
+  "мин",
+  "Без лимита",
+  "Только в определённые часы",
+  "С",
+  "До",
+  "Перерывы",
+  "После минут просмотра",
+  "Минут перерыва",
+  "Пустое поле минут — без лимита. Время на главном экране не считается. Начало должно быть раньше конца. Новые настройки времени действуют сразу, ранее добавленное время отменяется.",
+  "Приложения",
+  "Показываются на телевизоре в порядке отметки",
+  "Вход",
+  "Сохранить",
+  "Сохранено, телевизор обновлён",
+  "Не сохранено: конец должен быть позже начала, минуты — от 0 до 1440, а для включения нужно хотя бы одно приложение.",
+  "Для кого"
  ],
  "uk": [
   "Заставка",
@@ -887,7 +1076,7 @@ const TEXTS = {
   "Відео повторюються без мережі; якщо вони недоступні, показуються фото.",
   "Мої відео",
   "Додати відео",
-  "Для заставки або як рухомі шпалери. MP4 / MOV, краще 1080p H.264. До 200 МБ кожне, загалом 512 МБ.",
+  "Для заставки або як рухомі шпалери. MP4 / MOV, краще 1080p H.264. До 2 ГБ кожне; усі відео разом займають не більше половини вільного місця. Зараз можна ще {room} ГБ.",
   "Відео поки немає; доки їх не додано, заставка показує фото.",
   "Видалити «{name}»?",
   "Відео: додано {n}, не вдалося {failed}",
@@ -948,7 +1137,61 @@ const TEXTS = {
   "Відпустіть, щоб надіслати на телевізор",
   "Фото стануть шпалерами, відео — заставкою",
   "Можна надсилати лише фото й відео (MP4, MOV)",
-  "Діагностику скопійовано. На сторінці GitHub, що відкриється, вставте її в поле «Діагностика»."
+  "Діагностику скопійовано. На сторінці GitHub, що відкриється, вставте її в поле «Діагностика».",
+  "Дитячий режим",
+  "Режим для літніх",
+  "Сьогодні {used} телевізора",
+  "Лишилося {left}",
+  "Сьогодні без ліміту",
+  "Дозволено до {time}",
+  "На сьогодні все",
+  "Час телевізора скінчився (доступний з {from} до {to})",
+  "Перерва",
+  "Батьківський PIN",
+  "Відкрити",
+  "Неправильний PIN. Після 5 помилок зачекайте хвилину.",
+  "Режим увімкнено: спершу введіть батьківський PIN угорі вкладки «Головний екран»",
+  "Режим увімкнено: щоб змінювати налаштування з телефона, потрібен батьківський PIN.",
+  "Ще {n} хв",
+  "Сьогодні без ліміту",
+  "Вийти з дитячого режиму",
+  "Вийти з режиму для літніх",
+  "Пауза. Режим повернеться сам, коли ввімкнеться заставка або телевізор засне.",
+  "Повернутися в режим",
+  "{n} хв",
+  "{h} год {m} хв",
+  "Стерти",
+  "{h} год",
+  "Діти та літні",
+  "Вимкнено",
+  "Налаштувати",
+  "Спершу задайте батьківський PIN в «Оформленні» на телевізорі, тоді режим можна буде налаштувати тут.",
+  "Введіть батьківський PIN, щоб налаштувати режим з телефона.",
+  "Натисніть «Зберегти» внизу — телевізор застосує одразу.",
+  "Увімкнути режим",
+  "Увімкнений з телефона, режим починається на телевізорі одразу",
+  "Не пускати інші застосунки",
+  "Застосунки, відкриті кнопками пульта, голосовим помічником чи з іншого застосунку, одразу повертають на головний екран",
+  "На цьому телевізорі не ввімкнено захист головного екрана: відкриті інакше застосунки зупинити не можна",
+  "Час",
+  "Будні",
+  "Вихідні",
+  "хв",
+  "Без ліміту",
+  "Лише в певні години",
+  "З",
+  "До",
+  "Перерви",
+  "Після хвилин перегляду",
+  "Хвилин перерви",
+  "Порожнє поле хвилин — без ліміту. Час на головному екрані не рахується. Початок має бути раніше за кінець. Нові налаштування часу діють одразу, раніше додатковий час скасовується.",
+  "Застосунки",
+  "Показуються на телевізорі в порядку позначення",
+  "Вхід",
+  "Зберегти",
+  "Збережено, телевізор оновлено",
+  "Не збережено: кінець має бути пізніше за початок, хвилини — від 0 до 1440, а для ввімкнення потрібен хоча б один застосунок.",
+  "Для кого"
  ],
  "kk": [
   "Экран қорғаушы",
@@ -1029,7 +1272,7 @@ const TEXTS = {
   "Бейнелер интернетсіз қайталанады; ойнатылмаса, фотолар көрсетіледі.",
   "Менің бейнелерім",
   "Бейне қосу",
-  "Экран қорғауышқа немесе қозғалмалы тұсқағаз ретінде. MP4 / MOV, 1080p H.264 ұсынылады. Әрқайсысы 200 МБ дейін, барлығы 512 МБ.",
+  "Экран қорғауышқа немесе қозғалмалы тұсқағаз ретінде. MP4 / MOV, 1080p H.264 ұсынылады. Әрқайсысы 2 ГБ дейін; барлық бейне бос орынның жартысынан аспайды. Қазір тағы {room} ГБ сыяды.",
   "Бейне әлі жоқ; қосылғанша экран сақтағыш фотоларды көрсетеді.",
   "«{name}» жойылсын ба?",
   "Бейне: {n} қосылды, {failed} сәтсіз",
@@ -1090,7 +1333,61 @@ const TEXTS = {
   "Теледидарға жіберу үшін босатыңыз",
   "Фотолар түсқағаз, бейнелер скринсейвер болады",
   "Тек фото мен бейне (MP4, MOV) жіберуге болады",
-  "Диагностика көшірілді. Ашылған GitHub бетінде оны «Диагностика» өрісіне қойыңыз."
+  "Диагностика көшірілді. Ашылған GitHub бетінде оны «Диагностика» өрісіне қойыңыз.",
+  "Балалар режимі",
+  "Қарттар режимі",
+  "Бүгін {used} теледидар",
+  "{left} қалды",
+  "Бүгін шектеусіз",
+  "{time} дейін рұқсат",
+  "Бүгінге жетеді",
+  "Теледидар уақыты бітті ({from} – {to} аралығында қолжетімді)",
+  "Үзіліс",
+  "Ата-ана PIN коды",
+  "Ашу",
+  "PIN қате. 5 рет қателескен соң бір минут күтіңіз.",
+  "Режим қосулы: алдымен «Басты экран» бетінің жоғарғы жағында ата-ана PIN кодын енгізіңіз",
+  "Режим қосулы: телефоннан баптауларды өзгерту үшін ата-ана PIN коды керек.",
+  "Тағы {n} мин",
+  "Бүгін шектеусіз",
+  "Балалар режимінен шығу",
+  "Қарттар режимінен шығу",
+  "Кідіріс. Заставка қосылғанда немесе теледидар ұйықтағанда режим өзі қайтады.",
+  "Режимге қазір оралу",
+  "{n} мин",
+  "{h} сағ {m} мин",
+  "Өшіру",
+  "{h} сағ",
+  "Балалар мен қарттар",
+  "Өшірулі",
+  "Баптау",
+  "Алдымен теледидардағы «Безендіру» бөлімінде ата-ана PIN кодын қойыңыз, сонда режимді осында баптауға болады.",
+  "Режимді телефоннан баптау үшін ата-ана PIN кодын енгізіңіз.",
+  "Төмендегі «Сақтау» түймесін басыңыз — теледидар бірден қолданады.",
+  "Режимді қосу",
+  "Телефоннан қосылса, теледидарда режим бірден басталады",
+  "Басқа қолданбаларды жібермеу",
+  "Пульт түймелерімен, дауыс көмекшісімен не басқа қолданбадан ашылған қолданбалар бірден басты экранға қайтарады",
+  "Бұл теледидарда басты экран қорғанысы қосылмаған: басқа жолмен ашылған қолданбаларды тоқтату мүмкін емес",
+  "Уақыт",
+  "Жұмыс күндері",
+  "Демалыс күндері",
+  "мин",
+  "Шектеусіз",
+  "Тек белгілі сағаттарда",
+  "Бастап",
+  "Дейін",
+  "Үзілістер",
+  "Неше минут көргеннен кейін",
+  "Үзіліс минуты",
+  "Минут бос болса — шектеусіз. Басты экрандағы уақыт есептелмейді. Басы соңынан ерте болуы керек. Жаңа уақыт баптаулары бірден күшіне енеді, бұрын қосылған уақыт жойылады.",
+  "Қолданбалар",
+  "Теледидарда белгіленген ретпен көрсетіледі",
+  "Кіріс",
+  "Сақтау",
+  "Сақталды, теледидар жаңартылды",
+  "Сақталмады: соңы басынан кеш болуы керек, минуттар 0–1440 аралығында, ал қосу үшін кемінде бір қолданба керек.",
+  "Кімге"
  ]
 };
 const LANGS = Object.keys(TEXTS);
@@ -1145,16 +1442,30 @@ const ICON = {
   plus: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>'
 };
 
-function toast(msg) {
+function toast(msg, first) {
+  // The mode's refusal stays up over the "could not save" that follows it.
+  if (!first && Date.now() < kidsNoticeUntil) return;
   const box = $('#toast'); box.textContent = msg; box.classList.add('on');
   clearTimeout(toast.timer); toast.timer = setTimeout(() => box.classList.remove('on'), 1800);
 }
 
+/* Kids and Elders mode: the TV takes no change without the parental PIN, sent with each once entered. */
+let kidsPin = '';
+let kidsNoticeUntil = 0;
+function pinHeaders(more) { return Object.assign({}, more || {}, kidsPin ? { 'X-Aerial-Pin': kidsPin } : {}); }
 async function api(path, body) {
-  const opts = body ? { method: 'POST', body: new URLSearchParams(body) } : {};
+  const opts = body ? { method: 'POST', body: new URLSearchParams(body), headers: pinHeaders() } : {};
   const r = await fetch(base + path, opts);
   if (!r.ok) throw new Error(r.status);
-  return r.json();
+  const next = await r.json();
+  kidsRefused(next);
+  return next;
+}
+function kidsRefused(next) {
+  if (!next || !next.kidsLocked) return;
+  kidsPin = '';
+  toast(t('kids_need_pin'), true);
+  kidsNoticeUntil = Date.now() + 2500;
 }
 function take(next) { state = next; stateJson = ''; render(); }
 
@@ -1335,9 +1646,9 @@ async function sendPhotos(files) {
   uploading = files.length; stateJson = ''; render();
   try {
     const fd = new FormData(); files.forEach((f, i) => fd.append('photo' + i, f, f.name));
-    const r = await fetch(base + 'api/upload', { method: 'POST', body: fd });
+    const r = await fetch(base + 'api/upload', { method: 'POST', body: fd, headers: pinHeaders() });
     if (!r.ok) throw new Error(r.status);
-    const next = await r.json(); uploading = 0; take(next);
+    const next = await r.json(); kidsRefused(next); uploading = 0; take(next);
     toast(next.added ? t('toast_added', { n: next.added }) : t('toast_no_photos'));
   } catch (err) { uploading = 0; stateJson = ''; render(); toast(t('toast_send_fail')); }
 }
@@ -1366,6 +1677,7 @@ function renderScreensaver() {
     row.appendChild(del); list.appendChild(row);
   }
   $('#videoUploadLabel').textContent = sendingVideo || t('videos_upload');
+  $('[data-i18n="videos_hint"]').textContent = t('videos_hint', { room: ((state.videoRoom || 0) / 1e9).toFixed(1) });
 }
 document.querySelectorAll('#ss [data-mode]').forEach(b => b.onclick = async () => {
   if (b.dataset.mode === state.screensaver && !state.screensaverFollows) return;
@@ -1379,12 +1691,13 @@ async function sendVideos(files) {
   let added = 0;
   for (const [i, file] of files.entries()) {
     sendingVideo = t('sending_video', { n: i + 1, total: files.length }); $('#videoUploadLabel').textContent = sendingVideo;
-    if (!file.size || file.size > 200 * 1024 * 1024) continue;
+    // The TV says how much room is left; a film that cannot fit is not sent at all.
+    if (!file.size || file.size > (state.videoRoom || 0)) continue;
     try {
-      const fd = new FormData(); fd.append('video', file, file.name);
-      const r = await fetch(base + 'api/videos/upload', { method: 'POST', body: fd });
+      // The file itself as the body, so the TV writes it straight to its place (#1164).
+      const r = await fetch(base + 'api/videos/send?name=' + encodeURIComponent(file.name), { method: 'POST', body: file, headers: pinHeaders({ 'Content-Type': 'application/octet-stream' }) });
       if (!r.ok) throw new Error(r.status);
-      const next = await r.json(); if (next.saved) added++; take(next);
+      const next = await r.json(); kidsRefused(next); if (next.saved) added++; take(next);
     } catch (err) { /* Keep going: a failed film should not discard the rest of the batch. */ }
   }
   sendingVideo = ''; input.disabled = false; input.value = ''; btn.removeAttribute('disabled'); stateJson = ''; render();
@@ -1482,9 +1795,9 @@ $('#iconFile').onchange = async e => {
   toast(t('toast_sending_icon', { label: a.label }));
   try {
     const fd = new FormData(); fd.append('app', a.key); fd.append('picture', f, f.name);
-    const r = await fetch(base + 'api/icon', { method: 'POST', body: fd });
+    const r = await fetch(base + 'api/icon', { method: 'POST', body: fd, headers: pinHeaders() });
     if (!r.ok) throw new Error(r.status);
-    const next = await r.json(); take(next);
+    const next = await r.json(); kidsRefused(next); take(next);
     toast(t(next.saved ? 'toast_icon_set' : 'toast_icon_bad'));
   } catch (err) { toast(t('toast_send_fail')); }
 };
@@ -1909,12 +2222,189 @@ function sortableGrid(grid, keys, onMove, onTap) {
   });
 }
 
+/* Kids and Elders mode: the day's time, and with the PIN more time or leaving the mode. */
+function fmtMin(n) { return n < 60 ? t('kids_min', { n }) : n % 60 ? t('kids_hm', { h: Math.floor(n / 60), m: n % 60 }) : t('kids_hr', { h: n / 60 }); }
+function clockOf(ms) { const d = new Date(ms); return d.getHours() + ':' + String(d.getMinutes()).padStart(2, '0'); }
+let kidsArrowPin = '';
+async function kidsUnlock(pin) {
+  try {
+    const next = await api('api/kids/unlock', { pin });
+    if (next.pinRight) { kidsPin = pin; $('#kidsPin').value = ''; take(next); return; }
+    toast(t('kids_wrong'));
+  } catch (e) { toast(t('toast_set_fail')); }
+  kidsArrowPin = ''; stateJson = ''; render();
+}
+async function kidsDo(path, body) {
+  try {
+    const next = await api(path, body || {});
+    if (!next.saved) throw new Error('not saved');
+    take(next); toast(t('toast_tv_updated'));
+  } catch (e) { toast(t('toast_set_fail')); }
+}
+function minClock(m) { return Math.floor(m / 60) + ':' + String(m % 60).padStart(2, '0'); }
+function renderKids() {
+  const k = state.kids || {};
+  const box = $('#kidsBox');
+  // A TV without the mode (older Aerial) says nothing of it. Turned off, it waits under More,
+  // out of the way of everyone who does not use it; on, it is the first thing on Home.
+  box.hidden = !k.candidates;
+  if (box.hidden) return;
+  const spot = k.enabled ? $('#homeBody') : $('#moreKids');
+  if (box.nextElementSibling !== spot) spot.parentNode.insertBefore(box, spot);
+  $('#kidsH').textContent = k.enabled ? t(k.kind === 'elders' ? 'elders_h' : 'kids_h') : t('kids_both');
+  let line;
+  if (!k.enabled) line = t('kids_off_line');
+  else if (k.lock === 'day') line = t('kids_lock_day');
+  else if (k.lock === 'late') line = t('kids_lock_late', { from: minClock(k.startMinute), to: minClock(k.endMinute) });
+  else if (k.lock === 'break') line = t('kids_lock_break');
+  else if (k.allowUntil) line = t('kids_allowed', { time: clockOf(k.allowUntil) });
+  else if (k.limitMin) line = t('kids_left', { left: fmtMin(Math.max(0, k.limitMin - (k.usedMin || 0))) });
+  else line = t('kids_nolimit');
+  $('#kidsLine').textContent = k.enabled ? t('kids_used', { used: fmtMin(k.usedMin || 0) }) + ' · ' + line : line;
+  const needPin = k.pinSet && !kidsPin;
+  $('#kidsPinForm').hidden = !needPin || k.pinArrows;
+  const arrows = $('#kidsArrows');
+  arrows.hidden = !needPin || !k.pinArrows;
+  arrows.replaceChildren();
+  if (needPin && k.pinArrows) {
+    arrows.appendChild(el('span', 'dots', '●'.repeat(kidsArrowPin.length) + '○'.repeat(4 - kidsArrowPin.length)));
+    [['U', '↑'], ['D', '↓'], ['L', '←'], ['R', '→']].forEach(([c, label]) => {
+      const b = el('button', 'link', label); b.type = 'button';
+      b.onclick = () => { kidsArrowPin += c; if (kidsArrowPin.length === 4) kidsUnlock(kidsArrowPin); else { stateJson = ''; render(); } };
+      arrows.appendChild(b);
+    });
+    const erase = el('button', 'link', '⌫'); erase.type = 'button'; erase.setAttribute('aria-label', t('kids_erase'));
+    erase.onclick = () => { kidsArrowPin = kidsArrowPin.slice(0, -1); stateJson = ''; render(); };
+    arrows.appendChild(erase);
+  }
+  const acts = $('#kidsActions'); acts.replaceChildren();
+  const btn = (text, fn, cls) => { const b = el('button', 'btn plain' + (cls ? ' ' + cls : ''), text); b.onclick = fn; acts.appendChild(b); };
+  let foot = '';
+  // Back into a paused mode takes no PIN, as on the TV.
+  if (k.enabled && !k.active) { btn(t('kids_resume'), () => kidsDo('api/kids/start'), 'wide'); foot = t('kids_paused'); }
+  if (!k.pinSet) foot = t('kids_no_pin');
+  else if (kidsPin) {
+    if (k.active) {
+      [15, 30, 60].forEach(n => btn(t('kids_add', { n }), () => kidsDo('api/kids/allow', { minutes: String(n) })));
+      btn(t('kids_day'), () => kidsDo('api/kids/allow', { minutes: '0' }));
+      btn(t(k.kind === 'elders' ? 'kids_leave_e' : 'kids_leave_k'), () => kidsDo('api/kids/leave'), 'wide');
+    }
+    btn(t('kids_settings'), kidsSettings, 'wide');
+  } else if (!foot) foot = t(k.active ? 'kids_locked_foot' : 'kids_pin_foot');
+  $('#kidsFoot').textContent = foot;
+}
+
+/* The mode's whole setup, as on the TV but with any number of minutes and any hours. */
+function kidsSettings() {
+  const k = state.kids || {};
+  let kind = k.kind || 'kids';
+  const picked = (k.allowed || []).slice();
+  openSheet(body => {
+    body.appendChild(el('h3', '', t('kids_both')));
+    body.appendChild(el('p', 'meta', t('ks_meta')));
+    const list = () => { const l = el('div', 'list'); body.appendChild(l); return l; };
+    const head = key => body.appendChild(el('h4', '', t(key)));
+    const sw = (l, text, sub, on) => {
+      const row = el('label', 'item'); const tx = el('span', 'txt', text);
+      if (sub) tx.appendChild(el('span', 'sub', sub));
+      const c = el('input', 'switch'); c.type = 'checkbox'; c.checked = !!on; c.setAttribute('aria-label', text);
+      row.append(tx, c); l.appendChild(row); return c;
+    };
+    const field = (l, text, type, value, unit) => {
+      const row = el('label', 'item'); row.appendChild(el('span', 'txt', text));
+      const i = el('input', 'ks-in'); i.type = type; i.value = value;
+      if (type === 'number') { i.min = '0'; i.max = '1440'; i.step = '1'; i.inputMode = 'numeric'; i.placeholder = t('ks_nolimit'); }
+      i.setAttribute('aria-label', text); row.appendChild(i);
+      if (unit) row.appendChild(el('span', 'ks-unit', unit));
+      l.appendChild(row); return i;
+    };
+
+    head('ks_for');
+    const kl = list();
+    const kinds = {};
+    const syncKind = () => { for (const v in kinds) kinds[v].setAttribute('aria-checked', v === kind ? 'true' : 'false'); };
+    ['kids', 'elders'].forEach(v => {
+      const b = el('button', 'item'); b.type = 'button'; b.setAttribute('role', 'radio');
+      b.appendChild(el('span', 'txt', t(v === 'kids' ? 'kids_h' : 'elders_h')));
+      b.insertAdjacentHTML('beforeend', ICON.tick);
+      b.onclick = () => { kind = v; syncKind(); };
+      kinds[v] = b; kl.appendChild(b);
+    });
+    syncKind();
+    const gl = list();
+    const on = sw(gl, t('ks_on'), t('ks_on_sub'), k.enabled);
+    const block = sw(gl, t('ks_block'), t(k.guard ? 'ks_block_sub' : 'ks_block_noguard'), k.blockOthers);
+
+    head('ks_time_h');
+    const tl = list();
+    const weekday = field(tl, t('ks_weekday'), 'number', k.weekdayMinutes || '', t('ks_minutes'));
+    const weekend = field(tl, t('ks_weekend'), 'number', k.weekendMinutes || '', t('ks_minutes'));
+    const wl = list(); wl.style.marginTop = '10px';
+    const windowOn = sw(wl, t('ks_window'), '', k.endMinute > 0);
+    const from = field(wl, t('ks_from'), 'time', minClock(k.startMinute || 360).padStart(5, '0'));
+    const to = field(wl, t('ks_to'), 'time', minClock(k.endMinute || 21 * 60).padStart(5, '0'));
+    const syncWindow = () => { from.closest('.item').hidden = to.closest('.item').hidden = !windowOn.checked; };
+    windowOn.onchange = syncWindow; syncWindow();
+    const bl = list(); bl.style.marginTop = '10px';
+    const breakOn = sw(bl, t('ks_break'), '', k.breakEvery > 0);
+    const every = field(bl, t('ks_break_every'), 'number', k.breakEvery || 30, t('ks_minutes'));
+    const len = field(bl, t('ks_break_len'), 'number', k.breakMinutes || 5, t('ks_minutes'));
+    const syncBreak = () => { every.closest('.item').hidden = len.closest('.item').hidden = !breakOn.checked; };
+    breakOn.onchange = syncBreak; syncBreak();
+    body.appendChild(el('p', 'foot', t('ks_time_foot')));
+
+    head('ks_apps');
+    const al = list();
+    const nums = {};
+    const syncNums = () => { for (const key in nums) { const n = picked.indexOf(key); nums[key].textContent = n >= 0 ? String(n + 1) : ''; } };
+    for (const c of k.candidates || []) {
+      const row = el('label', 'item');
+      const img = el('img', 'thumb'); img.alt = ''; img.loading = 'lazy'; img.src = `${base}tile/${encodeURIComponent(c.key)}`;
+      img.onerror = () => { img.style.visibility = 'hidden'; };
+      const tx = el('span', 'txt', c.label); if (c.source) tx.appendChild(el('span', 'sub', t('ks_input')));
+      const n = el('span', 'num'); nums[c.key] = n;
+      const box = el('input', 'switch'); box.type = 'checkbox'; box.checked = picked.includes(c.key); box.setAttribute('aria-label', c.label);
+      box.onchange = () => {
+        const at = picked.indexOf(c.key);
+        if (box.checked && at < 0) picked.push(c.key); else if (!box.checked && at >= 0) picked.splice(at, 1);
+        syncNums();
+      };
+      row.append(img, tx, n, box); al.appendChild(row);
+    }
+    syncNums();
+    body.appendChild(el('p', 'foot', t('ks_apps_sub')));
+
+    const save = el('button', 'btn ks-save', t('ks_save')); save.style.marginTop = '16px';
+    const mins = i => { const v = i.value.trim(); return v === '' ? '0' : String(Math.round(Number(v))); };
+    const ofTime = i => { const [h, m] = (i.value || '0:0').split(':').map(Number); return String(h * 60 + m); };
+    save.onclick = async () => {
+      save.disabled = true;
+      try {
+        const next = await api('api/kids/config', {
+          kind, enabled: on.checked ? '1' : '0', block: block.checked ? '1' : '0',
+          weekday: mins(weekday), weekend: mins(weekend),
+          start: windowOn.checked ? ofTime(from) : String(k.startMinute || 360), end: windowOn.checked ? ofTime(to) : '0',
+          breakEvery: breakOn.checked ? mins(every) : '0', breakMinutes: breakOn.checked ? mins(len) : String(k.breakMinutes || 5),
+          allowed: picked.join('\n'),
+        });
+        if (next.kidsLocked) { closeSheet(); return; }
+        if (!next.saved) { toast(t('ks_invalid')); return; }
+        take(next); closeSheet(); toast(t('ks_saved'));
+      } catch (e) { toast(t('toast_set_fail')); } finally { save.disabled = false; }
+    };
+    body.appendChild(save);
+  });
+}
+$('#kidsPinForm').onsubmit = e => { e.preventDefault(); const v = $('#kidsPin').value.trim(); if (v.length === 4) kidsUnlock(v); };
+$('#kidsPin').oninput = e => { const v = e.target.value.trim(); if (v.length === 4) kidsUnlock(v); };
+
 function render() {
   if (!state) return;
   // The page polls; skip the rebuild when nothing changed, so pictures do not flicker and taps are not lost.
   const json = JSON.stringify(state);
   if (json === stateJson) return;
   stateJson = json;
+  renderKids();
   renderWallpapers();
   renderScreensaver();
   renderMore();

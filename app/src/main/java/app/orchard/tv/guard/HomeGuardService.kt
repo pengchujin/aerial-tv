@@ -11,6 +11,7 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.database.ContentObserver
 import android.media.AudioManager
@@ -313,12 +314,16 @@ class HomeGuardService : AccessibilityService() {
             // FIRMWARE_HOMES_WITHOUT_FILTER lost it until Aerial restarted (MiTV-MOOQ0, Android 11).
             activityCache.clear()
             refreshStockHomes()
+            checkMouseWithFilter(this@HomeGuardService)
             watchCecInput()
             updateKeyFilter()
             // The ADB and screensaver checks were skipped while locked.
             GuardSetup.ensureEnabled(this@HomeGuardService)
+            // Not bounded by the boot window: the unlock is where a boot ends for apps, however late
+            // it comes. XGIMI Play 6 (GMUI, Android 11, low RAM) unlocked 5 min 35 s into a boot,
+            // and the guard, bound since Direct Boot, left the firmware's Home chooser on screen
+            // (issue #1126, the reporter's timeline). The take-over still looks at the front first.
             val skipReason = when {
-                SystemClock.elapsedRealtime() >= BOOT_WINDOW_MS -> "outside boot window"
                 getSystemService<PowerManager>()?.isInteractive != true -> "screen off"
                 else -> null
             }
@@ -581,6 +586,8 @@ class HomeGuardService : AccessibilityService() {
 
     override fun onServiceConnected() {
         instance = this
+        KidsWatch.start(this)
+        checkMouseWithFilter(this)
         BootOpen.noteStartedInStandby(this)
         watchUiBoost()
         // The profile is in credential storage: only once unlocked.
@@ -791,7 +798,19 @@ class HomeGuardService : AccessibilityService() {
         // take-over in onCreate and the one at the connection are a few seconds apart, and the
         // second redid Home's resume (MiTV-MFTR0).
         if (last == null && SystemClock.uptimeMillis() - broughtBackAt < 30_000) return
-        val stockInFront = last == null || last.first in stockHomes
+        // XGIMI Z9X (MT9660-class, Android 13, GMUI v6.17.12): with no HOME preferred-activity on
+        // record, power-on and wake land on the firmware's own Home chooser
+        // (com.xgimi.xgimiframeworkui/.resolver.ResolverActivity) and stay there: usage stats name
+        // com.xgimi.xgimiframeworkui, which is no stock home, so the guard left it ("leaving it
+        // there") on every take-over, and the firmware force-stopped Aerial every ~30 s during the
+        // boot on top. The chooser's own "always" does not persist across reboots there, and
+        // set-home-activity reports success without changing what HOME resolves to. Treat the
+        // chooser like a stock launcher so the take-over covers boot and wake, the same condition
+        // frontAfterHome already accepts right after a Home press (issue #44). The same chooser
+        // also serves "open with", but only right after a revival or a wake, which is rarer than a
+        // boot and was already accepted there.
+        val stockInFront = last == null || last.first in stockHomes ||
+            (last.first == XGIMI_FRAMEWORK && last.second.endsWith(".resolver.ResolverActivity"))
         // Aerial is in front after a wake because the guard already brought it back when the stock
         // launcher showed, or because it survived standby; either way the input the TV starts on
         // still has to open. Only with one chosen: bringing Aerial back also resets its focus.
@@ -821,6 +840,8 @@ class HomeGuardService : AccessibilityService() {
 
     override fun onDestroy() {
         handler.removeCallbacks(refreshHomesAfterPackageChange)
+        handler.removeCallbacks(removeBanner)
+        removeBanner.run()
         runCatching { unregisterReceiver(packageChanges) }
         runCatching { unregisterReceiver(screenOn) }
         runCatching { unregisterReceiver(homeKey) }
@@ -889,7 +910,11 @@ class HomeGuardService : AccessibilityService() {
         // brings Aerial back from the stock launcher. Only there: on TCL 75Q10L (MT9655) a mouse
         // never hung with the filter on, and without it Home showed the TCL launcher first
         // (issue #1039).
-        val mouseHang = mouseAttached && xiaomiInput
+        // And where the system went down once with one plugged in and the filter on: TCL TC8000
+        // (ay30a2, Android 11) casts every event the filter passes on to KeyEvent, and the mouse's
+        // first MotionEvent threw in system_server 0.5 s after it connected (issue #1109, the
+        // reporter's crash log; 1.75, which stopped filtering for any mouse, never did).
+        val mouseHang = mouseAttached && (xiaomiInput || mouseDownedSystem(this))
         val wanted = !keysPassThrough && !screenOff && !padGame && !mouseHang &&
             (Build.VERSION.SDK_INT <= Build.VERSION_CODES.R || aerialInFront)
         val homeWanted = wanted && (!isDefaultHome() || defaultHomeNeedsHomeFilter)
@@ -924,6 +949,7 @@ class HomeGuardService : AccessibilityService() {
     }
 
     private fun lookForGamepads() {
+        val hadMouse = mouseAttached
         mouseAttached = Build.VERSION.SDK_INT >= 29 && runCatching {
             InputDevice.getDeviceIds().any { id ->
                 InputDevice.getDevice(id)?.let {
@@ -949,6 +975,8 @@ class HomeGuardService : AccessibilityService() {
             }
         }.getOrDefault(false)
         updateKeyFilter()
+        val filtering = ((serviceInfo?.flags ?: 0) and AccessibilityServiceInfo.FLAG_REQUEST_FILTER_KEY_EVENTS) != 0
+        if (mouseAttached && !hadMouse && filtering) noteMouseWithFilter(this)
     }
 
     private val gamepadListener = object : InputManager.InputDeviceListener {
@@ -987,9 +1015,17 @@ class HomeGuardService : AccessibilityService() {
      * HOME dispatch that force-stops the process in front. When Aerial is default, that process is
      * Aerial itself, so every Home press becomes a 2-3 second cold start. Detect the firmware's AT
      * package and take HOME before the system, even though Aerial is already default.
+     *
+     * YunOS (Haier HRA962X2_2G_ALI6G_A, Amlogic tl1, Android 9) answers Home from system_server
+     * with yunostv_homeshell://start_home, which names Youku's launcher and never asks what Home
+     * resolves to: with Aerial default and no filter, every Home showed it and Aerial came back
+     * after Android's 5 s hold (issue #883, the reporter's log). Known by YunOS's home shell being
+     * installed.
      */
     private val defaultHomeNeedsHomeFilter by lazy {
-        runCatching { packageManager.getPackageInfo("com.cvte.factory.at", 0) }.isSuccess
+        listOf("com.cvte.factory.at", "com.yunos.tv.homeshell").any {
+            runCatching { packageManager.getPackageInfo(it, 0) }.isSuccess
+        }
     }
 
     override fun onKeyEvent(event: KeyEvent): Boolean {
@@ -1116,12 +1152,27 @@ class HomeGuardService : AccessibilityService() {
      * and everything was normal (6 events, 4 ACTION_UP). The key-up is therefore always passed on.
      */
     private fun takeVolumeKey(event: KeyEvent): Boolean {
+        val stepKey = event.keyCode == KeyEvent.KEYCODE_VOLUME_UP || event.keyCode == KeyEvent.KEYCODE_VOLUME_DOWN
         if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
+            lastVolumeDown = event.downTime
             handler.removeCallbacks(volumeRepeat)
+            handler.removeCallbacks(volumeStepIfUnmoved)
+            // A second key pressed during the first (two remotes) is not it: a lift lost there
+            // leaves the volume running for seconds before the next press.
+            if (stepKey && event.downTime - volumeDownPassedAt >= VOLUME_LIFT_WAIT_MS) noteVolumeLiftUnseen(this)
             val now = volumeNow()
             val seen = volumeSeen
-            volumeKeyTaken = now != null && seen != null && now != seen
-            if (volumeKeyTaken) {
+            val movedFirst = now != null && seen != null && now != seen
+            volumeKeyTaken = movedFirst || (stepKey && volumeLiftUnseen(this))
+            if (volumeKeyTaken && !movedFirst) {
+                // The firmware acts on the press before the filter, a moment later at times; where
+                // it did not, the step is Aerial's, once.
+                volumeStepFrom = now
+                volumeStepDirection = if (event.keyCode == KeyEvent.KEYCODE_VOLUME_UP) 1 else -1
+                handler.postDelayed(volumeStepIfUnmoved, VOLUME_UNMOVED_MS)
+            }
+            volumeDownPassedAt = if (stepKey && !volumeKeyTaken) event.downTime else Long.MAX_VALUE
+            if (movedFirst) {
                 Log.i(TAG, "volume already changed before the key filter; not passing the key on")
                 volumeRepeatDirection = when (event.keyCode) {
                     KeyEvent.KEYCODE_VOLUME_UP -> 1
@@ -1142,6 +1193,7 @@ class HomeGuardService : AccessibilityService() {
             DiagLog.i("guard: ${KeyEvent.keyCodeToString(event.keyCode)} down at ${event.downTime}${if (taken) ", not passed on" else ""}")
         }
         if (event.action == KeyEvent.ACTION_UP) {
+            volumeDownPassedAt = Long.MAX_VALUE
             volumeUps[event.keyCode] = event.eventTime
             DiagLog.i("guard: ${KeyEvent.keyCodeToString(event.keyCode)} up at ${event.eventTime}")
             handler.removeCallbacks(volumeRepeat)
@@ -1154,6 +1206,21 @@ class HomeGuardService : AccessibilityService() {
             return false
         }
         return taken
+    }
+
+    /**
+     * When the volume press passed on, whose lift the filter has not seen yet, went down; see
+     * [volumeLiftUnseen]. MAX_VALUE when there is none.
+     */
+    private var volumeDownPassedAt = Long.MAX_VALUE
+    private var volumeStepFrom: Pair<Int, Boolean>? = null
+    private var volumeStepDirection = 0
+    private val volumeStepIfUnmoved = Runnable {
+        if (volumeNow() != volumeStepFrom) return@Runnable
+        DiagLog.i("guard: the volume did not move for a press not passed on; stepping it")
+        SystemProbe.adjustVolume(this, volumeStepDirection, fromKey = true)
+        // Its own step is no change the firmware made: the next press must not look moved first.
+        volumeSeen = volumeNow()
     }
 
     private var volumeRepeatDirection = 0
@@ -1248,6 +1315,14 @@ class HomeGuardService : AccessibilityService() {
             }
         }
         if (!GuardSetup.isUserUnlocked(this)) return
+        // Kids and Elders mode: an app not chosen for it (or any, once locked) goes straight back
+        // to Home. The stock launcher's home activity and input switches are left to the rest below.
+        if (isActivity(pkg, cls) && pkg !in SOURCE_SWITCHERS && stockHomes[pkg]?.contains(cls) != true && KidsWatch.keepsAway(this, pkg)) {
+            Log.i(TAG, "$pkg kept away by Kids mode; bringing Aerial back")
+            KidsWatch.noteKeptAway(this, pkg)
+            goHome()
+            return
+        }
         val allowed = SystemClock.uptimeMillis() < allowStockUntil
         if (pkg in stockHomes) {
             // Any of its screens, uncovered once the installer of an update from Control Center closed.
@@ -1294,6 +1369,43 @@ class HomeGuardService : AccessibilityService() {
         updateKeyFilter()
         // Leaving the stock launcher for a real app ends the visit: Home goes to Aerial again.
         if (allowed && pkg != packageName && isApp(pkg)) endStockVisit("$pkg in front")
+    }
+
+    private var bannerView: android.view.View? = null
+    private val removeBanner = Runnable {
+        bannerView?.let { v -> runCatching { getSystemService<android.view.WindowManager>()?.removeView(v) } }
+        bannerView = null
+    }
+
+    private fun banner(text: String) {
+        val wm = getSystemService<android.view.WindowManager>() ?: return
+        handler.removeCallbacks(removeBanner)
+        removeBanner.run()
+        // Sized on Aerial's 960 x 540 canvas, as Home's own notice.
+        val dp = resources.displayMetrics.widthPixels / 960f
+        val view = android.widget.TextView(this).apply {
+            this.text = text
+            setTextColor(android.graphics.Color.WHITE)
+            setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX, 17 * dp)
+            setPadding((22 * dp).toInt(), (12 * dp).toInt(), (22 * dp).toInt(), (12 * dp).toInt())
+            background = android.graphics.drawable.GradientDrawable().apply {
+                setColor(0xE61C1C1E.toInt())
+                cornerRadius = 22 * dp
+            }
+        }
+        @Suppress("InlinedApi")
+        val lp = android.view.WindowManager.LayoutParams(
+            android.view.WindowManager.LayoutParams.WRAP_CONTENT, android.view.WindowManager.LayoutParams.WRAP_CONTENT,
+            android.view.WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
+            android.view.WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or android.view.WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
+                android.view.WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+            android.graphics.PixelFormat.TRANSLUCENT,
+        ).apply {
+            gravity = android.view.Gravity.TOP or android.view.Gravity.CENTER_HORIZONTAL
+            y = (28 * dp).toInt()
+        }
+        runCatching { wm.addView(view, lp); bannerView = view }.onFailure { Log.w(TAG, "could not show a banner", it) }
+        handler.postDelayed(removeBanner, BANNER_MS)
     }
 
     private val activityCache = HashMap<Pair<String, String>, Boolean>()
@@ -1362,6 +1474,16 @@ class HomeGuardService : AccessibilityService() {
             .filter { it.priority >= 0 || it.activityInfo.name == LOW_PRIORITY_HOMES[it.activityInfo.packageName] }
             .filter { it.activityInfo.packageName !in INPUT_PLAYERS || it.activityInfo.packageName == resolved }
             .filter { it.activityInfo.packageName !in NOT_LAUNCHERS }
+            // An app the viewer installed that declares Home too, but that Home does not resolve
+            // to, only comes up when the viewer opens it: Pegasus Frontend's one activity carries
+            // LAUNCHER, LEANBACK_LAUNCHER and HOME, and every time it was opened from Aerial the
+            // guard took it for a launcher and brought Aerial back over it (Mi TV 4A, Android 6,
+            // issue #1136). Firmware launchers are system apps; one installed and made the
+            // default Home stays a stock home.
+            .filter {
+                (it.activityInfo.applicationInfo.flags and ApplicationInfo.FLAG_SYSTEM) != 0 ||
+                    it.activityInfo.packageName == resolved
+            }
             .groupBy({ it.activityInfo.packageName }, { it.activityInfo.name })
             .mapValues { it.value.toSet() }
         // Some launchers register Home on a trampoline that starts the screen actually shown, which
@@ -1573,6 +1695,104 @@ class HomeGuardService : AccessibilityService() {
          */
         fun volumeKeyCameUp(keyCode: Int, downTime: Long): Boolean = (volumeUps[keyCode] ?: Long.MIN_VALUE) >= downTime
 
+        /** When the filter last saw a volume press go down (down time); see volumePressOver. */
+        @Volatile
+        private var lastVolumeDown = Long.MIN_VALUE
+
+        /**
+         * Whether a volume press that went down at [downTime] is over at the filter: a newer volume
+         * press went down there, or the firmware's lifts never reach it (see [volumeLiftUnseen]).
+         * Android repeats a press passed on whose lift never came until another key reaches it, and
+         * a press the guard keeps is none: Skyworth 8R134_A7D (RTD2885N, Android 11) with 1.78 sent
+         * VOLUME_UP #120 to #152 to Aerial's window every 50 ms while the guard kept three newer
+         * presses (issue #937, the reporter's log); every repeat there was a volume step.
+         */
+        fun volumePressOver(context: Context, downTime: Long): Boolean =
+            lastVolumeDown > downTime || volumeLiftUnseen(context)
+
+        /**
+         * A mouse connected while the filter was on: when, and when this boot began. If Aerial is
+         * bound again in a new process within [MOUSE_CRASH_MS] in the same boot (system_server
+         * restarted, the kernel did not), the mouse took the system down, and from then on a mouse
+         * stops the filter on this firmware build; see updateKeyFilter. A process that lives out
+         * the window clears the note.
+         */
+        private const val KEY_MOUSE_FILTER_AT = "guard_mouse_filter_at"
+        private const val KEY_MOUSE_FILTER_BOOT = "guard_mouse_filter_boot"
+        private const val KEY_MOUSE_DOWNED_SYSTEM = "guard_mouse_downed_system"
+        private const val MOUSE_CRASH_MS = 180_000L
+        @Volatile
+        private var mouseDownedSystem: Boolean? = null
+
+        private fun bootStartedAt() = System.currentTimeMillis() - SystemClock.elapsedRealtime()
+
+        // Credential storage: nothing is read or written before the unlock (Direct Boot).
+        private fun mouseDownedSystem(context: Context): Boolean = mouseDownedSystem
+            ?: if (!GuardSetup.isUserUnlocked(context)) false else (context.getSharedPreferences("system", Context.MODE_PRIVATE).getString(KEY_MOUSE_DOWNED_SYSTEM, null) == Build.FINGERPRINT)
+                .also { mouseDownedSystem = it }
+
+        private fun noteMouseWithFilter(context: Context) {
+            if (!GuardSetup.isUserUnlocked(context) || mouseDownedSystem(context)) return
+            val prefs = context.getSharedPreferences("system", Context.MODE_PRIVATE)
+            val at = System.currentTimeMillis()
+            prefs.edit().putLong(KEY_MOUSE_FILTER_AT, at).putLong(KEY_MOUSE_FILTER_BOOT, bootStartedAt()).commit()
+            Handler(Looper.getMainLooper()).postDelayed({
+                if (prefs.getLong(KEY_MOUSE_FILTER_AT, 0L) == at) prefs.edit().remove(KEY_MOUSE_FILTER_AT).remove(KEY_MOUSE_FILTER_BOOT).apply()
+            }, MOUSE_CRASH_MS)
+        }
+
+        private fun checkMouseWithFilter(context: Context) {
+            if (!GuardSetup.isUserUnlocked(context)) return
+            val prefs = context.getSharedPreferences("system", Context.MODE_PRIVATE)
+            val at = prefs.getLong(KEY_MOUSE_FILTER_AT, 0L)
+            if (at == 0L) return
+            val boot = prefs.getLong(KEY_MOUSE_FILTER_BOOT, 0L)
+            val edit = prefs.edit().remove(KEY_MOUSE_FILTER_AT).remove(KEY_MOUSE_FILTER_BOOT)
+            val since = System.currentTimeMillis() - at
+            val sameBoot = kotlin.math.abs(bootStartedAt() - boot) < 10_000
+            // A new process: the one that wrote the note did not live out the window. The system
+            // going down takes every app with it; Aerial alone dying that soon after a mouse
+            // connected is not seen otherwise, and costs only a Home that shows the stock
+            // launcher a moment while a mouse is in.
+            val newProcess = Build.VERSION.SDK_INT >= 24 && bootStartedAt() + Process.getStartElapsedRealtime() > at
+            if (since in 0..MOUSE_CRASH_MS && sameBoot && newProcess) {
+                mouseDownedSystem = true
+                edit.putString(KEY_MOUSE_DOWNED_SYSTEM, Build.FINGERPRINT)
+                Log.w(TAG, "Aerial died ${since / 1000} s after a mouse connected with the filter on; a mouse stops the filter from now on")
+                DiagLog.i("guard: Aerial died ${since / 1000} s after a mouse connected with keys filtered; a mouse stops the filter from now on")
+            }
+            edit.apply()
+        }
+
+        /**
+         * Firmwares where a volume key's lift never reaches the filter, while its press does. Passed
+         * on, the press reached a second volume path in the firmware that then waited for a lift
+         * that never came and repeated the key every 50 ms until another key: one press ran the
+         * volume to 0 or 100. The firmware has already acted on the press before the filter there,
+         * so from the first press passed on with no lift before the next, no volume press is passed
+         * on again on this firmware. Seen in the reporters' logs: Skyworth 4T834_Z22S (MT9638,
+         * Android 10; the guard logged downs and no ups, issue #937) and Coocaa C10 projector
+         * (3H352_C10, Hi3751, Android 9; DOWN on VolServer's Local and Broadcast paths, UP on Local
+         * only, issue #1113); also #1058 #1091. Kept per firmware build.
+         */
+        private const val KEY_VOLUME_LIFT_UNSEEN = "guard_volume_lift_unseen"
+        private const val VOLUME_UNMOVED_MS = 300L
+        private const val VOLUME_LIFT_WAIT_MS = 1_000L
+        @Volatile
+        private var volumeLiftUnseen: Boolean? = null
+
+        private fun volumeLiftUnseen(context: Context): Boolean = volumeLiftUnseen
+            ?: if (!GuardSetup.isUserUnlocked(context)) false else (context.getSharedPreferences("system", Context.MODE_PRIVATE).getString(KEY_VOLUME_LIFT_UNSEEN, null) == Build.FINGERPRINT)
+                .also { volumeLiftUnseen = it }
+
+        private fun noteVolumeLiftUnseen(context: Context) {
+            if (!GuardSetup.isUserUnlocked(context) || volumeLiftUnseen(context)) return
+            volumeLiftUnseen = true
+            Log.i(TAG, "a volume press passed on never came up at the filter; no volume press is passed on from now on")
+            DiagLog.i("guard: a volume press passed on never came up here; volume presses stay with the firmware from now on")
+            context.getSharedPreferences("system", Context.MODE_PRIVATE).edit().putString(KEY_VOLUME_LIFT_UNSEEN, Build.FINGERPRINT).apply()
+        }
+
         @Volatile
         private var deafRetried = false
 
@@ -1628,6 +1848,7 @@ class HomeGuardService : AccessibilityService() {
         private val NOT_LAUNCHERS = setOf("com.stv.appdaemon", "com.letv.lekids")
         /** TV services whose input switch shows the stock launcher on the way (Skyworth, #155). */
         private val SOURCE_SWITCHERS = setOf("com.tianci.tv")
+        private const val BANNER_MS = 8_000L
         private const val VENDOR_HOME_PREFIX = "android.intent.category.HOME."
         private const val VENDOR_HOME_SUFFIX = "_HOME"
 
@@ -1713,11 +1934,30 @@ class HomeGuardService : AccessibilityService() {
 
         val isRunning: Boolean get() = instance != null
 
+        /** Brings Aerial's Home to the front as Home does; false while the guard is not running. */
+        fun bringAerialBack(): Boolean {
+            val s = instance ?: return false
+            s.handler.post { s.goHome() }
+            return true
+        }
+
+        /**
+         * A line at the top of the screen over whatever app is in front (Kids mode's warnings),
+         * drawn as the accessibility service's own overlay: no other permission is needed. False
+         * where it cannot be (no guard, Android 5.0).
+         */
+        fun showBanner(text: String): Boolean {
+            val s = instance ?: return false
+            if (Build.VERSION.SDK_INT < 22) return false
+            s.handler.post { s.banner(text) }
+            return true
+        }
+
         fun diagnosticState(): String {
             val s = instance ?: return "Home Guard bound=false resumed=$aerialResumed"
             val flag = AccessibilityServiceInfo.FLAG_REQUEST_FILTER_KEY_EVENTS
             return "Home Guard bound=true resumed=$aerialResumed filter=${s.serviceInfo?.flags?.and(flag) != 0} " +
-                "screenOff=${s.screenOff} gamepad=${s.gamepadAttached} mouse=${s.mouseAttached} stockAllowed=${SystemClock.uptimeMillis() < allowStockUntil} " +
+                "screenOff=${s.screenOff} gamepad=${s.gamepadAttached} mouse=${s.mouseAttached} mouseDowned=${mouseDownedSystem(s)} volumeLiftUnseen=${volumeLiftUnseen(s)} stockAllowed=${SystemClock.uptimeMillis() < allowStockUntil} " +
                 "front=${s.lastWindow} windowEvents=${s.windowsSeen} resolved=${s.resolvedHome()} homes=${s.stockHomes}"
         }
 

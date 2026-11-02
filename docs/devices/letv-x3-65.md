@@ -59,3 +59,14 @@ standard/guard 版、改不改包名都一样；强杀还会清空无障碍绑�
 
 - **应用内升级后守护要等约 1 分钟才回来**（X4-75，#1021）：固件在 Aerial 退到后台时就强停它（打开系统安装器那一刻），装好新版后应用仍是「已停止」，安卓不给已停止的应用发 `MY_PACKAGE_REPLACED`，只能等同步服务复活（安卓 5.0 模拟器上模拟强停 + 覆盖安装，60 秒回来）。App 改不了；更新后从应用列表打开一次 Aerial 即可。这台 `settings get secure enabled_accessibility_services` 读出来是空的，守护其实已绑定，以 `dumpsys accessibility` 为准。
 - **退出最后一个 App 后黑屏**（X4-50，#1023）：固件不拉起任何桌面，`mCurrentFocus=null`。守护重新开启后问用量统计，原来只看最后一次「移到前台」，把已退出的 App 当成还在前台。main 上改成看它之后的「移到后台」（`UsageFront`），未在真机验证。这台的用量统计也会报一个早就不在前台的 App（`com.chinasoul.bt`），不可全信。
+
+## 超4 X4-43（安卓 6.0 eUI，#1127，报告人实测）
+
+- 1.78 的安卓 6 通知监听回退生效：切到 HDMI 后 EUI 1 秒内强停 Aerial，`RevivalListener` 1 秒后、守护 11 秒后被系统拉起。
+- 控制中心「信号源」能用：打开 `com.stv.signalsourcemanager/.MainActivity`，回到上次的口。`inputs` 仍是空的，所以没有能固定到主屏的信号源（记为功能）。
+- EUI 的杀后台看的是「是不是系统应用」，不是包名前缀：两个同样大小的探针 `com.stv.pingtest`、`com.letvfix.pingtest` 都被杀。上面「改包名」那一节在这台不成立。
+- 切到 HDMI 后不按主页、直接从别处开 App，在 App 里按返回会回到 HDMI 画面：Aerial 的任务被杀后排在 HDMI 下面。中间按一次主页就正常。
+
+## X50 Air（安卓 4.3 EUI 6.0，MStar Napoli，#1172）
+
+固件 `framework-letv.jar` 的 `DesktopManagerService.startDockOrHome` 在主页键时显式启动 `com.stv.launcher/.activity.Launcher`，不经过系统的默认桌面；停用这个包或组件后主页键直接 NPE、没有回退。报告人用 root 换掉系统桌面、装同包名的转发壳才让 Lite 接管，这和 Aerial 只装自己的原则冲突，不推荐。不改系统时，Lite 只能当普通 App 用。

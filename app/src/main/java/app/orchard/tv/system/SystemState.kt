@@ -481,6 +481,11 @@ object SystemProbe {
                     // its brightness one step in; opened by component on the TV (issue #895). Before
                     // the display action, which those TVs answer with the settings' main page.
                     Intent(Intent.ACTION_MAIN).setComponent(TIANCI_PICTURE),
+                    // Hisense VIDAA_TV (75E8H, m7642, Android 9): the picture page, its brightness
+                    // one step in; the display action opens screensaver and calibration there
+                    // (issue #1025, the reporter tried both). Not a standard action, so only where
+                    // a firmware declares it.
+                    Intent("android.settings.IMAGE_SETTINGS"),
                     Intent(Settings.ACTION_DISPLAY_SETTINGS),
                     // PPTV K55U27: picture and sound, where its brightness is (issue #264).
                     Intent("com.pptv.intent.action.PICTUREAUDIO_ACTIVITY")

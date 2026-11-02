@@ -53,6 +53,18 @@ object Brightness {
         runCatching { context.packageManager.getPackageInfo("com.sony.dtv.configsettings", 0) }.isSuccess
 
     /**
+     * Hisense VIDAA: screen_brightness takes Aerial's writes and the panel stays as it was; the
+     * backlight is the vendor middleware's (com.jamdeo.flow), which apps cannot reach. Seen on four
+     * VIDAA_TV builds: 75E8H (m7642, Android 9, #1025), 85E3H (Android 9, #1130), MT9653
+     * (Android 11, #1133) and E3S Pro+ (Amlogic, Android 11, #1141). Known by its launcher or its
+     * assistant being installed, as the guard knows VIDAA.
+     */
+    private fun isVidaa(context: Context) =
+        listOf("com.jamdeo.tv.vod", "com.hisense.vidaaassistant").any {
+            runCatching { context.packageManager.getPackageInfo(it, 0) }.isSuccess
+        }
+
+    /**
      * Level Aerial last pushed to the MiTV panel. The middleware's getter reports animated values
      * and the firmware refuses third-party writes to its own setting, so Aerial tracks the level it
      * set, seeded once per process from the panel itself when it has none.
@@ -85,10 +97,10 @@ object Brightness {
             // A Xiaomi TV where neither place works: open the TV's own backlight slider rather than
             // show one that changes nothing (issue #346).
             isXiaomi(context) -> null
-            // TCL, Sony and Skyworth/Coocaa drive the backlight through their own TV services and
-            // ignore the system setting; Control Center opens their picture panels.
+            // TCL, Sony, Hisense VIDAA and Skyworth/Coocaa drive the backlight through their own TV
+            // services and ignore the system setting; Control Center opens their picture panels.
             // Before Android 6.0 WRITE_SETTINGS is granted at install.
-            isTcl(context) || isSony(context) || SystemProbe.skyworthPicturePanel(context) ||
+            isTcl(context) || isSony(context) || isVidaa(context) || SystemProbe.skyworthPicturePanel(context) ||
                 DeviceProfile.current(context).ignoresScreenBrightness ||
                 Build.VERSION.SDK_INT >= 23 && !Settings.System.canWrite(context) -> null
             else -> Settings.System.getInt(r, Settings.System.SCREEN_BRIGHTNESS, 128) / 255f

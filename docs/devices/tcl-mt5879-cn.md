@@ -38,7 +38,7 @@ TCL 手机 App 有一个「把手机里的 APK 推到电视」的功能。电视
   - 握手：第一条消息发 `159>>1>>0`，表示不加密。电视会回 `253>>1>>0`，以及一条 `159>>…` 设备信息。
   - 心跳：发 `150>>`，电视回 `150>>YES`。会话安静太久会被电视断开。
   - 安装指令：`223>>INSTALL>>包名>>名字>>下载地址>>2>>versionCode>>大小MB>>>>>>>>apkPathMd5`。来源填 `2`（本地）并带上 `apkPathMd5`，就会跳过商店查询，也跳过版本和签名检查，直接在电视右上角弹「多屏互动：正在发起应用推送，同意后将接收应用并进行安装 [拒绝] [同意]」。
-  - 回复：`223>>INSTALL>>…>>confirm_pending|denied`；同意之后会连续收到 `223>>PROGRESS>>包名>>名字>>阶段>>百分比>>…`，阶段 1 是下载中，3 是安装中，5 是装好了，2 是失败。
+  - 回复：`223>>INSTALL>>…>>confirm_pending|denied`；同意之后会连续收到 `223>>PROGRESS>>包名>>名字>>阶段>>百分比>>…`，阶段 1 是下载中，3 是安装中，5 是装好了，2 是失败，4 是下载完但被系统校验拒绝（电视上显示「安装失败 100%」）。2026-11-02 实测：推 `aerial-standard.apk` 时校验器日志是 `verifier: fetch signature info from: com.tcl.cyberui` / `signature does not match for tcl app.orchard.tv, will not be installed!`，多屏互动收到 code=3，回 `PROGRESS>>…>>4>>2`（#1163）。所以 TCL 上只能推 guard 版；guard 版同版本覆盖照常成功。
 - 下载地址用的是 `adb reverse tcp:8765 tcp:8765` 加上 Mac 本机 `127.0.0.1` 的 HTTP 服务，电视下载的是 `http://127.0.0.1:8765/Aerial.apk`，所以不需要在局域网上开端口。
 - 用遥控器操作时：提示框出现后焦点在「拒绝」上，要先按「右」再按 OK。
 - 有 ADB 时不用人去点：提示框是多屏互动的悬浮窗，`uiautomator dump` 能看到「同意」按钮 `com.tcl.MultiScreenInteraction_TV:id/btn_positive`，对它的中心点 `input tap` 就会开始安装（2026-10-21 实测，按钮在 `[1650,240][1858,304]`）。

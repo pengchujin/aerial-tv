@@ -123,6 +123,7 @@ curl -fsSL https://aerial.qust.me/install.sh | KEEP_ADB=1 TV=<IP> bash
    adb shell appops set app.orchard.tv AUTO_START allow
    adb shell appops set app.orchard.tv ASSOC_START allow
    ```
+   Android 6、7 没有 `cmd`（`allow_listener` 那条报 `cmd: not found`）：先运行 `adb shell settings get secure enabled_notification_listeners`。输出是 `null` 或空的，运行 `adb shell settings put secure enabled_notification_listeners app.orchard.tv/app.orchard.tv.guard.RevivalListener`；否则把 `:app.orchard.tv/app.orchard.tv.guard.RevivalListener` 加在原值后面再 `settings put`，原有的不要删。乐视等会在后台强停 App 的固件靠它把 Aerial 拉回来（#1127）。
    最后四条 `appops` 只有 TCL / 雷鸟认（不同固件认其中两条），别的电视报错是正常的。
    `ACCESS_RESTRICTED_SETTINGS` 只有 Android 13 及以上认：用文件装的 App 在这些系统上开不了无障碍，守护会一直被关掉（#811 #829）。
 
@@ -237,7 +238,7 @@ adb shell "sleep 8; dumpsys window | grep mCurrentFocus"
 - 第 3 条有 `app.orchard.tv/app.orchard.tv.guard.HomeGuardService`：守护已打开（原生 Android TV 已是默认桌面时可能没有，看第 6 条即可）。
 - 第 4 条大于 0：守护正在运行。
 - **第 6 条包含 `app.orchard.tv`：按主页键进入 Aerial，安装成功。** 这一条不满足，就不能告诉用户装好了。有的固件按主页键后自家桌面要停几秒，守护才把 Aerial 拉回来（OPPO ColorOS TV 约 5 秒，#664）：第 6 条是原桌面时，再运行一次 `adb shell "sleep 5; dumpsys window | grep mCurrentFocus"`，两次都不是 `app.orchard.tv` 才算失败。
-- 第 2、3、6 条的原始输出必须贴给用户，不要只说「成功」。第 2 条报错（老系统没有 `cmd`）时，改用 `adb shell pm resolve-activity --brief -a android.intent.action.MAIN -c android.intent.category.HOME -c android.intent.category.DEFAULT`。
+- 第 2、3、6 条的原始输出必须贴给用户，不要只说「成功」。第 2 条报错（老系统没有 `cmd`）时，改用 `adb shell pm resolve-activity --brief -a android.intent.action.MAIN -c android.intent.category.HOME -c android.intent.category.DEFAULT`。Android 6 上这两条都可能没有（`cmd: not found`、`pm` 报 `unknown command`，#1127 #1145），那就跳过第 2 条，以第 3、4 条和第 6 条为准；有的老固件上 `input keyevent KEYCODE_HOME` 不经过守护，第 6 条看着失败时请用户用实体遥控器按一次主页键再看。
 
 第 6 条不是 `app.orchard.tv` 时，等 5 秒再运行一次第 5、6 条（有的电视守护启动得慢）。还不是，看「常见情况」。
 
@@ -273,6 +274,8 @@ adb shell appops set app.orchard.tv ACCESS_RESTRICTED_SETTINGS default
 adb shell am force-stop app.orchard.tv
 adb shell cmd role remove-role-holder --user 0 android.app.role.HOME app.orchard.tv
 ```
+
+Android 6、7 没有 `cmd` 时，`disallow_listener` 那条改为：`settings get secure enabled_notification_listeners`，去掉其中 `app.orchard.tv/app.orchard.tv.guard.RevivalListener` 这一项（连同它前面的 `:`）后 `settings put` 回去；只剩它自己时用 `adb shell settings delete secure enabled_notification_listeners`。
 
 然后：
 

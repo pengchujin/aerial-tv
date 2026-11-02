@@ -97,6 +97,28 @@ Vidda C1S 激光投影（VIDAA_TV，MT9669，Android 9，PR #545）：聚好看�
   完整控制中心点击流程、连接/更换 Wi-Fi 和高级选项未验证；#760 的另一台
   85E5N Pro+（MT9653）以及 Android 4.x 的 Lite 尚未上机验证。
 
+## Android 14 应用内更新无响应（MT9655，#1162）
+
+2026-11-02，报告人提供 VIDAA_TV / MT9655（board `VX5SPRO`，平台属性 `mt5877`），
+Android 14 / SDK 34，固件 `07.02.70.202606170419`：从 1.71 应用内升级到 1.78 时，
+APK 已下载、会话已提交，但数分钟内没有确认页或安装结果，连点会积累多个会话。
+报告人核对了安装权限和签名，`adb install -r` 已成功覆盖到 1.78。
+`ACTION_VIEW` + APK MIME 能解析到系统 `InstallStart`，旧版应用内升级也曾成功。
+
+- 代码缺口：原来只有 SDK < 31 才等待提交后的响应；Android 12+ 可能免确认安装，
+  因此被排除，但该固件不回应时就永远到不了 `ACTION_VIEW` 兜底。
+- 补丁（PR #1167 合入 main，未发版）：Android 12+ 等待 120 秒，9–11 保留 8 秒；确认页仍等 4 秒。
+  合入时又加了一条：安卓 12+ 只有 Aerial 自己是安装来源时才可能免确认安装，adb 装的（报告人这台
+  `installerPackageName = null`）或系统安装器装的，系统一定会问，所以也只等 8 秒（`Updates.mayInstallSilently`）。
+  等待期间防止重复提交，离开桌面不清会话，后台超时延后到回桌面再打开安装器。
+  在后台收到的确认请求也等回桌面才打开，避免把「主页已暂停」误判成确认页未出现。
+  面板区分「等待系统安装」与「已打开安装程序」。没有增加机型硬编码，也不清理历史会话。
+- **尚未在报告人的电视验证**。120 秒不保证涵盖所有正常安装耗时；需回归较慢的免确认安装，
+  以及 `ACTION_VIEW` 覆盖升级后的桌面守护权限。已装 1.78 的用户要先手动装含补丁的版本，
+  才能验证下一次应用内升级；新 APK 中的代码不能修复旧进程当前正在执行的更新流程。
+- 自动化验证：17 个会话回归用例通过（SDK 28/30/31/34），更新模块共 60 项、完整 guardDebug
+  单测 192 项通过；standard / guard release 构建及 lintVital 通过，不代替上述真机验证。
+
 ## 还原
 
 - `tools/restore.sh` 用 `settings global aerial_vt_home_pkg` 里记下的原值还原 `persist.vt.use_home_pkg`。1.15 及以前是手动改的属性，没有记原值：这时如果属性是 `app.orchard.tv` 且装有 `com.jamdeo.tv.vod`，就还原成聚好看（#40 的报告人发现的，2026-10-22 起）。
@@ -124,3 +146,11 @@ Vidda C1S 激光投影（VIDAA_TV，MT9669，Android 9，PR #545）：聚好看�
 ## 75E8H 的音量条和亮度条（#1025，MT9652 m7642，安卓 9，VIDAA 6.6）
 
 报告人（Agent）实测：没有 `picture_backlight`；`screen_brightness` 写得进去但面板不变；`media volume --stream 3 --set 2` 让 AudioService 的当前值变了，电视实际音量和 `volume_music` 不变，遥控器音量键正常、Aerial 面板的数字会跟着遥控器变。亮度可以在 device profile 里加 `"ignoresScreenBrightness": true`（adapt.md 已补）；音量还要看 `dumpsys audio` 里是不是 fixed volume、走 HDMI/CEC，已问。
+
+1.78 起 VIDAA 的亮度行打开电视设置，但走的是 `ACTION_DISPLAY_SETTINGS`，这台打开的是「互动屏保和校准」。报告人（2026-11-02，抓了按键、界面和日志）确认：
+- 背光值在 `com.android.tv.settings` 的 `PictureManager.getCustomBacklight()`，`screen_brightness` 恒为 127，和面板无关；
+- 真正一步到位的是遥控器设置键（Linux keycode 141）弹出的「常用功能」里的「屏幕亮度」浮层，只认内核层按键，App 和 `input keyevent` 都弹不出；
+- `am start -a android.settings.IMAGE_SETTINGS` 打开图像页，里面有「屏幕亮度设置」；`android.settings.LIGHT_SENSOR` 是智慧光感开关；
+- 音量走海信中间件（`com.jamdeo.tv.service` 的 `JamdeoVolumePanel` → root 进程 `hstvos`），不经过 AudioService。
+
+main 上（未发版）亮度行先试 `android.settings.IMAGE_SETTINGS`（非标准 action，只在固件声明时用），再退回显示设置。没有海信真机验证。

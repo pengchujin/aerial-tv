@@ -79,6 +79,9 @@ object Wallpapers {
     private const val TAG = "AerialWallpaper"
     const val LATEST_DAILY = "daily:latest"
     private const val DAILY_RETRY_MS = 30 * 60 * 1000L
+    /** A video's poster (#1158): sharp enough for its card, small to keep (about 60 KB). */
+    private const val POSTER_W = 960
+    private const val POSTER_H = 540
     const val AUTO = "auto"
     const val ROTATE_PHOTOS = "photos:rotate"
     const val LIVE = "aerial:live"
@@ -296,19 +299,48 @@ object Wallpapers {
         // Until a film has stopped on a frame, the first built-in stands in.
         WallpaperKind.Live -> liveFrame.takeIf { it.exists() }?.let { Images.decodeCover(it, w, h) }
             ?: Gradients.render(Gradients.presets.first(), w, h)
-        // Until one of its films has stopped on a frame, the first film's opening frame.
-        WallpaperKind.Video -> videoFrame.takeIf { videoFrameIsOf(wp.id) }?.let { Images.decodeCover(it, w, h) }
-            ?: firstVideoFrame(wp.id, w, h) ?: Gradients.render(Gradients.presets.first(), w, h)
+        WallpaperKind.Video -> videoPicture(wp.id, w, h) ?: Gradients.render(Gradients.presets.first(), w, h)
         WallpaperKind.Source -> Gradients.byKey(SOURCE_PICTURE)?.let { Gradients.render(it, w, h) }
     }
 
+    /** The frame one of [id]'s films last stopped on, else the first film's poster or opening frame. */
+    private fun videoPicture(id: String, w: Int, h: Int): Bitmap? =
+        videoFrame.takeIf { videoFrameIsOf(id) }?.let { Images.decodeCover(it, w, h) } ?: firstVideoFrame(id, w, h)
+
+    /** A film's own picture for its card, kept beside it, so it goes when the film is deleted. */
+    private fun posterOf(film: ScreensaverVideo) = File(film.file.parentFile, "poster.jpg")
+
+    private fun keepPoster(film: ScreensaverVideo, frame: Bitmap) {
+        val poster = posterOf(film)
+        if (poster.exists()) return
+        val part = File(poster.path + ".part")
+        runCatching {
+            part.outputStream().use { Images.cover(frame, POSTER_W, POSTER_H).compress(Bitmap.CompressFormat.JPEG, 85, it) }
+            check(part.renameTo(poster))
+        }.onFailure { part.delete(); Log.w(TAG, "could not keep a video's poster", it) }
+    }
+
+    /**
+     * The first film's poster, else its opening frame, kept as the poster once read. The read gave
+     * nothing at times on TCL MT9655 (issue #1158, 4K films, perhaps while one played behind Home),
+     * and the card then showed the first built-in picture until Aerial restarted. Not read where
+     * the media server would jam on the file ([filmGlassless], TCL MT5879).
+     */
     private fun firstVideoFrame(id: String, w: Int, h: Int): Bitmap? {
         val film = videoFilms(id).firstOrNull() ?: return null
+        val poster = posterOf(film)
+        if (w <= POSTER_W && poster.exists()) Images.decodeCover(poster, w, h)?.let { return it }
+        if (filmGlassless) return null
         val mmr = android.media.MediaMetadataRetriever()
         return try {
             mmr.setDataSource(film.file.path)
-            mmr.getFrameAtTime(0)?.let { Images.cover(it, w, h) }
-        } catch (_: Exception) { null } finally { runCatching { mmr.release() } }
+            val frame = mmr.getFrameAtTime(0) ?: return null.also { DiagLog.i("video poster: no frame of ${film.id}") }
+            keepPoster(film, frame)
+            Images.cover(frame, w, h)
+        } catch (e: Exception) {
+            DiagLog.i("video poster: ${film.id} not read (${e.javaClass.simpleName})")
+            null
+        } finally { runCatching { mmr.release() } }
     }
 
     /** Drops the thumbnails (about 330 KB each); the picker makes them again when it opens. */
@@ -320,7 +352,12 @@ object Wallpapers {
         // A frame kept meanwhile (useLiveFrame) makes this one old: shown, not kept.
         val version = pictureVersion
         val wp = (if (id == LATEST_DAILY || id == ROTATE_PHOTOS) resolve(id) else items.firstOrNull { it.id == id }) ?: return null
-        val b = if (wp.kind == WallpaperKind.Auto) Gradients.render(Gradients.autoThumb, 384, 216) else picture(wp, 384, 216)
+        val b = when (wp.kind) {
+            WallpaperKind.Auto -> Gradients.render(Gradients.autoThumb, 384, 216)
+            // Not kept while no frame of the film can be had: the next look tries again (issue #1158).
+            WallpaperKind.Video -> videoPicture(id, 384, 216) ?: return Gradients.render(Gradients.presets.first(), 384, 216)
+            else -> picture(wp, 384, 216)
+        }
         if (b != null) synchronized(thumbs) { if (version == pictureVersion) thumbs[id] = b }
         return b
     }
@@ -454,6 +491,8 @@ object Wallpapers {
         val (bmp, frost) = withContext(Dispatchers.Default) {
             runCatching { (if (isVideo(id)) videoFrame else liveFrame).outputStream().use { frame.compress(Bitmap.CompressFormat.JPEG, 90, it) } }
                 .onFailure { Log.w(TAG, "could not keep the film's frame", it) }
+            // The film's own card keeps a picture when another film is chosen.
+            if (isVideo(id)) videoFilms(VIDEOS).firstOrNull { it.id == film }?.let { keepPoster(it, frame) }
             // Not shaded, as the film is not (HomeBackground).
             Images.frost(frame).let { frost -> frame to frost }
         }

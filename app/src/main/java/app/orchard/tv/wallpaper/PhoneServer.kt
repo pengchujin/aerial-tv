@@ -18,6 +18,13 @@ import app.orchard.tv.apps.SourceDevice
 import app.orchard.tv.apps.SourceLooks
 import app.orchard.tv.apps.TileArtFactory
 import app.orchard.tv.settings.AerialSettings
+import app.orchard.tv.settings.KidsLock
+import app.orchard.tv.settings.Restricted
+import app.orchard.tv.settings.RestrictedKind
+import app.orchard.tv.settings.RestrictedRules
+import app.orchard.tv.guard.HomeGuardService
+import app.orchard.tv.guard.KidsWatch
+import android.os.SystemClock
 import app.orchard.tv.system.Diagnostics
 import app.orchard.tv.system.currentNetwork
 import app.orchard.tv.settings.FocusStyle
@@ -55,8 +62,33 @@ class PhoneServer private constructor(private val context: Context, private val 
         if (!uri.startsWith(prefix)) return text(Response.Status.NOT_FOUND, "Not found")
         val path = uri.removePrefix(prefix).ifEmpty { "/" }
         return runCatching {
+            // In Kids and Elders mode the page changes nothing without the parental PIN: anyone on
+            // the network with the address (a child with a phone) could otherwise undo the mode.
+            // The page sends it with each change once it is entered (header X-Aerial-Pin).
+            if (session.method == Method.POST && path != "/api/kids/unlock" && (Restricted.active || path.startsWith("/api/kids/")) &&
+                path != "/api/kids/start" && !pinOk(session.headers["x-aerial-pin"])
+            ) return json(state().put("saved", false).put("kidsLocked", true))
             when {
                 path == "/" -> newFixedLengthResponse(Response.Status.OK, "text/html; charset=utf-8", page())
+                session.method == Method.POST && path == "/api/kids/unlock" -> {
+                    val ok = pinOk(form(session)["pin"])
+                    json(state().put("saved", ok).put("pinRight", ok))
+                }
+                session.method == Method.POST && path == "/api/kids/allow" -> {
+                    val minutes = form(session)["minutes"]?.toIntOrNull()
+                    onMain { Restricted.allow(minutes?.takeIf { it > 0 }); KidsWatch.poke() }
+                    json(state().put("saved", true))
+                }
+                session.method == Method.POST && path == "/api/kids/config" -> kidsConfig(form(session))
+                session.method == Method.POST && path == "/api/kids/leave" -> {
+                    onMain { Restricted.suspend(); KidsWatch.poke() }
+                    json(state().put("saved", true))
+                }
+                session.method == Method.POST && path == "/api/kids/start" -> {
+                    val can = Restricted.enabled && Restricted.allowed.isNotEmpty()
+                    if (can) onMain { Restricted.start(); KidsWatch.poke() }
+                    json(state().put("saved", can))
+                }
                 path == "/api/state" -> json(state())
                 path == "/api/diagnostics" -> text(Response.Status.OK, Diagnostics.report(context))
                 path.startsWith("/thumb/") -> thumb(path.removePrefix("/thumb/"))
@@ -93,7 +125,7 @@ class PhoneServer private constructor(private val context: Context, private val 
                     json(state())
                 }
                 session.method == Method.POST && path == "/api/upload" -> upload(session)
-                session.method == Method.POST && path == "/api/videos/upload" -> video(session)
+                session.method == Method.POST && path == "/api/videos/send" -> video(session)
                 session.method == Method.POST && path == "/api/videos/delete" -> {
                     val removed = ScreensaverVideos.delete(context, form(session)["id"].orEmpty())
                     if (removed) onMain { Wallpapers.videosChanged() }
@@ -206,7 +238,9 @@ class PhoneServer private constructor(private val context: Context, private val 
             .put("videos", JSONArray().apply {
                 ScreensaverVideos.all(context).forEach { put(JSONObject().put("id", it.id).put("name", it.name)) }
             })
+            .put("videoRoom", ScreensaverVideos.room(context))
             .put("focusStyle", AerialSettings.focusStyle.key)
+            .put("kids", kidsState())
             .put("wallpaperAlwaysMoves", AerialSettings.wallpaperAlwaysMoves)
             .put("showWeather", AerialSettings.showWeather)
             .put("screensaverClock", AerialSettings.screensaverClock)
@@ -380,18 +414,18 @@ class PhoneServer private constructor(private val context: Context, private val 
         return json(state().put("added", added))
     }
 
-    /** One film per request: a batch never needs twice its total size free on the TV. */
+    /**
+     * One film per request, its bytes as the body and its name in the address. Not through
+     * [IHTTPSession.parseBody]: that writes the body to the cache, copies the file part out again and
+     * maps the whole body into memory, which a 2 GB film on a 32-bit TV cannot afford (#1164).
+     */
     private fun video(session: IHTTPSession): Response {
         val length = session.headers["content-length"]?.toLongOrNull() ?: 0L
-        // Include room for multipart headers, but do not accept an unbounded chunked body.
-        if (length <= 0 || length > ScreensaverVideos.MAX_FILE_BYTES + 1024 * 1024) return text(Response.Status.BAD_REQUEST, "too large")
-        val files = HashMap<String, String>()
-        session.parseBody(files)
-        val path = files["video"] ?: return text(Response.Status.BAD_REQUEST, "no video")
-        val name = session.parameters["video"]?.firstOrNull().orEmpty()
-        val saved = ScreensaverVideos.add(context, File(path), name) != null
+        val name = session.parameters["name"]?.firstOrNull().orEmpty()
+        val saved = ScreensaverVideos.receive(context, session.inputStream, length, name) != null
         if (saved) onMain { Wallpapers.videosChanged() }
-        return json(state().put("saved", saved))
+        // A refused or broken film leaves unread bytes behind; do not read them as the next request.
+        return json(state().put("saved", saved)).apply { if (!saved) closeConnection(true) }
     }
 
     // NanoHTTPD writes the whole body to the cache before we see it; keep a stray or hostile
@@ -405,6 +439,87 @@ class PhoneServer private constructor(private val context: Context, private val 
     }
 
     private fun onMain(block: () -> Unit) = runBlocking(Dispatchers.Main) { block() }
+
+    /**
+     * The parental PIN, from the phone. Five wrong in a row and none is taken for a minute, so that
+     * the 10 000 four-digit PINs cannot be tried from a phone in a few minutes.
+     */
+    private fun pinOk(pin: String?): Boolean {
+        val now = SystemClock.elapsedRealtime()
+        if (pin.isNullOrEmpty() || now < pinRestUntil) return false
+        if (AerialSettings.pinMatches(pin)) { pinMisses = 0; return true }
+        if (++pinMisses >= 5) { pinMisses = 0; pinRestUntil = now + 60_000L }
+        return false
+    }
+    @Volatile private var pinMisses = 0
+    @Volatile private var pinRestUntil = 0L
+
+    /** Kids and Elders mode as the page shows it: on or not, the day's time, a lock. */
+    private fun kidsState(): JSONObject {
+        val r = Restricted
+        val now = System.currentTimeMillis()
+        return JSONObject()
+            .put("enabled", r.enabled)
+            .put("active", r.active)
+            .put("kind", r.kind.key)
+            .put("pinSet", AerialSettings.pinSet)
+            .put("pinArrows", AerialSettings.pinArrows)
+            .put("usedMin", r.usage.usedMs / 60_000L)
+            .put("limitMin", r.limitToday(now))
+            .put("allowUntil", r.usage.allowUntil.takeIf { it > now } ?: 0L)
+            .put("lock", when (r.lock) { is KidsLock.Break -> "break"; KidsLock.DayUsed -> "day"; KidsLock.Late -> "late"; null -> "" })
+            .put("startMinute", r.rules.startMinute)
+            .put("endMinute", r.rules.endMinute)
+            // The whole setup, for the page's editor; changing it takes the PIN.
+            .put("blockOthers", r.blockOthers)
+            .put("guard", HomeGuardService.isRunning)
+            .put("weekdayMinutes", r.rules.weekdayMinutes)
+            .put("weekendMinutes", r.rules.weekendMinutes)
+            .put("breakEvery", r.rules.breakEvery)
+            .put("breakMinutes", r.rules.breakMinutes)
+            .put("allowed", JSONArray(r.allowed))
+            .put("candidates", JSONArray().apply {
+                AppCatalog.kidsCandidates.forEach { e ->
+                    put(JSONObject().put("key", e.key).put("label", e.label).put("source", e.source != null))
+                }
+            })
+    }
+
+    /**
+     * The mode set up from the phone, all at once: who it is for, other apps, any number of
+     * minutes, any window, the break, the tiles in order (keys one per line) and on or off.
+     * Turned on here it starts at once: the parent is not at the TV. Nothing is kept unless all
+     * of it is valid.
+     */
+    private fun kidsConfig(f: Map<String, String>): Response {
+        fun int(key: String, default: Int) = f[key]?.trim()?.toIntOrNull() ?: default
+        val current = Restricted.rules
+        val rules = RestrictedRules(
+            weekdayMinutes = int("weekday", current.weekdayMinutes),
+            weekendMinutes = int("weekend", current.weekendMinutes),
+            startMinute = int("start", current.startMinute),
+            endMinute = int("end", current.endMinute),
+            breakEvery = int("breakEvery", current.breakEvery),
+            breakMinutes = int("breakMinutes", current.breakMinutes),
+        )
+        val known = AppCatalog.kidsCandidates.mapTo(HashSet()) { it.key }
+        val allowed = f["allowed"]?.split('\n')?.map { it.trim() }?.filter { it in known }?.distinct() ?: Restricted.allowed
+        val on = f["enabled"]?.let { it == "1" } ?: Restricted.enabled
+        val kind = f["kind"]?.let { RestrictedKind.of(it) } ?: Restricted.kind
+        if (!rules.valid || (on && allowed.isEmpty())) return json(state().put("saved", false))
+        onMain {
+            Restricted.chooseKind(kind)
+            f["block"]?.let { Restricted.chooseBlockOthers(it == "1") }
+            Restricted.chooseRules(rules)
+            Restricted.chooseAllowed(allowed)
+            if (on != Restricted.enabled) {
+                Restricted.chooseEnabled(on)
+                if (on) Restricted.start()
+            }
+            KidsWatch.poke()
+        }
+        return json(state().put("saved", true))
+    }
 
     private fun json(o: JSONObject) = newFixedLengthResponse(Response.Status.OK, "application/json; charset=utf-8", o.toString())
 

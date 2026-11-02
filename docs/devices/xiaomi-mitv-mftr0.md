@@ -169,3 +169,4 @@
 - PixelCopy 读这台的视频层得到的是黑屏（`result 0, black`），每次 3–31ms；所以底板的磨砂全靠 `FrameReader` 从 1080p 文件解帧。`screencap` 倒是截得到影片画面。
 - 1.76 及以前，两条标记会让这台丢掉磨砂、只剩烟色：某次黑屏复制超过 150ms 被记成「PixelCopy 慢」（按固件指纹永久保存，连带不读文件）；或者某次解帧超过 10 秒被记成「本次开机文件卡住」。开机 2 天后户主发现底板没有磨砂，日志是 `copy false, file frames stuck true`。修复见 ARCHITECTURE「航拍壁纸取不到帧的电视」⑥。旧版写下的 `stuck_boot` 要重启一次才清掉。
 
+- 小米显示器 MFFU1（安卓 14）和这台不同：PixelCopy 读得到影片，但 4K 时一次 0.7 秒、有时读出绿色。1.77 里一次慢复制按固件指纹记成慢（`copy_slow_read`），连带不读文件，户主切成杜比视界画质（壁纸随之换成 4K）后底板和面板的磨砂都没了，日志 `copy false, file frames stuck false`。现在慢复制只在有 TCL 解析器的电视上关文件（ARCHITECTURE 同一条 ⑦），这台日志 `TCL's extractor false`，从文件解帧，控制中心是磨砂玻璃。

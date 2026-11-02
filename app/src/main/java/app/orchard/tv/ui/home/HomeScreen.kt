@@ -75,6 +75,8 @@ import app.orchard.tv.HomeViewModel
 import app.orchard.tv.Overlay
 import app.orchard.tv.R
 import app.orchard.tv.settings.AerialSettings
+import app.orchard.tv.settings.Restricted
+import app.orchard.tv.guard.KidsWatch
 import app.orchard.tv.apps.AppEntry
 import app.orchard.tv.ui.control.ControlCenter
 import app.orchard.tv.ui.wallpaper.SheetCovers
@@ -309,7 +311,9 @@ fun HomeScreen(
     val focusedIndex = apps.indexOfFirst { it.key == focusedKey }
     val columns = AerialSettings.homeColumns
     val focusedRow = if (pillFocused || focusedIndex < 0) 0 else focusedIndex / columns
-    val gridEnabled = overlay == Overlay.None
+    // Kids mode's lock covers Home: nothing under it takes focus.
+    val kidsLock = if (Restricted.active) Restricted.lock else null
+    val gridEnabled = overlay == Overlay.None && kidsLock == null
 
     // The aerial wallpaper's film, and how far it shows through.
     val filmCover = remember { Animatable(0f) }
@@ -494,6 +498,7 @@ fun HomeScreen(
                 if (e.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
                 when (e.nativeKeyEvent.keyCode) {
                     NativeKeyEvent.KEYCODE_MENU -> {
+                        if (kidsLock != null) return@onPreviewKeyEvent true
                         // On an app tile, Menu opens that app's menu (AppTile): remotes whose held
                         // OK never reads as held had no other way to it (issue #28). Control
                         // Center stays one press up, on the status pill, where Menu still opens it.
@@ -504,6 +509,8 @@ fun HomeScreen(
                         true
                     }
                     NativeKeyEvent.KEYCODE_TV_INPUT -> {
+                        // Kids and Elders mode switches only to the inputs it shows, as tiles.
+                        if (Restricted.active && !firmwareInputPanel) return@onPreviewKeyEvent true
                         // TCL's firmware opens its own input panel on this key; answering it here
                         // as well drew both panels at once (TCL MT5879, PR #334).
                         if (firmwareInputPanel) return@onPreviewKeyEvent false
@@ -802,7 +809,8 @@ fun HomeScreen(
                                 }
                             },
                             onLongPress = { bounds ->
-                                if (moving == null) {
+                                // Nothing to rearrange in Kids and Elders mode (#1013).
+                                if (moving == null && !Restricted.active) {
                                     focusAfterOverlay = app.key
                                     indexAfterOverlay = index
                                     vm.overlay = Overlay.AppMenu(app.key, bounds ?: Rect.Zero)
@@ -952,6 +960,7 @@ fun HomeScreen(
             onOpen = { vm.overlay = Overlay.None; onOpen(it) },
             onClose = { vm.overlay = Overlay.None },
             warm = ccWarm,
+            onShelf = !pastShelf,
         )
 
         FolderView(
@@ -1025,6 +1034,30 @@ fun HomeScreen(
             onDismiss = { closeMenu() },
         )
 
+        KidsSetupSheet(
+            visible = overlay is Overlay.Kids,
+            candidates = vm.kidsCandidates,
+            onStart = {
+                if (!Restricted.enabled) Restricted.chooseEnabled(true)
+                Restricted.start()
+                vm.overlay = Overlay.None
+                vm.homeResetPending = true
+                KidsWatch.poke()
+            },
+            onDismiss = { vm.overlay = Overlay.Wallpaper },
+        )
+
+        // Locked mid-panel (the day's time ran out with Control Center open): the lock is all there is.
+        LaunchedEffect(kidsLock != null) {
+            if (kidsLock != null && vm.overlay !is Overlay.Pin) vm.overlay = Overlay.None
+        }
+        KidsLockScreen(
+            lock = kidsLock,
+            pinOpen = overlay is Overlay.Pin,
+            onParent = { right -> vm.overlay = Overlay.Pin(PinMode.Verify) { vm.overlay = Overlay.None; right() } },
+            onLeave = { Restricted.suspend(); KidsWatch.poke() },
+        )
+
         HiddenAppsSheet(
             visible = overlay is Overlay.HiddenApps,
             apps = vm.hiddenApps,
@@ -1043,13 +1076,15 @@ fun HomeScreen(
             onDismiss = { vm.overlay = Overlay.ControlCenter() },
             hiddenCount = vm.hiddenApps.size,
             onHiddenApps = { vm.whenUnlocked { vm.overlay = Overlay.HiddenApps } },
+            onKids = vm::setUpKidsMode,
             onStartScreensaver = {
                 vm.overlay = Overlay.None
                 onStartScreensaver()
             },
             onPin = { on ->
                 if (on) vm.overlay = Overlay.Pin(PinMode.Create) { vm.overlay = Overlay.Wallpaper }
-                else vm.whenUnlocked { AerialSettings.choosePin(null); vm.overlay = Overlay.Wallpaper }
+                // Kids mode cannot be left without a PIN: it goes with it.
+                else vm.whenUnlocked { AerialSettings.choosePin(null); Restricted.chooseEnabled(false); vm.overlay = Overlay.Wallpaper }
             },
         )
 
@@ -1061,7 +1096,7 @@ fun HomeScreen(
             onCancel = { vm.overlay = Overlay.None },
         )
 
-        NoticeBanner(vm.notice, Modifier.align(Alignment.TopCenter).padding(top = 24.dp))
+        NoticeBanner(vm.notice, Modifier.align(Alignment.TopCenter).padding(top = 24.dp), vm.noticeGlyph)
 
         Screensaver(visible = vm.screensaverVisible, apps = apps, now = now, skips = vm.screensaverSkips, carry = when {
                 filmSaver -> SaverCarry.Film(liveFilm)
