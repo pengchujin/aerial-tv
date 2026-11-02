@@ -11,6 +11,7 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.database.ContentObserver
 import android.media.AudioManager
@@ -1424,6 +1425,16 @@ class HomeGuardService : AccessibilityService() {
             .filter { it.priority >= 0 || it.activityInfo.name == LOW_PRIORITY_HOMES[it.activityInfo.packageName] }
             .filter { it.activityInfo.packageName !in INPUT_PLAYERS || it.activityInfo.packageName == resolved }
             .filter { it.activityInfo.packageName !in NOT_LAUNCHERS }
+            // An app the viewer installed that declares Home too, but that Home does not resolve
+            // to, only comes up when the viewer opens it: Pegasus Frontend's one activity carries
+            // LAUNCHER, LEANBACK_LAUNCHER and HOME, and every time it was opened from Aerial the
+            // guard took it for a launcher and brought Aerial back over it (Mi TV 4A, Android 6,
+            // issue #1136). Firmware launchers are system apps; one installed and made the
+            // default Home stays a stock home.
+            .filter {
+                (it.activityInfo.applicationInfo.flags and ApplicationInfo.FLAG_SYSTEM) != 0 ||
+                    it.activityInfo.packageName == resolved
+            }
             .groupBy({ it.activityInfo.packageName }, { it.activityInfo.name })
             .mapValues { it.value.toSet() }
         // Some launchers register Home on a trampoline that starts the screen actually shown, which
