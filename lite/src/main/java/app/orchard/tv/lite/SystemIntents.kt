@@ -50,7 +50,7 @@ object SystemIntents {
     }
 
     /**
-     * HDMI 1-3 through Xiaomi's player, which takes the port as its `input` number: 23-25, the
+     * HDMI 1-3, AV and the antenna through Xiaomi's player, which takes the port as its `input` number: 23-25 for HDMI, the
      * full app's xiaomiSources. Mi TV 2 (49", Android 4.3) lists no inputs, and its owner opened
      * them this way from another launcher (issue #1094); Mi TV 2 and 3 on Android 5.1 did the same
      * in the full app (#599 #309). Not on boxes, which have the player but no HDMI inputs, and
@@ -66,11 +66,18 @@ object SystemIntents {
             Class.forName("android.os.SystemProperties").getMethod("get", String::class.java).invoke(null, "ro.build.characteristics") as String
         }.getOrNull().orEmpty()
         if ("stb" in traits || "mbx" in traits) return emptyList()
-        return (1..3).map { port ->
-            "HDMI $port" to Intent("com.xiaomi.mitv.tvplayer.EXTSRC_PLAY").setComponent(player)
-                .putExtra("input", 22 + port)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-        }
+        fun play(input: Int) = Intent("com.xiaomi.mitv.tvplayer.EXTSRC_PLAY").setComponent(player)
+            .putExtra("input", input)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+        // AV is 2 and the antenna 1, DTMB its own page where the player has it (MiTV2-49, the
+        // owner's list, issue #1094). VGA (0) is left out: not every Mi TV of these years has one,
+        // and nothing tells which.
+        val dtmb = ComponentName("com.xiaomi.mitv.tvplayer", "com.xiaomi.mitv.tvplayer.dtmb.DTMBActivity")
+        val digital = if (runCatching { context.packageManager.getActivityInfo(dtmb, 0) }.isSuccess) {
+            listOf("DTMB" to Intent("com.xiaomi.mitv.tvplayer.DTMB_PLAY").setComponent(dtmb).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP))
+        } else emptyList()
+        return (1..3).map { port -> "HDMI $port" to play(22 + port) } +
+            listOf("AV" to play(2), context.getString(R.string.input_antenna) to play(1)) + digital
     }
 
     /**
