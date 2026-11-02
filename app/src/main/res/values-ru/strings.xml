@@ -62,7 +62,7 @@
     <string name="hidden_empty">Нет скрытых приложений</string>
     <string name="launch_failed">Не удалось открыть %1$s</string>
     <string name="unavailable">Недоступно на этом телевизоре</string>
-    <string name="cc_brightness_boost">10+ Boost</string>
+    <string name="cc_brightness_boost">100+ Boost</string>
     <string name="cc_boost_unavailable">Не удалось переключить Boost. Проверьте автояркость, 3D и IMAX в настройках проектора.</string>
     <string name="cc_brightness">Яркость</string>
     <string name="cc_brightness_in_settings">Настройки изображения</string>

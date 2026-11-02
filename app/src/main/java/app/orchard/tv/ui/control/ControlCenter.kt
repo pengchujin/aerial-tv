@@ -600,7 +600,7 @@ private fun BrightnessRow(vm: HomeViewModel) {
             glyph = Glyph.Sun,
             // Boost can leave the ordinary DLP getter at the previous level (X7 Max: 7).
             level = if (vm.brightnessBoost == true) 1f else level,
-            value = if (vm.brightnessBoost == true) "10+" else Math.round(level * 100).toString(),
+            value = if (vm.brightnessBoost == true) "100+" else Math.round(level * 100).toString(),
             // Brightness.adjust moves 5% a step, and stops at 1%; XGIMI steps its own levels.
             steps = if (xgimi) SystemProbe.xgimiBrightnessMax else 20,
             onStep = vm::adjustBrightness,

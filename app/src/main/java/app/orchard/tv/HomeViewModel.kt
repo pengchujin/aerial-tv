@@ -112,7 +112,10 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
      * Levels the row asked for, newest kept: between the repeats of a held key the engine only needs
      * the level it is to end on. Written off the main thread, in order.
      */
-    private data class BrightnessTarget(val level: Int, val boost: Boolean = false)
+    private sealed interface BrightnessTarget {
+        data class Level(val value: Int) : BrightnessTarget
+        data class Boost(val enabled: Boolean) : BrightnessTarget
+    }
     private val brightnessSteps = Channel<BrightnessTarget>(Channel.CONFLATED)
 
     /** XGIMI's light engine steps its own levels; every other TV steps the panel in percent. */
@@ -174,9 +177,11 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
         // and doing the HAL call on the key's own thread left the row lagging behind the picture.
         viewModelScope.launch(Dispatchers.Default) {
             for (target in brightnessSteps) {
-                val applied = if (target.boost) XgimiBoost.enable()
-                    else SystemProbe.setXgimiBrightnessLevel(target.level)
-                if (!applied && target.boost) withContext(Dispatchers.Main) {
+                val applied = when (target) {
+                    is BrightnessTarget.Level -> SystemProbe.setXgimiBrightnessLevel(target.value)
+                    is BrightnessTarget.Boost -> if (target.enabled) XgimiBoost.enable() else XgimiBoost.disable()
+                }
+                if (!applied && target is BrightnessTarget.Boost) withContext(Dispatchers.Main) {
                     android.widget.Toast.makeText(context, R.string.cc_boost_unavailable, android.widget.Toast.LENGTH_LONG).show()
                 }
             }
@@ -551,12 +556,12 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
             // Step from what the row shows and hand the write to the queue: the key's own thread
             // stays free, and the row moves with the picture instead of after it.
             if (brightnessBoost == true && direction > 0) return
-            // One step down from 10+ is ordinary 10; subsequent steps use DLP levels 9..1.
+            // One step down from 100+ is ordinary 100; subsequent steps use the DLP levels.
             val next = if (brightnessBoost == true) 1f else Brightness.xgimiStep(current, direction) ?: return
             if (brightnessBoost != null) brightnessBoost = false
             brightness = next
             brightnessActedAt = SystemClock.elapsedRealtime()
-            brightnessSteps.trySend(BrightnessTarget(Math.round(next * SystemProbe.xgimiBrightnessMax)))
+            brightnessSteps.trySend(BrightnessTarget.Level(Math.round(next * SystemProbe.xgimiBrightnessMax)))
             return
         }
         brightness = Brightness.adjust(context, direction)
@@ -565,13 +570,9 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
     fun toggleBrightnessBoost() {
         val active = brightnessBoost ?: return
         brightnessActedAt = SystemClock.elapsedRealtime()
-        // Enabling can be rejected by the firmware. Keep the real ordinary level until the
-        // poll confirms Boost, so another click or a left step cannot jump to ordinary 10.
-        if (active) {
-            brightness = 1f
-            brightnessBoost = false
-        }
-        brightnessSteps.trySend(BrightnessTarget(SystemProbe.xgimiBrightnessMax, boost = !active))
+        // The firmware retains the ordinary level while Boost is active. Toggle only the mode,
+        // leaving that level intact, and let the poll confirm success in either direction.
+        brightnessSteps.trySend(BrightnessTarget.Boost(!active))
     }
 
     fun toggleMute() {

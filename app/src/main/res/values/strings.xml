@@ -70,7 +70,7 @@
 
     <string name="launch_failed">Couldn\'t open %1$s</string>
     <string name="unavailable">Not available on this TV</string>
-    <string name="cc_brightness_boost">10+ Boost</string>
+    <string name="cc_brightness_boost">100+ Boost</string>
     <string name="cc_boost_unavailable">Cannot change Boost. Check automatic brightness, 3D and IMAX in the projector settings.</string>
     <string name="cc_brightness">Brightness</string>
     <string name="cc_brightness_in_settings">Picture Settings</string>

@@ -62,7 +62,7 @@
     <string name="hidden_empty">Жасырын қолданбалар жоқ</string>
     <string name="launch_failed">%1$s ашылмады</string>
     <string name="unavailable">Бұл теледидарда қолжетімсіз</string>
-    <string name="cc_brightness_boost">10+ Boost</string>
+    <string name="cc_brightness_boost">100+ Boost</string>
     <string name="cc_boost_unavailable">Boost режимін ауыстыру мүмкін емес. Проектор параметрлеріндегі автоматты жарықтық, 3D және IMAX күйін тексеріңіз.</string>
     <string name="cc_brightness">Жарықтық</string>
     <string name="cc_brightness_in_settings">Кескін параметрлері</string>

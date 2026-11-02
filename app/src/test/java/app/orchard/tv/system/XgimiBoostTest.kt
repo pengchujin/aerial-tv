@@ -53,6 +53,16 @@ class XgimiBoostTest {
         assertFalse(XgimiBoost.enabled()!!)
     }
 
+    @Test fun togglingBoostPreservesTheStoredOrdinaryLevel() {
+        dm.lens = 0; dm.level = 7
+        assertTrue(XgimiBoost.enable())
+        assertEquals(7, dm.level)
+        assertTrue(XgimiBoost.disable())
+        assertEquals(7, dm.level)
+        assertEquals(listOf("mode:1", "mode:0"), dm.calls)
+        assertFalse(XgimiBoost.enabled()!!)
+    }
+
     @Test fun unsupportedAndUnknownModesAreNotReinterpretedAsBoost() {
         supported(false)
         assertNull(XgimiBoost.enabled())

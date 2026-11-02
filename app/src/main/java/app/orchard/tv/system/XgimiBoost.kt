@@ -82,7 +82,7 @@ object XgimiBoost {
         }.getOrDefault(false)
     }
 
-    /** Leave Boost before an ordinary brightness write. */
+    /** Leave Boost without changing the stored ordinary brightness level. */
     fun disable(): Boolean {
         val current = enabled() ?: return false
         if (!current) return true

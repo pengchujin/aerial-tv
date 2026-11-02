@@ -8,6 +8,7 @@ import com.xgimi.gmpf.api.DisplayManager
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -56,6 +57,22 @@ class HomeViewModelBoostTest {
         vm.toggleBrightnessBoost()
         vm.adjustBrightness(-1)
         assertEquals(0.6f, vm.brightness!!, 0f)
+        assertFalse(vm.brightnessBoost!!)
+    }
+
+    @Test fun disablingBoostKeepsTheOrdinaryLevelUntilConfirmed() {
+        DisplayManager.getInstance().lens = 1
+        ReflectionHelpers.getField<MutableState<Boolean?>>(vm, "brightnessBoost\$delegate").value = true
+        vm.toggleBrightnessBoost()
+        assertEquals(0.7f, vm.brightness!!, 0f)
+        assertTrue(vm.brightnessBoost!!)
+    }
+
+    @Test fun leftFromConfirmedBoostSelectsOrdinaryMaximum() {
+        DisplayManager.getInstance().lens = 1
+        ReflectionHelpers.getField<MutableState<Boolean?>>(vm, "brightnessBoost\$delegate").value = true
+        vm.adjustBrightness(-1)
+        assertEquals(1f, vm.brightness!!, 0f)
         assertFalse(vm.brightnessBoost!!)
     }
 }

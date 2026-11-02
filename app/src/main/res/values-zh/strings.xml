@@ -69,7 +69,7 @@
 
     <string name="launch_failed">无法打开%1$s</string>
     <string name="unavailable">此电视不支持</string>
-    <string name="cc_brightness_boost">10+ Boost</string>
+    <string name="cc_brightness_boost">100+ Boost</string>
     <string name="cc_boost_unavailable">无法切换 Boost。请检查投影仪设置中的自动亮度、3D 和 IMAX 状态。</string>
     <string name="cc_brightness">亮度</string>
     <string name="cc_brightness_in_settings">在图像设置里调</string>
