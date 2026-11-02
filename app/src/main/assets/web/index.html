@@ -461,7 +461,7 @@ const TEXTS = {
   "离线轮播已添加的视频；没有可播放的视频时显示照片。",
   "我的视频",
   "添加视频",
-  "可以当屏保，也可以在「动态」壁纸里选。MP4 / MOV，建议 1080p H.264。每段最多 200 MB，总共 512 MB。",
+  "可以当屏保，也可以在「动态」壁纸里选。MP4 / MOV，建议 1080p H.264。每段最多 2 GB，所有视频最多占电视剩余空间的一半，现在还能放 {room} GB。",
   "还没有视频，屏保暂时显示照片。",
   "删除“{name}”？",
   "视频：添加 {n} 段，失败 {failed} 段",
@@ -603,7 +603,7 @@ const TEXTS = {
   "Loops your videos offline; shows photos when none can play.",
   "My videos",
   "Add videos",
-  "For the screensaver, or as a moving wallpaper. MP4 / MOV, 1080p H.264 recommended. Up to 200 MB each, 512 MB in all.",
+  "For the screensaver, or as a moving wallpaper. MP4 / MOV, 1080p H.264 recommended. Up to 2 GB each; all films together take at most half the TV's free space. Room for {room} GB now.",
   "No videos yet; the screensaver shows photos until you add some.",
   "Delete “{name}”?",
   "Videos: {n} added, {failed} failed",
@@ -745,7 +745,7 @@ const TEXTS = {
   "Видео повторяются без сети; если они недоступны, показываются фото.",
   "Мои видео",
   "Добавить видео",
-  "Для заставки или как движущиеся обои. MP4 / MOV, лучше 1080p H.264. До 200 МБ каждое, всего 512 МБ.",
+  "Для заставки или как движущиеся обои. MP4 / MOV, лучше 1080p H.264. До 2 ГБ каждое; все видео вместе занимают не больше половины свободного места. Сейчас можно ещё {room} ГБ.",
   "Видео пока нет; до их добавления заставка показывает фото.",
   "Удалить «{name}»?",
   "Видео: добавлено {n}, не удалось {failed}",
@@ -887,7 +887,7 @@ const TEXTS = {
   "Відео повторюються без мережі; якщо вони недоступні, показуються фото.",
   "Мої відео",
   "Додати відео",
-  "Для заставки або як рухомі шпалери. MP4 / MOV, краще 1080p H.264. До 200 МБ кожне, загалом 512 МБ.",
+  "Для заставки або як рухомі шпалери. MP4 / MOV, краще 1080p H.264. До 2 ГБ кожне; усі відео разом займають не більше половини вільного місця. Зараз можна ще {room} ГБ.",
   "Відео поки немає; доки їх не додано, заставка показує фото.",
   "Видалити «{name}»?",
   "Відео: додано {n}, не вдалося {failed}",
@@ -1029,7 +1029,7 @@ const TEXTS = {
   "Бейнелер интернетсіз қайталанады; ойнатылмаса, фотолар көрсетіледі.",
   "Менің бейнелерім",
   "Бейне қосу",
-  "Экран қорғауышқа немесе қозғалмалы тұсқағаз ретінде. MP4 / MOV, 1080p H.264 ұсынылады. Әрқайсысы 200 МБ дейін, барлығы 512 МБ.",
+  "Экран қорғауышқа немесе қозғалмалы тұсқағаз ретінде. MP4 / MOV, 1080p H.264 ұсынылады. Әрқайсысы 2 ГБ дейін; барлық бейне бос орынның жартысынан аспайды. Қазір тағы {room} ГБ сыяды.",
   "Бейне әлі жоқ; қосылғанша экран сақтағыш фотоларды көрсетеді.",
   "«{name}» жойылсын ба?",
   "Бейне: {n} қосылды, {failed} сәтсіз",
@@ -1366,6 +1366,7 @@ function renderScreensaver() {
     row.appendChild(del); list.appendChild(row);
   }
   $('#videoUploadLabel').textContent = sendingVideo || t('videos_upload');
+  $('[data-i18n="videos_hint"]').textContent = t('videos_hint', { room: ((state.videoRoom || 0) / 1e9).toFixed(1) });
 }
 document.querySelectorAll('#ss [data-mode]').forEach(b => b.onclick = async () => {
   if (b.dataset.mode === state.screensaver && !state.screensaverFollows) return;
@@ -1379,11 +1380,11 @@ async function sendVideos(files) {
   let added = 0;
   for (const [i, file] of files.entries()) {
     sendingVideo = t('sending_video', { n: i + 1, total: files.length }); $('#videoUploadLabel').textContent = sendingVideo;
-    if (!file.size || file.size > 200 * 1024 * 1024) continue;
+    // The TV says how much room is left; a film that cannot fit is not sent at all.
+    if (!file.size || file.size > (state.videoRoom || 0)) continue;
     try {
-      const fd = new FormData(); fd.append('video', file, file.name);
-      // The name goes in the query too: the TV reads multipart headers as ASCII, so a Chinese name arrived as \uFFFD (#1158).
-      const r = await fetch(`${base}api/videos/upload?name=${encodeURIComponent(file.name)}`, { method: 'POST', body: fd });
+      // The file itself as the body, so the TV writes it straight to its place (#1164).
+      const r = await fetch(base + 'api/videos/send?name=' + encodeURIComponent(file.name), { method: 'POST', body: file, headers: { 'Content-Type': 'application/octet-stream' } });
       if (!r.ok) throw new Error(r.status);
       const next = await r.json(); if (next.saved) added++; take(next);
     } catch (err) { /* Keep going: a failed film should not discard the rest of the batch. */ }

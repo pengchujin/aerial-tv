@@ -101,7 +101,7 @@ class PhoneServer private constructor(private val context: Context, private val 
                     json(state())
                 }
                 post && path == "/api/upload" -> upload(session)
-                post && path == "/api/videos/upload" -> video(session)
+                post && path == "/api/videos/send" -> video(session)
                 post && path == "/api/videos/delete" -> {
                     val removed = ScreensaverVideos.delete(context, form(session)["id"].orEmpty())
                     json(state().put("removed", removed))
@@ -186,6 +186,7 @@ class PhoneServer private constructor(private val context: Context, private val 
             .put("videos", JSONArray().apply {
                 ScreensaverVideos.all(context).forEach { put(JSONObject().put("id", it.id).put("name", it.name)) }
             })
+            .put("videoRoom", ScreensaverVideos.room(context))
             .put("focusStyle", LiteSettings.focusStyle.key)
             .put("showWeather", LiteSettings.showWeather)
             .put("screensaverClock", LiteSettings.screensaverClock)
@@ -330,19 +331,17 @@ class PhoneServer private constructor(private val context: Context, private val 
         return json(state().put("added", added))
     }
 
-    /** One film per request, as in the full app. */
+    /**
+     * One film per request, its bytes as the body and its name in the address. Not through
+     * [IHTTPSession.parseBody]: that writes the body to the cache, copies the file part out again and
+     * maps the whole body into memory, which a 2 GB film on a 32-bit TV cannot afford (#1164).
+     */
     private fun video(session: IHTTPSession): Response {
         val length = session.headers["content-length"]?.toLongOrNull() ?: 0L
-        if (length <= 0 || length > ScreensaverVideos.MAX_FILE_BYTES + 1024 * 1024) return text(Response.Status.BAD_REQUEST, "too large")
-        val files = HashMap<String, String>()
-        session.parseBody(files)
-        val path = files["video"] ?: return text(Response.Status.BAD_REQUEST, "no video")
-        // NanoHTTPD decodes multipart headers as US-ASCII, so the part's filename loses every non-ASCII
-        // character; the page sends the name URL-encoded in the query as well (#1158).
-        val name = session.parameters["name"]?.firstOrNull()?.takeIf { it.isNotBlank() }
-            ?: session.parameters["video"]?.firstOrNull().orEmpty()
-        val saved = ScreensaverVideos.add(context, File(path), name) != null
-        return json(state().put("saved", saved))
+        val name = session.parameters["name"]?.firstOrNull().orEmpty()
+        val saved = ScreensaverVideos.receive(context, session.inputStream, length, name) != null
+        // A refused or broken film leaves unread bytes behind; do not read them as the next request.
+        return json(state().put("saved", saved)).apply { if (!saved) closeConnection(true) }
     }
 
     private fun diagnostics(): String = buildString {
