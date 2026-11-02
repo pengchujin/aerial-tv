@@ -500,6 +500,9 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
             val ctx = context
             homeStatus = withContext(Dispatchers.Default) { SystemProbe.homeStatus(ctx) }
             brightness = withContext(Dispatchers.Default) { Brightness.level(ctx) }
+            if (app.orchard.tv.system.DeviceProfile.current(ctx).hisenseNativeVolume) {
+                volume = withContext(Dispatchers.Default) { SystemProbe.volume(ctx) }
+            }
         }
     }
 

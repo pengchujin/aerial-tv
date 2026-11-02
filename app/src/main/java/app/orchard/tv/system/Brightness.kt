@@ -81,6 +81,7 @@ object Brightness {
 
     /** Current level as 0..1, or null when Aerial cannot change it on this TV. */
     fun level(context: Context): Float? {
+        if (DeviceProfile.current(context).hisenseBacklightMax > 0) return HisenseControls.backlight(context)
         // XGIMI: the real brightness is the DLP light-engine level; the system screen_brightness
         // setting does not follow it (issue #241).
         SystemProbe.xgimiBrightnessLevel()?.let { return it }
@@ -131,6 +132,7 @@ object Brightness {
      * the HAL class (see [SystemProbe.setXgimiBrightnessLevel]).
      */
     fun adjust(context: Context, direction: Int): Float? {
+        if (DeviceProfile.current(context).hisenseBacklightMax > 0) return HisenseControls.adjustBacklight(context, direction)
         SystemProbe.xgimiBrightnessLevel()?.let { current ->
             val next = xgimiStep(current, direction) ?: return current
             val level = Math.round(next * SystemProbe.xgimiBrightnessMax)

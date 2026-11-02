@@ -42,10 +42,13 @@ class DeviceProfile(
      * instead of a slider that changes nothing. Nothing on the TV tells this apart.
      */
     val ignoresScreenBrightness: Boolean = false,
+    /** Opt-in after checking the TV's native controls; V3K_PRO / MT9653 uses a 0–30 backlight. */
+    val hisenseBacklightMax: Int = 0,
+    val hisenseNativeVolume: Boolean = false,
 ) {
     val isEmpty get() = hiddenHardware.isEmpty() && labels.isEmpty() && xiaomiSourceIds.isEmpty() &&
         xiaomiFallbackSourceIds.isEmpty() && !ignoresPictureBacklight && bootStockMs <= 0 &&
-        !ignoresScreenBrightness
+        !ignoresScreenBrightness && hisenseBacklightMax == 0 && !hisenseNativeVolume
 
     /** The same fields `devices.json` uses, without the matching ones (models, buildMajorBelow, buildAtLeast). */
     fun toJson(): JSONObject = JSONObject().apply {
@@ -56,6 +59,8 @@ class DeviceProfile(
         if (ignoresPictureBacklight) put("ignoresPictureBacklight", true)
         if (bootStockMs > 0) put("bootStockMs", bootStockMs)
         if (ignoresScreenBrightness) put("ignoresScreenBrightness", true)
+        if (hisenseBacklightMax > 0) put("hisenseBacklightMax", hisenseBacklightMax)
+        if (hisenseNativeVolume) put("hisenseNativeVolume", true)
     }
 
     /** Where the profile in use came from, for the diagnostics. */
@@ -137,6 +142,8 @@ class DeviceProfile(
                 ignoresPictureBacklight = o.optBoolean("ignoresPictureBacklight", false),
                 bootStockMs = o.optInt("bootStockMs", 0).coerceIn(0, 10_000),
                 ignoresScreenBrightness = o.optBoolean("ignoresScreenBrightness", false),
+                hisenseBacklightMax = o.optInt("hisenseBacklightMax", 0).also { require(it in 0..100) },
+                hisenseNativeVolume = o.optBoolean("hisenseNativeVolume", false),
             )
         }
 

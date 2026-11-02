@@ -135,6 +135,10 @@ object Diagnostics {
         appendLine("**Brightness**")
         appendLine("```")
         appendLine("Aerial can set it: ${Brightness.level(context) != null}")
+        val nativeProfile = DeviceProfile.current(context)
+        if (nativeProfile.hisenseNativeVolume || nativeProfile.hisenseBacklightMax > 0) {
+            appendLine("Hisense native volume=${HisenseControls.volume(context)} backlight=${HisenseControls.backlight(context)} max=${nativeProfile.hisenseBacklightMax} mode=${HisenseControls.backlightMode()}")
+        }
         appendLine("  global picture_backlight=${global(context, "picture_backlight")}  system screen_brightness=${system(context, Settings.System.SCREEN_BRIGHTNESS)} mode=${system(context, Settings.System.SCREEN_BRIGHTNESS_MODE)}")
         appendLine("```")
 

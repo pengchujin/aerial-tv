@@ -16,6 +16,9 @@
 
 - **未发布（2026-11-01 晚，户主要求）：升级页显示更新内容**。分支 `update-notes`。控制中心「有新版本」的升级页，在「下载并安装」下面列出从这台电视的版本到新版本之间每一版的发布说明（中文系统中文，其他英文），可用上下键滚动。来源是官网新增的 `download/notes.json`，由 `tools/deploy-site.sh` 从 GitHub Release 生成，所以**要等下一次部署官网后才有内容**；在那之前（以及装着旧版的电视）页面和以前一样。详见 ARCHITECTURE「升级」。验证：单元测试 `ReleaseNotesTest`；小米 MFTR0 上用版本号临时改成 1.76 的测试包、notes.json 从这台 Mac 的局域网服务读，显示、滚动、焦点、缓存都看过，测完装回官方 1.76（versionCode 97），守护在。没在 TCL 上看；俄语、乌克兰语、哈萨克语界面显示英文说明（发布说明只有中英文）。
 
+- **未发布：Vidda V3K_PRO / MT9653 音量与背光适配**：新增显式 profile `hisenseNativeVolume` / `hisenseBacklightMax`，通过固件原生服务设置音量，通过命名背光选项及原生手动模式调节面板；不把 Android 镜像值变化当作硬件成功。V3K_PRO / Android 11 / 02.02.70.01 的独立 release 包上，户主确认背光 30→15 实际变暗、音量 15→8 实际变小，随后恢复原值；同时兼容启动管理停用自身 ConfigReceiver 的情况。范围、启用方法和并装测试包的开机限制见 [设备笔记](devices/hisense-v3k-pro.md)。没有改正式版签名、包名、版本或更新路线。
+
+
 - **1.77（versionCode 99）+ Aerial Lite 1.13（14），2026-11-01 傍晚发布**（[v1.77](https://github.com/pengchujin/aerial-tv/releases/tag/v1.77)）：下面这一轮巡检的全部代码，加上 1.76 之后 main 上的小米主页键不闪 PatchWall（04f29a5 9129859）、影片玻璃（52dda0a 8cd0c92）、「让 Aerial 更流畅」复查（8c9f171）。户主说小米电视暂时不用，所以这次**小米 MFTR0 没装**，装的是显示器 MFFU1（`adb install -r` standard，compile speed，主页键从设置和 HDMI 2 拉回，信号源 5 个）。TCL MT5879 多屏互动推 guard（uiautomator 确认焦点在「同意」再按确定，两个 walleve 服务保留），compile speed，虚拟遥控器的主页键从 AIDA64 和 HDMI 2 拉回，信号源 7 个。三个包签名 e089…，官网 `download/version.txt` = v1.77，三个包大小、md5 和 Release 一致。17 个修过的 issue 贴了发布链接（`local/triage/release-1.77-posts.py`），都还开着等复测。
 
 - **2026-11-01 下午巡检（已随 1.77 发布）**，记录见 `local/triage/2026-11-01-full.md`。310 issue / 54 PR，用户最后发言 80 + 12。户主说小米电视暂时不用、TCL 也没碰，真机只用小米显示器 MFFU1。在 worktree `/Users/jzb/Documents/ATV-triage` 上做（`ATV` 在 smooth-corners-everywhere、`ATV-main` 有别的会话未提交的 #1004 改动，都没碰）。
