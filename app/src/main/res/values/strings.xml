@@ -190,6 +190,7 @@
     <string name="cc_update_scan">Scan with a phone to see how to update (copy the install command, or hand it to an AI agent).</string>
     <string name="cc_update_scan_else">Cannot install? Scan with a phone for other ways to update.</string>
     <string name="cc_update_install">Download and Install</string>
+    <string name="cc_update_waiting">Waiting for installation…</string>
     <string name="cc_update_downloading">Downloading… %d%%</string>
     <string name="cc_update_opened">The installer is open: confirm the update there. When it is done, choose Done to come back to Aerial, with every setting kept.</string>
     <string name="cc_update_permission">Allow Aerial to install apps in the settings that just opened, then come back and choose Download and Install again.</string>

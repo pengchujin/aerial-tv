@@ -429,6 +429,7 @@ private fun UpdatePage(vm: HomeViewModel, takeFocus: Boolean) {
                 Glyph.Download,
                 when (state) {
                     is Updates.Install.Downloading -> stringResource(R.string.cc_update_downloading, (state.fraction * 100).toInt())
+                    Updates.Install.Waiting -> stringResource(R.string.cc_update_waiting)
                     else -> stringResource(R.string.cc_update_install)
                 },
                 focusRequester = first,
@@ -438,6 +439,7 @@ private fun UpdatePage(vm: HomeViewModel, takeFocus: Boolean) {
         Column(Modifier.padding(horizontal = 14.dp)) {
             Spacer(Modifier.height(10.dp))
             val status = when (val state = Updates.install) {
+                Updates.Install.Waiting -> stringResource(R.string.cc_update_waiting)
                 Updates.Install.Opened -> stringResource(R.string.cc_update_opened)
                 Updates.Install.NeedsPermission -> stringResource(R.string.cc_update_permission)
                 Updates.Install.NeedsStoragePermission -> stringResource(R.string.cc_update_storage_permission)
