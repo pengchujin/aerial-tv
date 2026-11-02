@@ -1,0 +1,11 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp"
+    android:viewportWidth="512" android:viewportHeight="512">
+    <!-- Converted from supplied ios-wifi-state-pack SVG geometry. -->
+    <group>
+        <clip-path android:pathData="M0 0H512V512H0Z M482 354 A105 105 0 1 0 272 354 A105 105 0 1 0 482 354Z" />
+    </group>
+    <path android:fillColor="#00000000" android:strokeColor="#FFFFFFFF" android:strokeWidth="19" android:strokeLineJoin="round" android:pathData="M462 354 A85 85 0 1 0 292 354 A85 85 0 1 0 462 354Z" />
+    <path android:fillColor="#00000000" android:strokeColor="#FFFFFFFF" android:strokeWidth="17" android:strokeLineJoin="round" android:pathData="M292 354 H462" />
+    <path android:fillColor="#00000000" android:strokeColor="#FFFFFFFF" android:strokeWidth="16" android:strokeLineJoin="round" android:strokeLineCap="round" android:pathData="M377 270 C334 302 334 406 377 438 M377 270 C420 302 420 406 377 438" />
+</vector>

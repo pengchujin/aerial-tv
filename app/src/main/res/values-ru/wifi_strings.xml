@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="wifi_error_failed">Не удалось переключить Wi-Fi. Удерживайте кнопку «Сеть», чтобы открыть настройки Wi-Fi.</string>
+    <string name="wifi_error_timeout">Состояние Wi-Fi не изменилось. Попробуйте ещё раз или удерживайте кнопку «Сеть», чтобы открыть настройки Wi-Fi.</string>
+    <string name="wifi_status_scanning">Поиск…</string>
+    <string name="wifi_status_connecting">Подключение…</string>
+    <string name="wifi_status_authenticating">Авторизация…</string>
+    <string name="wifi_status_obtaining_ip">Получение IP…</string>
+    <string name="wifi_status_verifying">Проверка…</string>
+    <string name="wifi_status_sign_in">Проверка входа…</string>
+</resources>

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="wifi_error_failed">Wi-Fi қосу не өшіру мүмкін болмады. Wi-Fi параметрлерін ашу үшін «Желі» түймесін басып тұрыңыз.</string>
+    <string name="wifi_error_timeout">Wi-Fi күйі өзгермеді. Қайта көріңіз немесе Wi-Fi параметрлерін ашу үшін «Желі» түймесін басып тұрыңыз.</string>
+    <string name="wifi_status_scanning">Іздеу…</string>
+    <string name="wifi_status_connecting">Қосылуда…</string>
+    <string name="wifi_status_authenticating">Растау…</string>
+    <string name="wifi_status_obtaining_ip">IP алынуда…</string>
+    <string name="wifi_status_verifying">Тексеру…</string>
+    <string name="wifi_status_sign_in">Кіруді тексеру…</string>
+</resources>

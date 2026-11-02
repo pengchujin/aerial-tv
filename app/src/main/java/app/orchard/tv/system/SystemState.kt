@@ -22,6 +22,7 @@ import androidx.core.content.getSystemService
 import app.orchard.tv.BuildConfig
 import app.orchard.tv.R
 import app.orchard.tv.guard.HomeGuardService
+import kotlin.math.roundToInt
 
 enum class NetKind { Wifi, Ethernet, Offline }
 
@@ -34,8 +35,30 @@ fun ConnectivityManager.currentNetwork(): Network? {
     return allNetworks.firstOrNull { getNetworkInfo(it)?.type == type }
 }
 
-/** [vpn]: a VPN is up, shown beside the network as iOS does (issue #809). */
-data class NetworkStatus(val kind: NetKind = NetKind.Offline, val name: String? = null, val level: Float = 1f, val vpn: Boolean = false)
+/**
+ * [vpn]: a VPN network is connected, whether or not it is Aerial's default (issue #809).
+ * [internet] records system connectivity evidence; an association alone is not Internet access.
+ * [vpnValidated]: that VPN network is validated by the system.
+ */
+data class NetworkStatus(
+    val kind: NetKind = NetKind.Offline,
+    val name: String? = null,
+    val level: Float = 1f,
+    val vpn: Boolean = false,
+    val internet: Boolean = false,
+    val vpnValidated: Boolean = false,
+) {
+    /**
+     * Whether the Wi-Fi icon shows its globe (`ic_wifi_global_*`): a validated Android VPN over a
+     * validated uplink, a per-app VPN included. It is derived only from Android's own state. No
+     * Internet always wins over the globe, including captive portals. Ethernet keeps its own glyph
+     * either way (NetworkStatusIcon).
+     */
+    val global: Boolean get() = vpn && internet && vpnValidated
+
+    /** The signal as 0..3 bars. */
+    val signal: Int get() = if (level.isFinite()) (level.coerceIn(0f, 1f) * 3f).roundToInt() else 0
+}
 
 data class VolumeStatus(val level: Int = 0, val max: Int = 100, val muted: Boolean = false) {
     val fraction: Float get() = if (max == 0) 0f else level / max.toFloat()
@@ -68,48 +91,77 @@ object SystemProbe {
 
     fun network(context: Context): NetworkStatus {
         val cm = context.getSystemService<ConnectivityManager>() ?: return NetworkStatus()
-        var caps = cm.getNetworkCapabilities(cm.currentNetwork() ?: return NetworkStatus()) ?: return NetworkStatus()
-        // Also one that leaves Aerial out (a proxy app's per-app list), which is not the default here.
+        val active = cm.currentNetwork() ?: return NetworkStatus()
+        val activeCaps = cm.getNetworkCapabilities(active) ?: return NetworkStatus()
+        val activeIsVpn = activeCaps.hasTransport(NetworkCapabilities.TRANSPORT_VPN)
         @Suppress("DEPRECATION")
-        val vpn = caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN) || runCatching {
-            cm.allNetworks.any { cm.getNetworkCapabilities(it)?.hasTransport(NetworkCapabilities.TRANSPORT_VPN) == true && cm.getNetworkInfo(it)?.isConnected == true }
-        }.getOrDefault(false)
+        val connectedNetworks = runCatching { cm.allNetworks }.getOrDefault(emptyArray()).mapNotNull { network ->
+            runCatching {
+                cm.getNetworkCapabilities(network)?.takeIf { cm.getNetworkInfo(network)?.isConnected == true }
+            }.getOrNull()
+        }
+        // Include a connected per-app VPN that leaves Aerial out, which is not the default network here.
+        val vpn = activeIsVpn || connectedNetworks.any { it.hasTransport(NetworkCapabilities.TRANSPORT_VPN) }
+        val physicalNetworks = connectedNetworks.filter {
+            !it.hasTransport(NetworkCapabilities.TRANSPORT_VPN) &&
+                (it.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) || it.hasTransport(NetworkCapabilities.TRANSPORT_WIFI))
+        }
+        var caps = activeCaps
         // Under a VPN the default network is the VPN's, which carries no Wi-Fi or Ethernet
         // transport on Android 8, and was shown as Ethernet over Wi-Fi (Hisense H55E9A, issue #435).
-        if (caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN) &&
-            !caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) && !caps.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)
+        // Match the display priority below, independent of enumeration order. This does not
+        // identify the VPN's actual uplink when both physical transports are connected.
+        if (activeIsVpn && !caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) &&
+            !caps.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)
         ) {
-            @Suppress("DEPRECATION")
-            val physicalNetworks = runCatching { cm.allNetworks }.getOrDefault(emptyArray()).mapNotNull { network ->
-                runCatching {
-                    cm.getNetworkCapabilities(network)?.takeIf {
-                        !it.hasTransport(NetworkCapabilities.TRANSPORT_VPN) &&
-                            (it.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) || it.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) &&
-                            cm.getNetworkInfo(network)?.isConnected == true
-                    }
-                }.getOrNull()
-            }
-            // Match the display priority below, independent of enumeration order. This does not
-            // identify the VPN's actual uplink when both physical transports are connected.
             caps = physicalNetworks.firstOrNull { it.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) }
                 ?: physicalNetworks.firstOrNull() ?: caps
         }
+        fun hasInternetCapability(candidate: NetworkCapabilities): Boolean =
+            candidate.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+        fun validated(candidate: NetworkCapabilities): Boolean =
+            Build.VERSION.SDK_INT >= 23 && hasInternetCapability(candidate) &&
+                candidate.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED) &&
+                !candidate.hasCapability(NetworkCapabilities.NET_CAPABILITY_CAPTIVE_PORTAL)
+        // Android 9 may mark a VPN VALIDATED without probing it (NetworkMonitor skips networks
+        // that do not satisfy the default request). Require a validated, connected physical
+        // uplink as well; starting a VPN over a local-only or captive network is not connectivity.
+        val vpnValidated = if (activeIsVpn) validated(activeCaps) else connectedNetworks.any {
+            it.hasTransport(NetworkCapabilities.TRANSPORT_VPN) && validated(it)
+        }
+        val physicalValidated = physicalNetworks.any { physical ->
+            val sameTransport = when {
+                caps.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) -> physical.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)
+                caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> physical.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)
+                else -> false
+            }
+            sameTransport && validated(physical)
+        }
+        val internet = if (Build.VERSION.SDK_INT >= 23) {
+            validated(activeCaps) && (!activeIsVpn || physicalValidated)
+        } else {
+            // Android 5.x has no VALIDATED capability, so a VPN can never be validated here and
+            // the globe stays off. The icon is the ordinary connection icon of the network it
+            // draws (the physical one when a VPN is the default), and a VPN being up does not
+            // turn it into "No Internet".
+            hasInternetCapability(caps)
+        }
         return when {
-            caps.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) -> NetworkStatus(NetKind.Ethernet, vpn = vpn)
+            caps.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) -> NetworkStatus(NetKind.Ethernet, vpn = vpn, internet = internet, vpnValidated = vpnValidated)
             caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> {
                 val wm = context.applicationContext.getSystemService<WifiManager>()
                 @Suppress("DEPRECATION")
-                val info = wm?.connectionInfo
+                val info = runCatching { wm?.connectionInfo }.getOrNull()
                 val ssid = info?.ssid?.trim('"')?.takeUnless { it.isBlank() || it == WifiManager.UNKNOWN_SSID.trim('<', '>') || it == "<unknown ssid>" }
-                val level = if (info == null) 1f else if (Build.VERSION.SDK_INT >= 30) {
+                val level = if (info == null || wm == null) 0f else if (Build.VERSION.SDK_INT >= 30) {
                     wm.calculateSignalLevel(info.rssi) / wm.maxSignalLevel.coerceAtLeast(1).toFloat()
                 } else {
                     @Suppress("DEPRECATION")
                     WifiManager.calculateSignalLevel(info.rssi, 4) / 3f
                 }
-                NetworkStatus(NetKind.Wifi, ssid, level, vpn)
+                NetworkStatus(NetKind.Wifi, ssid, level, vpn, internet, vpnValidated)
             }
-            else -> NetworkStatus(NetKind.Ethernet, vpn = vpn)
+            else -> NetworkStatus(NetKind.Ethernet, vpn = vpn, internet = internet, vpnValidated = vpnValidated)
         }
     }
 
