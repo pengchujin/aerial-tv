@@ -225,7 +225,8 @@ build() {
     echo "$APK_FILE"
   elif [ "${BUILD:-0}" = 1 ]; then
     local task="assemble$(tr '[:lower:]' '[:upper:]' <<< "${flavor:0:1}")${flavor:1}Release"
-    ./gradlew -q --console=plain "$task"
+    # build runs in a command substitution, where bash may clear errexit.
+    ./gradlew -q --console=plain "$task" || return $?
     echo "app/build/outputs/apk/$flavor/release/app-$flavor-release.apk"
   else
     local out="${TMPDIR:-/tmp}/aerial-$flavor.apk" url

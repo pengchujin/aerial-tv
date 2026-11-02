@@ -25,6 +25,7 @@ case "$*" in
     if [ -f "$MOCK_STATE" ]; then echo versionCode=2; else echo versionCode=1; fi ;;
   install*) echo "$INSTALL_OUTPUT"; exit "$INSTALL_STATUS" ;;
   push*) touch "$MOCK_STATE" ;;
+  'shell settings get secure enabled_notification_listeners') echo null ;;
   'shell dumpsys notification') echo app.orchard.tv/app.orchard.tv.guard.RevivalListener ;;
   'shell dumpsys accessibility') echo label=Aerial ;;
   'shell settings get secure screensaver_enabled') echo 0 ;;
