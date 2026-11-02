@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Aerial</string>
+    <string name="guard_name">Aerial Home Guard</string>
+    <string name="guard_description">Menjaga Aerial sebagai beranda utama di TV yang tidak mengizinkan pengubahan default. Tidak membaca konten layar.</string>
+
+    <string name="greeting_morning">Selamat pagi</string>
+    <string name="greeting_afternoon">Selamat siang</string>
+    <string name="greeting_evening">Selamat malam</string>
+
+    <string name="cc_title">Pusat Kontrol</string>
+    <string name="cc_inputs">Sumber Input</string>
+    <string name="cc_network">Jaringan</string>
+    <string name="cc_settings">Setelan</string>
+    <string name="cc_volume">Volume</string>
+    <string name="cc_muted">Senyap</string>
+    <string name="cc_home_default">Aerial adalah beranda Anda</string>
+    <string name="cc_home_guarded">Home Guard aktif</string>
+    <string name="cc_home_not_default">Bukan beranda bawaan</string>
+    <string name="cc_setup_title">Jadikan Aerial Beranda Anda</string>
+    <string name="cc_setup_body">Terpasang dari APK, Aerial dapat dibuka, namun Tombol Beranda, Nyalakan dan Bangun dari Standby masih mengarah ke peluncur lama.</string>
+    <string name="cc_setup_guard">Aktifkan Home Guard</string>
+    <string name="cc_setup_guard_where">Aksesibilitas</string>
+    <string name="cc_setup_home">Pilih Aplikasi Beranda Default</string>
+    <string name="cc_setup_revival">Kembali Setelah Standby</string>
+    <string name="cc_setup_revival_where">Akses Notifikasi</string>
+    <string name="cc_setup_scan">Atau atur menggunakan komputer (direkomendasikan)</string>
+    <string name="cc_setup_scan_hint">Pindai dengan ponsel untuk perintah TV ini dan instruksi agen AI.</string>
+    <string name="cc_back">Kembali</string>
+    <string name="cc_no_inputs">Tidak ada sumber input ditemukan di TV ini</string>
+
+    <string name="net_ethernet">Ethernet</string>
+    <string name="net_wifi">Wi-Fi</string>
+    <string name="net_offline">Tidak Terhubung</string>
+    <string name="net_vpn">VPN</string>
+
+    <string name="input_connected">Terhubung</string>
+    <string name="input_live_tv">TV Langsung</string>
+    <string name="input_antenna">Antena</string>
+    <string name="input_digital">TV Digital</string>
+    <string name="input_av">AV</string>
+
+    <string name="menu_move">Pindahkan</string>
+    <string name="menu_to_folder">Pindahkan ke Folder</string>
+    <string name="menu_new_folder">Folder Baru</string>
+    <string name="menu_out_of_folder">Keluarkan dari Folder</string>
+    <string name="menu_rename_folder">Ubah Nama</string>
+    <string name="menu_ungroup">Hapus Folder</string>
+    <string name="menu_back">Kembali</string>
+    <string name="folder_default">Folder</string>
+    <string-array name="folder_names">
+        <item>Sistem</item>
+        <item>Video</item>
+        <item>Musik</item>
+        <item>Game</item>
+        <item>Anak</item>
+        <item>Alat</item>
+        <item>Folder</item>
+    </string-array>
+    <string name="menu_hide">Sembunyikan dari Beranda</string>
+    <string name="menu_reset_icon">Pulihkan Ikon Default</string>
+    <string name="menu_info">Info Aplikasi</string>
+    <string name="menu_uninstall">Copot Pemasangan</string>
+    <string name="move_hint">Gunakan tombol panah untuk memindahkan · Tekan OK jika selesai</string>
+    <string name="move_hint_touch">Gunakan panah atau ketuk titik untuk memindahkan · Tekan OK atau ketuk aplikasi jika selesai</string>
+
+    <string name="hidden_title">Aplikasi Tersembunyi</string>
+    <string name="hidden_hint">Pilih aplikasi untuk dikembalikan ke Beranda</string>
+    <string name="hidden_empty">Tidak ada aplikasi tersembunyi</string>
+
+    <string name="launch_failed">Gagal membuka %1$s</string>
+    <string name="unavailable">Tidak tersedia di TV ini</string>
+    <string name="cc_brightness">Kecerahan</string>
+    <string name="cc_brightness_in_settings">Setelan Gambar</string>
+    <string name="cc_personalize">Personalisasi</string>
+    <string name="wp_title">Personalisasi</string>
+    <string name="wp_wallpaper">Wallpaper</string>
+    <string name="wp_weather">Cuaca</string>
+    <string name="wp_weather_none">Belum ada cuaca. Akan dimuat saat TV online.</string>
+    <string name="wp_weather_guessed">Dilokasikan dari jaringan. Jika salah, pindai kode di kanan untuk mengatur kota Anda.</string>
+    <string name="wp_weather_chosen">Kota diatur di ponsel Anda; pindai kode di kanan untuk mengubahnya.</string>
+    <string name="wx_clear">Cerah</string>
+    <string name="wx_partly_cloudy">Berawan Sebagian</string>
+    <string name="wx_cloudy">Berawan</string>
+    <string name="wx_fog">Kabut</string>
+    <string name="wx_rain">Hujan</string>
+    <string name="wx_snow">Salju</string>
+    <string name="wx_thunder">Badai Petir</string>
+    <string name="wp_daily_latest">Foto Harian</string>
+    <string name="wp_live">Video lanskap bergerak. Diputar saat beranda di baris atas dan berhenti pada bingkai saat turun ke aplikasi.</string>
+    <string name="wp_photos_rotate">Foto Saya, Harian</string>
+    <string name="wp_daily_note">Foto pilihan harian dari Bing, berganti setiap hari.</string>
+    <string name="wp_photos_rotate_note">Foto berbeda dari koleksi Anda setiap hari.</string>
+    <string name="wp_photo_note">Foto Anda. Pindai kode di kanan untuk mengirim lebih banyak dari ponsel.</string>
+    <string name="wp_auto_note">Warna diambil dari karya seni aplikasi yang dipilih.</string>
+    <string name="wp_screensaver">Penyimpan Layar</string>
+    <string name="ss_follow_hint">Belum dipilih, mengikuti wallpaper.</string>
+    <string name="ss_aerial">Aerial</string>
+    <string name="ss_photos">Foto</string>
+    <string name="ss_clock">Jam</string>
+</resources>
