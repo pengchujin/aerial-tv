@@ -313,6 +313,7 @@ class HomeGuardService : AccessibilityService() {
             // FIRMWARE_HOMES_WITHOUT_FILTER lost it until Aerial restarted (MiTV-MOOQ0, Android 11).
             activityCache.clear()
             refreshStockHomes()
+            checkMouseWithFilter(this@HomeGuardService)
             watchCecInput()
             updateKeyFilter()
             // The ADB and screensaver checks were skipped while locked.
@@ -581,6 +582,7 @@ class HomeGuardService : AccessibilityService() {
 
     override fun onServiceConnected() {
         instance = this
+        checkMouseWithFilter(this)
         BootOpen.noteStartedInStandby(this)
         watchUiBoost()
         // The profile is in credential storage: only once unlocked.
@@ -889,7 +891,11 @@ class HomeGuardService : AccessibilityService() {
         // brings Aerial back from the stock launcher. Only there: on TCL 75Q10L (MT9655) a mouse
         // never hung with the filter on, and without it Home showed the TCL launcher first
         // (issue #1039).
-        val mouseHang = mouseAttached && xiaomiInput
+        // And where the system went down once with one plugged in and the filter on: TCL TC8000
+        // (ay30a2, Android 11) casts every event the filter passes on to KeyEvent, and the mouse's
+        // first MotionEvent threw in system_server 0.5 s after it connected (issue #1109, the
+        // reporter's crash log; 1.75, which stopped filtering for any mouse, never did).
+        val mouseHang = mouseAttached && (xiaomiInput || mouseDownedSystem(this))
         val wanted = !keysPassThrough && !screenOff && !padGame && !mouseHang &&
             (Build.VERSION.SDK_INT <= Build.VERSION_CODES.R || aerialInFront)
         val homeWanted = wanted && (!isDefaultHome() || defaultHomeNeedsHomeFilter)
@@ -924,6 +930,7 @@ class HomeGuardService : AccessibilityService() {
     }
 
     private fun lookForGamepads() {
+        val hadMouse = mouseAttached
         mouseAttached = Build.VERSION.SDK_INT >= 29 && runCatching {
             InputDevice.getDeviceIds().any { id ->
                 InputDevice.getDevice(id)?.let {
@@ -949,6 +956,8 @@ class HomeGuardService : AccessibilityService() {
             }
         }.getOrDefault(false)
         updateKeyFilter()
+        val filtering = ((serviceInfo?.flags ?: 0) and AccessibilityServiceInfo.FLAG_REQUEST_FILTER_KEY_EVENTS) != 0
+        if (mouseAttached && !hadMouse && filtering) noteMouseWithFilter(this)
     }
 
     private val gamepadListener = object : InputManager.InputDeviceListener {
@@ -1604,6 +1613,60 @@ class HomeGuardService : AccessibilityService() {
         fun volumeKeyCameUp(keyCode: Int, downTime: Long): Boolean = (volumeUps[keyCode] ?: Long.MIN_VALUE) >= downTime
 
         /**
+         * A mouse connected while the filter was on: when, and when this boot began. If Aerial is
+         * bound again in a new process within [MOUSE_CRASH_MS] in the same boot (system_server
+         * restarted, the kernel did not), the mouse took the system down, and from then on a mouse
+         * stops the filter on this firmware build; see updateKeyFilter. A process that lives out
+         * the window clears the note.
+         */
+        private const val KEY_MOUSE_FILTER_AT = "guard_mouse_filter_at"
+        private const val KEY_MOUSE_FILTER_BOOT = "guard_mouse_filter_boot"
+        private const val KEY_MOUSE_DOWNED_SYSTEM = "guard_mouse_downed_system"
+        private const val MOUSE_CRASH_MS = 180_000L
+        @Volatile
+        private var mouseDownedSystem: Boolean? = null
+
+        private fun bootStartedAt() = System.currentTimeMillis() - SystemClock.elapsedRealtime()
+
+        // Credential storage: nothing is read or written before the unlock (Direct Boot).
+        private fun mouseDownedSystem(context: Context): Boolean = mouseDownedSystem
+            ?: if (!GuardSetup.isUserUnlocked(context)) false else (context.getSharedPreferences("system", Context.MODE_PRIVATE).getString(KEY_MOUSE_DOWNED_SYSTEM, null) == Build.FINGERPRINT)
+                .also { mouseDownedSystem = it }
+
+        private fun noteMouseWithFilter(context: Context) {
+            if (!GuardSetup.isUserUnlocked(context) || mouseDownedSystem(context)) return
+            val prefs = context.getSharedPreferences("system", Context.MODE_PRIVATE)
+            val at = System.currentTimeMillis()
+            prefs.edit().putLong(KEY_MOUSE_FILTER_AT, at).putLong(KEY_MOUSE_FILTER_BOOT, bootStartedAt()).commit()
+            Handler(Looper.getMainLooper()).postDelayed({
+                if (prefs.getLong(KEY_MOUSE_FILTER_AT, 0L) == at) prefs.edit().remove(KEY_MOUSE_FILTER_AT).remove(KEY_MOUSE_FILTER_BOOT).apply()
+            }, MOUSE_CRASH_MS)
+        }
+
+        private fun checkMouseWithFilter(context: Context) {
+            if (!GuardSetup.isUserUnlocked(context)) return
+            val prefs = context.getSharedPreferences("system", Context.MODE_PRIVATE)
+            val at = prefs.getLong(KEY_MOUSE_FILTER_AT, 0L)
+            if (at == 0L) return
+            val boot = prefs.getLong(KEY_MOUSE_FILTER_BOOT, 0L)
+            val edit = prefs.edit().remove(KEY_MOUSE_FILTER_AT).remove(KEY_MOUSE_FILTER_BOOT)
+            val since = System.currentTimeMillis() - at
+            val sameBoot = kotlin.math.abs(bootStartedAt() - boot) < 10_000
+            // A new process: the one that wrote the note did not live out the window. The system
+            // going down takes every app with it; Aerial alone dying that soon after a mouse
+            // connected is not seen otherwise, and costs only a Home that shows the stock
+            // launcher a moment while a mouse is in.
+            val newProcess = Build.VERSION.SDK_INT >= 24 && bootStartedAt() + Process.getStartElapsedRealtime() > at
+            if (since in 0..MOUSE_CRASH_MS && sameBoot && newProcess) {
+                mouseDownedSystem = true
+                edit.putString(KEY_MOUSE_DOWNED_SYSTEM, Build.FINGERPRINT)
+                Log.w(TAG, "Aerial died ${since / 1000} s after a mouse connected with the filter on; a mouse stops the filter from now on")
+                DiagLog.i("guard: Aerial died ${since / 1000} s after a mouse connected with keys filtered; a mouse stops the filter from now on")
+            }
+            edit.apply()
+        }
+
+        /**
          * Firmwares where a volume key's lift never reaches the filter, while its press does. Passed
          * on, the press reached a second volume path in the firmware that then waited for a lift
          * that never came and repeated the key every 50 ms until another key: one press ran the
@@ -1776,7 +1839,7 @@ class HomeGuardService : AccessibilityService() {
             val s = instance ?: return "Home Guard bound=false resumed=$aerialResumed"
             val flag = AccessibilityServiceInfo.FLAG_REQUEST_FILTER_KEY_EVENTS
             return "Home Guard bound=true resumed=$aerialResumed filter=${s.serviceInfo?.flags?.and(flag) != 0} " +
-                "screenOff=${s.screenOff} gamepad=${s.gamepadAttached} mouse=${s.mouseAttached} volumeLiftUnseen=${volumeLiftUnseen(s)} stockAllowed=${SystemClock.uptimeMillis() < allowStockUntil} " +
+                "screenOff=${s.screenOff} gamepad=${s.gamepadAttached} mouse=${s.mouseAttached} mouseDowned=${mouseDownedSystem(s)} volumeLiftUnseen=${volumeLiftUnseen(s)} stockAllowed=${SystemClock.uptimeMillis() < allowStockUntil} " +
                 "front=${s.lastWindow} windowEvents=${s.windowsSeen} resolved=${s.resolvedHome()} homes=${s.stockHomes}"
         }
 
