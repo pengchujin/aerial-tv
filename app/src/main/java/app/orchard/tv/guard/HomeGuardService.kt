@@ -1011,9 +1011,17 @@ class HomeGuardService : AccessibilityService() {
      * HOME dispatch that force-stops the process in front. When Aerial is default, that process is
      * Aerial itself, so every Home press becomes a 2-3 second cold start. Detect the firmware's AT
      * package and take HOME before the system, even though Aerial is already default.
+     *
+     * YunOS (Haier HRA962X2_2G_ALI6G_A, Amlogic tl1, Android 9) answers Home from system_server
+     * with yunostv_homeshell://start_home, which names Youku's launcher and never asks what Home
+     * resolves to: with Aerial default and no filter, every Home showed it and Aerial came back
+     * after Android's 5 s hold (issue #883, the reporter's log; slow since 1.55-1.57, when a
+     * default Home stopped being filtered). Known by YunOS's home shell being installed.
      */
     private val defaultHomeNeedsHomeFilter by lazy {
-        runCatching { packageManager.getPackageInfo("com.cvte.factory.at", 0) }.isSuccess
+        listOf("com.cvte.factory.at", "com.yunos.tv.homeshell").any {
+            runCatching { packageManager.getPackageInfo(it, 0) }.isSuccess
+        }
     }
 
     override fun onKeyEvent(event: KeyEvent): Boolean {
