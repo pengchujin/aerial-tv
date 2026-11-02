@@ -56,6 +56,14 @@ enum class Effects(val key: String) {
     }
 }
 
+enum class NowPlayingPlacement(val key: String) {
+    AboveDock("above_dock"), TopLeft("top_left"), TopRight("top_right"), Off("off");
+
+    companion object {
+        fun of(key: String?) = entries.firstOrNull { it.key == key } ?: AboveDock
+    }
+}
+
 /** Aerial's own preferences. Compose state, written on the main thread only. */
 object AerialSettings {
     private const val PREFS = "settings"
@@ -107,6 +115,9 @@ object AerialSettings {
 
     /** The Liquid Glass plate under the top row; some prefer the apps straight on the wallpaper (#151). */
     var homePlate by mutableStateOf(true); private set
+
+    /** Where the music controls appear on Home, or Off to avoid observing media at all. */
+    var nowPlayingPlacement by mutableStateOf(NowPlayingPlacement.AboveDock); private set
 
     /** The clock, with the date and weather, in the top right instead of the top left. */
     var clockRight by mutableStateOf(false); private set
@@ -196,6 +207,7 @@ object AerialSettings {
         clockRight = prefs.getBoolean("clock_right", false)
         largeClock = prefs.getBoolean("large_clock", false)
         homePlate = prefs.getBoolean("home_plate", true)
+        nowPlayingPlacement = NowPlayingPlacement.of(prefs.getString("now_playing_placement", null))
         showAllNames = prefs.getBoolean("show_all_names", false)
         wallpaperAlwaysMoves = prefs.getBoolean("wallpaper_always_moves", false)
         showWeather = prefs.getBoolean("show_weather", true)
@@ -276,6 +288,11 @@ object AerialSettings {
     fun chooseHomePlate(on: Boolean) {
         homePlate = on
         app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit { putBoolean("home_plate", on) }
+    }
+
+    fun chooseNowPlayingPlacement(placement: NowPlayingPlacement) {
+        nowPlayingPlacement = placement
+        app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit { putString("now_playing_placement", placement.key) }
     }
 
     fun chooseClockRight(on: Boolean) {

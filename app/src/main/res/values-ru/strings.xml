@@ -1,5 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="np_position">Сейчас играет</string>
+    <string name="np_position_hint">Выберите место музыкальной карточки на главном экране.</string>
+    <string name="np_above_dock">Над панелью</string>
+    <string name="np_top_left">Слева сверху</string>
+    <string name="np_top_right">Справа сверху</string>
+    <string name="np_off">Выкл.</string>
+    <string name="np_playing">Играет</string>
+    <string name="np_paused">Пауза</string>
+    <string name="np_previous">Предыдущий трек</string>
+    <string name="np_play">Воспроизвести</string>
+    <string name="np_pause">Пауза</string>
+    <string name="np_next">Следующий трек</string>
+    <string name="np_access">Доступ к музыке</string>
+    <string name="np_access_hint">Разрешите Aerial TV доступ к уведомлениям для показа музыки и управления ею.</string>
+    <string name="np_open_settings">Открыть настройки</string>
     <string name="guard_name">Aerial Home Guard</string>
     <string name="guard_description">Оставляет Aerial главным экраном на телевизорах, где его нельзя сменить. Не читает содержимое экрана.</string>
     <string name="greeting_morning">Доброе утро</string>

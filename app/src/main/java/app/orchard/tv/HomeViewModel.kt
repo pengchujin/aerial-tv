@@ -26,6 +26,9 @@ import app.orchard.tv.apps.TileArtFactory
 import app.orchard.tv.apps.folderEntry
 import app.orchard.tv.apps.sourceEntry
 import app.orchard.tv.settings.AerialSettings
+import app.orchard.tv.media.MediaSessionRepository
+import app.orchard.tv.settings.NowPlayingPlacement
+import app.orchard.tv.media.NowPlayingState
 import app.orchard.tv.system.Brightness
 import app.orchard.tv.system.DiagLog
 import app.orchard.tv.system.HomeStatus
@@ -75,6 +78,17 @@ private val BOOT_CATCH_UP_MS = listOf(60_000L, 180_000L)
 
 class HomeViewModel(app: Application) : AndroidViewModel(app) {
     private val context get() = getApplication<Application>()
+    private val mediaSessions = MediaSessionRepository(app) { nowPlaying = it }
+    var nowPlaying by mutableStateOf<NowPlayingState?>(null); private set
+
+    fun startMediaSessions() {
+        if (resumed && AerialSettings.nowPlayingPlacement != NowPlayingPlacement.Off) mediaSessions.start()
+        else mediaSessions.stop()
+    }
+    fun stopMediaSessions() = mediaSessions.stop()
+    fun toggleMediaPlayback() = mediaSessions.togglePlayPause()
+    fun previousMediaTrack() = mediaSessions.skipPrevious()
+    fun nextMediaTrack() = mediaSessions.skipNext()
     private val store = LayoutStore(app)
     private var all: List<AppEntry> = emptyList()
 
@@ -598,6 +612,7 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     override fun onCleared() {
+        mediaSessions.stop()
         CustomIcons.removeOnChange(customIconsChanged)
         if (AppCatalog.renameFolder == ::renameFolder) AppCatalog.renameFolder = null
         if (AppCatalog.pinSource == ::pinSourceById) AppCatalog.pinSource = null
