@@ -983,12 +983,19 @@ private object FilmFrames {
 private object FileFramesStuck {
     @Volatile private var stuck: Boolean? = null
 
+    /**
+     * A mark from before 1.77 (versionCode 99) is not taken: those versions never cleared one when
+     * the call came back, and an update over them kept the plate without frosted glass until the
+     * TV restarted (Xiaomi MiTV-MFTR0, 2.8 days up, issue #1140). TCL MT5879, where the call never
+     * comes back, has a slow PixelCopy noted as well, which keeps the file out by itself.
+     */
     fun now(context: android.content.Context): Boolean =
-        stuck ?: (prefs(context).getLong(KEY, Long.MIN_VALUE) == bootId(context)).also { stuck = it }
+        stuck ?: (prefs(context).getLong(KEY, Long.MIN_VALUE) == bootId(context) &&
+            prefs(context).getInt(KEY_VERSION, 0) >= MARKS_CLEARED_SINCE).also { stuck = it }
 
     fun mark(context: android.content.Context) {
         stuck = true
-        prefs(context).edit().putLong(KEY, bootId(context)).apply()
+        prefs(context).edit().putLong(KEY, bootId(context)).putInt(KEY_VERSION, app.orchard.tv.BuildConfig.VERSION_CODE).apply()
     }
 
     /** The stuck call came back: the media server is not jammed. */
@@ -1008,6 +1015,8 @@ private object FileFramesStuck {
 
     private fun prefs(context: android.content.Context) = context.getSharedPreferences("wallpaper_frames", android.content.Context.MODE_PRIVATE)
     private const val KEY = "stuck_boot"
+    private const val KEY_VERSION = "stuck_version"
+    private const val MARKS_CLEARED_SINCE = 99
 }
 
 /**
