@@ -1382,7 +1382,8 @@ async function sendVideos(files) {
     if (!file.size || file.size > 200 * 1024 * 1024) continue;
     try {
       const fd = new FormData(); fd.append('video', file, file.name);
-      const r = await fetch(base + 'api/videos/upload', { method: 'POST', body: fd });
+      // The name goes in the query too: the TV reads multipart headers as ASCII, so a Chinese name arrived as \uFFFD (#1158).
+      const r = await fetch(`${base}api/videos/upload?name=${encodeURIComponent(file.name)}`, { method: 'POST', body: fd });
       if (!r.ok) throw new Error(r.status);
       const next = await r.json(); if (next.saved) added++; take(next);
     } catch (err) { /* Keep going: a failed film should not discard the rest of the batch. */ }

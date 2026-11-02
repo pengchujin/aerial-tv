@@ -337,7 +337,10 @@ class PhoneServer private constructor(private val context: Context, private val 
         val files = HashMap<String, String>()
         session.parseBody(files)
         val path = files["video"] ?: return text(Response.Status.BAD_REQUEST, "no video")
-        val name = session.parameters["video"]?.firstOrNull().orEmpty()
+        // NanoHTTPD decodes multipart headers as US-ASCII, so the part's filename loses every non-ASCII
+        // character; the page sends the name URL-encoded in the query as well (#1158).
+        val name = session.parameters["name"]?.firstOrNull()?.takeIf { it.isNotBlank() }
+            ?: session.parameters["video"]?.firstOrNull().orEmpty()
         val saved = ScreensaverVideos.add(context, File(path), name) != null
         return json(state().put("saved", saved))
     }
