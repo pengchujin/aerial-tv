@@ -1116,12 +1116,26 @@ class HomeGuardService : AccessibilityService() {
      * and everything was normal (6 events, 4 ACTION_UP). The key-up is therefore always passed on.
      */
     private fun takeVolumeKey(event: KeyEvent): Boolean {
+        val stepKey = event.keyCode == KeyEvent.KEYCODE_VOLUME_UP || event.keyCode == KeyEvent.KEYCODE_VOLUME_DOWN
         if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
             handler.removeCallbacks(volumeRepeat)
+            handler.removeCallbacks(volumeStepIfUnmoved)
+            // A second key pressed during the first (two remotes) is not it: a lift lost there
+            // leaves the volume running for seconds before the next press.
+            if (stepKey && event.downTime - volumeDownPassedAt >= VOLUME_LIFT_WAIT_MS) noteVolumeLiftUnseen(this)
             val now = volumeNow()
             val seen = volumeSeen
-            volumeKeyTaken = now != null && seen != null && now != seen
-            if (volumeKeyTaken) {
+            val movedFirst = now != null && seen != null && now != seen
+            volumeKeyTaken = movedFirst || (stepKey && volumeLiftUnseen(this))
+            if (volumeKeyTaken && !movedFirst) {
+                // The firmware acts on the press before the filter, a moment later at times; where
+                // it did not, the step is Aerial's, once.
+                volumeStepFrom = now
+                volumeStepDirection = if (event.keyCode == KeyEvent.KEYCODE_VOLUME_UP) 1 else -1
+                handler.postDelayed(volumeStepIfUnmoved, VOLUME_UNMOVED_MS)
+            }
+            volumeDownPassedAt = if (stepKey && !volumeKeyTaken) event.downTime else Long.MAX_VALUE
+            if (movedFirst) {
                 Log.i(TAG, "volume already changed before the key filter; not passing the key on")
                 volumeRepeatDirection = when (event.keyCode) {
                     KeyEvent.KEYCODE_VOLUME_UP -> 1
@@ -1142,6 +1156,7 @@ class HomeGuardService : AccessibilityService() {
             DiagLog.i("guard: ${KeyEvent.keyCodeToString(event.keyCode)} down at ${event.downTime}${if (taken) ", not passed on" else ""}")
         }
         if (event.action == KeyEvent.ACTION_UP) {
+            volumeDownPassedAt = Long.MAX_VALUE
             volumeUps[event.keyCode] = event.eventTime
             DiagLog.i("guard: ${KeyEvent.keyCodeToString(event.keyCode)} up at ${event.eventTime}")
             handler.removeCallbacks(volumeRepeat)
@@ -1154,6 +1169,21 @@ class HomeGuardService : AccessibilityService() {
             return false
         }
         return taken
+    }
+
+    /**
+     * When the volume press passed on, whose lift the filter has not seen yet, went down; see
+     * [volumeLiftUnseen]. MAX_VALUE when there is none.
+     */
+    private var volumeDownPassedAt = Long.MAX_VALUE
+    private var volumeStepFrom: Pair<Int, Boolean>? = null
+    private var volumeStepDirection = 0
+    private val volumeStepIfUnmoved = Runnable {
+        if (volumeNow() != volumeStepFrom) return@Runnable
+        DiagLog.i("guard: the volume did not move for a press not passed on; stepping it")
+        SystemProbe.adjustVolume(this, volumeStepDirection, fromKey = true)
+        // Its own step is no change the firmware made: the next press must not look moved first.
+        volumeSeen = volumeNow()
     }
 
     private var volumeRepeatDirection = 0
@@ -1573,6 +1603,35 @@ class HomeGuardService : AccessibilityService() {
          */
         fun volumeKeyCameUp(keyCode: Int, downTime: Long): Boolean = (volumeUps[keyCode] ?: Long.MIN_VALUE) >= downTime
 
+        /**
+         * Firmwares where a volume key's lift never reaches the filter, while its press does. Passed
+         * on, the press reached a second volume path in the firmware that then waited for a lift
+         * that never came and repeated the key every 50 ms until another key: one press ran the
+         * volume to 0 or 100. The firmware has already acted on the press before the filter there,
+         * so from the first press passed on with no lift before the next, no volume press is passed
+         * on again on this firmware. Seen in the reporters' logs: Skyworth 4T834_Z22S (MT9638,
+         * Android 10; the guard logged downs and no ups, issue #937) and Coocaa C10 projector
+         * (3H352_C10, Hi3751, Android 9; DOWN on VolServer's Local and Broadcast paths, UP on Local
+         * only, issue #1113); also #1058 #1091. Kept per firmware build.
+         */
+        private const val KEY_VOLUME_LIFT_UNSEEN = "guard_volume_lift_unseen"
+        private const val VOLUME_UNMOVED_MS = 300L
+        private const val VOLUME_LIFT_WAIT_MS = 1_000L
+        @Volatile
+        private var volumeLiftUnseen: Boolean? = null
+
+        private fun volumeLiftUnseen(context: Context): Boolean = volumeLiftUnseen
+            ?: if (!GuardSetup.isUserUnlocked(context)) false else (context.getSharedPreferences("system", Context.MODE_PRIVATE).getString(KEY_VOLUME_LIFT_UNSEEN, null) == Build.FINGERPRINT)
+                .also { volumeLiftUnseen = it }
+
+        private fun noteVolumeLiftUnseen(context: Context) {
+            if (!GuardSetup.isUserUnlocked(context) || volumeLiftUnseen(context)) return
+            volumeLiftUnseen = true
+            Log.i(TAG, "a volume press passed on never came up at the filter; no volume press is passed on from now on")
+            DiagLog.i("guard: a volume press passed on never came up here; volume presses stay with the firmware from now on")
+            context.getSharedPreferences("system", Context.MODE_PRIVATE).edit().putString(KEY_VOLUME_LIFT_UNSEEN, Build.FINGERPRINT).apply()
+        }
+
         @Volatile
         private var deafRetried = false
 
@@ -1717,7 +1776,7 @@ class HomeGuardService : AccessibilityService() {
             val s = instance ?: return "Home Guard bound=false resumed=$aerialResumed"
             val flag = AccessibilityServiceInfo.FLAG_REQUEST_FILTER_KEY_EVENTS
             return "Home Guard bound=true resumed=$aerialResumed filter=${s.serviceInfo?.flags?.and(flag) != 0} " +
-                "screenOff=${s.screenOff} gamepad=${s.gamepadAttached} mouse=${s.mouseAttached} stockAllowed=${SystemClock.uptimeMillis() < allowStockUntil} " +
+                "screenOff=${s.screenOff} gamepad=${s.gamepadAttached} mouse=${s.mouseAttached} volumeLiftUnseen=${volumeLiftUnseen(s)} stockAllowed=${SystemClock.uptimeMillis() < allowStockUntil} " +
                 "front=${s.lastWindow} windowEvents=${s.windowsSeen} resolved=${s.resolvedHome()} homes=${s.stockHomes}"
         }
 
