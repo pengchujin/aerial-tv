@@ -235,6 +235,7 @@
     <string name="notice_boot_switch">开机时改为打开「%1$s」，不再打开「%2$s」</string>
     <string name="notice_boot_off">开机时不再打开「%1$s」</string>
     <string name="tile_stock_home">原桌面</string>
+    <string name="tile_xiaowei_call">小微畅聊</string>
     <string name="tile_kids">儿童</string>
     <string name="ss_videos">视频</string>
     <string name="ss_videos_hint">扫码从手机添加 MP4 或 MOV 视频，离线轮播；没有可播放的视频时显示照片。</string>

@@ -236,6 +236,7 @@
     <string name="notice_boot_switch">%1$s will open when the TV turns on, instead of %2$s</string>
     <string name="notice_boot_off">%1$s will no longer open when the TV turns on</string>
     <string name="tile_stock_home">TV Home</string>
+    <string name="tile_xiaowei_call">Xiaowei Call</string>
     <string name="tile_kids">Kids</string>
     <string name="ss_videos">Videos</string>
     <string name="ss_videos_hint">Add MP4 or MOV films from the phone page. Plays offline; photos are shown when no film can play.</string>

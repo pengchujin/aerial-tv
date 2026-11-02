@@ -228,6 +228,7 @@
     <string name="notice_boot_switch">%1$s відкриється під час увімкнення телевізора замість %2$s</string>
     <string name="notice_boot_off">%1$s більше не відкриватиметься під час увімкнення телевізора</string>
     <string name="tile_stock_home">Головний екран ТБ</string>
+    <string name="tile_xiaowei_call">Xiaowei Call</string>
     <string name="tile_kids">Дітям</string>
     <string name="ss_videos">Відео</string>
     <string name="ss_videos_hint">Додайте MP4 або MOV зі сторінки на телефоні. Перегляд без мережі; якщо відео недоступні, показуються фото.</string>

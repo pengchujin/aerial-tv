@@ -121,6 +121,15 @@ object AppCatalog {
     )
 
     /**
+     * Names for [UNLISTED_ENTRIES] whose activity has no label of its own, so the host app's name
+     * would show: 小微畅聊 came up as 搜索应用 (issue #1074, the reporter on 1.77). A name set on
+     * the phone page still wins.
+     */
+    private val UNLISTED_NAMES = mapOf(
+        ComponentName("com.sony.dtv.searchapp", "com.ktcp.aiagent.xwability.activity.VoipHomeActivity") to R.string.tile_xiaowei_call,
+    )
+
+    /**
      * Firmware apps drawn as Aerial's own tiles (see [TileArtFactory.forSystem]). None of them
      * declares a standard app category, so they are listed by package, each checked on its TV.
      */
@@ -256,6 +265,11 @@ object AppCatalog {
                     runCatching { entry(pm, info, leanback, byCategory, home, later) }
                         .onFailure { Log.w(TAG, "left ${info.packageName} out of Home", it) }
                         .getOrNull()?.let { if (home) it.copy(label = homeLabel) else it }
+                        ?.let { e ->
+                            val own = info.labelRes != 0 || info.nonLocalizedLabel != null
+                            UNLISTED_NAMES[ComponentName(info.packageName, info.name)]
+                                ?.takeIf { !own }?.let { e.copy(label = context.getString(it)) } ?: e
+                        }
                 }
             }.awaitAll().filterNotNull()
         }.plus(shortcuts(context, pm)).also {
