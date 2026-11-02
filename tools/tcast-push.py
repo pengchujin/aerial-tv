@@ -15,7 +15,9 @@ The protocol, read from 多屏互动 5.30 on TCL MT5879 (see docs/devices/tcl-mt
   source 2 with an apkPathMd5 marks a phone-local APK, which skips the store lookup and asks the viewer.
   The TV answers "223>>INSTALL>>package>>label>>confirm_pending|denied|installing|installed>>apkPathMd5",
   then, once the viewer agrees, "223>>PROGRESS>>package>>label>>stage>>percent>>apkPathMd5":
-  stage 1 downloading, 3 installing, 5 installed, 2 failed.
+  stage 1 downloading, 3 installing, 5 installed, 2 failed, 4 refused by the TV's installer after a
+  complete download (TCL's verifier on an APK that declares HOME and is not signed by TCL, issue #1163;
+  the TV shows 安装失败 at 100%).
 
 Exits 0 once the TV reports the app installed, 1 if the viewer refused, the install failed, or
 nothing happened in time.
@@ -95,6 +97,10 @@ def main():
                     return 0
                 if stage == "2":
                     print("The TV could not download or install the APK.", file=sys.stderr)
+                    return 1
+                if stage == "4":
+                    print("The TV downloaded the APK but refused to install it. TCL refuses any APK that "
+                          "declares a home screen: push aerial-guard.apk.", file=sys.stderr)
                     return 1
         # The TV drops a quiet session, and with it the pending install.
         if time.time() - last_beat > 5:
