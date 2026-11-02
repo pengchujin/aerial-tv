@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The VPN page's "download the core" row (ui/control/VpnPanel.kt, proxy/CoreInstaller.kt). -->
+<resources>
+    <string name="vpn_core_missing">The proxy core is not installed on this TV.</string>
+    <string name="vpn_core_download">Download the core (about 21 MB)</string>
+    <string name="vpn_core_retry">Download the core again (about 21 MB)</string>
+    <string name="vpn_core_cancel">Cancel the download</string>
+    <string name="vpn_core_downloading">Downloading the core… %1$d%% · %2$s</string>
+    <string name="vpn_core_verifying">Checking the downloaded file…</string>
+    <string name="vpn_core_hint">The core is a separate program (mihomo, GPLv3). It is downloaded only when you ask, and used only if its SHA-256 matches the value pinned in Aerial.</string>
+    <string name="vpn_core_error_download">The download did not finish. Try again later; it continues from what was received.</string>
+    <string name="vpn_core_error_integrity">The downloaded file did not match its pinned checksum and was deleted.</string>
+    <string name="vpn_core_error_storage">The TV has no room or cannot write the file; the core was not saved.</string>
+    <string name="vpn_core_error_exec">This TV does not let an app run a program it downloaded itself; the core was deleted.</string>
+    <string name="vpn_core_error_selftest">The core did not run after the download and was deleted.</string>
+</resources>

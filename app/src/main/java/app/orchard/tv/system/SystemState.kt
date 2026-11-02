@@ -34,8 +34,26 @@ fun ConnectivityManager.currentNetwork(): Network? {
     return allNetworks.firstOrNull { getNetworkInfo(it)?.type == type }
 }
 
-/** [vpn]: a VPN is up, shown beside the network as iOS does (issue #809). */
-data class NetworkStatus(val kind: NetKind = NetKind.Offline, val name: String? = null, val level: Float = 1f, val vpn: Boolean = false)
+/**
+ * [vpn]: a VPN is up, shown beside the network as iOS does (issue #809).
+ * [proxyConnected] is ProxyManager.connected: the embedded proxy's last HTTPS 204 probe through its
+ * local port passed. It is not an Android VPN network and a running core alone never sets it;
+ * [SystemProbe.network] never sets it, [withProxy] adds it.
+ */
+data class NetworkStatus(
+    val kind: NetKind = NetKind.Offline,
+    val name: String? = null,
+    val level: Float = 1f,
+    val vpn: Boolean = false,
+    val proxyConnected: Boolean = false,
+) {
+    /** The same Android state with ProxyManager's probe result. */
+    fun withProxy(connected: Boolean): NetworkStatus =
+        if (connected == proxyConnected) this else copy(proxyConnected = connected)
+
+    /** Traffic goes through a VPN or through the embedded proxy: what the "VPN" badge shows. */
+    val tunneled: Boolean get() = vpn || proxyConnected
+}
 
 data class VolumeStatus(val level: Int = 0, val max: Int = 100, val muted: Boolean = false) {
     val fraction: Float get() = if (max == 0) 0f else level / max.toFloat()

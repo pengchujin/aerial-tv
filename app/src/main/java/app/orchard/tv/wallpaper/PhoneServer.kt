@@ -18,6 +18,7 @@ import app.orchard.tv.apps.SourceDevice
 import app.orchard.tv.apps.SourceLooks
 import app.orchard.tv.apps.TileArtFactory
 import app.orchard.tv.settings.AerialSettings
+import app.orchard.tv.proxy.ProxyManager
 import app.orchard.tv.system.Diagnostics
 import app.orchard.tv.system.currentNetwork
 import app.orchard.tv.settings.FocusStyle
@@ -52,8 +53,9 @@ class PhoneServer private constructor(private val context: Context, private val 
     override fun serve(session: IHTTPSession): Response {
         val prefix = "/$token"
         val uri = session.uri
-        if (!uri.startsWith(prefix)) return text(Response.Status.NOT_FOUND, "Not found")
+        if (uri != prefix && !uri.startsWith("$prefix/")) return text(Response.Status.NOT_FOUND, "Not found")
         val path = uri.removePrefix(prefix).ifEmpty { "/" }
+        if (path.startsWith("/api/proxy/")) return proxy(session, path)
         return runCatching {
             when {
                 path == "/" -> newFixedLengthResponse(Response.Status.OK, "text/html; charset=utf-8", page())
@@ -185,6 +187,63 @@ class PhoneServer private constructor(private val context: Context, private val 
         }.getOrElse {
             Log.w(TAG, "request failed", it)
             text(Response.Status.INTERNAL_ERROR, "error")
+        }
+    }
+
+    /** Proxy controls stay behind the phone token and never expose the core controller. */
+    private fun proxy(session: IHTTPSession, path: String): Response {
+        val origin = session.headers["origin"]
+        if (origin != null) {
+            val authority = runCatching { java.net.URI(origin).rawAuthority }.getOrNull()
+            if (authority == null || !authority.equals(session.headers["host"], ignoreCase = true)) {
+                return text(Response.Status.FORBIDDEN, "forbidden")
+            }
+        }
+        if (session.method == Method.POST &&
+            session.headers["content-length"]?.toLongOrNull().let { it == null || it !in 0L..16_384L }) {
+            return text(Response.Status.BAD_REQUEST, "invalid request")
+        }
+        return try {
+            ProxyManager.init(context)
+            val result = when {
+                session.method == Method.GET && path == "/api/proxy/status" -> ProxyManager.status()
+                session.method == Method.GET && path == "/api/proxy/nodes" -> ProxyManager.groups()
+                session.method == Method.GET && path == "/api/proxy/rules/urls" -> ProxyManager.ruleUrls()
+                session.method == Method.GET && path == "/api/proxy/connections" -> ProxyManager.connections()
+                session.method == Method.POST -> when (path) {
+                    "/api/proxy/profile/save" -> ProxyManager.saveProfile(form(session))
+                    "/api/proxy/profile/activate" -> ProxyManager.activateProfile(form(session)["id"].orEmpty())
+                    "/api/proxy/profile/delete" -> ProxyManager.deleteProfile(form(session)["id"].orEmpty())
+                    "/api/proxy/profile/refresh" -> ProxyManager.refreshProfile(form(session)["id"].orEmpty())
+                    "/api/proxy/delay" -> ProxyManager.delay(form(session)["node"].orEmpty())
+                    "/api/proxy/config" -> ProxyManager.configure(form(session))
+                    "/api/proxy/subscription" -> ProxyManager.importSubscription(form(session)["url"].orEmpty())
+                    "/api/proxy/refresh" -> ProxyManager.refreshSubscription()
+                    "/api/proxy/clear" -> ProxyManager.clearSubscription()
+                    // The optional core, fetched on the user's request (CoreInstaller); progress is in status.
+                    "/api/proxy/core/download" -> ProxyManager.downloadCore()
+                    "/api/proxy/core/cancel" -> ProxyManager.cancelCoreDownload()
+                    "/api/proxy/start" -> ProxyManager.start()
+                    "/api/proxy/stop" -> ProxyManager.stop()
+                    "/api/proxy/select" -> {
+                        val fields = form(session)
+                        ProxyManager.select(fields["group"].orEmpty(), fields["node"].orEmpty())
+                    }
+                    "/api/proxy/mode" -> ProxyManager.configure(mapOf("mode" to form(session)["mode"].orEmpty()))
+                    // Rule source for "rule" mode, ad block and the target group; only these fields.
+                    "/api/proxy/rules" -> ProxyManager.configure(form(session).filterKeys { it in setOf("ruleMode", "adBlock", "proxyGroup") })
+                    "/api/proxy/rules/urls" -> ProxyManager.setRuleUrls(form(session))
+                    "/api/proxy/rules/update" -> ProxyManager.updateRules()
+                    else -> return text(Response.Status.NOT_FOUND, "Not found")
+                }
+                else -> return text(Response.Status.METHOD_NOT_ALLOWED, "method not allowed")
+            }
+            json(result).apply { addHeader("Cache-Control", "no-store") }
+        } catch (error: Exception) {
+            // Never expose subscription credentials or parser diagnostics.
+            app.orchard.tv.system.DiagLog.i("proxy request exception class: ${error.javaClass.name}")
+            val code = error.message?.takeIf { it.matches(Regex("^[a-z][a-z0-9_]{1,80}$")) } ?: "proxy_request_failed"
+            json(JSONObject().put("ok", false).put("error", code)).apply { addHeader("Cache-Control", "no-store") }
         }
     }
 
@@ -428,6 +487,7 @@ class PhoneServer private constructor(private val context: Context, private val 
          */
         @Synchronized
         fun listen(context: Context): PhoneServer? {
+            ProxyManager.init(context.applicationContext)
             running?.let { if (it.isAlive) return it }
             return runCatching {
                 PhoneServer(context.applicationContext, token(context)).also {

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- HTTPS everywhere, with two exceptions.
+<!-- HTTPS by default in Aerial's own code, with three exceptions.
 
      Apple's aerial films (sylvan.apple.com) chain to Apple Root CA, which ships with Apple's
      platforms but not with Android, so it is trusted here for that host only
@@ -8,8 +8,19 @@
      films over HTTP from the start (see AerialSaver), which is why cleartext stays allowed.
 
      The weather and location services use Let's Encrypt, whose root older TVs do not trust; they
-     serve the same over HTTP, and Weather falls back to that. -->
+     serve the same over HTTP, and Weather falls back to that.
+
+     The built-in proxy (proxy/) is the third: it needs cleartext in two places that no domain list
+     can name. The core's controller is http://127.0.0.1:<random port> (MihomoController, bearer
+     secret, loopback only), and a Clash subscription is a URL the user types on the phone page, which
+     may legitimately be http:// (a panel on the LAN or on a bare IP). Android 9+ refuses cleartext for
+     every host not listed, so the proxy would not start at all without this line. What stays
+     HTTPS-only is enforced in code, not here: rule-list URLs (RuleLists.validUrl), the 204 health
+     probe, and any subscription redirect that would leave https for http (ProxyManager.download).
+     To make subscriptions HTTPS-only, delete the base-config and add a domain-config for 127.0.0.1;
+     MihomoConfig.validUrl would then also have to refuse http://. -->
 <network-security-config>
+    <base-config cleartextTrafficPermitted="true" />
     <domain-config cleartextTrafficPermitted="true">
         <domain includeSubdomains="false">sylvan.apple.com</domain>
         <trust-anchors>

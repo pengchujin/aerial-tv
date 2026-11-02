@@ -270,6 +270,82 @@
     .agrid.sorting .atile:not(.lift) { transition: none; }
     .toast { transform: translate(-50%, 0); }
   }
+
+  /* Proxy settings follow the existing inset grouped lists. */
+  .proxy-page > * { animation: proxy-in .32s var(--ease-out) both; }
+  .proxy-page > :nth-child(n+4) { animation-delay: .035s; }
+  .proxy-page .proxy-note { margin-top: 14px; }
+  .proxy-page .proxy-status { align-items: flex-start; }
+  .proxy-page .proxy-status b { display: block; font-size: 18px; font-weight: 600; }
+  .proxy-page .proxy-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--tertiary); margin: 7px 1px 0 0; flex-shrink: 0; transition: background .3s var(--ease-out); }
+  .proxy-page .proxy-dot[data-running="true"] { background: #34c759; }
+  .proxy-page .proxy-url { display: block; }
+  .proxy-page .proxy-url > span { display: block; color: var(--secondary); font-size: 13px; margin-bottom: 8px; }
+  .proxy-page .proxy-url input, .proxy-node-search input { width: 100%; border: 0; background: none; color: var(--label); font: inherit; min-width: 0; }
+  .proxy-page input:focus-visible, .proxy-node-search input:focus-visible { outline: 2px solid var(--tint); outline-offset: 4px; border-radius: 3px; }
+  .proxy-page .proxy-port input { text-align: right; width: 92px; flex: 0 1 92px; color: var(--label); font-variant-numeric: tabular-nums; }
+  .proxy-page .proxy-error { color: var(--danger); }
+  .proxy-page .proxy-address { user-select: all; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+  .proxy-page .proxy-groups .val { max-width: 48%; overflow: hidden; text-overflow: ellipsis; }
+  .proxy-page button, .proxy-node-list button { transition: opacity .2s var(--ease-out), background-color .2s var(--ease-out), transform .2s var(--ease-out); }
+  .proxy-page button:disabled { cursor: default; opacity: .45; }
+  .proxy-page .row .btn { padding: 12px 8px; font-size: 15px; }
+  .proxy-node-search { margin: 12px 0; background: var(--card); border-radius: 12px; }
+  .proxy-node-list { max-height: 55vh; overflow-y: auto; overscroll-behavior: contain; }
+  .proxy-node-list .txt { overflow-wrap: anywhere; }
+  .proxy-node-list .item { animation: proxy-in .22s var(--ease-out) both; }
+  @keyframes proxy-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+  /* Profiles: names come from the user or a subscription, so they wrap instead of overflowing. */
+  .proxy-page .proxy-add { margin-top: 10px; }
+  .proxy-page .proxy-empty { color: var(--secondary); }
+  .proxy-profile .txt, .proxy-sheet-name { overflow-wrap: anywhere; }
+  .proxy-profile .sub.err, .proxy-form-error { color: var(--danger); }
+  .proxy-profile[aria-current="true"] .tick { opacity: 1; transform: none; }
+  .proxy-sheet-note { margin: 0 4px 14px; text-align: center; }
+  .proxy-form h2 { margin: 18px 16px 7px; }
+  .proxy-form .list { margin-top: 10px; }
+  .proxy-form h2 + .list { margin-top: 0; }
+  .proxy-form .proxy-url { display: block; }
+  .proxy-form .proxy-url > span { display: block; color: var(--secondary); font-size: 13px; margin-bottom: 8px; }
+  .proxy-form .proxy-url input { width: 100%; border: 0; background: none; color: var(--label); font: inherit; min-width: 0; padding: 0; }
+  .proxy-form .proxy-url input::placeholder { color: var(--tertiary); }
+  .proxy-form .proxy-url input:disabled { opacity: .45; }
+  .proxy-form input:focus-visible { outline: 2px solid var(--tint); outline-offset: 4px; border-radius: 3px; }
+  /* A node row holds two buttons side by side: pick the node, or test its latency. */
+  .proxy-node-list .proxy-node { padding: 0; gap: 0; align-items: stretch; }
+  .proxy-node .pick {
+    flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 11px 4px 11px 16px;
+    border: 0; background: none; text-align: left; cursor: pointer;
+  }
+  .proxy-node .pick:disabled { cursor: default; }
+  .proxy-node .pick[data-now] .tick { opacity: 1; transform: none; }
+  .proxy-node .proxy-ms { color: var(--secondary); font-size: 13px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .proxy-node .proxy-ms.err { color: var(--danger); }
+  .proxy-node .proxy-ping { flex: 0 0 48px; display: grid; place-items: center; border: 0; padding: 0; background: none; color: var(--tint); cursor: pointer; }
+  .proxy-node .proxy-ping[aria-busy="true"] { opacity: .35; }
+  .proxy-node .pick:not(:disabled):active, .proxy-node .proxy-ping:active { background: var(--fill); transition-duration: 0s; }
+  .proxy-test-all { margin: 0 0 12px; }
+  .proxy-core-bar { height: 4px; border-radius: 2px; background: var(--fill); overflow: hidden; margin-top: 8px; }
+  .proxy-core-bar > span { display: block; height: 100%; width: 0; background: var(--tint); transition: width .6s linear; }
+  @media (prefers-reduced-motion: reduce) { .proxy-core-bar > span { transition: none; } }
+  .proxy-page .proxy-rule-lists .txt, .proxy-conn .txt { overflow-wrap: anywhere; }
+  .proxy-page .proxy-rule-lists .sub.err { color: var(--danger); }
+  #proxyGroupPick .val { max-width: 55%; overflow: hidden; text-overflow: ellipsis; }
+  .proxy-conn-list { max-height: 60vh; overflow-y: auto; overscroll-behavior: contain; }
+  .proxy-conn .sub { font-variant-numeric: tabular-nums; }
+  /* 17px: a smaller field makes iOS zoom the page when it is focused. */
+  .proxy-form textarea {
+    width: 100%; min-height: 120px; border: 0; background: none; color: var(--label); resize: vertical;
+    font: 17px/1.35 ui-monospace, Menlo, monospace; padding: 0; overflow-wrap: anywhere;
+  }
+  .proxy-form textarea:focus-visible { outline: 2px solid var(--tint); outline-offset: 4px; border-radius: 3px; }
+  @media (hover: hover) and (pointer: fine) {
+    .proxy-node .pick:not(:disabled):hover, .proxy-node .proxy-ping:hover { background: var(--fill); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .proxy-page > *, .proxy-node-list .item { animation: none; }
+    .proxy-page button, .proxy-page .proxy-dot, .proxy-node-list button { transition: none; }
+  }
 </style>
 </head>
 <body>
@@ -320,6 +396,94 @@
   </div>
 </section>
 
+<!-- Embedded Clash-compatible proxy -->
+<section data-tab="proxy" class="proxy-page" hidden>
+  <p class="foot proxy-note" id="proxyIntro" data-i18n="px_intro"></p>
+  <h2 data-i18n="px_status"></h2>
+  <div class="list">
+    <div class="item proxy-status" role="status" aria-live="polite"><span class="proxy-dot" id="proxyDot"></span><span class="txt"><b id="proxyStatusText" data-i18n="px_loading"></b><span class="sub" id="proxyCore"></span><span class="sub" id="proxySystemState"></span></span></div>
+    <button class="item tint center" type="button" id="proxyRefreshStatus" data-i18n="px_refresh"></button>
+  </div>
+  <p class="foot proxy-error" id="proxyError" role="alert" hidden></p>
+  <!-- The optional core: shown only while it is missing and this TV can run the pinned one. -->
+  <div id="proxyCoreBox" hidden>
+    <h2 data-i18n="px_core_title"></h2>
+    <div class="list">
+      <div class="item proxy-status" role="status" aria-live="polite"><span class="txt"><b id="proxyCoreText"></b><span class="sub" id="proxyCoreDetail"></span><span class="proxy-core-bar" id="proxyCoreBar" hidden><span id="proxyCoreFill"></span></span></span></div>
+      <button class="item tint center" type="button" id="proxyCoreButton"></button>
+    </div>
+    <p class="foot proxy-error" id="proxyCoreError" role="alert" hidden></p>
+    <p class="foot" data-i18n="px_core_hint"></p>
+  </div>
+  <div class="row"><button class="btn" type="button" id="proxyToggle" aria-describedby="proxyStartHint" disabled data-i18n="px_start"></button></div>
+  <p class="foot" id="proxyStartHint" data-i18n="px_start_requires_sub" hidden></p>
+  <!-- Profiles: subscriptions and manual HTTP / SOCKS5 upstreams. Shown when status lists profiles. -->
+  <div id="proxyProfilesBox" hidden>
+    <h2 data-i18n="px_profiles"></h2>
+    <div class="list" id="proxyProfiles"></div>
+    <div class="list proxy-add"><button class="item tint center" type="button" id="proxyAddProfile" data-i18n="px_add_profile" disabled></button></div>
+    <p class="foot" id="proxyProfilesFoot" data-i18n="px_secret_hint"></p>
+  </div>
+  <!-- An older TV build without profiles: one subscription. -->
+  <div id="proxyLegacyBox" hidden>
+    <h2 data-i18n="px_subscription"></h2>
+    <form id="proxySubscriptionForm" class="list">
+      <label class="item proxy-url"><span data-i18n="px_url"></span><input id="proxySubscriptionUrl" type="url" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="done" data-i18n-placeholder="px_url_ph" required></label>
+      <button class="item tint center" type="submit" id="proxyImport" data-i18n="px_import"></button>
+    </form>
+    <p class="foot" id="proxySubscriptionState"></p>
+    <p class="foot" data-i18n="px_sub_hint"></p>
+    <div class="row"><button class="btn plain" type="button" id="proxyRefreshSub" disabled data-i18n="px_update"></button><button class="btn plain" type="button" id="proxyClearSub" disabled data-i18n="px_clear"></button></div>
+  </div>
+  <h2 data-i18n="px_mode"></h2>
+  <div class="list" id="proxyMode" role="radiogroup" data-i18n-aria-label="px_mode">
+    <button class="item" type="button" role="radio" aria-checked="true" data-proxy-mode="rule"><span class="txt" data-i18n="px_rule"></span></button>
+    <button class="item" type="button" role="radio" aria-checked="false" data-proxy-mode="global"><span class="txt" data-i18n="px_global"></span></button>
+    <button class="item" type="button" role="radio" aria-checked="false" data-proxy-mode="direct"><span class="txt" data-i18n="px_direct"></span></button>
+  </div>
+  <p class="foot" data-i18n="px_mode_hint"></p>
+  <!-- Rule source for "rule" mode (proxy/RuleLists.kt): shown only in that mode. -->
+  <div id="proxyRulesBox" hidden>
+    <h2 data-i18n="px_rule_source"></h2>
+    <div class="list" id="proxyRuleSource" role="radiogroup" data-i18n-aria-label="px_rule_source">
+      <button class="item" type="button" role="radio" aria-checked="true" data-rule-source="blacklist"><span class="txt"><span data-i18n="px_rs_blacklist"></span><span class="sub" data-i18n="px_rs_blacklist_hint"></span></span></button>
+      <button class="item" type="button" role="radio" aria-checked="false" data-rule-source="whitelist"><span class="txt"><span data-i18n="px_rs_whitelist"></span><span class="sub" data-i18n="px_rs_whitelist_hint"></span></span></button>
+      <button class="item" type="button" role="radio" aria-checked="false" data-rule-source="subscription"><span class="txt"><span data-i18n="px_rs_subscription"></span><span class="sub" data-i18n="px_rs_subscription_hint"></span></span></button>
+    </div>
+    <div class="list proxy-add">
+      <label class="item"><span class="txt"><span data-i18n="px_adblock"></span><span class="sub" data-i18n="px_adblock_hint"></span></span><input class="switch" type="checkbox" id="proxyAdBlock" data-i18n-aria-label="px_adblock" disabled></label>
+      <button class="item" type="button" id="proxyGroupPick" disabled><span class="txt" data-i18n="px_group"></span><span class="val" id="proxyGroupName"></span></button>
+    </div>
+    <p class="foot" id="proxyGroupHint" data-i18n="px_group_hint"></p>
+    <h2 data-i18n="px_rl_title"></h2>
+    <div class="list proxy-rule-lists" id="proxyRuleLists"></div>
+    <div class="list proxy-add">
+      <button class="item tint center" type="button" id="proxyRulesUpdate" data-i18n="px_rl_update" disabled></button>
+      <button class="item tint center" type="button" id="proxyRulesUrls" data-i18n="px_rl_urls" disabled></button>
+    </div>
+    <p class="foot" data-i18n="px_rl_hint"></p>
+    <p class="foot" data-i18n="px_rl_credit"></p>
+  </div>
+  <h2 data-i18n="px_network"></h2>
+  <div class="list">
+    <label class="item"><span class="txt"><span data-i18n="px_system"></span><span class="sub" data-i18n="px_system_hint"></span></span><input class="switch" type="checkbox" id="proxySystem" checked data-i18n-aria-label="px_system" disabled></label>
+    <label class="item"><span class="txt"><span data-i18n="px_lan"></span><span class="sub" data-i18n="px_lan_hint"></span></span><input class="switch" type="checkbox" id="proxyLan" data-i18n-aria-label="px_lan" disabled></label>
+    <form class="item field proxy-port" id="proxyPortForm"><label class="txt" for="proxyPort" data-i18n="px_port"></label><input type="number" min="1024" max="65535" step="1" id="proxyPort" value="7890" inputmode="numeric" required disabled><button class="link" type="submit" id="proxySavePort" data-i18n="save" disabled></button></form>
+    <label class="item"><span class="txt"><span data-i18n="px_tun"></span><span class="sub" id="proxyTunHint" data-i18n="px_tun_unavailable"></span></span><input class="switch" type="checkbox" id="proxyTun" data-i18n-aria-label="px_tun" disabled></label>
+  </div>
+  <p class="foot" data-i18n="px_port_hint"></p>
+  <p class="foot proxy-address" id="proxyLanAddress" hidden></p>
+  <p class="foot" id="proxyVpnPermission" hidden></p>
+  <h2 data-i18n="px_nodes"></h2>
+  <div class="list proxy-groups" id="proxyGroups"></div>
+  <p class="foot" id="proxyNoGroups" data-i18n="px_no_groups"></p>
+  <p class="foot" data-i18n="px_nodes_hint"></p>
+  <p class="foot" data-i18n="px_latency_hint"></p>
+  <h2 data-i18n="px_conn_title"></h2>
+  <div class="list"><button class="item tint center" type="button" id="proxyConnections" data-i18n="px_conn_show" disabled></button></div>
+  <p class="foot" data-i18n="px_conn_hint"></p>
+</section>
+
 <!-- More -->
 <section data-tab="more" hidden>
   <h2 data-i18n="focus"></h2>
@@ -359,6 +523,7 @@
 <nav role="tablist">
   <button role="tab" data-go="home"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4.5" width="7" height="6" rx="1.8"/><rect x="13.5" y="4.5" width="7" height="6" rx="1.8"/><rect x="3.5" y="13.5" width="7" height="6" rx="1.8"/><rect x="13.5" y="13.5" width="7" height="6" rx="1.8"/></svg><span data-i18n="tab_home"></span></button>
   <button role="tab" data-go="looks"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="15" rx="3"/><circle cx="8.5" cy="9.5" r="1.6"/><path d="M3.5 17l5-5 4 4 2.5-2.5 5.5 5"/></svg><span data-i18n="tab_looks"></span></button>
+  <button role="tab" data-go="proxy"><svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16 13v-2H7V7h2V3H3v4h2v10H3v4h6v-4H7v-4h9zm-9 6H5v-2h2v2zM5 5h2v2H5V5zm10-2v6h6V3h-6zm4 4h-2V5h2v2zm-4 8v6h6v-6h-6zm4 4h-2v-2h2v2z"/></svg><span data-i18n="tab_proxy"></span></button>
   <button role="tab" data-go="more"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><circle cx="8" cy="12" r=".6" fill="currentColor"/><circle cx="12" cy="12" r=".6" fill="currentColor"/><circle cx="16" cy="12" r=".6" fill="currentColor"/></svg><span data-i18n="tab_more"></span></button>
 </nav>
 
@@ -380,7 +545,7 @@ let state = null, stateJson = '';
 
 // The language: ?lang=ru in the address, else the one picked under More (kept on the phone), else the
 // first of the phone's preferred languages that has a table, else English. Keys are in KEYS, one array of texts per language.
-const KEYS = ["screensaver", "screensaver_short", "ss_aerial", "ss_photos", "ss_clock", "focus", "focus_high", "focus_standard", "weather", "city_ph", "set", "upload_label", "feedback_h", "feedback_hint", "diag_show", "diag_copy", "diag_github", "hint_aerial", "hint_photos", "hint_clock", "g_live", "g_live_sub", "g_daily", "g_daily_sub", "g_photo", "g_builtin", "g_auto", "toast_wallpaper", "aria_delete", "confirm_delete", "wx_clear", "wx_partlycloudy", "wx_cloudy", "wx_fog", "wx_rain", "wx_snow", "wx_thunder", "wx_chosen", "wx_auto_btn", "toast_auto", "wx_guessed", "wx_none", "tag_source", "aria_rename", "toast_renamed", "toast_name_reset", "toast_rename_fail", "aria_reset_icon", "toast_icon_reset", "focus_hint_standard", "focus_hint_high", "daily_title", "daily_caption", "rotate_title", "rotate_caption", "empty_photos", "add_second", "toast_tv_updated", "sending_n", "toast_added", "toast_no_photos", "toast_send_fail", "toast_city_set", "toast_city_nf", "toast_set_fail", "toast_sending_icon", "toast_icon_set", "toast_icon_bad", "diag_collecting", "toast_diag_fail", "toast_copied", "toast_copy_manual", "language", "hint_follows", "ss_videos", "hint_videos", "videos_h", "videos_upload", "videos_hint", "videos_empty", "confirm_video_delete", "toast_videos_added", "toast_video_bad", "sending_video", "hint_system", "tab_home", "tab_more", "current_wp", "cancel", "save", "name_ph", "rename_hint", "change_icon", "this_tv", "folder_count", "folder_ph", "inputs_h", "inputs_hint", "rename_hint_app", "was_named", "arrange_hint", "arrange_unready", "hidden_h", "hidden_none", "hidden_locked", "show_app", "hide_app", "to_folder", "new_folder", "out_of_folder", "ungroup", "ungroup_confirm", "folder_hint", "toast_hidden", "toast_shown", "toast_in_folder", "toast_out_folder", "toast_ungrouped", "tab_looks", "looks_title", "show_on_home", "source_device", "source_plain", "source_device_hint", "tv_model", "sw_always", "sw_always_sub", "sw_weather", "sw_saver_time", "sw_saver_time_sub", "g_source_sub", "icon_h", "icon_library", "icon_own", "icon_custom", "toast_icon_picked", "drop_hint", "drop_sub", "drop_none", "toast_diag_paste"];
+const KEYS = ["screensaver", "screensaver_short", "ss_aerial", "ss_photos", "ss_clock", "focus", "focus_high", "focus_standard", "weather", "city_ph", "set", "upload_label", "feedback_h", "feedback_hint", "diag_show", "diag_copy", "diag_github", "hint_aerial", "hint_photos", "hint_clock", "g_live", "g_live_sub", "g_daily", "g_daily_sub", "g_photo", "g_builtin", "g_auto", "toast_wallpaper", "aria_delete", "confirm_delete", "wx_clear", "wx_partlycloudy", "wx_cloudy", "wx_fog", "wx_rain", "wx_snow", "wx_thunder", "wx_chosen", "wx_auto_btn", "toast_auto", "wx_guessed", "wx_none", "tag_source", "aria_rename", "toast_renamed", "toast_name_reset", "toast_rename_fail", "aria_reset_icon", "toast_icon_reset", "focus_hint_standard", "focus_hint_high", "daily_title", "daily_caption", "rotate_title", "rotate_caption", "empty_photos", "add_second", "toast_tv_updated", "sending_n", "toast_added", "toast_no_photos", "toast_send_fail", "toast_city_set", "toast_city_nf", "toast_set_fail", "toast_sending_icon", "toast_icon_set", "toast_icon_bad", "diag_collecting", "toast_diag_fail", "toast_copied", "toast_copy_manual", "language", "hint_follows", "ss_videos", "hint_videos", "videos_h", "videos_upload", "videos_hint", "videos_empty", "confirm_video_delete", "toast_videos_added", "toast_video_bad", "sending_video", "hint_system", "tab_home", "tab_more", "current_wp", "cancel", "save", "name_ph", "rename_hint", "change_icon", "this_tv", "folder_count", "folder_ph", "inputs_h", "inputs_hint", "rename_hint_app", "was_named", "arrange_hint", "arrange_unready", "hidden_h", "hidden_none", "hidden_locked", "show_app", "hide_app", "to_folder", "new_folder", "out_of_folder", "ungroup", "ungroup_confirm", "folder_hint", "toast_hidden", "toast_shown", "toast_in_folder", "toast_out_folder", "toast_ungrouped", "tab_looks", "looks_title", "show_on_home", "source_device", "source_plain", "source_device_hint", "tv_model", "sw_always", "sw_always_sub", "sw_weather", "sw_saver_time", "sw_saver_time_sub", "g_source_sub", "icon_h", "icon_library", "icon_own", "icon_custom", "toast_icon_picked", "drop_hint", "drop_sub", "drop_none", "toast_diag_paste", "tab_proxy", "px_intro", "px_status", "px_running", "px_stopped", "px_starting", "px_stopping", "px_unavailable", "px_loading", "px_refresh", "px_subscription", "px_sub_hint", "px_url", "px_url_ph", "px_import", "px_update", "px_clear", "px_confirm", "px_configured", "px_no_sub", "px_start", "px_stop", "px_mode", "px_rule", "px_global", "px_direct", "px_mode_hint", "px_network", "px_system", "px_system_hint", "px_applied", "px_pending", "px_lan", "px_lan_hint", "px_port", "px_port_hint", "px_address", "px_tun", "px_tun_hint", "px_tun_unavailable", "px_permission", "px_nodes", "px_nodes_hint", "px_no_groups", "px_search", "px_auto", "px_empty", "px_failed", "px_url_invalid", "px_port_invalid", "px_saved", "px_deleted", "px_selected", "px_status_failed", "px_start_requires_sub", "px_download_failed", "px_redirect_failed", "px_insecure_redirect", "px_too_large", "px_config_invalid", "px_config_unsupported", "px_validation_timeout", "px_core_rejected", "px_core_unavailable", "px_core_start_failed", "px_core_stopped", "px_core_request_failed", "px_system_unavailable", "px_port_unavailable", "px_invalid_setting", "px_not_running", "px_node_unavailable", "px_timeout", "px_dns_failed", "px_connection_failed", "px_download_timeout", "px_tls_failed", "px_http_unauthorized", "px_http_forbidden", "px_http_not_found", "px_http_rate_limited", "px_http_server_error", "px_html_response", "px_clash_format", "px_geo_failed", "px_request_rejected", "px_intro_profiles", "px_start_requires_profile", "px_profiles", "px_secret_hint", "px_no_profiles", "px_add_profile", "px_edit_profile", "px_kind", "px_kind_http", "px_kind_socks5", "px_in_use", "px_updated_at", "px_never_updated", "px_every_hours", "px_auto_off", "px_last_error", "px_name", "px_profile_default", "px_refresh_hours", "px_refresh_hours_hint", "px_host", "px_port_upstream", "px_username", "px_password", "px_tls", "px_tls_hint", "px_tls_keep", "px_tls_on", "px_tls_off", "px_optional", "px_keep_saved", "px_clear_login", "px_edit_hint", "px_activate_after", "px_activate_hint", "px_use_profile", "px_update_now", "px_delete_profile", "px_delete_confirm", "px_delete_active_confirm", "px_profile_saved", "px_profile_activated", "px_profile_updated", "px_profile_deleted", "px_profile_deleted_stopped", "px_saving", "px_saving_hint", "px_name_invalid", "px_hours_invalid", "px_upstream_invalid", "px_credentials_invalid", "px_profile_limit", "px_profile_missing", "px_profile_changed", "px_profile_not_configured", "px_profile_storage", "px_test", "px_test_all", "px_testing_n", "px_ms", "px_delay_failed", "px_delay_failed_long", "px_latency_hint", "px_view_only", "px_tun_on", "px_tun_dns", "px_tun_failed", "px_vpn_denied", "px_vpn_unavailable", "px_vpn_revoked", "px_rule_source", "px_rs_blacklist", "px_rs_blacklist_hint", "px_rs_whitelist", "px_rs_whitelist_hint", "px_rs_subscription", "px_rs_subscription_hint", "px_adblock", "px_adblock_hint", "px_group", "px_group_hint", "px_group_auto", "px_group_invalid", "px_rl_title", "px_rl_update", "px_rl_updating", "px_rl_started", "px_rl_urls", "px_rl_urls_hint", "px_rl_urls_saved", "px_rl_reset", "px_rl_url_invalid", "px_rl_hint", "px_rl_credit", "px_rl_count", "px_rl_missing", "px_rl_snapshot", "px_rl_download", "px_rl_failed", "px_rl_invalid", "px_rl_too_large", "px_conn_title", "px_conn_show", "px_conn_hint", "px_conn_memory", "px_conn_empty", "px_conn_not_running", "px_core_title", "px_core_missing", "px_core_download", "px_core_retry", "px_core_cancel", "px_core_downloading", "px_core_verifying", "px_core_hint", "px_core_error_download", "px_core_error_integrity", "px_core_error_storage", "px_core_error_exec", "px_core_error_selftest"];
 const TEXTS = {
  "zh": [
   "屏幕保护程序",
@@ -522,7 +687,213 @@ const TEXTS = {
   "松开即可发送到电视",
   "照片用作壁纸，视频加入屏保",
   "只能发送照片和视频（MP4、MOV）",
-  "诊断信息已复制。在 GitHub 打开的页面里，把它粘贴到「诊断信息」一栏。"
+  "诊断信息已复制。在 GitHub 打开的页面里，把它粘贴到「诊断信息」一栏。",
+  "代理",
+  "导入 Clash 订阅，在电视上运行代理并选择出站节点。",
+  "运行状态",
+  "运行中",
+  "已停止",
+  "正在启动…",
+  "正在停止…",
+  "代理内核暂不可用",
+  "正在读取状态…",
+  "刷新状态",
+  "Clash 订阅",
+  "订阅地址仅保存在电视上，不回显到网页；请只导入可信来源。",
+  "订阅地址",
+  "粘贴 https:// 订阅地址",
+  "导入订阅",
+  "更新订阅",
+  "删除订阅",
+  "删除此订阅并停止代理？电视桌面和其他设置不受影响。",
+  "已保存订阅",
+  "尚未导入订阅",
+  "启动代理",
+  "停止代理",
+  "出站模式",
+  "规则",
+  "全局",
+  "直连",
+  "规则按订阅分流；全局通过所选节点；直连不经过代理节点。若构建里列了始终直连的主机，它们在任何模式下都直连。",
+  "网络设置",
+  "系统代理",
+  "默认开启；内核运行后应用，仅影响遵循系统代理的应用。",
+  "已应用系统代理",
+  "将在内核运行后应用",
+  "局域网共享代理",
+  "默认关闭；开启后，同一局域网设备可使用电视的 HTTP / SOCKS5 端口。",
+  "HTTP / SOCKS5 端口",
+  "默认 7890；可设置 1024–65535 的未占用端口。",
+  "局域网代理地址",
+  "TUN 接管",
+  "默认开启。让不遵循系统代理的应用（如 YouTube）经 Aerial 的 VPN 代理。首次需要在电视上确认一次 VPN 授权。Android 同时只能运行一个 VPN，其他 VPN 应用会替换它。局域网保持直连；开启时 IPv6 被阻止。",
+  "TUN 需要 Android 8 或更高版本及内置内核。",
+  "请在电视上确认 VPN 请求。确认前代理只通过系统代理工作。",
+  "策略组与节点",
+  "手动策略组可选择节点；自动策略组由订阅管理。",
+  "代理运行后显示订阅中的策略组。",
+  "搜索节点",
+  "自动选择",
+  "没有匹配的节点",
+  "代理操作失败，请重试；详情可在电视诊断中查看。",
+  "请输入有效的 http:// 或 https:// 订阅地址。",
+  "端口须为 1024–65535 的整数。",
+  "代理设置已保存",
+  "订阅已删除，代理已停止",
+  "节点已切换",
+  "暂时无法读取电视的代理状态，请检查连接并刷新状态。",
+  "请先成功导入有效的 Clash 订阅，再启动代理。",
+  "订阅下载失败，请检查订阅地址和电视网络后重试。",
+  "订阅地址重定向过多，请使用服务商提供的直接订阅地址。",
+  "订阅跳转到不安全的 HTTP 地址，已停止导入；请使用 HTTPS 地址。",
+  "订阅文件过大，请向服务商获取较小的 Clash 配置。",
+  "订阅不是有效的 Clash YAML 配置，请检查订阅格式。",
+  "订阅含不支持的选项或本地文件引用，请使用兼容的 Clash 配置。",
+  "订阅校验超时，请检查配置后重试。",
+  "代理内核未能接受此订阅，请检查 Clash 配置是否兼容。",
+  "此设备没有可用的代理内核，暂时无法启动。",
+  "代理启动失败，请检查订阅和端口设置后重试。",
+  "代理意外停止，请检查订阅和端口设置后重新启动。",
+  "暂时无法连接代理内核，请刷新状态后重试。",
+  "无法应用系统代理，请检查电视授权；代理内核仍可运行。",
+  "端口不可用，请选择 1024–65535 范围内的其他未占用端口（8790 已保留）。",
+  "代理设置无效，请检查选项后重试。",
+  "代理尚未运行，请先启动代理再重试。",
+  "此策略组或节点已不可选，请刷新状态后重新选择。",
+  "请求超时，请先刷新状态，确认操作结果后再重试。",
+  "电视无法解析订阅域名，请检查电视的网络和 DNS 设置后重试。",
+  "电视无法连接订阅服务器，请检查网络后重试。",
+  "订阅下载超时，请检查电视网络后重试。",
+  "无法安全连接订阅服务器，请检查电视日期、证书或改用服务商提供的有效地址。",
+  "订阅凭据无效或已过期，请获取新的订阅地址。",
+  "订阅服务器拒绝访问，请检查订阅权限或联系服务商。",
+  "订阅地址不存在，请向服务商获取有效地址。",
+  "订阅请求过于频繁，请稍后重试。",
+  "订阅服务器暂时异常，请稍后重试。",
+  "此地址返回的是网页，请使用服务商提供的 Clash 订阅地址。",
+  "此订阅格式不受支持，请在服务商处选择 Clash / Mihomo 格式。",
+  "配置所需的地理规则数据下载失败，请检查电视网络后重新导入。",
+  "电视拒绝了此请求，请从电视重新打开配对设置页后重试。",
+  "添加 Clash 订阅或 HTTP / SOCKS5 代理，在电视上运行代理并选择出站节点。",
+  "请先添加并使用一个配置，再启动代理。",
+  "代理配置",
+  "订阅地址、服务器和账号密码只保存在电视上，这里不会显示。只导入可信的订阅。",
+  "还没有配置",
+  "添加配置",
+  "编辑配置",
+  "类型",
+  "HTTP 代理",
+  "SOCKS5 代理",
+  "使用中",
+  "更新于 {time}",
+  "尚未更新",
+  "每 {n} 小时自动更新",
+  "不自动更新",
+  "上次失败：{error}",
+  "名称",
+  "配置 {n}",
+  "自动更新间隔（小时）",
+  "0 为关闭，可选 1–168，默认 24。只在电视上的 Aerial 运行时更新。",
+  "服务器",
+  "端口",
+  "用户名",
+  "密码",
+  "TLS",
+  "仅当上游代理服务器要求 TLS 时开启。",
+  "保持不变",
+  "开启",
+  "关闭",
+  "可选",
+  "留空则保持不变",
+  "删除已保存的用户名和密码",
+  "已保存的地址和账号不会显示。只有重新输入的项才会替换；留空保持不变。",
+  "保存后使用此配置",
+  "代理切换到此配置；如果代理未运行，会启动它。",
+  "使用此配置",
+  "立即更新",
+  "删除配置",
+  "删除此配置？其他配置不受影响。",
+  "此配置正在使用。删除后代理会停止，且不会自动换成其他配置，需要你再选择一个。",
+  "配置已保存",
+  "已切换配置",
+  "配置已更新",
+  "配置已删除",
+  "配置已删除，代理已停止",
+  "正在保存…",
+  "下载并检查订阅可能需要一分钟左右。",
+  "名称需为 1–80 个字符。",
+  "更新间隔需为 0–168 的整数。",
+  "请输入有效的服务器（主机名或 IP，不含 http://）和 1–65535 的端口。",
+  "用户名或密码过长，或包含换行。",
+  "最多保存 64 个配置，请先删除不用的。",
+  "此配置已不存在，请刷新状态。",
+  "此配置刚在电视上被修改，请刷新状态后重试。",
+  "此配置还没有可用的配置文件，请更新或重新保存。",
+  "无法读取电视上保存的配置。",
+  "测延迟",
+  "全部测延迟",
+  "正在测速 {done}/{total}",
+  "{n} ms",
+  "失败",
+  "此节点未通过延迟测试（5 秒内没有有效响应）。",
+  "ms 是一次测试请求经该节点往返的延迟，不是下载速度或带宽。",
+  "此组由订阅自动选择节点，这里只能测延迟。",
+  "已生效：电视上的应用经 Aerial 的 VPN。",
+  "TUN 正在等待路由器的 DNS 地址；代理暂不使用 TUN 运行。",
+  "TUN 未能启动；代理暂不使用 TUN 运行。",
+  "电视上拒绝了 VPN 请求。关闭再打开 TUN 可重新请求。",
+  "这台电视无法显示 VPN 确认窗口，TUN 无法启动。",
+  "另一个 VPN 接管了，或 VPN 已被断开。关闭再打开 TUN 可重新使用。",
+  "规则来源",
+  "黑名单",
+  "默认直连，只有被墙或境外的网站走代理节点。对电视上的国内应用影响最小。",
+  "白名单",
+  "默认走代理节点，只有国内网站和地址直连。列表更大，内核占用更多内存。",
+  "订阅自带规则",
+  "只用订阅里的规则，不做修改。订阅的规则集下载不下来时，国内网站可能走代理。",
+  "屏蔽广告",
+  "拦截已知的广告和跟踪域名（约 19.5 万条）。首次需下载约 5.6 MB，内核约多占 20 MB 内存，重新加载也更慢。",
+  "走代理的策略组",
+  "规则把需要代理的流量交给这个策略组。自动：订阅里的第一个选择组，节点在下方“策略组与节点”里选。",
+  "自动",
+  "订阅里没有这个策略组。",
+  "规则列表",
+  "立即更新规则",
+  "正在更新…",
+  "已开始更新规则",
+  "规则列表地址",
+  "每个列表可填 1 到 4 个 https 地址，按顺序尝试。留空则用默认地址。地址里不能带账号密码。",
+  "规则列表地址已保存",
+  "恢复默认",
+  "地址无效：必须是 https，不能带账号密码或 # 片段，最多 4 个。",
+  "Aerial 每天自动下载并检查一次这些列表，先经代理，失败再直连；下载失败时继续使用上一个可用版本。安装包里带有一份内置快照，首次启动即可使用。",
+  "规则列表来自 Loyalsoldier/clash-rules（GPL-3.0）。",
+  "{n} 条",
+  "未下载",
+  "内置快照",
+  "已下载",
+  "下载失败",
+  "内容无效",
+  "文件过大",
+  "最近的连接",
+  "查看最近的连接",
+  "显示内核当前打开的最近 50 条连接：目标地址、命中的规则，以及实际走的节点。可用来确认国内网站走 DIRECT、境外网站走节点。",
+  "内核内存：{n} MB",
+  "当前没有打开的连接。",
+  "代理未运行。",
+  "代理内核",
+  "这台电视上还没有代理内核。",
+  "下载内核（约 21 MB）",
+  "重新下载内核（约 21 MB）",
+  "取消下载",
+  "正在下载内核… {pct}% · {speed}",
+  "正在校验下载的文件…",
+  "内核是一个独立程序（mihomo，GPLv3），只在你点下载时获取，SHA-256 与 Aerial 内置的固定值一致才会使用。",
+  "下载没有完成。可以稍后重试，会接着已收到的部分继续。",
+  "下载的文件与固定的校验值不一致，已删除。",
+  "电视存储空间不足或无法写入，内核没有保存。",
+  "这台电视不允许应用运行自己下载的程序，内核已删除。",
+  "内核下载后无法运行，已删除。"
  ],
  "en": [
   "Screensaver",
@@ -664,7 +1035,213 @@ const TEXTS = {
   "Drop to send to the TV",
   "Photos become wallpapers, videos join the screensaver",
   "Only photos and videos (MP4, MOV) can be sent",
-  "Diagnostics copied. On the GitHub page that opens, paste them into Diagnostics."
+  "Diagnostics copied. On the GitHub page that opens, paste them into Diagnostics.",
+  "Proxy",
+  "Import a Clash subscription to run a proxy on this TV and choose outbound nodes.",
+  "Status",
+  "Running",
+  "Stopped",
+  "Starting…",
+  "Stopping…",
+  "Proxy core unavailable",
+  "Loading status…",
+  "Refresh status",
+  "Clash subscription",
+  "The subscription URL stays on the TV and is not displayed here. Only import trusted subscriptions.",
+  "Subscription URL",
+  "Paste an https:// subscription URL",
+  "Import subscription",
+  "Update subscription",
+  "Delete subscription",
+  "Delete this subscription and stop the proxy? Your home screen and other settings will remain.",
+  "Subscription saved",
+  "No subscription imported",
+  "Start proxy",
+  "Stop proxy",
+  "Outbound mode",
+  "Rule",
+  "Global",
+  "Direct",
+  "Rule follows the subscription rules. Global uses the selected proxy. Direct bypasses proxy nodes. Hosts a build lists as always-direct connect directly in every mode.",
+  "Network settings",
+  "System proxy",
+  "Enabled by default; applied after the core starts. Only apps respecting the system proxy use it.",
+  "System proxy applied",
+  "Will apply when the core is running",
+  "Share proxy on LAN",
+  "Off by default. When enabled, other LAN devices can use the TV’s HTTP / SOCKS5 port.",
+  "HTTP / SOCKS5 port",
+  "Default: 7890. Choose an unused port from 1024 to 65535.",
+  "LAN proxy address",
+  "TUN routing",
+  "On by default. Routes apps that ignore the system proxy (such as YouTube) through Aerial's VPN. Needs a one-time VPN confirmation on the TV. Android runs one VPN at a time: another VPN app replaces it. LAN stays direct; IPv6 is blocked while it is on.",
+  "TUN needs Android 8 or later and the bundled core.",
+  "Confirm the VPN request on the TV. Until then the proxy works through the system proxy only.",
+  "Groups and nodes",
+  "Choose nodes in selector groups. Automatic groups are managed by the subscription.",
+  "Subscription groups appear when the proxy is running.",
+  "Search nodes",
+  "Automatic selection",
+  "No matching nodes",
+  "Proxy operation failed. Retry or check the TV diagnostics for details.",
+  "Enter a valid http:// or https:// subscription URL.",
+  "The port must be an integer from 1024 to 65535.",
+  "Proxy settings saved",
+  "Subscription deleted and proxy stopped",
+  "Node selected",
+  "Cannot read the TV proxy status. Check the connection and refresh status.",
+  "Import a valid Clash subscription successfully before starting the proxy.",
+  "Subscription download failed. Check the subscription URL and the TV network, then retry.",
+  "The subscription redirects too many times. Use the direct URL from your provider.",
+  "The subscription redirected to insecure HTTP and was not imported. Use an HTTPS URL.",
+  "The subscription file is too large. Ask your provider for a smaller Clash configuration.",
+  "The subscription is not a valid Clash YAML configuration. Check its format.",
+  "The subscription contains unsupported options or local file references. Use a compatible Clash configuration.",
+  "Subscription validation timed out. Check the configuration and retry.",
+  "The proxy core rejected this subscription. Check Clash configuration compatibility.",
+  "No proxy core is available for this device, so the proxy cannot start.",
+  "The proxy could not start. Check the subscription and port settings, then retry.",
+  "The proxy stopped unexpectedly. Check the subscription and port settings, then start it again.",
+  "Cannot reach the proxy core. Refresh status and retry.",
+  "The system proxy could not be applied. Check TV permissions; the proxy core can still run.",
+  "The port is unavailable. Choose another unused port from 1024 to 65535 (8790 is reserved).",
+  "The proxy settings are invalid. Check the selected options and retry.",
+  "The proxy is not running. Start it before retrying.",
+  "This group or node is no longer available for selection. Refresh status and select again.",
+  "The request timed out. Refresh status to check its result before retrying.",
+  "The TV cannot resolve the subscription domain. Check its network and DNS settings, then retry.",
+  "The TV cannot connect to the subscription server. Check its network and retry.",
+  "The subscription download timed out. Check the TV network and retry.",
+  "Cannot connect securely to the subscription server. Check the TV date and certificates or use a valid URL from your provider.",
+  "The subscription credentials are invalid or expired. Obtain a new subscription URL.",
+  "The subscription server denied access. Check subscription permissions or contact your provider.",
+  "The subscription URL was not found. Obtain a valid URL from your provider.",
+  "Too many subscription requests. Wait and retry later.",
+  "The subscription server is temporarily unavailable. Retry later.",
+  "This URL returned a web page. Use the Clash subscription URL from your provider.",
+  "This subscription format is unsupported. Choose Clash / Mihomo format from your provider.",
+  "The geographic rule data required by this configuration could not be downloaded. Check the TV network and import again.",
+  "The TV rejected this request. Reopen the paired settings page from the TV and retry.",
+  "Add a Clash subscription or an HTTP / SOCKS5 proxy to run a proxy on this TV and choose outbound nodes.",
+  "Add a profile and use it before starting the proxy.",
+  "Profiles",
+  "Subscription URLs, servers and passwords stay on the TV and are not shown here. Only import trusted subscriptions.",
+  "No profiles yet",
+  "Add profile",
+  "Edit profile",
+  "Type",
+  "HTTP proxy",
+  "SOCKS5 proxy",
+  "In use",
+  "Updated {time}",
+  "Never updated",
+  "Updates every {n} h",
+  "No automatic updates",
+  "Last attempt failed: {error}",
+  "Name",
+  "Profile {n}",
+  "Update every (hours)",
+  "0 turns updates off; 1–168, default 24. Updates run only while Aerial runs on the TV.",
+  "Server",
+  "Port",
+  "Username",
+  "Password",
+  "TLS",
+  "Turn on only if the upstream proxy server requires TLS.",
+  "Keep current",
+  "On",
+  "Off",
+  "Optional",
+  "Leave empty to keep",
+  "Remove saved username and password",
+  "Saved addresses and logins are not shown. Only fields you type in are replaced; empty fields stay as they are.",
+  "Use after saving",
+  "The proxy switches to this profile and starts if it is stopped.",
+  "Use this profile",
+  "Update now",
+  "Delete profile",
+  "Delete this profile? Other profiles stay.",
+  "This profile is in use. Deleting it stops the proxy, and no other profile is chosen automatically; choose one yourself.",
+  "Profile saved",
+  "Profile in use",
+  "Profile updated",
+  "Profile deleted",
+  "Profile deleted and proxy stopped",
+  "Saving…",
+  "Downloading and checking a subscription can take about a minute.",
+  "The name must be 1–80 characters.",
+  "The update interval must be a whole number from 0 to 168.",
+  "Enter a valid server (host name or IP, without http://) and a port from 1 to 65535.",
+  "The username or password is too long or contains a line break.",
+  "Up to 64 profiles can be saved. Delete one you no longer use.",
+  "This profile no longer exists. Refresh status.",
+  "This profile was just changed on the TV. Refresh status and retry.",
+  "This profile has no usable configuration yet. Update it or save it again.",
+  "Cannot read the profiles saved on the TV.",
+  "Test latency",
+  "Test all latency",
+  "Testing {done}/{total}",
+  "{n} ms",
+  "Failed",
+  "This node failed the latency test (no valid answer within 5 seconds).",
+  "ms is the round-trip latency of one test request through the node, not download speed or bandwidth.",
+  "This group picks its node automatically from the subscription; you can only test latency here.",
+  "Active: apps on the TV go through Aerial's VPN.",
+  "TUN is waiting for the router's DNS address; the proxy runs without it.",
+  "TUN could not start; the proxy runs without it.",
+  "The VPN request was declined on the TV. Turn TUN off and on to ask again.",
+  "This TV cannot show the VPN confirmation, so TUN cannot start.",
+  "Another VPN took over or the VPN was disconnected. Turn TUN off and on to use it again.",
+  "Rule source",
+  "Blacklist",
+  "Direct by default; only blocked or foreign sites use the proxy node. Least disruptive for Chinese apps on the TV.",
+  "Whitelist",
+  "Proxy by default; only Chinese sites and addresses go direct. The lists are larger, so the core uses more memory.",
+  "Subscription rules",
+  "Only the rules inside the subscription, unchanged. If its rule sets fail to download, Chinese sites may go through the proxy.",
+  "Block ads",
+  "Rejects known ad and tracking domains (about 195,000 entries). The first use downloads about 5.6 MB; the core uses about 20 MB more memory and reloads more slowly.",
+  "Proxy group",
+  "Rules hand traffic that needs the proxy to this group. Automatic: the subscription's first selector group; pick its node under Groups and nodes below.",
+  "Automatic",
+  "The subscription has no such group.",
+  "Rule lists",
+  "Update rules now",
+  "Updating…",
+  "Rule update started",
+  "Rule list addresses",
+  "Each list takes 1 to 4 https addresses, tried in order. Leave empty for the defaults. No login in the address.",
+  "Rule list addresses saved",
+  "Restore defaults",
+  "Invalid address: https only, no login or #fragment, at most 4.",
+  "Aerial downloads and checks these lists once a day, through the proxy first and then directly; a failed download keeps the last good copy. The app bundles a snapshot, so the first start works at once.",
+  "Rule lists: Loyalsoldier/clash-rules (GPL-3.0).",
+  "{n} entries",
+  "Not downloaded",
+  "bundled snapshot",
+  "downloaded",
+  "download failed",
+  "invalid content",
+  "file too large",
+  "Recent connections",
+  "Show recent connections",
+  "Shows the 50 newest connections the core has open: destination, the rule that matched and the node actually used. Use it to confirm that Chinese sites go DIRECT and foreign sites go through the node.",
+  "Core memory: {n} MB",
+  "No open connections.",
+  "The proxy is not running.",
+  "Proxy core",
+  "The proxy core is not installed on this TV.",
+  "Download the core (about 21 MB)",
+  "Download the core again (about 21 MB)",
+  "Cancel the download",
+  "Downloading the core… {pct}% · {speed}",
+  "Checking the downloaded file…",
+  "The core is a separate program (mihomo, GPLv3). It is downloaded only when you ask, and used only if its SHA-256 matches the value pinned in Aerial.",
+  "The download did not finish. Try again later; it continues from what was received.",
+  "The downloaded file did not match its pinned checksum and was deleted.",
+  "The TV has no room or cannot write the file; the core was not saved.",
+  "This TV does not let an app run a program it downloaded itself; the core was deleted.",
+  "The core did not run after the download and was deleted."
  ],
  "ru": [
   "Заставка",
@@ -806,7 +1383,213 @@ const TEXTS = {
   "Отпустите, чтобы отправить на телевизор",
   "Фото станут обоями, видео — заставкой",
   "Можно отправлять только фото и видео (MP4, MOV)",
-  "Диагностика скопирована. На открывшейся странице GitHub вставьте её в поле «Диагностика»."
+  "Диагностика скопирована. На открывшейся странице GitHub вставьте её в поле «Диагностика».",
+  "Прокси",
+  "Импортируйте подписку Clash для запуска прокси на телевизоре и выбора узлов.",
+  "Состояние",
+  "Работает",
+  "Остановлен",
+  "Запуск…",
+  "Остановка…",
+  "Ядро прокси недоступно",
+  "Загрузка состояния…",
+  "Обновить состояние",
+  "Подписка Clash",
+  "Адрес подписки хранится на телевизоре и здесь не отображается. Используйте доверенные подписки.",
+  "Адрес подписки",
+  "Вставьте https:// адрес подписки",
+  "Импортировать",
+  "Обновить подписку",
+  "Удалить подписку",
+  "Удалить подписку и остановить прокси? Рабочий стол и другие настройки сохранятся.",
+  "Подписка сохранена",
+  "Подписка не импортирована",
+  "Запустить прокси",
+  "Остановить прокси",
+  "Режим маршрутизации",
+  "По правилам",
+  "Глобальный",
+  "Напрямую",
+  "Правила — маршрутизация по подписке; глобальный — выбранный прокси; напрямую — без прокси. Хосты, которые сборка помечает как всегда прямые, в любом режиме подключаются напрямую.",
+  "Настройки сети",
+  "Системный прокси",
+  "Включён по умолчанию; применяется после запуска ядра. Только для приложений с поддержкой системного прокси.",
+  "Системный прокси применён",
+  "Применится после запуска ядра",
+  "Прокси для локальной сети",
+  "По умолчанию выключено. Устройства локальной сети смогут использовать HTTP / SOCKS5 порт телевизора.",
+  "Порт HTTP / SOCKS5",
+  "По умолчанию 7890. Выберите свободный порт от 1024 до 65535.",
+  "Адрес прокси в сети",
+  "Маршрутизация TUN",
+  "Включено по умолчанию. Направляет приложения, игнорирующие системный прокси (например, YouTube), через VPN Aerial. Нужно один раз подтвердить VPN на телевизоре. Android держит только один VPN: другое VPN-приложение заменит его. Локальная сеть идёт напрямую; IPv6 при включении блокируется.",
+  "Для TUN нужны Android 8 или новее и встроенное ядро.",
+  "Подтвердите запрос VPN на телевизоре. До этого работает только системный прокси.",
+  "Группы и узлы",
+  "В группах выбора можно менять узлы. Автоматические группы управляются подпиской.",
+  "Группы подписки появятся после запуска прокси.",
+  "Поиск узла",
+  "Автовыбор",
+  "Подходящих узлов нет",
+  "Операция не выполнена. Повторите или проверьте диагностику телевизора.",
+  "Введите корректный адрес подписки http:// или https://.",
+  "Порт должен быть целым числом от 1024 до 65535.",
+  "Настройки прокси сохранены",
+  "Подписка удалена, прокси остановлен",
+  "Узел выбран",
+  "Не удалось прочитать состояние прокси телевизора. Проверьте соединение и обновите состояние.",
+  "Перед запуском прокси успешно импортируйте действительную подписку Clash.",
+  "Не удалось скачать подписку. Проверьте её адрес и сеть телевизора, затем повторите.",
+  "Слишком много перенаправлений подписки. Используйте прямой адрес от поставщика.",
+  "Подписка перенаправляет на небезопасный HTTP. Импорт остановлен; используйте адрес HTTPS.",
+  "Файл подписки слишком большой. Запросите у поставщика меньшую конфигурацию Clash.",
+  "Подписка не является корректной конфигурацией Clash YAML. Проверьте формат.",
+  "Подписка содержит неподдерживаемые параметры или ссылки на локальные файлы. Используйте совместимую конфигурацию Clash.",
+  "Истекло время проверки подписки. Проверьте конфигурацию и повторите.",
+  "Ядро прокси отклонило подписку. Проверьте совместимость конфигурации Clash.",
+  "Для этого устройства нет доступного ядра прокси. Запуск невозможен.",
+  "Не удалось запустить прокси. Проверьте подписку и порт, затем повторите.",
+  "Прокси неожиданно остановился. Проверьте подписку и порт, затем запустите снова.",
+  "Нет связи с ядром прокси. Обновите состояние и повторите.",
+  "Не удалось применить системный прокси. Проверьте разрешения телевизора; ядро прокси может продолжать работу.",
+  "Порт недоступен. Выберите другой свободный порт от 1024 до 65535 (8790 зарезервирован).",
+  "Некорректные настройки прокси. Проверьте параметры и повторите.",
+  "Прокси не работает. Сначала запустите его, затем повторите.",
+  "Эту группу или узел больше нельзя выбрать. Обновите состояние и выберите снова.",
+  "Истекло время запроса. Обновите состояние и проверьте результат перед повтором.",
+  "Телевизор не может определить адрес домена подписки. Проверьте сеть и DNS, затем повторите.",
+  "Телевизор не может подключиться к серверу подписки. Проверьте сеть и повторите.",
+  "Истекло время скачивания подписки. Проверьте сеть телевизора и повторите.",
+  "Не удалось безопасно подключиться к серверу подписки. Проверьте дату и сертификаты телевизора или используйте действительный адрес от поставщика.",
+  "Данные доступа к подписке недействительны или устарели. Получите новый адрес подписки.",
+  "Сервер подписки запретил доступ. Проверьте права подписки или свяжитесь с поставщиком.",
+  "Адрес подписки не найден. Получите действительный адрес у поставщика.",
+  "Слишком много запросов подписки. Повторите позже.",
+  "Сервер подписки временно недоступен. Повторите позже.",
+  "По этому адресу получена веб-страница. Используйте адрес подписки Clash от поставщика.",
+  "Формат подписки не поддерживается. Выберите у поставщика формат Clash / Mihomo.",
+  "Не удалось скачать географические правила для этой конфигурации. Проверьте сеть телевизора и импортируйте снова.",
+  "Телевизор отклонил запрос. Заново откройте страницу настроек по коду сопряжения с телевизора и повторите.",
+  "Добавьте подписку Clash или прокси HTTP / SOCKS5, чтобы запустить прокси на телевизоре и выбрать узлы.",
+  "Перед запуском прокси добавьте профиль и выберите его.",
+  "Профили",
+  "Адреса подписок, серверы и пароли хранятся на телевизоре и здесь не показываются. Импортируйте только надёжные подписки.",
+  "Профилей пока нет",
+  "Добавить профиль",
+  "Изменить профиль",
+  "Тип",
+  "HTTP-прокси",
+  "SOCKS5-прокси",
+  "Используется",
+  "Обновлено {time}",
+  "Ещё не обновлялся",
+  "Обновление каждые {n} ч",
+  "Без автообновления",
+  "Последняя попытка не удалась: {error}",
+  "Название",
+  "Профиль {n}",
+  "Обновлять каждые (часов)",
+  "0 — выкл.; 1–168, по умолчанию 24. Обновляется, только пока на телевизоре работает Aerial.",
+  "Сервер",
+  "Порт",
+  "Имя пользователя",
+  "Пароль",
+  "TLS",
+  "Включайте, только если вышестоящий прокси-сервер требует TLS.",
+  "Не менять",
+  "Вкл.",
+  "Выкл.",
+  "Необязательно",
+  "Оставьте пустым, чтобы не менять",
+  "Удалить сохранённые имя и пароль",
+  "Сохранённые адреса и логины не показываются. Заменяются только введённые поля; пустые остаются как есть.",
+  "Использовать после сохранения",
+  "Прокси переключится на этот профиль и запустится, если остановлен.",
+  "Использовать профиль",
+  "Обновить сейчас",
+  "Удалить профиль",
+  "Удалить этот профиль? Остальные профили останутся.",
+  "Этот профиль используется. Удаление остановит прокси, другой профиль не выбирается автоматически — выберите его сами.",
+  "Профиль сохранён",
+  "Профиль используется",
+  "Профиль обновлён",
+  "Профиль удалён",
+  "Профиль удалён, прокси остановлен",
+  "Сохранение…",
+  "Загрузка и проверка подписки может занять около минуты.",
+  "Название должно содержать от 1 до 80 символов.",
+  "Интервал обновления — целое число от 0 до 168.",
+  "Укажите корректный сервер (имя хоста или IP, без http://) и порт от 1 до 65535.",
+  "Имя пользователя или пароль слишком длинные либо содержат перенос строки.",
+  "Можно сохранить до 64 профилей. Удалите ненужный.",
+  "Этот профиль больше не существует. Обновите статус.",
+  "Профиль только что изменён на телевизоре. Обновите статус и повторите.",
+  "У профиля ещё нет рабочей конфигурации. Обновите или сохраните его заново.",
+  "Не удаётся прочитать профили, сохранённые на телевизоре.",
+  "Проверить задержку",
+  "Проверить все",
+  "Проверка {done}/{total}",
+  "{n} мс",
+  "Ошибка",
+  "Узел не прошёл проверку задержки (нет корректного ответа за 5 секунд).",
+  "мс — задержка одного тестового запроса через узел туда и обратно, а не скорость загрузки или пропускная способность.",
+  "Эта группа выбирает узел автоматически по подписке; здесь можно только проверить задержку.",
+  "Активно: приложения телевизора идут через VPN Aerial.",
+  "TUN ждёт адрес DNS роутера; прокси работает без него.",
+  "Не удалось запустить TUN; прокси работает без него.",
+  "Запрос VPN отклонён на телевизоре. Выключите и включите TUN, чтобы запросить снова.",
+  "Этот телевизор не может показать подтверждение VPN, поэтому TUN не запускается.",
+  "Другой VPN занял место или VPN отключили. Выключите и включите TUN, чтобы вернуть его.",
+  "Источник правил",
+  "Чёрный список",
+  "По умолчанию напрямую; через узел идут только заблокированные и зарубежные сайты. Меньше всего мешает китайским приложениям на телевизоре.",
+  "Белый список",
+  "По умолчанию через узел; напрямую идут только китайские сайты и адреса. Списки больше, ядро занимает больше памяти.",
+  "Правила подписки",
+  "Только правила из подписки, без изменений. Если её наборы правил не скачиваются, китайские сайты могут идти через прокси.",
+  "Блокировать рекламу",
+  "Отклоняет известные рекламные и отслеживающие домены (около 195 000 записей). При первом включении скачивается около 5,6 МБ; ядро занимает примерно на 20 МБ больше памяти, перезагрузка идёт медленнее.",
+  "Группа прокси",
+  "Правила передают в эту группу трафик, которому нужен прокси. Авто: первая группа выбора из подписки; узел выбирается ниже, в разделе «Группы и узлы».",
+  "Авто",
+  "В подписке нет такой группы.",
+  "Списки правил",
+  "Обновить правила",
+  "Обновление…",
+  "Обновление правил начато",
+  "Адреса списков правил",
+  "Для каждого списка можно указать от 1 до 4 адресов https, они пробуются по порядку. Пусто: адреса по умолчанию. Логин в адресе не допускается.",
+  "Адреса списков сохранены",
+  "Сбросить на стандартные",
+  "Неверный адрес: только https, без логина и #фрагмента, не более 4.",
+  "Aerial раз в сутки скачивает и проверяет эти списки: сначала через прокси, затем напрямую; при неудаче остаётся последняя рабочая копия. В приложение встроен снимок, поэтому первый запуск работает сразу.",
+  "Списки правил: Loyalsoldier/clash-rules (GPL-3.0).",
+  "записей: {n}",
+  "Не скачан",
+  "встроенный снимок",
+  "скачан",
+  "не удалось скачать",
+  "неверное содержимое",
+  "файл слишком большой",
+  "Недавние соединения",
+  "Показать недавние соединения",
+  "Показывает 50 последних соединений, открытых в ядре: адрес назначения, сработавшее правило и фактически использованный узел. Так можно проверить, что китайские сайты идут DIRECT, а зарубежные через узел.",
+  "Память ядра: {n} МБ",
+  "Открытых соединений нет.",
+  "Прокси не запущен.",
+  "Ядро прокси",
+  "На этом телевизоре не установлено ядро прокси.",
+  "Скачать ядро (около 21 МБ)",
+  "Скачать ядро снова (около 21 МБ)",
+  "Отменить загрузку",
+  "Загрузка ядра… {pct}% · {speed}",
+  "Проверка скачанного файла…",
+  "Ядро — отдельная программа (mihomo, GPLv3). Оно скачивается только по вашему запросу и используется, только если его SHA-256 совпадает со значением, зашитым в Aerial.",
+  "Загрузка не завершена. Повторите позже: она продолжится с уже полученной части.",
+  "Скачанный файл не совпал с заданной контрольной суммой и удалён.",
+  "Не хватает места на телевизоре или запись невозможна, ядро не сохранено.",
+  "Этот телевизор не разрешает приложению запускать скачанные им программы, ядро удалено.",
+  "Ядро не запустилось после загрузки и удалено."
  ],
  "uk": [
   "Заставка",
@@ -948,7 +1731,213 @@ const TEXTS = {
   "Відпустіть, щоб надіслати на телевізор",
   "Фото стануть шпалерами, відео — заставкою",
   "Можна надсилати лише фото й відео (MP4, MOV)",
-  "Діагностику скопійовано. На сторінці GitHub, що відкриється, вставте її в поле «Діагностика»."
+  "Діагностику скопійовано. На сторінці GitHub, що відкриється, вставте її в поле «Діагностика».",
+  "Проксі",
+  "Імпортуйте підписку Clash для запуску проксі на телевізорі та вибору вузлів.",
+  "Стан",
+  "Працює",
+  "Зупинено",
+  "Запуск…",
+  "Зупинка…",
+  "Ядро проксі недоступне",
+  "Завантаження стану…",
+  "Оновити стан",
+  "Підписка Clash",
+  "Адреса підписки зберігається на телевізорі й тут не відображається. Імпортуйте лише надійні підписки.",
+  "Адреса підписки",
+  "Вставте https:// адресу підписки",
+  "Імпортувати",
+  "Оновити підписку",
+  "Видалити підписку",
+  "Видалити підписку й зупинити проксі? Робочий стіл та інші налаштування збережуться.",
+  "Підписку збережено",
+  "Підписку ще не імпортовано",
+  "Запустити проксі",
+  "Зупинити проксі",
+  "Режим маршрутизації",
+  "За правилами",
+  "Глобальний",
+  "Безпосередньо",
+  "Правила — маршрутизація за підпискою; глобальний — обраний проксі; безпосередньо — без проксі. Хости, які збірка позначає як завжди прямі, в будь-якому режимі підключаються напряму.",
+  "Налаштування мережі",
+  "Системний проксі",
+  "Увімкнено типово; застосовується після запуску ядра. Лише для програм з підтримкою системного проксі.",
+  "Системний проксі застосовано",
+  "Застосується після запуску ядра",
+  "Проксі для локальної мережі",
+  "Типово вимкнено. Пристрої локальної мережі зможуть використовувати HTTP / SOCKS5 порт телевізора.",
+  "Порт HTTP / SOCKS5",
+  "Типово 7890. Оберіть вільний порт від 1024 до 65535.",
+  "Адреса проксі в мережі",
+  "Маршрутизація TUN",
+  "Типово ввімкнено. Спрямовує програми, що ігнорують системний проксі (наприклад, YouTube), через VPN Aerial. Потрібно один раз підтвердити VPN на телевізорі. Android тримає лише один VPN: інша VPN-програма замінить його. Локальна мережа йде напряму; IPv6 під час роботи блокується.",
+  "Для TUN потрібні Android 8 або новіший і вбудоване ядро.",
+  "Підтвердьте запит VPN на телевізорі. До того працює лише системний проксі.",
+  "Групи та вузли",
+  "У групах вибору можна змінювати вузли. Автоматичними групами керує підписка.",
+  "Групи підписки з’являться після запуску проксі.",
+  "Пошук вузла",
+  "Автовибір",
+  "Відповідних вузлів немає",
+  "Операцію не виконано. Повторіть або перевірте діагностику телевізора.",
+  "Введіть коректну адресу підписки http:// або https://.",
+  "Порт має бути цілим числом від 1024 до 65535.",
+  "Налаштування проксі збережено",
+  "Підписку видалено, проксі зупинено",
+  "Вузол обрано",
+  "Не вдалося прочитати стан проксі телевізора. Перевірте з’єднання та оновіть стан.",
+  "Перед запуском проксі успішно імпортуйте дійсну підписку Clash.",
+  "Не вдалося завантажити підписку. Перевірте її адресу та мережу телевізора й повторіть.",
+  "Забагато перенаправлень підписки. Скористайтеся прямою адресою від постачальника.",
+  "Підписка перенаправляє на незахищений HTTP. Імпорт зупинено; використовуйте адресу HTTPS.",
+  "Файл підписки завеликий. Запитайте в постачальника меншу конфігурацію Clash.",
+  "Підписка не є коректною конфігурацією Clash YAML. Перевірте формат.",
+  "Підписка містить непідтримувані параметри або посилання на локальні файли. Використовуйте сумісну конфігурацію Clash.",
+  "Час перевірки підписки вичерпано. Перевірте конфігурацію та повторіть.",
+  "Ядро проксі відхилило підписку. Перевірте сумісність конфігурації Clash.",
+  "Для цього пристрою немає доступного ядра проксі. Запуск неможливий.",
+  "Не вдалося запустити проксі. Перевірте підписку й порт та повторіть.",
+  "Проксі несподівано зупинився. Перевірте підписку й порт та запустіть знову.",
+  "Немає зв’язку з ядром проксі. Оновіть стан і повторіть.",
+  "Не вдалося застосувати системний проксі. Перевірте дозволи телевізора; ядро проксі може працювати далі.",
+  "Порт недоступний. Виберіть інший вільний порт від 1024 до 65535 (8790 зарезервовано).",
+  "Некоректні налаштування проксі. Перевірте параметри та повторіть.",
+  "Проксі не працює. Спочатку запустіть його, потім повторіть.",
+  "Цю групу або вузол більше не можна вибрати. Оновіть стан і виберіть знову.",
+  "Час запиту вичерпано. Оновіть стан і перевірте результат перед повтором.",
+  "Телевізор не може визначити адресу домену підписки. Перевірте мережу й DNS та повторіть.",
+  "Телевізор не може підключитися до сервера підписки. Перевірте мережу та повторіть.",
+  "Час завантаження підписки вичерпано. Перевірте мережу телевізора та повторіть.",
+  "Не вдалося безпечно підключитися до сервера підписки. Перевірте дату й сертифікати телевізора або використайте дійсну адресу від постачальника.",
+  "Дані доступу до підписки недійсні або застаріли. Отримайте нову адресу підписки.",
+  "Сервер підписки заборонив доступ. Перевірте права підписки або зверніться до постачальника.",
+  "Адресу підписки не знайдено. Отримайте дійсну адресу в постачальника.",
+  "Забагато запитів підписки. Повторіть пізніше.",
+  "Сервер підписки тимчасово недоступний. Повторіть пізніше.",
+  "За цією адресою отримано вебсторінку. Використовуйте адресу підписки Clash від постачальника.",
+  "Формат підписки не підтримується. Виберіть у постачальника формат Clash / Mihomo.",
+  "Не вдалося завантажити географічні правила для цієї конфігурації. Перевірте мережу телевізора та імпортуйте знову.",
+  "Телевізор відхилив запит. Знову відкрийте сторінку налаштувань за кодом сполучення з телевізора та повторіть.",
+  "Додайте підписку Clash або проксі HTTP / SOCKS5, щоб запустити проксі на телевізорі й вибрати вузли.",
+  "Перед запуском проксі додайте профіль і виберіть його.",
+  "Профілі",
+  "Адреси підписок, сервери й паролі зберігаються на телевізорі й тут не показуються. Імпортуйте лише надійні підписки.",
+  "Профілів поки немає",
+  "Додати профіль",
+  "Змінити профіль",
+  "Тип",
+  "HTTP-проксі",
+  "SOCKS5-проксі",
+  "Використовується",
+  "Оновлено {time}",
+  "Ще не оновлювався",
+  "Оновлення кожні {n} год",
+  "Без автооновлення",
+  "Остання спроба не вдалася: {error}",
+  "Назва",
+  "Профіль {n}",
+  "Оновлювати кожні (годин)",
+  "0 — вимк.; 1–168, типово 24. Оновлюється, лише поки на телевізорі працює Aerial.",
+  "Сервер",
+  "Порт",
+  "Ім’я користувача",
+  "Пароль",
+  "TLS",
+  "Вмикайте, лише якщо вищий проксі-сервер вимагає TLS.",
+  "Не змінювати",
+  "Увімк.",
+  "Вимк.",
+  "Необов’язково",
+  "Залиште порожнім, щоб не змінювати",
+  "Видалити збережені ім’я та пароль",
+  "Збережені адреси й логіни не показуються. Замінюються лише введені поля; порожні лишаються як є.",
+  "Використати після збереження",
+  "Проксі перемкнеться на цей профіль і запуститься, якщо зупинений.",
+  "Використати профіль",
+  "Оновити зараз",
+  "Видалити профіль",
+  "Видалити цей профіль? Інші профілі залишаться.",
+  "Цей профіль використовується. Видалення зупинить проксі, інший профіль не вибирається автоматично — виберіть його самі.",
+  "Профіль збережено",
+  "Профіль використовується",
+  "Профіль оновлено",
+  "Профіль видалено",
+  "Профіль видалено, проксі зупинено",
+  "Збереження…",
+  "Завантаження й перевірка підписки може тривати близько хвилини.",
+  "Назва має містити від 1 до 80 символів.",
+  "Інтервал оновлення — ціле число від 0 до 168.",
+  "Вкажіть коректний сервер (ім’я хоста або IP, без http://) і порт від 1 до 65535.",
+  "Ім’я користувача або пароль задовгі чи містять перенесення рядка.",
+  "Можна зберегти до 64 профілів. Видаліть непотрібний.",
+  "Цього профілю вже немає. Оновіть статус.",
+  "Профіль щойно змінено на телевізорі. Оновіть статус і повторіть.",
+  "Профіль ще не має робочої конфігурації. Оновіть або збережіть його знову.",
+  "Не вдається прочитати профілі, збережені на телевізорі.",
+  "Перевірити затримку",
+  "Перевірити всі",
+  "Перевірка {done}/{total}",
+  "{n} мс",
+  "Помилка",
+  "Вузол не пройшов перевірку затримки (немає коректної відповіді за 5 секунд).",
+  "мс — затримка одного тестового запиту через вузол туди й назад, а не швидкість завантаження чи пропускна здатність.",
+  "Ця група вибирає вузол автоматично за підпискою; тут можна лише перевірити затримку.",
+  "Активно: програми телевізора йдуть через VPN Aerial.",
+  "TUN чекає адресу DNS роутера; проксі працює без нього.",
+  "Не вдалося запустити TUN; проксі працює без нього.",
+  "Запит VPN відхилено на телевізорі. Вимкніть і ввімкніть TUN, щоб запитати знову.",
+  "Цей телевізор не може показати підтвердження VPN, тому TUN не запускається.",
+  "Інший VPN зайняв місце або VPN відключили. Вимкніть і ввімкніть TUN, щоб повернути його.",
+  "Джерело правил",
+  "Чорний список",
+  "Типово напряму; через вузол ідуть лише заблоковані та закордонні сайти. Найменше заважає китайським програмам на телевізорі.",
+  "Білий список",
+  "Типово через вузол; напряму йдуть лише китайські сайти й адреси. Списки більші, ядро займає більше пам'яті.",
+  "Правила підписки",
+  "Лише правила з підписки, без змін. Якщо її набори правил не завантажуються, китайські сайти можуть іти через проксі.",
+  "Блокувати рекламу",
+  "Відхиляє відомі рекламні домени та домени відстеження (близько 195 000 записів). Під час першого вмикання завантажується близько 5,6 МБ; ядро займає приблизно на 20 МБ більше пам'яті, перезавантаження триває довше.",
+  "Група проксі",
+  "Правила передають у цю групу трафік, якому потрібен проксі. Авто: перша група вибору з підписки; вузол обирається нижче, у розділі «Групи та вузли».",
+  "Авто",
+  "У підписці немає такої групи.",
+  "Списки правил",
+  "Оновити правила",
+  "Оновлення…",
+  "Оновлення правил розпочато",
+  "Адреси списків правил",
+  "Для кожного списку можна вказати від 1 до 4 адрес https, їх пробують по черзі. Порожньо: типові адреси. Логін в адресі не допускається.",
+  "Адреси списків збережено",
+  "Скинути на типові",
+  "Невірна адреса: лише https, без логіна й #фрагмента, не більше 4.",
+  "Aerial раз на добу завантажує й перевіряє ці списки: спершу через проксі, потім напряму; у разі невдачі лишається остання робоча копія. У застосунок вбудовано знімок, тож перший запуск працює одразу.",
+  "Списки правил: Loyalsoldier/clash-rules (GPL-3.0).",
+  "записів: {n}",
+  "Не завантажено",
+  "вбудований знімок",
+  "завантажено",
+  "не вдалося завантажити",
+  "невірний вміст",
+  "файл завеликий",
+  "Нещодавні з'єднання",
+  "Показати нещодавні з'єднання",
+  "Показує 50 останніх з'єднань, відкритих у ядрі: адресу призначення, правило, що спрацювало, і вузол, який справді використано. Так можна перевірити, що китайські сайти йдуть DIRECT, а закордонні через вузол.",
+  "Пам'ять ядра: {n} МБ",
+  "Відкритих з'єднань немає.",
+  "Проксі не запущено.",
+  "Ядро проксі",
+  "На цьому телевізорі не встановлено ядро проксі.",
+  "Завантажити ядро (близько 21 МБ)",
+  "Завантажити ядро ще раз (близько 21 МБ)",
+  "Скасувати завантаження",
+  "Завантаження ядра… {pct}% · {speed}",
+  "Перевірка завантаженого файлу…",
+  "Ядро — окрема програма (mihomo, GPLv3). Воно завантажується лише на ваш запит і використовується, тільки якщо його SHA-256 збігається зі значенням, закладеним в Aerial.",
+  "Завантаження не завершено. Повторіть пізніше: воно продовжиться з уже отриманої частини.",
+  "Завантажений файл не збігся із заданою контрольною сумою й видалений.",
+  "Бракує місця на телевізорі або запис неможливий, ядро не збережено.",
+  "Цей телевізор не дозволяє застосунку запускати програми, які він сам завантажив, ядро видалено.",
+  "Ядро не запустилося після завантаження й видалене."
  ],
  "kk": [
   "Экран қорғаушы",
@@ -1090,7 +2079,213 @@ const TEXTS = {
   "Теледидарға жіберу үшін босатыңыз",
   "Фотолар түсқағаз, бейнелер скринсейвер болады",
   "Тек фото мен бейне (MP4, MOV) жіберуге болады",
-  "Диагностика көшірілді. Ашылған GitHub бетінде оны «Диагностика» өрісіне қойыңыз."
+  "Диагностика көшірілді. Ашылған GitHub бетінде оны «Диагностика» өрісіне қойыңыз.",
+  "Прокси",
+  "Теледидарда прокси іске қосып, түйіндерді таңдау үшін Clash жазылымын импорттаңыз.",
+  "Күйі",
+  "Жұмыс істеп тұр",
+  "Тоқтатылған",
+  "Іске қосылуда…",
+  "Тоқтатылуда…",
+  "Прокси өзегі қолжетімсіз",
+  "Күй жүктелуде…",
+  "Күйді жаңарту",
+  "Clash жазылымы",
+  "Жазылым сілтемесі теледидарда сақталады және мұнда көрсетілмейді. Тек сенімді жазылымдарды импорттаңыз.",
+  "Жазылым сілтемесі",
+  "https:// жазылым сілтемесін қойыңыз",
+  "Импорттау",
+  "Жазылымды жаңарту",
+  "Жазылымды жою",
+  "Жазылым жойылып, прокси тоқтатылсын ба? Басты экран мен басқа баптаулар сақталады.",
+  "Жазылым сақталды",
+  "Жазылым импортталмаған",
+  "Проксиді іске қосу",
+  "Проксиді тоқтату",
+  "Шығыс режимі",
+  "Ережелер",
+  "Жалпы",
+  "Тікелей",
+  "Ережелер жазылымға сай бөледі; жалпы режим таңдалған проксиді қолданады; тікелей режим проксиді айналып өтеді. Құрастыру әрдайым тікелей деп белгілеген хосттар кез келген режимде тікелей қосылады.",
+  "Желі баптаулары",
+  "Жүйелік прокси",
+  "Әдепкіде қосулы; өзек іске қосылғанда қолданылады. Жүйелік проксиді қолдайтын қолданбаларға ғана әсер етеді.",
+  "Жүйелік прокси қолданылды",
+  "Өзек іске қосылғанда қолданылады",
+  "Жергілікті желімен бөлісу",
+  "Әдепкіде өшірулі. Қосылса, желідегі құрылғылар теледидардың HTTP / SOCKS5 портын қолданады.",
+  "HTTP / SOCKS5 порты",
+  "Әдепкі порт: 7890. 1024–65535 аралығындағы бос портты таңдаңыз.",
+  "Жергілікті прокси мекенжайы",
+  "TUN бағыттауы",
+  "Әдепкіде қосулы. Жүйелік проксиді елемейтін қолданбаларды (мысалы, YouTube) Aerial VPN арқылы өткізеді. Теледидарда VPN-ді бір рет растау қажет. Android бір уақытта бір ғана VPN ұстайды: басқа VPN қолданбасы оны ауыстырады. Жергілікті желі тікелей қалады; қосулы кезде IPv6 бұғатталады.",
+  "TUN үшін Android 8 немесе жаңасы және кірістірілген өзек қажет.",
+  "Теледидарда VPN сұрауын растаңыз. Оған дейін тек жүйелік прокси жұмыс істейді.",
+  "Топтар мен түйіндер",
+  "Таңдау топтарында түйіндерді ауыстыруға болады. Автоматты топтарды жазылым басқарады.",
+  "Прокси іске қосылғанда жазылым топтары көрсетіледі.",
+  "Түйін іздеу",
+  "Автоматты таңдау",
+  "Сәйкес түйіндер жоқ",
+  "Прокси әрекеті сәтсіз. Қайталаңыз немесе теледидар диагностикасын тексеріңіз.",
+  "Дұрыс http:// немесе https:// жазылым сілтемесін енгізіңіз.",
+  "Порт 1024–65535 аралығындағы бүтін сан болуы керек.",
+  "Прокси баптаулары сақталды",
+  "Жазылым жойылып, прокси тоқтатылды",
+  "Түйін таңдалды",
+  "Теледидардың прокси күйін оқу мүмкін болмады. Байланысты тексеріп, күйді жаңартыңыз.",
+  "Проксиді іске қоспас бұрын жарамды Clash жазылымын сәтті импорттаңыз.",
+  "Жазылым жүктелмеді. Жазылым мекенжайы мен теледидар желісін тексеріп, қайталаңыз.",
+  "Жазылым тым көп рет қайта бағыттайды. Провайдер берген тікелей мекенжайды пайдаланыңыз.",
+  "Жазылым қауіпсіз емес HTTP мекенжайына бағытталды. Импорт тоқтатылды; HTTPS мекенжайын пайдаланыңыз.",
+  "Жазылым файлы тым үлкен. Провайдерден кішірек Clash конфигурациясын сұраңыз.",
+  "Жазылым жарамды Clash YAML конфигурациясы емес. Пішімін тексеріңіз.",
+  "Жазылымда қолдау көрсетілмейтін параметрлер немесе жергілікті файл сілтемелері бар. Үйлесімді Clash конфигурациясын пайдаланыңыз.",
+  "Жазылымды тексеру уақыты бітті. Конфигурацияны тексеріп, қайталаңыз.",
+  "Прокси ядросы жазылымды қабылдамады. Clash конфигурациясының үйлесімділігін тексеріңіз.",
+  "Бұл құрылғыға арналған прокси ядросы жоқ. Проксиді іске қосу мүмкін емес.",
+  "Прокси іске қосылмады. Жазылым мен порт баптауларын тексеріп, қайталаңыз.",
+  "Прокси күтпеген жерден тоқтады. Жазылым мен порт баптауларын тексеріп, қайта іске қосыңыз.",
+  "Прокси ядросына қосылу мүмкін болмады. Күйді жаңартып, қайталаңыз.",
+  "Жүйелік прокси қолданылмады. Теледидар рұқсаттарын тексеріңіз; прокси ядросы жұмыс істей алады.",
+  "Порт қолжетімсіз. 1024–65535 аралығынан басқа бос портты таңдаңыз (8790 сақталған).",
+  "Прокси баптаулары жарамсыз. Параметрлерді тексеріп, қайталаңыз.",
+  "Прокси жұмыс істемейді. Алдымен оны іске қосып, қайталаңыз.",
+  "Бұл топты немесе түйінді енді таңдау мүмкін емес. Күйді жаңартып, қайта таңдаңыз.",
+  "Сұрау уақыты бітті. Қайталаудан бұрын күйді жаңартып, нәтижесін тексеріңіз.",
+  "Теледидар жазылым доменін анықтай алмады. Желі мен DNS баптауларын тексеріп, қайталаңыз.",
+  "Теледидар жазылым серверіне қосыла алмады. Желіні тексеріп, қайталаңыз.",
+  "Жазылымды жүктеу уақыты бітті. Теледидар желісін тексеріп, қайталаңыз.",
+  "Жазылым серверіне қауіпсіз қосылу мүмкін болмады. Теледидар күні мен сертификаттарын тексеріңіз немесе провайдердің жарамды мекенжайын пайдаланыңыз.",
+  "Жазылымның кіру деректері жарамсыз немесе мерзімі өткен. Жаңа жазылым мекенжайын алыңыз.",
+  "Жазылым сервері кіруге тыйым салды. Жазылым рұқсаттарын тексеріңіз немесе провайдерге хабарласыңыз.",
+  "Жазылым мекенжайы табылмады. Провайдерден жарамды мекенжай алыңыз.",
+  "Жазылым сұраулары тым жиі жіберілді. Кейінірек қайталаңыз.",
+  "Жазылым сервері уақытша қолжетімсіз. Кейінірек қайталаңыз.",
+  "Бұл мекенжай веб-бет қайтарды. Провайдер берген Clash жазылым мекенжайын пайдаланыңыз.",
+  "Бұл жазылым пішіміне қолдау көрсетілмейді. Провайдерден Clash / Mihomo пішімін таңдаңыз.",
+  "Бұл конфигурацияға қажетті географиялық ережелер жүктелмеді. Теледидар желісін тексеріп, қайта импорттаңыз.",
+  "Теледидар бұл сұрауды қабылдамады. Жұптастырылған баптау бетін теледидардан қайта ашып, қайталаңыз.",
+  "Теледидарда прокси іске қосып, түйіндерді таңдау үшін Clash жазылымын немесе HTTP / SOCKS5 проксиін қосыңыз.",
+  "Проксиді іске қоспас бұрын профиль қосып, оны таңдаңыз.",
+  "Профильдер",
+  "Жазылым мекенжайлары, серверлер мен құпиясөздер теледидарда сақталады, мұнда көрсетілмейді. Тек сенімді жазылымдарды импорттаңыз.",
+  "Әзірге профиль жоқ",
+  "Профиль қосу",
+  "Профильді өзгерту",
+  "Түрі",
+  "HTTP прокси",
+  "SOCKS5 прокси",
+  "Қолданыста",
+  "Жаңартылды: {time}",
+  "Әлі жаңартылмаған",
+  "Әр {n} сағ сайын жаңартылады",
+  "Автожаңарту жоқ",
+  "Соңғы әрекет сәтсіз: {error}",
+  "Атауы",
+  "Профиль {n}",
+  "Жаңарту аралығы (сағат)",
+  "0 — өшірулі; 1–168, әдепкі 24. Тек теледидарда Aerial жұмыс істеп тұрғанда жаңартылады.",
+  "Сервер",
+  "Порт",
+  "Пайдаланушы аты",
+  "Құпиясөз",
+  "TLS",
+  "Жоғарғы прокси сервер TLS талап етсе ғана қосыңыз.",
+  "Өзгертпеу",
+  "Қосулы",
+  "Өшірулі",
+  "Міндетті емес",
+  "Өзгертпеу үшін бос қалдырыңыз",
+  "Сақталған атауы мен құпиясөзді жою",
+  "Сақталған мекенжайлар мен логиндер көрсетілмейді. Тек енгізілген өрістер ауыстырылады; бос өрістер өзгермейді.",
+  "Сақтағаннан кейін қолдану",
+  "Прокси осы профильге ауысады, тоқтап тұрса іске қосылады.",
+  "Осы профильді қолдану",
+  "Қазір жаңарту",
+  "Профильді жою",
+  "Бұл профиль жойылсын ба? Басқа профильдер қалады.",
+  "Бұл профиль қолданыста. Жойсаңыз, прокси тоқтайды, басқа профиль автоматты түрде таңдалмайды — өзіңіз таңдаңыз.",
+  "Профиль сақталды",
+  "Профиль қолданыста",
+  "Профиль жаңартылды",
+  "Профиль жойылды",
+  "Профиль жойылды, прокси тоқтатылды",
+  "Сақталуда…",
+  "Жазылымды жүктеп, тексеру шамамен бір минутқа созылуы мүмкін.",
+  "Атауы 1–80 таңбадан тұруы керек.",
+  "Жаңарту аралығы 0-ден 168-ге дейінгі бүтін сан болуы керек.",
+  "Дұрыс серверді (хост атауы не IP, http:// жоқ) және 1–65535 портын енгізіңіз.",
+  "Пайдаланушы аты не құпиясөз тым ұзын немесе жол ауысуы бар.",
+  "Ең көбі 64 профиль сақтауға болады. Керексізін жойыңыз.",
+  "Бұл профиль енді жоқ. Күйді жаңартыңыз.",
+  "Бұл профиль теледидарда жаңа ғана өзгерді. Күйді жаңартып, қайталаңыз.",
+  "Бұл профильде әлі жарамды конфигурация жоқ. Жаңартыңыз немесе қайта сақтаңыз.",
+  "Теледидарда сақталған профильдерді оқу мүмкін емес.",
+  "Кідірісті тексеру",
+  "Барлығын тексеру",
+  "Тексерілуде {done}/{total}",
+  "{n} мс",
+  "Сәтсіз",
+  "Бұл түйін кідіріс тексеруінен өтпеді (5 секунд ішінде дұрыс жауап жоқ).",
+  "мс — түйін арқылы бір сынақ сұрауының барып-қайту кідірісі, жүктеу жылдамдығы не өткізу қабілеті емес.",
+  "Бұл топ түйінді жазылым бойынша автоматты таңдайды; мұнда тек кідірісті тексеруге болады.",
+  "Белсенді: теледидар қолданбалары Aerial VPN арқылы өтеді.",
+  "TUN маршрутизатордың DNS мекенжайын күтуде; прокси онсыз жұмыс істейді.",
+  "TUN іске қосылмады; прокси онсыз жұмыс істейді.",
+  "Теледидарда VPN сұрауы қабылданбады. Қайта сұрау үшін TUN-ды өшіріп, қайта қосыңыз.",
+  "Бұл теледидар VPN растау терезесін көрсете алмайды, сондықтан TUN іске қосылмайды.",
+  "Басқа VPN орнын алды немесе VPN ажыратылды. Қайта пайдалану үшін TUN-ды өшіріп, қайта қосыңыз.",
+  "Ережелер көзі",
+  "Қара тізім",
+  "Әдепкіде тікелей; тек бұғатталған және шетелдік сайттар прокси түйіні арқылы өтеді. Теледидардағы қытай қолданбаларына ең аз кедергі келтіреді.",
+  "Ақ тізім",
+  "Әдепкіде түйін арқылы; тек қытай сайттары мен мекенжайлары тікелей өтеді. Тізімдер үлкенірек, сондықтан өзек көбірек жад пайдаланады.",
+  "Жазылым ережелері",
+  "Тек жазылымдағы ережелер, өзгертусіз. Оның ереже жинақтары жүктелмесе, қытай сайттары прокси арқылы өтуі мүмкін.",
+  "Жарнаманы бұғаттау",
+  "Белгілі жарнама және бақылау домендерін қабылдамайды (шамамен 195 000 жазба). Бірінші қосқанда шамамен 5,6 МБ жүктеледі; өзек шамамен 20 МБ артық жад пайдаланады, қайта жүктеу баяулайды.",
+  "Прокси тобы",
+  "Ережелер прокси қажет трафикті осы топқа береді. Авто: жазылымдағы бірінші таңдау тобы; түйінді төмендегі «Топтар мен түйіндер» бөлімінен таңдаңыз.",
+  "Авто",
+  "Жазылымда мұндай топ жоқ.",
+  "Ереже тізімдері",
+  "Ережелерді қазір жаңарту",
+  "Жаңартылуда…",
+  "Ережелерді жаңарту басталды",
+  "Ереже тізімдерінің мекенжайлары",
+  "Әр тізімге 1-ден 4-ке дейін https мекенжайын көрсетуге болады, олар ретімен тексеріледі. Бос қалдырсаңыз, әдепкі мекенжайлар қолданылады. Мекенжайда логин болмауы керек.",
+  "Тізім мекенжайлары сақталды",
+  "Әдепкіні қалпына келтіру",
+  "Мекенжай жарамсыз: тек https, логинсіз және #үзіндісіз, ең көбі 4.",
+  "Aerial бұл тізімдерді тәулігіне бір рет жүктеп, тексереді: алдымен прокси арқылы, содан кейін тікелей; сәтсіз болса, соңғы жұмыс көшірмесі қалады. Қолданбаға кірістірілген көшірме бар, сондықтан алғашқы іске қосу бірден жұмыс істейді.",
+  "Ереже тізімдері: Loyalsoldier/clash-rules (GPL-3.0).",
+  "{n} жазба",
+  "Жүктелмеген",
+  "кірістірілген көшірме",
+  "жүктелген",
+  "жүктеу сәтсіз",
+  "мазмұны жарамсыз",
+  "файл тым үлкен",
+  "Соңғы қосылымдар",
+  "Соңғы қосылымдарды көрсету",
+  "Өзекте ашық тұрған 50 соңғы қосылымды көрсетеді: баратын мекенжай, сәйкес келген ереже және нақты пайдаланылған түйін. Қытай сайттарының DIRECT арқылы, шетелдік сайттардың түйін арқылы өтетінін тексеруге болады.",
+  "Өзек жады: {n} МБ",
+  "Ашық қосылымдар жоқ.",
+  "Прокси жұмыс істемейді.",
+  "Прокси өзегі",
+  "Бұл теледидарда прокси өзегі орнатылмаған.",
+  "Өзекті жүктеу (шамамен 21 МБ)",
+  "Өзекті қайта жүктеу (шамамен 21 МБ)",
+  "Жүктеуді тоқтату",
+  "Өзек жүктелуде… {pct}% · {speed}",
+  "Жүктелген файл тексерілуде…",
+  "Өзек — жеке бағдарлама (mihomo, GPLv3). Тек сіз сұрағанда жүктеледі және SHA-256 мәні Aerial ішіндегі бекітілген мәнге сәйкес келгенде ғана қолданылады.",
+  "Жүктеу аяқталмады. Кейінірек қайталаңыз, жүктеу алынған бөліктен жалғасады.",
+  "Жүктелген файл бекітілген тексеру мәніне сәйкес келмейді, ол жойылды.",
+  "Теледидар жадында орын жоқ немесе жазу мүмкін емес, өзек сақталмады.",
+  "Бұл теледидар қолданбаға өзі жүктеген бағдарламаны іске қосуға рұқсат бермейді, өзек жойылды.",
+  "Өзек жүктелгеннен кейін іске қосылмады, ол жойылды."
  ]
 };
 const LANGS = Object.keys(TEXTS);
@@ -1142,7 +2337,8 @@ const ICON = {
   close: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>',
   chev: '<svg class="chev" width="8" height="14" viewBox="0 0 8 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 1l6 6-6 6"/></svg>',
   tick: '<svg class="tick" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
-  plus: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>'
+  plus: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
+  bolt: '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M13.5 2 4.5 13.5H11L10 22l9.5-12H13z"/></svg>'
 };
 
 function toast(msg) {
@@ -1159,8 +2355,8 @@ async function api(path, body) {
 function take(next) { state = next; stateJson = ''; render(); }
 
 /* Tabs. The tab is kept in the address (#home) and on the phone, and each tab keeps its own scroll. */
-const TABS = ['home', 'looks', 'more'];
-const TITLES = { home: 'tab_home', looks: 'looks_title', more: 'tab_more' };
+const TABS = ['home', 'looks', 'proxy', 'more'];
+const TITLES = { home: 'tab_home', looks: 'looks_title', proxy: 'tab_proxy', more: 'tab_more' };
 // The four tabs of 1.46 and 1.47's first builds.
 const OLD_TABS = { wallpaper: 'looks', screensaver: 'looks' };
 const scrolls = {};
@@ -1188,6 +2384,7 @@ function show(next, keepScroll) {
   window.scrollTo(0, scrolls[tab] || 0);
   try { localStorage.setItem('aerial-tab', tab); } catch (e) {}
   history.replaceState(null, '', '#' + tab);
+  proxyTabChanged();
 }
 document.querySelectorAll('nav button').forEach(b => b.onclick = () => show(b.dataset.go));
 $('#homeBack').onclick = () => { arrView = null; renderArrange('back'); };
@@ -1920,6 +3117,856 @@ function render() {
   renderMore();
   renderInputs();
   renderArrange(false);
+}
+
+/* Proxy requests use the phone server, never the unauthenticated core controller. */
+let proxyState = null, proxyGroups = [], proxyBusy = false, proxyLoadError = false;
+let proxyActionError = '', proxyPortDirty = false;
+let proxyTimer = null, proxyRefreshPromise = null, proxyGroupSignature = '', proxyPending = '';
+// proxyNodes: name -> {type, delay} from api/proxy/nodes. proxyDelays: this page's own latency results
+// (name -> {delay} or {error}), dropped when the proxy stops or another profile is used.
+let proxyNodes = new Map(), proxyDelays = new Map(), proxyDelayEpoch = '', proxyProfileSignature = '';
+const PROXY_PROFILE_MAX = 64;
+const PROXY_RULE_MODES = ['blacklist', 'whitelist', 'subscription'];
+const PROXY_RULE_SETS = ['blacklist', 'whitelist', 'adblock'];
+let proxyRuleSignature = '';
+// Remembered while status loads, so the page does not flash the other layout first.
+let proxyProfileMode = (() => { try { return localStorage.getItem('aerial-proxy-legacy') !== '1'; } catch (e) { return true; } })();
+
+// Only fixed codes become UI messages; never render exception text or subscription URLs.
+const PROXY_ERROR_KEYS = Object.freeze({
+  proxy_request_failed: 'px_failed', proxy_not_initialized: 'px_failed',
+  proxy_status_unavailable: 'px_status_failed', proxy_request_timeout: 'px_timeout',
+  invalid_subscription_url: 'px_url_invalid', subscription_required: 'px_start_requires_sub',
+  subscription_download_failed: 'px_download_failed', subscription_too_many_redirects: 'px_redirect_failed',
+  subscription_dns_failed: 'px_dns_failed', subscription_connection_failed: 'px_connection_failed',
+  subscription_download_timeout: 'px_download_timeout', subscription_tls_failed: 'px_tls_failed',
+  subscription_http_unauthorized: 'px_http_unauthorized', subscription_http_forbidden: 'px_http_forbidden',
+  subscription_http_not_found: 'px_http_not_found', subscription_http_rate_limited: 'px_http_rate_limited',
+  subscription_http_server_error: 'px_http_server_error', subscription_html_response: 'px_html_response',
+  subscription_requires_clash_format: 'px_clash_format', subscription_geo_download_failed: 'px_geo_failed',
+  proxy_request_rejected: 'px_request_rejected',
+  subscription_insecure_redirect: 'px_insecure_redirect', subscription_too_large: 'px_too_large',
+  subscription_too_complex: 'px_config_invalid', subscription_recursive_alias: 'px_config_invalid',
+  subscription_invalid_key: 'px_config_invalid', subscription_unsupported_tag: 'px_config_invalid',
+  subscription_not_clash_yaml: 'px_config_invalid', subscription_invalid_provider: 'px_config_invalid',
+  subscription_file_provider_not_allowed: 'px_config_unsupported', subscription_unsupported_option: 'px_config_unsupported',
+  subscription_validation_timeout: 'px_validation_timeout', subscription_core_rejected: 'px_core_rejected',
+  core_unavailable_for_device: 'px_core_unavailable', proxy_service_start_failed: 'px_core_start_failed',
+  core_start_failed: 'px_core_start_failed', core_stopped_unexpectedly: 'px_core_stopped',
+  core_request_failed: 'px_core_request_failed', system_proxy_unavailable: 'px_system_unavailable',
+  invalid_proxy_port: 'px_port_unavailable', invalid_mode: 'px_invalid_setting', invalid_boolean: 'px_invalid_setting',
+  tun_not_supported: 'px_tun_unavailable', proxy_not_running: 'px_not_running',
+  // TUN (proxy/ProxyManager.kt openTun/onVpnConsent/onVpnRevoked); reported as status.tunError.
+  tun_dns_unavailable: 'px_tun_dns', tun_start_failed: 'px_tun_failed', vpn_permission_denied: 'px_vpn_denied',
+  vpn_consent_unavailable: 'px_vpn_unavailable', vpn_revoked: 'px_vpn_revoked',
+  invalid_node: 'px_node_unavailable', group_not_selectable: 'px_node_unavailable', unknown_node: 'px_node_unavailable',
+  // Profiles (proxy/ProxyManager.kt saveProfile/activateProfile/deleteProfile/refreshProfile, ProxyProfiles.kt).
+  profile_limit_reached: 'px_profile_limit', invalid_profile_kind: 'px_invalid_setting', profile_kind_fixed: 'px_invalid_setting',
+  invalid_profile_name: 'px_name_invalid', invalid_refresh_hours: 'px_hours_invalid',
+  invalid_upstream: 'px_upstream_invalid', invalid_credentials: 'px_credentials_invalid',
+  unknown_profile: 'px_profile_missing', invalid_profile_id: 'px_profile_missing',
+  profile_changed_retry: 'px_profile_changed', profile_not_configured: 'px_profile_not_configured',
+  profile_not_subscription: 'px_invalid_setting', profile_storage_invalid: 'px_profile_storage',
+  // Latency (proxy/MihomoController.kt delay).
+  node_delay_failed: 'px_delay_failed_long', core_response_too_large: 'px_core_request_failed',
+  // Rule lists (proxy/RuleLists.kt, RuleStore.kt ERRORS, ProxyManager.configure/setRuleUrls).
+  invalid_rule_mode: 'px_invalid_setting', invalid_rule_set: 'px_invalid_setting', invalid_rule_list: 'px_invalid_setting',
+  invalid_rule_path: 'px_invalid_setting', invalid_rule_url: 'px_rl_url_invalid', invalid_proxy_group: 'px_group_invalid',
+  rule_list_download_failed: 'px_rl_failed', rule_list_dns_failed: 'px_rl_failed', rule_list_connection_failed: 'px_rl_failed',
+  rule_list_timeout: 'px_rl_failed', rule_list_tls_failed: 'px_rl_failed', rule_list_http_forbidden: 'px_rl_failed',
+  rule_list_http_not_found: 'px_rl_failed', rule_list_http_rate_limited: 'px_rl_failed', rule_list_http_server_error: 'px_rl_failed',
+  rule_list_insecure_redirect: 'px_rl_failed', rule_list_too_many_redirects: 'px_rl_failed', rule_list_html_response: 'px_rl_failed',
+  rule_list_storage_failed: 'px_rl_failed', rule_list_invalid: 'px_rl_invalid', rule_list_empty: 'px_rl_invalid',
+  rule_list_too_large: 'px_rl_too_large',
+  // The optional core (proxy/CoreInstaller.kt).
+  core_download_failed: 'px_core_error_download', core_download_unsupported: 'px_core_error_download',
+  core_integrity_failed: 'px_core_error_integrity', core_storage_failed: 'px_core_error_storage',
+  core_exec_not_permitted: 'px_core_error_exec', core_selftest_failed: 'px_core_error_selftest'
+});
+function proxySafeErrorCode(code) {
+  return typeof code === 'string' && Object.prototype.hasOwnProperty.call(PROXY_ERROR_KEYS, code) ? code : 'proxy_request_failed';
+}
+function proxyErrorText(code) { return t(PROXY_ERROR_KEYS[proxySafeErrorCode(code)]); }
+function proxyFailure(code) {
+  const error = new Error('proxy_request_failed'); error.proxyCode = proxySafeErrorCode(code); return error;
+}
+
+/*
+ * How long the TV may take. A download follows up to 5 redirects (15 s connect, 20 s read each), then
+ * the core checks the file (up to 25 s) and a running proxy reloads it (up to 12 s). Saving a manual
+ * profile or switching profiles still validates and reloads. A latency test waits about 6.5 s on the TV.
+ */
+function proxyTimeout(path, body) {
+  if (path === 'subscription' || path === 'refresh' || path === 'profile/refresh') return 95000;
+  // A subscription edit without a new URL reuses the saved file, but downloads again if it is missing.
+  if (path === 'profile/save') return body && body.kind === 'subscription' ? 95000 : 45000;
+  if (path === 'profile/activate') return 45000;
+  if (path === 'delay') return 10000;
+  // A rule source or ad-block change may extract a large list, validate and reload; the TV parses
+  // big lists inside the reload (ProxyManager.RELOAD_TIMEOUT_MS 45 s).
+  if (path === 'rules' || path === 'config' || path === 'mode') return 90000;
+  return 25000;
+}
+
+async function proxyRequest(path, body) {
+  const abort = new AbortController();
+  const timer = setTimeout(() => abort.abort(), proxyTimeout(path, body));
+  try {
+    const response = await fetch(base + 'api/proxy/' + path, {
+      method: body === undefined ? 'GET' : 'POST',
+      ...(body === undefined ? {} : {body: new URLSearchParams(body)}),
+      cache: 'no-store', signal: abort.signal
+    });
+    const result = await response.json().catch(() => null);
+    const httpError = [400, 401, 403].includes(response.status) ? 'proxy_request_rejected' : 'proxy_request_failed';
+    if (!response.ok || !result || typeof result !== 'object' || result.ok === false) throw proxyFailure(result && result.error || httpError);
+    return result;
+  } catch (error) {
+    throw proxyFailure(abort.signal.aborted ? 'proxy_request_timeout' : error && error.proxyCode);
+  } finally { clearTimeout(timer); }
+}
+
+function normalizeProxyStatus(value) {
+  const v = value && typeof value.status === 'object' ? value.status : value || {};
+  return {...v, running: v.running === true, available: v.available !== false,
+    systemProxy: v.systemProxy !== false, allowLan: v.allowLan === true, tun: v.tun === true,
+    tunSupported: v.tunSupported === true, tunActive: v.tunActive === true,
+    vpnPermissionRequired: v.vpnPermissionRequired === true,
+    tunError: v.tunError ? proxySafeErrorCode(v.tunError) : null,
+    // The optional core: installed (bundled or downloaded), whether this TV is offered the download, its progress.
+    coreInstalled: v.coreInstalled !== false && v.available !== false, coreDownloadSupported: v.coreDownloadSupported === true,
+    coreDownload: normalizeProxyCore(v.coreDownload),
+    mode: ['rule', 'global', 'direct'].includes(String(v.mode).toLowerCase()) ? String(v.mode).toLowerCase() : 'rule',
+    mixedPort: Number(v.mixedPort) || 7890,
+    error: v.error ? proxySafeErrorCode(v.error) : null,
+    subscriptionConfigured: v.subscriptionConfigured === true || v.hasSubscription === true,
+    // Any active profile with a configuration (subscription or manual); older builds only had the subscription flag.
+    configured: typeof v.configured === 'boolean' ? v.configured : v.subscriptionConfigured === true || v.hasSubscription === true,
+    // null on a TV build without profiles: the page then shows the single-subscription form.
+    profiles: Array.isArray(v.profiles) ? normalizeProxyProfiles(v.profiles) : null,
+    activeProfileId: typeof v.activeProfileId === 'string' ? v.activeProfileId : null,
+    // Rule source; absent on older TV builds, which then hide the section.
+    rulesSupported: typeof v.ruleMode === 'string',
+    ruleMode: PROXY_RULE_MODES.includes(v.ruleMode) ? v.ruleMode : 'blacklist',
+    adBlock: v.adBlock === true, rulesUpdating: v.rulesUpdating === true,
+    proxyGroup: typeof v.proxyGroup === 'string' ? v.proxyGroup.slice(0, 256) : '',
+    proxyGroupAuto: v.proxyGroupAuto !== false,
+    proxyGroups: Array.isArray(v.proxyGroups) ? v.proxyGroups.filter(g => typeof g === 'string').slice(0, 512).map(g => g.slice(0, 256)) : [],
+    ruleLists: Array.isArray(v.ruleLists) ? v.ruleLists.filter(l => l && typeof l.name === 'string' && /^[a-z-]{1,40}$/.test(l.name)).slice(0, 32).map(l => ({
+      set: PROXY_RULE_SETS.includes(l.set) ? l.set : '', name: l.name,
+      count: Number.isInteger(l.count) && l.count > 0 ? l.count : 0,
+      updatedAt: Number(l.updatedAt) > 0 ? Number(l.updatedAt) : 0,
+      source: ['snapshot', 'download'].includes(l.source) ? l.source : null,
+      lastError: typeof l.lastError === 'string' && l.lastError ? proxySafeErrorCode(l.lastError) : null,
+      custom: l.custom === true
+    })) : []
+  };
+}
+
+
+function normalizeProxyCore(c) {
+  const state = c && ['idle', 'downloading', 'verifying', 'failed'].includes(c.state) ? c.state : 'idle';
+  const n = x => Number.isFinite(Number(x)) && Number(x) > 0 ? Number(x) : 0;
+  return {state, received: n(c && c.received), total: n(c && c.total), speed: n(c && c.speed),
+    error: c && typeof c.error === 'string' && c.error ? proxySafeErrorCode(c.error) : null};
+}
+function proxyCoreSpeed(b) { return b < 1e6 ? Math.round(b / 1000) + ' KB/s' : (b / 1e6).toFixed(1) + ' MB/s'; }
+
+function normalizeProxyProfiles(list) {
+  return list.filter(p => p && typeof p.id === 'string' && /^[A-Za-z0-9_-]{1,80}$/.test(p.id) && ['subscription', 'http', 'socks5'].includes(p.kind))
+    .slice(0, PROXY_PROFILE_MAX).map(p => ({
+      id: p.id, name: typeof p.name === 'string' ? p.name.slice(0, 80) : '', kind: p.kind, active: p.active === true,
+      updatedAt: Number(p.updatedAt) > 0 ? Number(p.updatedAt) : 0,
+      refreshHours: Number.isInteger(p.refreshHours) && p.refreshHours >= 0 && p.refreshHours <= 168 ? p.refreshHours : 24,
+      lastError: typeof p.lastError === 'string' && p.lastError ? proxySafeErrorCode(p.lastError) : null
+    }));
+}
+
+function normalizeProxyNodes(value) {
+  const nodes = new Map();
+  (Array.isArray(value && value.nodes) ? value.nodes : []).forEach(n => {
+    if (!n || typeof n.name !== 'string') return;
+    const delay = Number(n.delay);
+    nodes.set(n.name, { type: typeof n.type === 'string' ? n.type.slice(0, 40) : '', delay: Number.isInteger(delay) && delay > 0 ? delay : 0 });
+  });
+  return nodes;
+}
+
+function normalizeProxyGroups(value) {
+  const list = Array.isArray(value.groups) ? value.groups : Object.entries(value.proxies || {}).map(([name, group]) => ({...group, name}));
+  return list.filter(g => g && g.name && Array.isArray(g.all)).map(g => ({
+    name: String(g.name), type: String(g.type || 'Selector'), now: String(g.now || ''),
+    all: g.all.map(n => typeof n === 'string' ? n : n && n.name).filter(n => typeof n === 'string'),
+    selectable: g.selectable !== false && /^(select|selector)$/i.test(String(g.type || 'Selector'))
+  }));
+}
+
+function renderProxyCore(s, locked) {
+  const box = $('#proxyCoreBox'), show = !!s && !s.coreInstalled && s.coreDownloadSupported;
+  box.hidden = !show;
+  if (!show) return;
+  const c = s.coreDownload, pct = c.total > 0 ? Math.min(100, Math.floor(c.received * 100 / c.total)) : 0;
+  const busy = c.state === 'downloading' || c.state === 'verifying';
+  $('#proxyCoreText').textContent = t(c.state === 'verifying' ? 'px_core_verifying' : c.state === 'downloading' ? 'px_core_downloading' : 'px_core_missing', {pct, speed: proxyCoreSpeed(c.speed)});
+  $('#proxyCoreBar').hidden = !busy;
+  $('#proxyCoreFill').style.width = (c.state === 'verifying' ? 100 : pct) + '%';
+  const button = $('#proxyCoreButton');
+  button.textContent = t(c.state === 'downloading' ? 'px_core_cancel' : c.state === 'failed' ? 'px_core_retry' : 'px_core_download');
+  button.disabled = c.state === 'verifying' || (proxyBusy && !busy) || !!proxyLoadError;
+  const error = $('#proxyCoreError'), key = c.state === 'failed' && c.error ? PROXY_ERROR_KEYS[c.error] : '';
+  error.hidden = !key; error.textContent = key ? t(key) : '';
+}
+
+function renderProxy() {
+  const s = proxyState, offline = !s || proxyLoadError, locked = proxyBusy || offline;
+  let label = 'px_loading';
+  if (s) {
+    const phase = String(s.state || s.status || '').toLowerCase();
+    label = !s.available ? 'px_unavailable' : (phase === 'starting' || s.starting || proxyPending === 'start') ? 'px_starting' : (phase === 'stopping' || s.stopping || proxyPending === 'stop') ? 'px_stopping' : s.running ? 'px_running' : 'px_stopped';
+  } else if (proxyLoadError) label = 'px_unavailable';
+  $('#proxyStatusText').textContent = t(label);
+  $('#proxyDot').dataset.running = String(!!s && s.running);
+  $('#proxyCore').textContent = s && s.coreVersion ? String(s.coreVersion).slice(0, 100) : '';
+  $('#proxySystemState').textContent = s && s.systemProxy ? t(s.systemProxyApplied ? 'px_applied' : 'px_pending') : '';
+  renderProxyCore(s, locked);
+  const errorCode = proxyLoadError ? 'proxy_status_unavailable' : proxyActionError || (s && (s.error || s.importError));
+  $('#proxyError').hidden = !errorCode;
+  $('#proxyError').textContent = errorCode ? proxyErrorText(errorCode) : '';
+  const pending = proxyPending || (s && (s.starting || s.stopping || ['starting', 'stopping'].includes(String(s.state || s.status).toLowerCase())));
+  $('#proxyToggle').textContent = t(pending ? label : s && s.running ? 'px_stop' : 'px_start');
+  if (s) {
+    const profileMode = Array.isArray(s.profiles);
+    if (profileMode !== proxyProfileMode) { proxyProfileMode = profileMode; try { localStorage.setItem('aerial-proxy-legacy', profileMode ? '0' : '1'); } catch (e) {} }
+  }
+  $('#proxyIntro').textContent = t(proxyProfileMode ? 'px_intro_profiles' : 'px_intro');
+  $('#proxyStartHint').textContent = t(proxyProfileMode ? 'px_start_requires_profile' : 'px_start_requires_sub');
+  $('#proxyProfilesBox').hidden = !proxyProfileMode;
+  $('#proxyLegacyBox').hidden = proxyProfileMode;
+  $('#proxyToggle').disabled = locked || !!pending || !(s && s.available) || (!s.running && !s.configured);
+  $('#proxyStartHint').hidden = !s || s.running || s.configured;
+  $('#proxyRefreshStatus').disabled = proxyBusy;
+  $('#proxyImport').disabled = proxyBusy || offline;
+  $('#proxyRefreshSub').disabled = locked || !s.subscriptionConfigured;
+  $('#proxyClearSub').disabled = locked || !s.subscriptionConfigured;
+  let subscriptionText = t(s && s.subscriptionConfigured ? 'px_configured' : 'px_no_sub');
+  const subscriptionStamp = s ? proxyStamp(s.subscriptionUpdatedAt) : '';
+  if (subscriptionStamp) subscriptionText += ' · ' + subscriptionStamp;
+  $('#proxySubscriptionState').textContent = subscriptionText;
+  renderProxyProfiles(s && s.profiles || [], locked);
+  document.querySelectorAll('[data-proxy-mode]').forEach(b => { b.disabled = locked; b.setAttribute('aria-checked', String(b.dataset.proxyMode === (s ? s.mode : 'rule'))); });
+  [['#proxySystem', 'systemProxy', true], ['#proxyLan', 'allowLan', false], ['#proxyTun', 'tun', false]].forEach(([selector, key, fallback]) => {
+    const input = $(selector); input.checked = s ? !!s[key] : fallback; input.disabled = locked || (key === 'tun' && s.tunSupported !== true);
+  });
+  // An unsupported TV shows TUN off, whatever the stored preference says.
+  if (s && !s.tunSupported) $('#proxyTun').checked = false;
+  const tunOn = !!(s && s.tunSupported && s.tun);
+  $('#proxyTunHint').textContent = t(!(s && s.tunSupported) ? 'px_tun_unavailable' : tunOn && s.running && s.tunActive ? 'px_tun_on' : 'px_tun_hint');
+  // While the proxy runs with TUN wanted but not active: the pending confirmation, or why it is off.
+  const tunNote = tunOn && s.running && !s.tunActive ? (s.tunError ? PROXY_ERROR_KEYS[s.tunError] : s.vpnPermissionRequired ? 'px_permission' : '') : '';
+  $('#proxyVpnPermission').hidden = !tunNote;
+  $('#proxyVpnPermission').textContent = tunNote ? t(tunNote) : '';
+  $('#proxyPort').disabled = locked; $('#proxySavePort').disabled = locked;
+  if (!proxyPortDirty && document.activeElement !== $('#proxyPort')) $('#proxyPort').value = s ? s.mixedPort : 7890;
+  $('#proxyLanAddress').hidden = !(s && s.running && s.allowLan);
+  if (s && s.running && s.allowLan) {
+    const host = location.hostname.includes(':') ? '[' + location.hostname.split('[').join('').split(']').join('') + ']' : location.hostname;
+    $('#proxyLanAddress').textContent = t('px_address') + ': ' + host + ':' + s.mixedPort + ' (HTTP / SOCKS5)';
+  }
+  renderProxyRules(s, locked);
+  $('#proxyConnections').disabled = locked || !(s && s.running);
+  $('#proxyNoGroups').hidden = !!(s && s.running && proxyGroups.length);
+  const visibleGroups = s && s.running ? proxyGroups : [];
+  const signature = JSON.stringify([visibleGroups, locked]);
+  if (signature !== proxyGroupSignature) {
+    proxyGroupSignature = signature;
+    const list = $('#proxyGroups'); list.replaceChildren();
+    visibleGroups.forEach(group => {
+      // Automatic groups open too, to test their nodes' latency; only selector groups can pick a node.
+      const button = el('button', 'item'); button.type = 'button'; button.disabled = locked;
+      const text = el('span', 'txt', group.name);
+      if (!group.selectable) text.appendChild(el('span', 'sub', t('px_auto')));
+      button.append(text, el('span', 'val', group.now));
+      button.insertAdjacentHTML('beforeend', ICON.chev); button.onclick = () => openProxyNodes(group);
+      list.appendChild(button);
+    });
+  }
+}
+
+// Rule source, ad block, target group and list status; shown in "rule" mode on TV builds that have it.
+function renderProxyRules(s, locked) {
+  const shown = !!(s && s.rulesSupported && s.mode === 'rule');
+  $('#proxyRulesBox').hidden = !shown;
+  if (!shown) return;
+  document.querySelectorAll('[data-rule-source]').forEach(b => { b.disabled = locked; b.setAttribute('aria-checked', String(b.dataset.ruleSource === s.ruleMode)); });
+  $('#proxyAdBlock').checked = s.adBlock; $('#proxyAdBlock').disabled = locked;
+  const lists = s.ruleMode !== 'subscription';
+  $('#proxyGroupPick').hidden = !lists; $('#proxyGroupHint').hidden = !lists;
+  $('#proxyGroupPick').disabled = locked || !s.configured;
+  $('#proxyGroupName').textContent = s.proxyGroupAuto ? t('px_group_auto') + ' · ' + s.proxyGroup : s.proxyGroup;
+  $('#proxyRulesUpdate').disabled = locked || s.rulesUpdating || !s.ruleLists.length;
+  $('#proxyRulesUpdate').textContent = t(s.rulesUpdating ? 'px_rl_updating' : 'px_rl_update');
+  $('#proxyRulesUrls').disabled = locked;
+  const signature = JSON.stringify([s.ruleLists, document.documentElement.lang]);
+  if (signature === proxyRuleSignature) return;
+  proxyRuleSignature = signature;
+  const list = $('#proxyRuleLists'); list.replaceChildren();
+  s.ruleLists.forEach(l => {
+    const row = el('div', 'item'), text = el('span', 'txt', l.name + '.txt');
+    const parts = [];
+    if (l.source) parts.push(t('px_rl_count', { n: l.count.toLocaleString(document.documentElement.lang) }), t(l.source === 'snapshot' ? 'px_rl_snapshot' : 'px_rl_download'));
+    else parts.push(t('px_rl_missing'));
+    const stamp = proxyStamp(l.updatedAt);
+    if (stamp && l.source) parts.push(t('px_updated_at', { time: stamp }));
+    text.appendChild(el('span', 'sub', parts.join(' · ')));
+    if (l.lastError) text.appendChild(el('span', 'sub err', t('px_last_error', { error: proxyErrorText(l.lastError) })));
+    row.appendChild(text); list.appendChild(row);
+  });
+}
+
+function proxyStamp(raw) {
+  if (!raw) return '';
+  const stamp = new Date(typeof raw === 'number' && raw < 1e12 ? raw * 1000 : raw);
+  return isNaN(stamp.getTime()) ? '' : stamp.toLocaleString(document.documentElement.lang);
+}
+
+const PROXY_KIND_KEYS = { subscription: 'px_subscription', http: 'px_kind_http', socks5: 'px_kind_socks5' };
+function proxyProfileName(p) { return p.name || t('px_profile_default', { n: '?' }); }
+function proxyProfileDetails(p) {
+  const parts = [t(PROXY_KIND_KEYS[p.kind])];
+  if (p.active) parts.push(t('px_in_use'));
+  const stamp = proxyStamp(p.updatedAt);
+  if (p.kind === 'subscription') {
+    parts.push(stamp ? t('px_updated_at', { time: stamp }) : t('px_never_updated'));
+    parts.push(p.refreshHours > 0 ? t('px_every_hours', { n: p.refreshHours }) : t('px_auto_off'));
+  }
+  return parts.join(' · ');
+}
+function currentProxyProfile(id) { return proxyState && proxyState.profiles && proxyState.profiles.find(p => p.id === id) || null; }
+
+// Names come from the user or a subscription: always text nodes, never markup.
+function renderProxyProfiles(profiles, locked) {
+  $('#proxyAddProfile').disabled = locked || profiles.length >= PROXY_PROFILE_MAX;
+  const signature = JSON.stringify([profiles, locked]);
+  if (signature === proxyProfileSignature) return;
+  proxyProfileSignature = signature;
+  const list = $('#proxyProfiles'); list.replaceChildren();
+  if (!profiles.length) { list.appendChild(el('div', 'item proxy-empty', t('px_no_profiles'))); return; }
+  profiles.forEach(p => {
+    const button = el('button', 'item proxy-profile'); button.type = 'button'; button.disabled = locked;
+    if (p.active) button.setAttribute('aria-current', 'true');
+    const text = el('span', 'txt', proxyProfileName(p));
+    text.appendChild(el('span', 'sub', proxyProfileDetails(p)));
+    if (p.lastError) text.appendChild(el('span', 'sub err', t('px_last_error', { error: proxyErrorText(p.lastError) })));
+    button.appendChild(text);
+    button.insertAdjacentHTML('beforeend', ICON.tick + ICON.chev);
+    button.onclick = () => openProxyProfile(p);
+    list.appendChild(button);
+  });
+}
+
+function scheduleProxyRefresh() {
+  clearTimeout(proxyTimer);
+  const coreBusy = !!proxyState && ['downloading', 'verifying'].includes(proxyState.coreDownload.state);
+  if (tab === 'proxy' && !document.hidden && !proxyBusy) proxyTimer = setTimeout(() => refreshProxy(true), coreBusy ? 1500 : 5000);
+}
+
+function refreshProxy(withGroups) {
+  if (proxyRefreshPromise) return proxyRefreshPromise;
+  proxyRefreshPromise = (async () => {
+    try {
+      proxyState = normalizeProxyStatus(await proxyRequest('status')); proxyLoadError = false;
+      // Latency measured through another profile, or before a stop, no longer says anything.
+      const epoch = proxyState.running ? 'on:' + (proxyState.activeProfileId || '') : 'off';
+      if (epoch !== proxyDelayEpoch) { proxyDelayEpoch = epoch; proxyDelays = new Map(); }
+      if (withGroups && proxyState.running) {
+        try {
+          const value = await proxyRequest('nodes');
+          proxyGroups = normalizeProxyGroups(value); proxyNodes = normalizeProxyNodes(value);
+        } catch (e) { proxyGroups = []; proxyNodes = new Map(); }
+      } else if (!proxyState.running) { proxyGroups = []; proxyNodes = new Map(); }
+    } catch (e) { proxyLoadError = true; }
+    finally { proxyRefreshPromise = null; renderProxy(); scheduleProxyRefresh(); }
+  })();
+  return proxyRefreshPromise;
+}
+
+function proxyTabChanged() {
+  clearTimeout(proxyTimer);
+  if (tab === 'proxy') { renderProxy(); refreshProxy(true); }
+}
+document.addEventListener('visibilitychange', () => { if (!document.hidden && tab === 'proxy') refreshProxy(true); else clearTimeout(proxyTimer); });
+
+// Resolves to whether the request itself succeeded, so a form can stay open after a failure.
+async function proxyAction(work, successKey) {
+  if (proxyBusy) return false;
+  proxyBusy = true; proxyActionError = ''; clearTimeout(proxyTimer); renderProxy();
+  let done = false;
+  try {
+    if (proxyRefreshPromise) await proxyRefreshPromise;
+    await work(); done = true; await refreshProxy(true);
+    if (successKey && !proxyLoadError && !(proxyState && proxyState.error)) toast(t(successKey));
+  } catch (error) { proxyActionError = proxySafeErrorCode(error && error.proxyCode); toast(proxyErrorText(proxyActionError)); }
+  finally { proxyBusy = false; proxyPending = ''; renderProxy(); scheduleProxyRefresh(); }
+  return done;
+}
+
+async function waitForProxy(running) {
+  const deadline = Date.now() + 30000;
+  while (Date.now() < deadline) {
+    await refreshProxy(false);
+    if (proxyLoadError || (proxyState && proxyState.error)) throw proxyFailure(proxyLoadError ? 'proxy_status_unavailable' : proxyState.error);
+    if (proxyState && proxyState.running === running && !proxyState.starting && !proxyState.stopping && !['starting', 'stopping'].includes(String(proxyState.state || proxyState.status).toLowerCase())) return;
+    await new Promise(resolve => setTimeout(resolve, 1200));
+  }
+  // Slow starts keep their actual state and continue polling; no false success toast.
+}
+
+$('#proxyRefreshStatus').onclick = () => { proxyActionError = ''; refreshProxy(true); };
+$('#proxyCoreButton').onclick = () => {
+  if (proxyLoadError || !proxyState || !proxyState.coreDownloadSupported) return;
+  const cancel = proxyState.coreDownload.state === 'downloading';
+  // Not through proxyAction: that locks the page, and the page must stay usable (and cancel must
+  // work) while the file arrives. The download itself runs on the TV; this only starts or stops it.
+  proxyRequest(cancel ? 'core/cancel' : 'core/download', {}).then(() => refreshProxy(false))
+    .catch(error => toast(proxyErrorText(error && error.proxyCode)));
+};
+$('#proxyToggle').onclick = () => {
+  if (proxyBusy || proxyLoadError || !proxyState || !proxyState.available) return;
+  if (!proxyState.running && !proxyState.configured) { toast(t(proxyProfileMode ? 'px_start_requires_profile' : 'px_start_requires_sub')); return; }
+  const running = !!(proxyState && proxyState.running); proxyPending = running ? 'stop' : 'start';
+  proxyAction(async () => { await proxyRequest(running ? 'stop' : 'start', {}); await waitForProxy(!running); });
+};
+$('#proxySubscriptionForm').onsubmit = e => {
+  e.preventDefault(); const input = $('#proxySubscriptionUrl'); let url;
+  try { url = new URL(input.value.trim()); if (!/^https?:$/.test(url.protocol) || !url.hostname || url.username || url.password || url.hash) throw new Error('url'); }
+  catch (error) { toast(t('px_url_invalid')); input.focus(); return; }
+  proxyAction(async () => { await proxyRequest('subscription', {url: url.href}); input.value = ''; }, 'px_configured');
+};
+$('#proxyRefreshSub').onclick = () => proxyAction(() => proxyRequest('refresh', {}), 'px_configured');
+$('#proxyClearSub').onclick = () => {
+  if (!confirm(t('px_confirm'))) return;
+  proxyAction(async () => { await proxyRequest('clear', {}); $('#proxySubscriptionUrl').value = ''; proxyGroups = []; }, 'px_deleted');
+};
+document.querySelectorAll('[data-proxy-mode]').forEach(button => {
+  button.insertAdjacentHTML('beforeend', ICON.tick);
+  button.onclick = () => proxyAction(() => proxyRequest('mode', {mode: button.dataset.proxyMode}), 'px_saved');
+});
+[['#proxySystem', 'systemProxy'], ['#proxyLan', 'allowLan'], ['#proxyTun', 'tun']].forEach(([selector, key]) => {
+  $(selector).onchange = e => { const value = String(e.target.checked); proxyAction(() => proxyRequest('config', {[key]: value}), 'px_saved'); };
+});
+$('#proxyPort').oninput = () => { proxyPortDirty = true; };
+$('#proxyPortForm').onsubmit = e => {
+  e.preventDefault(); const value = Number($('#proxyPort').value);
+  if (!Number.isInteger(value) || value < 1024 || value > 65535) { toast(t('px_port_invalid')); return; }
+  proxyAction(async () => { await proxyRequest('config', {mixedPort: String(value)}); proxyPortDirty = false; }, 'px_saved');
+};
+
+$('#proxyAddProfile').onclick = () => openProxyProfileForm(null);
+
+document.querySelectorAll('[data-rule-source]').forEach(button => {
+  button.insertAdjacentHTML('beforeend', ICON.tick);
+  button.onclick = () => {
+    if (proxyState && proxyState.ruleMode === button.dataset.ruleSource) return;
+    proxyAction(() => proxyRequest('rules', { ruleMode: button.dataset.ruleSource }), 'px_saved');
+  };
+});
+$('#proxyAdBlock').onchange = e => { const value = String(e.target.checked); proxyAction(() => proxyRequest('rules', { adBlock: value }), 'px_saved'); };
+$('#proxyRulesUpdate').onclick = () => proxyAction(() => proxyRequest('rules/update', {}), 'px_rl_started');
+$('#proxyGroupPick').insertAdjacentHTML('beforeend', ICON.chev);
+$('#proxyGroupPick').onclick = () => openProxyGroupPicker();
+$('#proxyRulesUrls').onclick = () => openProxyRuleUrls();
+$('#proxyConnections').onclick = () => openProxyConnections();
+
+// The group rules send matched traffic to: automatic (first selector group), one of the profile's groups, or GLOBAL.
+function openProxyGroupPicker() {
+  const s = proxyState;
+  if (proxyBusy || !s) return;
+  openSheet(body => {
+    body.appendChild(el('h2', 'big', t('px_group')));
+    body.appendChild(el('p', 'foot proxy-sheet-note', t('px_group_hint')));
+    const list = el('div', 'list proxy-node-list'); list.setAttribute('role', 'radiogroup'); list.setAttribute('aria-label', t('px_group')); body.appendChild(list);
+    const choices = [['', t('px_group_auto')]].concat([...new Set([...s.proxyGroups, 'GLOBAL'])].map(g => [g, g]));
+    choices.forEach(([value, label]) => {
+      const b = el('button', 'item'); b.type = 'button'; b.setAttribute('role', 'radio');
+      const current = value === '' ? s.proxyGroupAuto : !s.proxyGroupAuto && s.proxyGroup === value;
+      b.setAttribute('aria-checked', String(current));
+      b.appendChild(el('span', 'txt', label)); b.insertAdjacentHTML('beforeend', ICON.tick);
+      b.onclick = () => { closeSheet(); if (!current) proxyAction(() => proxyRequest('rules', { proxyGroup: value }), 'px_saved'); };
+      list.appendChild(b);
+    });
+    const cancel = el('button', 'btn plain', t('cancel')); cancel.type = 'button'; cancel.style.marginTop = '12px'; cancel.onclick = closeSheet; body.appendChild(cancel);
+  });
+}
+
+// Advanced: each rule source's list addresses. Addresses are public mirrors, shown as text only.
+async function openProxyRuleUrls() {
+  if (proxyBusy) return;
+  let data;
+  try { data = await proxyRequest('rules/urls'); } catch (error) { toast(proxyErrorText(error && error.proxyCode)); return; }
+  const sets = (Array.isArray(data && data.sets) ? data.sets : []).filter(x => x && PROXY_RULE_SETS.includes(x.set));
+  const names = { blacklist: 'px_rs_blacklist', whitelist: 'px_rs_whitelist', adblock: 'px_adblock' };
+  openSheet(body => {
+    body.appendChild(el('h2', 'big', t('px_rl_urls')));
+    body.appendChild(el('p', 'foot proxy-sheet-note', t('px_rl_urls_hint')));
+    sets.forEach(set => {
+      body.appendChild(el('h2', '', t(names[set.set])));
+      const list = el('div', 'list'); body.appendChild(list);
+      (Array.isArray(set.lists) ? set.lists : []).filter(l => l && typeof l.name === 'string' && /^[a-z-]{1,40}$/.test(l.name)).forEach(l => {
+        const b = el('button', 'item'); b.type = 'button';
+        const text = el('span', 'txt', l.name + '.txt');
+        const urls = Array.isArray(l.urls) ? l.urls.filter(u => typeof u === 'string').slice(0, 4) : [];
+        text.appendChild(el('span', 'sub', (l.custom === true ? '✎ ' : '') + urls.map(u => { try { return new URL(u).host; } catch (e) { return '?'; } }).join(' · ')));
+        b.appendChild(text); b.insertAdjacentHTML('beforeend', ICON.chev);
+        b.onclick = () => openProxyRuleUrlForm(set.set, l, urls);
+        list.appendChild(b);
+      });
+      action(list, t('px_rl_reset'), 'danger', () => {
+        closeSheet();
+        proxyAction(() => proxyRequest('rules/urls', { set: set.set, reset: 'true' }), 'px_rl_urls_saved');
+      });
+    });
+    const cancel = el('button', 'btn plain', t('cancel')); cancel.type = 'button'; cancel.style.marginTop = '12px'; cancel.onclick = closeSheet; body.appendChild(cancel);
+  });
+}
+
+function openProxyRuleUrlForm(set, entry, urls) {
+  openSheet(body => {
+    const form = el('form', 'proxy-form'); form.noValidate = true; body.appendChild(form);
+    form.appendChild(el('h3', 'proxy-sheet-name', entry.name + '.txt'));
+    form.appendChild(el('p', 'foot proxy-sheet-note', t('px_rl_urls_hint')));
+    const list = el('div', 'list'), label = el('label', 'item proxy-url'); form.appendChild(list);
+    label.appendChild(el('span', '', t('px_url')));
+    const area = el('textarea'); area.rows = 4; area.spellcheck = false; area.setAttribute('autocapitalize', 'off'); area.setAttribute('autocomplete', 'off');
+    area.value = urls.join('\n'); label.appendChild(area); list.appendChild(label);
+    const error = el('p', 'foot proxy-form-error'); error.setAttribute('role', 'alert'); error.hidden = true; form.appendChild(error);
+    const save = el('button', 'btn', t('save')); save.type = 'submit'; save.style.marginTop = '14px'; form.appendChild(save);
+    const reset = el('button', 'btn plain', t('px_rl_reset')); reset.type = 'button'; reset.style.marginTop = '10px'; form.appendChild(reset);
+    const cancel = el('button', 'btn plain', t('cancel')); cancel.type = 'button'; cancel.style.marginTop = '10px'; cancel.onclick = closeSheet; form.appendChild(cancel);
+    const send = async fields => {
+      const ok = await proxyAction(() => proxyRequest('rules/urls', fields), 'px_rl_urls_saved');
+      if (ok) { if (sheet.classList.contains('open') && form.isConnected) closeSheet(); }
+      else if (proxyActionError) { error.textContent = proxyErrorText(proxyActionError); error.hidden = false; }
+    };
+    form.onsubmit = e => {
+      e.preventDefault();
+      if (proxyBusy) return;
+      const lines = area.value.split('\n').map(v => v.trim()).filter(Boolean);
+      const valid = lines.length <= 4 && lines.every(v => { try { const u = new URL(v); return u.protocol === 'https:' && u.hostname && !u.username && !u.password && !u.hash; } catch (err) { return false; } });
+      if (!valid) { error.textContent = t('px_rl_url_invalid'); error.hidden = false; area.focus(); return; }
+      send({ set, name: entry.name, urls: lines.join('\n') });
+    };
+    reset.onclick = () => { if (!proxyBusy) send({ set, name: entry.name, reset: 'true' }); };
+  });
+}
+
+// Diagnostic: the newest connections the core has open, with the rule that matched and the node used.
+function openProxyConnections() {
+  if (proxyBusy) return;
+  openSheet(body => {
+    body.appendChild(el('h2', 'big', t('px_conn_title')));
+    body.appendChild(el('p', 'foot proxy-sheet-note', t('px_conn_hint')));
+    const meta = el('p', 'foot'); body.appendChild(meta);
+    const list = el('div', 'list proxy-conn-list'); body.appendChild(list);
+    const refresh = el('button', 'btn plain', t('px_refresh')); refresh.type = 'button'; refresh.style.marginTop = '12px'; body.appendChild(refresh);
+    const cancel = el('button', 'btn plain', t('cancel')); cancel.type = 'button'; cancel.style.marginTop = '10px'; cancel.onclick = closeSheet; body.appendChild(cancel);
+    const load = async () => {
+      refresh.disabled = true;
+      try {
+        const data = await proxyRequest('connections');
+        if (!list.isConnected) return;
+        const items = Array.isArray(data && data.connections) ? data.connections.slice(0, 50) : [];
+        list.replaceChildren();
+        const memory = Number(data && data.memory);
+        meta.textContent = memory > 0 ? t('px_conn_memory', { n: Math.round(memory / 1048576) }) : '';
+        if (!items.length) list.appendChild(el('div', 'item proxy-empty', t('px_conn_empty')));
+        items.forEach(c => {
+          const str = (v, n) => typeof v === 'string' ? v.slice(0, n) : '';
+          const host = str(c.host, 253) || str(c.ip, 45);
+          const row = el('div', 'item proxy-conn'), text = el('span', 'txt', host + (str(c.port, 5) ? ':' + str(c.port, 5) : ''));
+          const rule = str(c.rule, 40) + (str(c.payload, 256) ? '(' + str(c.payload, 256) + ')' : '');
+          const chain = Array.isArray(c.chain) ? c.chain.filter(x => typeof x === 'string').slice(0, 8).map(x => x.slice(0, 120)).join(' → ') : '';
+          text.appendChild(el('span', 'sub', [str(c.network, 8).toUpperCase(), rule, chain].filter(Boolean).join(' · ')));
+          row.appendChild(text); list.appendChild(row);
+        });
+      } catch (error) {
+        if (!list.isConnected) return;
+        list.replaceChildren(el('div', 'item proxy-empty', error && error.proxyCode === 'proxy_not_running' ? t('px_conn_not_running') : proxyErrorText(error && error.proxyCode)));
+      } finally { refresh.disabled = false; }
+    };
+    refresh.onclick = load; load();
+  });
+}
+
+// One profile's actions, as a tile's menu: use, update (subscriptions), edit, delete.
+function openProxyProfile(profile) {
+  if (proxyBusy) return;
+  openSheet(body => {
+    body.appendChild(el('h3', 'proxy-sheet-name', proxyProfileName(profile)));
+    body.appendChild(el('p', 'meta', proxyProfileDetails(profile)));
+    const l = el('div', 'list'); body.appendChild(l);
+    if (!profile.active) action(l, t('px_use_profile'), 'tint', () => {
+      closeSheet();
+      proxyAction(() => proxyRequest('profile/activate', { id: profile.id }), 'px_profile_activated');
+    });
+    if (profile.kind === 'subscription') action(l, t('px_update_now'), 'tint', () => {
+      closeSheet(); toast(t('px_saving_hint'));
+      proxyAction(() => proxyRequest('profile/refresh', { id: profile.id }), 'px_profile_updated');
+    });
+    action(l, t('px_edit_profile'), 'tint', () => openProxyProfileForm(profile));
+    action(l, t('px_delete_profile'), 'danger', () => openProxyProfileDelete(profile));
+    const c = el('div', 'list'); body.appendChild(c);
+    action(c, t('cancel'), 'tint', closeSheet).style.fontWeight = '600';
+  });
+}
+
+// Deleting the profile in use stops the proxy; the TV does not move on to another profile by itself.
+function openProxyProfileDelete(profile) {
+  openSheet(body => {
+    const wasActive = () => { const now = currentProxyProfile(profile.id); return now ? now.active : profile.active; };
+    body.appendChild(el('h3', '', t('px_delete_profile')));
+    body.appendChild(el('p', 'meta proxy-sheet-name', proxyProfileName(profile)));
+    body.appendChild(el('p', 'foot proxy-sheet-note', t(wasActive() ? 'px_delete_active_confirm' : 'px_delete_confirm')));
+    const l = el('div', 'list'); body.appendChild(l);
+    action(l, t('px_delete_profile'), 'danger', () => {
+      const active = wasActive(); closeSheet();
+      proxyAction(async () => {
+        await proxyRequest('profile/delete', { id: profile.id });
+        if (active) { proxyGroups = []; proxyNodes = new Map(); }
+      }, active ? 'px_profile_deleted_stopped' : 'px_profile_deleted');
+    });
+    const c = el('div', 'list'); body.appendChild(c);
+    action(c, t('cancel'), 'tint', closeSheet).style.fontWeight = '600';
+  });
+}
+
+/*
+ * Add or edit a profile. Status never returns a profile's URL, server or login, so editing never
+ * shows them: an empty field keeps the saved value (ProxyManager.saveProfile falls back to the
+ * previous one for each field it is not sent), a typed one replaces it. The kind cannot change.
+ */
+function openProxyProfileForm(profile) {
+  const editing = !!profile, profiles = (proxyState && proxyState.profiles) || [];
+  if (!editing && profiles.length >= PROXY_PROFILE_MAX) { toast(t('px_profile_limit')); return; }
+  let kind = editing ? profile.kind : 'subscription';
+  openSheet(body => {
+    const form = el('form', 'proxy-form'); form.noValidate = true; body.appendChild(form);
+    form.appendChild(el('h3', 'proxy-sheet-name', editing ? t('px_edit_profile') : t('px_add_profile')));
+    if (editing) form.appendChild(el('p', 'meta proxy-sheet-name', proxyProfileName(profile) + ' · ' + t(PROXY_KIND_KEYS[kind])));
+    const field = (list, labelKey, input) => {
+      const label = el('label', 'item proxy-url'); label.appendChild(el('span', '', t(labelKey))); label.appendChild(input);
+      list.appendChild(label); return input;
+    };
+    const input = (type, extra) => {
+      const i = el('input'); i.type = type; i.autocomplete = 'off'; i.setAttribute('autocapitalize', 'off'); i.spellcheck = false;
+      i.setAttribute('enterkeyhint', 'next'); Object.assign(i, extra || {}); return i;
+    };
+    const kindButtons = [];
+    if (!editing) {
+      form.appendChild(el('h2', '', t('px_kind')));
+      const kinds = el('div', 'list'); kinds.setAttribute('role', 'radiogroup'); kinds.setAttribute('aria-label', t('px_kind')); form.appendChild(kinds);
+      ['subscription', 'http', 'socks5'].forEach(k => {
+        const b = el('button', 'item'); b.type = 'button'; b.setAttribute('role', 'radio'); b.dataset.kind = k;
+        b.appendChild(el('span', 'txt', t(PROXY_KIND_KEYS[k]))); b.insertAdjacentHTML('beforeend', ICON.tick);
+        b.onclick = () => { kind = k; sync(); };
+        kinds.appendChild(b); kindButtons.push(b);
+      });
+    }
+    const common = el('div', 'list'); form.appendChild(common);
+    const name = field(common, 'px_name', input('text', { maxLength: 80, value: editing ? profile.name : t('px_profile_default', { n: profiles.length + 1 }) }));
+    name.setAttribute('autocapitalize', 'sentences');
+    // Subscription: URL and update period.
+    const sub = el('div'), subList = el('div', 'list'); sub.appendChild(subList); form.appendChild(sub);
+    const url = field(subList, 'px_url', input('url', { inputMode: 'url', placeholder: editing ? t('px_keep_saved') : t('px_url_ph') }));
+    const hours = field(subList, 'px_refresh_hours', input('number', { min: 0, max: 168, step: 1, inputMode: 'numeric', value: String(editing ? profile.refreshHours : 24) }));
+    sub.appendChild(el('p', 'foot', t('px_refresh_hours_hint')));
+    // HTTP / SOCKS5 upstream.
+    const manual = el('div'), manualList = el('div', 'list'); manual.appendChild(manualList); form.appendChild(manual);
+    const host = field(manualList, 'px_host', input('text', { maxLength: 253, placeholder: editing ? t('px_keep_saved') : '' }));
+    const port = field(manualList, 'px_port_upstream', input('number', { min: 1, max: 65535, step: 1, inputMode: 'numeric', placeholder: editing ? t('px_keep_saved') : '' }));
+    const user = field(manualList, 'px_username', input('text', { maxLength: 1024, placeholder: t(editing ? 'px_keep_saved' : 'px_optional') }));
+    const pass = field(manualList, 'px_password', input('password', { maxLength: 4096, autocomplete: 'new-password', placeholder: t(editing ? 'px_keep_saved' : 'px_optional') }));
+    // TLS: status does not say what was saved, so editing offers "keep current" instead of guessing.
+    let tls, clearLogin = null;
+    if (editing) {
+      const row = el('div', 'item'); row.appendChild(el('span', 'txt', t('px_tls')));
+      const shown = el('span', 'val', t('px_tls_keep')); row.appendChild(shown); row.insertAdjacentHTML('beforeend', ICON.chev);
+      tls = el('select'); tls.setAttribute('aria-label', t('px_tls'));
+      [['', 'px_tls_keep'], ['true', 'px_tls_on'], ['false', 'px_tls_off']].forEach(([v, k]) => { const o = el('option', '', t(k)); o.value = v; tls.appendChild(o); });
+      tls.onchange = () => { shown.textContent = tls.options[tls.selectedIndex].textContent; };
+      row.appendChild(tls); manualList.appendChild(row);
+      const clearRow = el('label', 'item'); clearRow.appendChild(el('span', 'txt', t('px_clear_login')));
+      clearLogin = el('input', 'switch'); clearLogin.type = 'checkbox'; clearLogin.setAttribute('aria-label', t('px_clear_login'));
+      clearLogin.onchange = () => { user.disabled = pass.disabled = clearLogin.checked; };
+      clearRow.appendChild(clearLogin); manualList.appendChild(clearRow);
+    } else {
+      const row = el('label', 'item'); row.appendChild(el('span', 'txt', t('px_tls')));
+      tls = el('input', 'switch'); tls.type = 'checkbox'; tls.setAttribute('aria-label', t('px_tls'));
+      row.appendChild(tls); manualList.appendChild(row);
+    }
+    manual.appendChild(el('p', 'foot', t('px_tls_hint')));
+    if (editing) form.appendChild(el('p', 'foot', t('px_edit_hint')));
+    // A new profile is used at once by default; an edit keeps whichever profile is in use.
+    let activate = null;
+    if (!editing) {
+      const l = el('div', 'list'), row = el('label', 'item'); form.appendChild(l);
+      const txt = el('span', 'txt', t('px_activate_after')); txt.appendChild(el('span', 'sub', t('px_activate_hint')));
+      activate = el('input', 'switch'); activate.type = 'checkbox'; activate.checked = true; activate.setAttribute('aria-label', t('px_activate_after'));
+      row.append(txt, activate); l.appendChild(row);
+    }
+    const error = el('p', 'foot proxy-form-error'); error.setAttribute('role', 'alert'); error.hidden = true; form.appendChild(error);
+    const save = el('button', 'btn', t('save')); save.type = 'submit'; save.style.marginTop = '14px'; form.appendChild(save);
+    const cancel = el('button', 'btn plain', t('cancel')); cancel.type = 'button'; cancel.style.marginTop = '10px'; cancel.onclick = closeSheet; form.appendChild(cancel);
+    function sync() {
+      sub.hidden = kind !== 'subscription'; manual.hidden = kind === 'subscription';
+      kindButtons.forEach(b => b.setAttribute('aria-checked', String(b.dataset.kind === kind)));
+    }
+    sync();
+    const fail = (key, focus) => { error.textContent = t(key); error.hidden = false; toast(t(key)); if (focus) focus.focus(); };
+    form.onsubmit = async e => {
+      e.preventDefault();
+      if (proxyBusy) return;
+      error.hidden = true;
+      const fields = { kind };
+      if (editing) { fields.id = profile.id; fields.activate = 'false'; } else fields.activate = String(activate.checked);
+      const n = name.value.trim();
+      if (n.length < 1 || n.length > 80 || /[\u0000-\u001f]/.test(n)) return fail('px_name_invalid', name);
+      fields.name = n;
+      if (kind === 'subscription') {
+        const raw = url.value.trim();
+        if (raw || !editing) {
+          let u;
+          try { u = new URL(raw); if (!/^https?:$/.test(u.protocol) || !u.hostname || u.username || u.password || u.hash) throw new Error('url'); }
+          catch (err) { return fail('px_url_invalid', url); }
+          fields.url = u.href;
+        }
+        const h = Number(hours.value);
+        if (hours.value.trim() === '' || !Number.isInteger(h) || h < 0 || h > 168) return fail('px_hours_invalid', hours);
+        fields.refreshHours = String(h);
+      } else {
+        const hv = host.value.trim(), pv = port.value.trim();
+        if (hv || !editing) {
+          if (hv.length < 1 || hv.length > 253 || /[\s\/@?#\\]/.test(hv) || hv.includes('://')) return fail('px_upstream_invalid', host);
+          fields.host = hv;
+        }
+        if (pv || !editing) {
+          const p = Number(pv);
+          if (!Number.isInteger(p) || p < 1 || p > 65535) return fail('px_upstream_invalid', port);
+          fields.port = String(p);
+        }
+        if (clearLogin && clearLogin.checked) { fields.username = ''; fields.password = ''; }
+        else {
+          if (/[\r\n\u0000]/.test(user.value + pass.value)) return fail('px_credentials_invalid', user);
+          // Sent only when typed: an absent field keeps the saved login.
+          if (user.value || !editing) fields.username = user.value;
+          if (pass.value || !editing) fields.password = pass.value;
+        }
+        if (editing) { if (tls.value) fields.tls = tls.value; } else fields.tls = String(tls.checked);
+      }
+      save.disabled = true; save.textContent = t('px_saving');
+      if (kind === 'subscription' && fields.url) toast(t('px_saving_hint'));
+      const ok = await proxyAction(() => proxyRequest('profile/save', fields), 'px_profile_saved');
+      save.disabled = false; save.textContent = t('save');
+      if (ok) { if (sheet.classList.contains('open') && form.isConnected) closeSheet(); }
+      else if (proxyActionError) { error.textContent = proxyErrorText(proxyActionError); error.hidden = false; }
+    };
+  });
+}
+
+function openProxyNodes(group) {
+  if (proxyBusy) return;
+  openSheet(body => {
+    body.appendChild(el('h2', 'big', group.name));
+    const searchBox = el('div', 'item field proxy-node-search'), search = el('input');
+    search.type = 'search'; search.placeholder = t('px_search'); search.setAttribute('aria-label', t('px_search')); search.autocomplete = 'off';
+    searchBox.appendChild(search); body.appendChild(searchBox);
+    if (!group.selectable) body.appendChild(el('p', 'foot proxy-sheet-note', t('px_view_only')));
+    const testAll = el('button', 'btn plain proxy-test-all'); testAll.type = 'button';
+    testAll.insertAdjacentHTML('beforeend', ICON.bolt); const testAllLabel = el('span', '', t('px_test_all')); testAll.appendChild(testAllLabel);
+    body.appendChild(testAll);
+    const list = el('div', 'list proxy-node-list'); list.setAttribute('aria-label', group.name);
+    if (group.selectable) list.setAttribute('role', 'radiogroup');
+    body.appendChild(list);
+    const empty = el('p', 'foot', t('px_empty')); empty.hidden = true; body.appendChild(empty);
+    body.appendChild(el('p', 'foot', t('px_latency_hint')));
+    const rows = new Map(), inFlight = new Set();
+    let testing = false;
+    const open = () => sheet.classList.contains('open') && list.isConnected;
+    // Latency: this page's result first, else the core's last recorded one; the type is the node's protocol.
+    const paint = name => {
+      const row = rows.get(name); if (!row) return;
+      const mine = proxyDelays.get(name), node = proxyNodes.get(name), busy = inFlight.has(name);
+      row.ping.setAttribute('aria-busy', String(busy)); row.ping.disabled = busy;
+      row.ms.classList.toggle('err', !!(mine && mine.error));
+      row.ms.textContent = mine ? (mine.error ? t('px_delay_failed') : t('px_ms', { n: mine.delay })) : node && node.delay ? t('px_ms', { n: node.delay }) : '';
+    };
+    // One test; a result that is not a delay stays a fixed code, never the core's text.
+    const ping = async name => {
+      if (inFlight.has(name)) return null;
+      inFlight.add(name); paint(name);
+      let code = null;
+      try {
+        const result = await proxyRequest('delay', { node: name });
+        const delay = Number(result.delay);
+        if (Number.isInteger(delay) && delay > 0) proxyDelays.set(name, { delay });
+        else { code = proxySafeErrorCode(result.error || 'node_delay_failed'); proxyDelays.set(name, { error: code }); }
+      } catch (error) {
+        code = proxySafeErrorCode(error && error.proxyCode); proxyDelays.set(name, { error: code });
+      } finally { inFlight.delete(name); if (open()) paint(name); }
+      return code;
+    };
+    const visible = () => [...rows.keys()];
+    const syncTestAll = () => { testAll.disabled = testing || !rows.size; };
+    // Two tests at a time: the TV and the core stay responsive and a long list still finishes.
+    testAll.onclick = async () => {
+      if (testing) return;
+      const names = visible(); if (!names.length) return;
+      testing = true; syncTestAll();
+      let next = 0, done = 0, stop = false;
+      const progress = () => { testAllLabel.textContent = t('px_testing_n', { done, total: names.length }); };
+      progress();
+      const worker = async () => {
+        while (!stop && next < names.length && open()) {
+          const code = await ping(names[next++]);
+          done++; if (open()) progress();
+          if (code === 'proxy_not_running' || code === 'proxy_request_rejected') { stop = true; toast(proxyErrorText(code)); }
+        }
+      };
+      await Promise.all([worker(), worker()]);
+      testing = false; testAllLabel.textContent = t('px_test_all'); syncTestAll();
+    };
+    const draw = () => {
+      const query = search.value.trim().toLocaleLowerCase(); list.replaceChildren(); rows.clear();
+      group.all.filter(name => name.toLocaleLowerCase().includes(query)).forEach(name => {
+        if (rows.has(name)) return;
+        const row = el('div', 'item proxy-node'), pick = el('button', 'pick'); pick.type = 'button';
+        if (group.selectable) { pick.setAttribute('role', 'radio'); pick.setAttribute('aria-checked', String(name === group.now)); }
+        else { pick.disabled = true; if (name === group.now) pick.setAttribute('aria-current', 'true'); }
+        if (name === group.now) pick.dataset.now = '';
+        const node = proxyNodes.get(name), text = el('span', 'txt', name);
+        if (node && node.type) text.appendChild(el('span', 'sub', node.type));
+        const ms = el('span', 'proxy-ms');
+        pick.append(text, ms); pick.insertAdjacentHTML('beforeend', ICON.tick);
+        if (group.selectable) pick.onclick = () => {
+          if (proxyBusy) return;
+          list.querySelectorAll('.pick').forEach(b => b.disabled = true);
+          proxyAction(async () => { await proxyRequest('select', {group: group.name, node: name}); closeSheet(); }, 'px_selected').finally(() => list.querySelectorAll('.pick').forEach(b => b.disabled = false));
+        };
+        const button = el('button', 'proxy-ping'); button.type = 'button';
+        button.setAttribute('aria-label', t('px_test') + ': ' + name); button.title = t('px_test');
+        button.insertAdjacentHTML('beforeend', ICON.bolt);
+        button.onclick = async () => {
+          const code = await ping(name);
+          if (code && code !== 'node_delay_failed') toast(proxyErrorText(code));
+        };
+        row.append(pick, button); list.appendChild(row);
+        rows.set(name, { ping: button, ms }); paint(name);
+      });
+      empty.hidden = rows.size > 0; syncTestAll();
+    };
+    search.oninput = draw; draw();
+    const cancel = el('button', 'btn plain', t('cancel')); cancel.type = 'button'; cancel.style.marginTop = '12px'; cancel.onclick = closeSheet; body.appendChild(cancel);
+  });
 }
 
 initLangSwitch();

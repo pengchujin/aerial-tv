@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="proxy_channel">Прокси</string>
+    <string name="proxy_notification_title">Прокси Aerial</string>
+    <string name="proxy_notification_starting">Запуск прокси…</string>
+    <string name="proxy_notification_running">Прокси работает</string>
+    <string name="proxy_stop">Остановить</string>
+    <string name="proxy_vpn_session">Прокси Aerial (TUN)</string>
+</resources>

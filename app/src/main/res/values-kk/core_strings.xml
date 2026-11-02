@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The VPN page's "download the core" row (ui/control/VpnPanel.kt, proxy/CoreInstaller.kt). -->
+<resources>
+    <string name="vpn_core_missing">Бұл теледидарда прокси өзегі орнатылмаған.</string>
+    <string name="vpn_core_download">Өзекті жүктеу (шамамен 21 МБ)</string>
+    <string name="vpn_core_retry">Өзекті қайта жүктеу (шамамен 21 МБ)</string>
+    <string name="vpn_core_cancel">Жүктеуді тоқтату</string>
+    <string name="vpn_core_downloading">Өзек жүктелуде… %1$d%% · %2$s</string>
+    <string name="vpn_core_verifying">Жүктелген файл тексерілуде…</string>
+    <string name="vpn_core_hint">Өзек — жеке бағдарлама (mihomo, GPLv3). Тек сіз сұрағанда жүктеледі және SHA-256 мәні Aerial ішіндегі бекітілген мәнге сәйкес келгенде ғана қолданылады.</string>
+    <string name="vpn_core_error_download">Жүктеу аяқталмады. Кейінірек қайталаңыз, жүктеу алынған бөліктен жалғасады.</string>
+    <string name="vpn_core_error_integrity">Жүктелген файл бекітілген тексеру мәніне сәйкес келмейді, ол жойылды.</string>
+    <string name="vpn_core_error_storage">Теледидар жадында орын жоқ немесе жазу мүмкін емес, өзек сақталмады.</string>
+    <string name="vpn_core_error_exec">Бұл теледидар қолданбаға өзі жүктеген бағдарламаны іске қосуға рұқсат бермейді, өзек жойылды.</string>
+    <string name="vpn_core_error_selftest">Өзек жүктелгеннен кейін іске қосылмады, ол жойылды.</string>
+</resources>

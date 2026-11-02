@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="proxy_channel">Proxy</string>
+    <string name="proxy_notification_title">Aerial proxy</string>
+    <string name="proxy_notification_starting">Starting the proxy…</string>
+    <string name="proxy_notification_running">Proxy is running</string>
+    <string name="proxy_stop">Stop</string>
+    <string name="proxy_vpn_session">Aerial proxy (TUN)</string>
+</resources>

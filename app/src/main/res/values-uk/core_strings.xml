@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The VPN page's "download the core" row (ui/control/VpnPanel.kt, proxy/CoreInstaller.kt). -->
+<resources>
+    <string name="vpn_core_missing">На цьому телевізорі не встановлено ядро проксі.</string>
+    <string name="vpn_core_download">Завантажити ядро (близько 21 МБ)</string>
+    <string name="vpn_core_retry">Завантажити ядро ще раз (близько 21 МБ)</string>
+    <string name="vpn_core_cancel">Скасувати завантаження</string>
+    <string name="vpn_core_downloading">Завантаження ядра… %1$d%% · %2$s</string>
+    <string name="vpn_core_verifying">Перевірка завантаженого файлу…</string>
+    <string name="vpn_core_hint">Ядро — окрема програма (mihomo, GPLv3). Воно завантажується лише на ваш запит і використовується, тільки якщо його SHA-256 збігається зі значенням, закладеним в Aerial.</string>
+    <string name="vpn_core_error_download">Завантаження не завершено. Повторіть пізніше: воно продовжиться з уже отриманої частини.</string>
+    <string name="vpn_core_error_integrity">Завантажений файл не збігся із заданою контрольною сумою й видалений.</string>
+    <string name="vpn_core_error_storage">Бракує місця на телевізорі або запис неможливий, ядро не збережено.</string>
+    <string name="vpn_core_error_exec">Цей телевізор не дозволяє застосунку запускати програми, які він сам завантажив, ядро видалено.</string>
+    <string name="vpn_core_error_selftest">Ядро не запустилося після завантаження й видалене.</string>
+</resources>
