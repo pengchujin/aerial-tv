@@ -9,6 +9,7 @@ import android.content.IntentSender
 import android.content.pm.PackageInfo
 import android.content.pm.PackageInstaller
 import android.net.Uri
+import android.os.Build
 import android.os.Looper
 import androidx.core.content.FileProvider
 import app.orchard.tv.BuildConfig
@@ -56,7 +57,21 @@ class UpdateSessionTest {
         Updates.resetInstall()
         apk.parentFile!!.mkdirs()
         apk.writeBytes(byteArrayOf(1, 2, 3))
+        // Aerial installed itself last, so from Android 12 the update may go through silently.
+        if (Build.VERSION.SDK_INT >= 31) shadowOf(app.packageManager).setInstallSourceInfo(app.packageName, app.packageName, app.packageName)
         Updates.onHomeResumed()
+    }
+
+    @Test
+    fun installedByAdbModernSessionFallsBackAfterEightSeconds() {
+        // #1162's Hisense: installed by adb, so Android asks, and an answer is due at once.
+        shadowOf(app.packageManager).setInstallSourceInfo(app.packageName, null, null)
+        val id = commit()
+        advance(7_999)
+        assertNotNull(installer.getSessionInfo(id))
+        advance(1)
+        assertNull(installer.getSessionInfo(id))
+        assertInstallerOpened()
     }
 
     @After

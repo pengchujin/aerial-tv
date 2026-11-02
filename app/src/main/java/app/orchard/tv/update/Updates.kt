@@ -290,7 +290,7 @@ object Updates {
         DiagLog.i("update: session $id, dex metadata ${dm?.size ?: "none"}")
         // Hisense VIDAA_TV / MT9655 (Android 14, #1162) also accepts sessions without answering.
         // Silent updates need time to install and compile, not the short confirmation deadline.
-        val timeout = if (Build.VERSION.SDK_INT >= 31) SILENT_INSTALL_TIMEOUT_MS else ANSWER_TIMEOUT_MS
+        val timeout = if (mayInstallSilently(app)) SILENT_INSTALL_TIMEOUT_MS else ANSWER_TIMEOUT_MS
         awaitSession(app, id, timeout, "no answer from session $id")
         true
     }.getOrElse {
@@ -399,6 +399,15 @@ object Updates {
     private const val ANSWER_TIMEOUT_MS = 8_000L
     /** Android 12+ may compile and replace the app without any intermediate answer or page. */
     private const val SILENT_INSTALL_TIMEOUT_MS = 120_000L
+    /**
+     * Whether Android may install the update without asking: from 12, and only for the app that
+     * installed Aerial last (USER_ACTION_NOT_REQUIRED). Installed by adb (#1162's Hisense: none) or
+     * by the system installer, it always asks, and an answer is due as soon as before 12.
+     */
+    private fun mayInstallSilently(app: Context): Boolean = Build.VERSION.SDK_INT >= 31 && runCatching {
+        app.packageManager.getInstallSourceInfo(app.packageName).installingPackageName == app.packageName
+    }.getOrDefault(true)
+
     /** From starting the confirmation page to Home pausing beneath it. */
     private const val CONFIRM_TIMEOUT_MS = 4_000L
 
