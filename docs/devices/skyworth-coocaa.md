@@ -71,6 +71,11 @@ root 后把 `/system/pcfg/<型号目录>/config/general_config.xml` 里的 `DEFA
 
 2026-11-01 起（未发版时写）：守护在 `takeVolumeKey` 记下看到的抬起，`MainActivity` 丢掉抬起之后还在连发的音量键；按下 / 抬起都写进诊断。没有创维真机验证。如果诊断里守护也只有 `down` 没有 `up`，说明抬起在过滤之前就被固件吃掉了，这个办法不够，要再想。
 
+1.78（`volumeLiftUnseen`）之后仍连冲（2026-11-02，#937 A7D 的诊断、#1113 C10 的报告）：
+- A7D：守护记住了（三次按下都 `not passed on`），窗口却一直收到更早一次按下的 `VOLUME_UP #120…#152`，每 50 ms 一个。系统对等不到抬起的按下一直补发重复，直到有别的键进到分发器；守护留下的按下进不去，所以打断不了，每个重复都是一格。按返回能停，就是因为返回键进去了。
+- C10：Aerial 是默认桌面，守护不过滤按键，诊断里没有一行 `guard:`。窗口里照样有抬起之后的 `VOLUME_UP #47`，`VOLUME_DOWN` 每三个重复夹一个抬起地一直来。报告人用 Agent 抓到每次按键 `ccSystem onRecvKey` 两次（+2），但这台有海思自己的无障碍服务 `HiRMService`，第二条通道不一定是守护传下去的。
+- main 上（未发版）窗口这边丢掉：已结束的按下的重复（这里或守护见过它抬起、有更新的音量按下、或守护已经知道抬起到不了），以及到达窗口前音量已经变了的整次按下（`MainActivity.dropVolumeKey`）。小米 MFTR0 上音量键根本不进 Aerial 窗口，TCL MT5879 上走守护，两台行为不变（实测）。创维 / 酷开没有真机，发版后看诊断里的 `repeats a press that is over; dropped` / `the volume already moved`。
+
 ## 开机属性 `persist.service.model.*`（#1046 7AA49_D4 T963 安卓 9，#1096 65G650P / #1069 7S77_V40 sky848_9s60 安卓 8.0）
 
 - 固件开机按 `persist.service.model.pkg / .cls` 直接启动组件；7S77_V40 上只改 `persist.service.homepage.*` 反而让 Aerial 被反复强停（#1069 实验 6）；65G650P 上清空 `model.*` 后固件写回 `com.tianci.movieplatform`。

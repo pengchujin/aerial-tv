@@ -107,7 +107,9 @@ APK 已下载、会话已提交，但数分钟内没有确认页或安装结果�
 
 - 代码缺口：原来只有 SDK < 31 才等待提交后的响应；Android 12+ 可能免确认安装，
   因此被排除，但该固件不回应时就永远到不了 `ACTION_VIEW` 兜底。
-- 本地补丁：Android 12+ 等待 120 秒，9–11 保留 8 秒；确认页仍等 4 秒。
+- 补丁（PR #1167 合入 main，未发版）：Android 12+ 等待 120 秒，9–11 保留 8 秒；确认页仍等 4 秒。
+  合入时又加了一条：安卓 12+ 只有 Aerial 自己是安装来源时才可能免确认安装，adb 装的（报告人这台
+  `installerPackageName = null`）或系统安装器装的，系统一定会问，所以也只等 8 秒（`Updates.mayInstallSilently`）。
   等待期间防止重复提交，离开桌面不清会话，后台超时延后到回桌面再打开安装器。
   在后台收到的确认请求也等回桌面才打开，避免把「主页已暂停」误判成确认页未出现。
   面板区分「等待系统安装」与「已打开安装程序」。没有增加机型硬编码，也不清理历史会话。
@@ -144,3 +146,11 @@ APK 已下载、会话已提交，但数分钟内没有确认页或安装结果�
 ## 75E8H 的音量条和亮度条（#1025，MT9652 m7642，安卓 9，VIDAA 6.6）
 
 报告人（Agent）实测：没有 `picture_backlight`；`screen_brightness` 写得进去但面板不变；`media volume --stream 3 --set 2` 让 AudioService 的当前值变了，电视实际音量和 `volume_music` 不变，遥控器音量键正常、Aerial 面板的数字会跟着遥控器变。亮度可以在 device profile 里加 `"ignoresScreenBrightness": true`（adapt.md 已补）；音量还要看 `dumpsys audio` 里是不是 fixed volume、走 HDMI/CEC，已问。
+
+1.78 起 VIDAA 的亮度行打开电视设置，但走的是 `ACTION_DISPLAY_SETTINGS`，这台打开的是「互动屏保和校准」。报告人（2026-11-02，抓了按键、界面和日志）确认：
+- 背光值在 `com.android.tv.settings` 的 `PictureManager.getCustomBacklight()`，`screen_brightness` 恒为 127，和面板无关；
+- 真正一步到位的是遥控器设置键（Linux keycode 141）弹出的「常用功能」里的「屏幕亮度」浮层，只认内核层按键，App 和 `input keyevent` 都弹不出；
+- `am start -a android.settings.IMAGE_SETTINGS` 打开图像页，里面有「屏幕亮度设置」；`android.settings.LIGHT_SENSOR` 是智慧光感开关；
+- 音量走海信中间件（`com.jamdeo.tv.service` 的 `JamdeoVolumePanel` → root 进程 `hstvos`），不经过 AudioService。
+
+main 上（未发版）亮度行先试 `android.settings.IMAGE_SETTINGS`（非标准 action，只在固件声明时用），再退回显示设置。没有海信真机验证。
