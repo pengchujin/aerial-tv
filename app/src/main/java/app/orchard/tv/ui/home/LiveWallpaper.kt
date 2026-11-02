@@ -622,6 +622,17 @@ private const val PANEL_IN_MS = 450L
 private var pixelCopy: Boolean? = null
 
 /**
+ * Where the glass over a moving wallpaper gets the film's frames, for the diagnostics. Owners who
+ * saw the plate turn milky after 1.77 (issues #1140 #589) sent photos, and nothing said which of
+ * these had shut the frames out.
+ */
+internal fun filmGlassReport(context: android.content.Context): String {
+    FilmFrames.load(context)
+    return "copy=${pixelCopy ?: "untried"} copy_slow=$copySlow tcl_extractor=${FilmFrames.tclExtractor(context)} " +
+        "file_stuck=${FileFramesStuck.now(context)} glassless=${Wallpapers.filmGlassless}"
+}
+
+/**
  * How often a small frame is taken for the glass while the film moves on Home. Each is a key frame
  * decoded from the film's file on Xiaomi MiTV-MFTR0, 0.4-0.6 s of a core: every 2.5 s (until
  * issue #727) was more than the soft glass needs.
