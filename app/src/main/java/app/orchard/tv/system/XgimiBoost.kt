@@ -65,7 +65,24 @@ object XgimiBoost {
         }.getOrNull()
     }
 
-    /** Leave Boost before an ordinary brightness write; enabling stays in the native settings. */
+    /** Enable explicitly, respecting the native playback and ambient-light restrictions. */
+    fun enable(): Boolean {
+        val current = enabled() ?: return false
+        if (current) return true
+        val dm = SystemProbe.xgimiDisplayManager() ?: return false
+        return runCatching {
+            // Preserve the owner's automatic-brightness setting rather than turning it off.
+            val c = dm.javaClass
+            if (c.getMethod("getALOnOff").invoke(dm) != false) return@runCatching false
+            if (c.getMethod("getCurrent3DFormat").invoke(dm) != c.getField("EN_XGIMI_3D_NONE").get(null)) return@runCatching false
+            val tvClass = Class.forName("com.xgimi.gmpf.api.GmTvManager")
+            val tv = tvClass.getMethod("getInstance").invoke(null)
+            if (tvClass.getMethod("isImaxVideoPlaying").invoke(tv) != false) return@runCatching false
+            c.getMethod("setLensDispMode", Int::class.javaPrimitiveType).invoke(dm, 1) == true
+        }.getOrDefault(false)
+    }
+
+    /** Leave Boost before an ordinary brightness write. */
     fun disable(): Boolean {
         val current = enabled() ?: return false
         if (!current) return true

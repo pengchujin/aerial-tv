@@ -17,6 +17,8 @@
 
 普通 10 和 10+ 的 DLP getter 都返回 10。Boost 开着时，普通 DLP setter 的调用
 能返回，但档位保持 10；先退出 Boost，DLP setter 才生效。这是 #598 中滑块无效的原因。
+2026-11-02 补测从普通 7 档直接开启 Boost：Lens 模式变为 1，DLP getter 仍为 7。
+因此 DLP getter 在 Boost 中不能表示当前亮度；显示 10+ 时滑条应填满，退出后才使用普通档位。
 原生亮度从 10+ 改到 8 前后，Android 的 global / system / secure 三张设置表没有变化；
 `screen_brightness=153`，`screen_brightness_mode=0`。
 
@@ -29,12 +31,15 @@
 
 ## 控制中心行为
 
-- 普通亮度继续显示百分比，10+ 显示 `10+`；不增加独立开关。
+- 普通亮度继续显示百分比，10+ 显示 `10+`，并有单独的 Boost 开关。
 - 从 10+ 按一次左键退出 Boost，回到普通 10；继续向左为 9、8 等。
 - 普通亮度加到 10 不自动进入 Boost；10+ 状态按右键保持不变。
-- 开启 Boost 仍通过投影仪原生设置，Aerial 只在下调亮度时退出。
+- 开启 Boost 可通过投影仪原生设置或 Aerial 独立开关，不能靠一直按右键进入。
 - 两个入口控制的是同一个光源状态。原生设置开启 10+，控制中心轮询后同步显示开启；
   Aerial 下调亮度后也会退出原生 Boost，没有两套独立的物理亮度。
+- 开启 Boost 前检查自动亮度、3D 和 IMAX；任一开启或接口读取失败时拒绝开启并提示。
+  此机 `getCurrent3DFormat()` 与 `EN_XGIMI_3D_NONE` 均为 1；不能把 0 当成无 3D。
+  原生面板会关闭环境自适应，Aerial 则保留用户设置，请用户自行关闭。
 
 ## 验证范围
 
@@ -65,3 +70,13 @@ getter。与亮度下调相关的结果如下；它们不是拆分后构建的�
 standard Debug、Release 完整单元测试各 169 项通过（含 6 项 Boost 回归）；
 standard release 和独立 guard release 构建、lintVital 通过。
 测试前后均为普通 10、自动亮度关闭；正式版及其应用数据保留。
+
+## 2026-11-02：独立开关增量验收
+
+在纯修复之上增加开关。standard Debug、Release 完整单元测试各 170 项通过，
+standard release 和独立 guard release 构建、lintVital 通过。
+最终 guard release 已 compile speed，并实测普通 7 → 开启 Boost（Lens 1、DLP 仍为 7，
+界面 10+ 且滑条填满）→ 关闭（普通 10）→ 再开启。滑块下调到普通 10、再到 7、
+上调至普通 10 并再按右键均正常，两套 HAL 读数一致。
+开启限制的拒绝分支只有单元测试，未在真机开启自动亮度、3D 或 IMAX。
+测试包已移除，普通 10 / 自动亮度关闭及正式版保留；未进行重启测试。

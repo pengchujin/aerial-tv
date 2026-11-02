@@ -112,7 +112,8 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
      * Levels the row asked for, newest kept: between the repeats of a held key the engine only needs
      * the level it is to end on. Written off the main thread, in order.
      */
-    private val brightnessSteps = Channel<Int>(Channel.CONFLATED)
+    private data class BrightnessTarget(val level: Int, val boost: Boolean = false)
+    private val brightnessSteps = Channel<BrightnessTarget>(Channel.CONFLATED)
 
     /** XGIMI's light engine steps its own levels; every other TV steps the panel in percent. */
     private val xgimiBrightness by lazy { SystemProbe.hasXgimiBrightness }
@@ -172,7 +173,13 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
         // The light engine is written off the main thread: a held key repeats every few tens of ms,
         // and doing the HAL call on the key's own thread left the row lagging behind the picture.
         viewModelScope.launch(Dispatchers.Default) {
-            for (level in brightnessSteps) SystemProbe.setXgimiBrightnessLevel(level)
+            for (target in brightnessSteps) {
+                val applied = if (target.boost) XgimiBoost.enable()
+                    else SystemProbe.setXgimiBrightnessLevel(target.level)
+                if (!applied && target.boost) withContext(Dispatchers.Main) {
+                    android.widget.Toast.makeText(context, R.string.cc_boost_unavailable, android.widget.Toast.LENGTH_LONG).show()
+                }
+            }
         }
         // A tile picture set or removed from the phone page.
         CustomIcons.onChange(customIconsChanged)
@@ -549,10 +556,18 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
             if (brightnessBoost != null) brightnessBoost = false
             brightness = next
             brightnessActedAt = SystemClock.elapsedRealtime()
-            brightnessSteps.trySend(Math.round(next * SystemProbe.xgimiBrightnessMax))
+            brightnessSteps.trySend(BrightnessTarget(Math.round(next * SystemProbe.xgimiBrightnessMax)))
             return
         }
         brightness = Brightness.adjust(context, direction)
+    }
+
+    fun toggleBrightnessBoost() {
+        val active = brightnessBoost ?: return
+        brightnessActedAt = SystemClock.elapsedRealtime()
+        brightness = 1f
+        brightnessBoost = !active
+        brightnessSteps.trySend(BrightnessTarget(SystemProbe.xgimiBrightnessMax, boost = !active))
     }
 
     fun toggleMute() {

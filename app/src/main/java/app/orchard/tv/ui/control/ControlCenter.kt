@@ -598,13 +598,21 @@ private fun BrightnessRow(vm: HomeViewModel) {
     } else {
         SliderRow(
             glyph = Glyph.Sun,
-            level = level,
+            // Boost can leave the ordinary DLP getter at the previous level (X7 Max: 7).
+            level = if (vm.brightnessBoost == true) 1f else level,
             value = if (vm.brightnessBoost == true) "10+" else Math.round(level * 100).toString(),
             // Brightness.adjust moves 5% a step, and stops at 1%; XGIMI steps its own levels.
             steps = if (xgimi) SystemProbe.xgimiBrightnessMax else 20,
             onStep = vm::adjustBrightness,
             onClick = {},
         )
+        vm.brightnessBoost?.let { enabled ->
+            MenuRow(
+                Glyph.Sun, stringResource(R.string.cc_brightness_boost),
+                onClick = vm::toggleBrightnessBoost,
+                trailing = stringResource(if (enabled) R.string.st_on else R.string.st_off),
+            )
+        }
     }
 }
 

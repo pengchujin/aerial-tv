@@ -5,6 +5,8 @@ class DisplayManager {
     var lens = 1
     var level = 10
     var rejectModeChange = false
+    var automatic = false
+    var format: Byte = EN_XGIMI_3D_NONE
     val calls = mutableListOf<String>()
     fun getLensDispMode() = lens
     fun setLensDispMode(mode: Int): Boolean {
@@ -18,7 +20,10 @@ class DisplayManager {
         calls += "level:$value"
         if (lens == 0) level = value.toInt()
     }
+    fun getALOnOff() = automatic
+    fun getCurrent3DFormat() = format
     companion object {
+        @JvmField val EN_XGIMI_3D_NONE: Byte = 1
         private val instance = DisplayManager()
         @JvmStatic fun getInstance() = instance
     }

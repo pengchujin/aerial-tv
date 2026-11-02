@@ -1,6 +1,7 @@
 package app.orchard.tv.system
 
 import com.xgimi.gmpf.api.DisplayManager
+import com.xgimi.gmpf.api.GmTvManager
 import org.junit.Assert.*
 import org.junit.After
 import org.junit.Before
@@ -19,7 +20,8 @@ class XgimiBoostTest {
     @Before fun reset() {
         supported(true)
         dm.lens = 1; dm.level = 10; dm.rejectModeChange = false
-        dm.calls.clear()
+        dm.automatic = false; dm.format = DisplayManager.EN_XGIMI_3D_NONE
+        dm.calls.clear(); GmTvManager.getInstance().imax = false
     }
     @After fun release() { supported(false) }
 
@@ -55,9 +57,11 @@ class XgimiBoostTest {
         supported(false)
         assertNull(XgimiBoost.enabled())
         assertFalse(XgimiBoost.disable())
+        assertFalse(XgimiBoost.enable())
         supported(true); dm.lens = 7
         assertNull(XgimiBoost.enabled())
         assertFalse(XgimiBoost.disable())
+        assertFalse(XgimiBoost.enable())
         assertTrue(dm.calls.isEmpty())
     }
 
@@ -66,5 +70,19 @@ class XgimiBoostTest {
         assertTrue(SystemProbe.setXgimiBrightnessLevel(7))
         assertEquals(listOf("level:7"), dm.calls)
         assertEquals(7, dm.level)
+    }
+
+    @Test fun explicitBoostHonorsNativePlaybackAndAmbientRestrictions() {
+        dm.lens = 0; dm.level = 7; dm.automatic = true
+        assertFalse(XgimiBoost.enable())
+        dm.automatic = false; dm.format = 2
+        assertFalse(XgimiBoost.enable())
+        dm.format = DisplayManager.EN_XGIMI_3D_NONE; GmTvManager.getInstance().imax = true
+        assertFalse(XgimiBoost.enable())
+        assertTrue(dm.calls.isEmpty())
+        GmTvManager.getInstance().imax = false
+        assertTrue(XgimiBoost.enable())
+        assertEquals(listOf("mode:1"), dm.calls)
+        assertEquals(7, dm.level) // Enabling Boost need not change the stored ordinary level.
     }
 }
