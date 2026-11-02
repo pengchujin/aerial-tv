@@ -318,8 +318,11 @@ class HomeGuardService : AccessibilityService() {
             updateKeyFilter()
             // The ADB and screensaver checks were skipped while locked.
             GuardSetup.ensureEnabled(this@HomeGuardService)
+            // Not bounded by the boot window: the unlock is where a boot ends for apps, however late
+            // it comes. XGIMI Play 6 (GMUI, Android 11, low RAM) unlocked 5 min 35 s into a boot,
+            // and the guard, bound since Direct Boot, left the firmware's Home chooser on screen
+            // (issue #1126, the reporter's timeline). The take-over still looks at the front first.
             val skipReason = when {
-                SystemClock.elapsedRealtime() >= BOOT_WINDOW_MS -> "outside boot window"
                 getSystemService<PowerManager>()?.isInteractive != true -> "screen off"
                 else -> null
             }
