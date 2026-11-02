@@ -189,6 +189,7 @@
     <string name="cc_update_scan">用手机扫码，看怎么升级（可以复制安装命令，或者发给 AI 助手）。</string>
     <string name="cc_update_scan_else">装不上？用手机扫码，看别的升级方法。</string>
     <string name="cc_update_install">下载并安装</string>
+    <string name="cc_update_waiting">正在等待系统安装…</string>
     <string name="cc_update_downloading">正在下载… %d%%</string>
     <string name="cc_update_opened">已打开安装程序，按提示确认更新（小米上是「继续更新」）。装好后按「完成」，会回到 Aerial，设置都保留。</string>
     <string name="cc_update_permission">请在刚打开的设置里允许 Aerial 安装应用，然后回来再点一次「下载并安装」。</string>
