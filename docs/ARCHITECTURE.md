@@ -26,7 +26,8 @@ app/src/main/java/app/orchard/tv/
 │   ├── home/HomeChrome.kt   背景（AmbientBackground）、大时钟、右上角状态胶囊、时间格式
 │   ├── home/Overlays.kt     长按菜单、隐藏的 App 面板、MenuRow、MiniTile
 │   ├── home/FolderView.kt   打开的文件夹
-│   ├── home/PinPad.kt       家长密码键盘（设置 / 解锁，遥控器数字键或屏幕键盘）
+│   ├── home/PinPad.kt       家长密码键盘（设置 / 解锁 / 只核对，遥控器数字键或屏幕键盘）
+│   ├── home/KidsMode.kt     儿童与长辈模式的设置面板（KidsSetupSheet）和锁屏（KidsLockScreen）
 │   ├── home/Screensaver.kt  屏保 UI：航拍（Media3 ExoPlayer，见 wallpaper/AerialStream.kt）/ 照片（Ken Burns）/ 时钟
 │   ├── control/ControlCenter.kt  控制中心：按钮、音量/亮度滑块、「个性化」入口、有新版本时的提示和升级说明页、底部版本号；信号源页（只负责切换）和信号源设置页（显示在主屏幕、开机时打开）
 │   └── wallpaper/WallpaperSheet.kt  个性化面板（壁纸、屏保和开始时间、焦点样式、家长密码、天气）+ 手机扫码卡片
@@ -37,6 +38,7 @@ app/src/main/java/app/orchard/tv/
 │   ├── Aerials.kt           读取 assets/aerials.json（Apple 航拍目录）；AerialFormats：这台电视能播哪档画质
 │   └── PhoneServer.kt       NanoHTTPD 手机配置页 + 二维码生成
 ├── settings/
+│   ├── Restricted.kt        儿童与长辈模式（Kids and Elders，SharedPreferences "restricted"）：给谁用、显示的 App、其他 App 拦不拦、时间规则 `KidsTime`、今天的用量（见「儿童与长辈模式」）
 │   └── AerialSettings.kt    Aerial 自己的偏好（SharedPreferences "settings"）：焦点样式 FocusStyle（默认高对比度）、固定到主屏幕的信号源、开机信号源、屏保开始时间、家长密码（SHA-256，解锁 10 分钟或按 HOME 重新上锁）
 ├── update/
 │   └── Updates.kt           每 3 小时读一次官网 download/version.txt，有新版时控制中心提示；点「下载并安装」才下载 APK 并交给系统安装器（见「升级」）
@@ -49,12 +51,13 @@ app/src/main/java/app/orchard/tv/
 │   ├── DeviceProfile.kt     按机型的修正（数据在 assets/devices.json），这台电视自己的修正可以覆盖它
 │   └── Diagnostics.kt       给 GitHub issue 用的诊断报告（手机页「反馈问题」、`dumpsys activity …MainActivity report`、tools/report.sh）
 ├── guard/
-│   ├── HomeGuardService.kt  无障碍「桌面守护」：原桌面出现就切回、从磁贴进原桌面时临时拦 HOME、亮屏检查、ADB 保持
+│   ├── HomeGuardService.kt  无障碍「桌面守护」：原桌面出现就切回、从磁贴进原桌面时临时拦 HOME、亮屏检查、ADB 保持；儿童模式下把其他 App 拉回桌面、在别的 App 上面显示提醒
+│   ├── KidsWatch.kt         儿童模式的计时：统计用量、开始休息、锁定前 5 / 1 分钟提醒、锁定后把 Aerial 拉回前台
 │   ├── GuardSetup.kt        用 WRITE_SECURE_SETTINGS 重新开启守护 / 保持 ADB / 「已启用未绑定」时强制重绑
 │   ├── RevivalListener.kt   通知监听服务：被强杀后由系统重绑，借此复活并重开守护；10 分钟内复活 3 次以上时，看不到前台就不再抢 HOME（乐视 #63）
 │   ├── RevivalSync.kt       同步适配器（挂在 settings 上，带一个自己的账号）：系统不许通知监听的低内存 Android 9（小米 MFTP0，#72）上，强停后约 30–60 秒由同步框架拉起 Aerial 并重开守护；守护在运行时什么都不做
 │   ├── BootReceiver.kt      真正重启后的兜底
-│   └── ConfigReceiver.kt    ADB 专用配置入口（keep_adb、own_screensaver、clear_pin、export_tiles、check_update、update_test、update_test_self、self_compile、device_profile、list_sources、open_source），要求发送方持有 WRITE_SECURE_SETTINGS；被厂商的启动管理停用时（海信 V3K_PRO，广播返回 `result=0` 却没生效），`GuardSetup.ensureEnabled` 把它和 BootReceiver 一起恢复（PR #1112）
+│   └── ConfigReceiver.kt    ADB 专用配置入口（keep_adb、own_screensaver、clear_pin、kids_off、kids_used_minutes、kids_continuous_minutes、export_tiles、check_update、update_test、update_test_self、self_compile、device_profile、list_sources、open_source），要求发送方持有 WRITE_SECURE_SETTINGS；被厂商的启动管理停用时（海信 V3K_PRO，广播返回 `result=0` 却没生效），`GuardSetup.ensureEnabled` 把它和 BootReceiver 一起恢复（PR #1112）
 └── dream/AerialDream.kt    系统级屏保（DreamService + Compose）
 
 app/src/main/assets/aerials.json   Apple 航拍目录（114 条：地址 + 中英文地名 + 时间点说明）
@@ -147,6 +150,18 @@ Logo 的大小统一：先在 256×256 的采样里找出 Logo 的范围，再�
 控制中心的「个性化」打开 `WallpaperSheet`，按「看得到的效果」从上到下分组：壁纸（一行缩略图：航拍、每日一图、我的照片（两张以上时加「每天换」）、6 张内置图 `Wallpapers.FEATURED_BUILTINS`、跟随 App；以前的每日图和其余内置图只在被选中时出现；行下面一条说明跟着聚焦的卡片变）、主屏幕（三张卡片：布局/第二排/底板/App 名称/隐藏的 App；时钟位置和大小；焦点样式和按键声音）、屏幕保护程序（类型和立即开始、开始时间）、天气（只读）、家长密码。除壁纸外都是 tvOS 设置那样的分组卡片，一行一个设置，左边名称、右边选项；每组下面一条说明，跟着组里聚焦的那一行变（`Group` / `SettingRow`），说明区固定两行高，焦点移动时面板不跳。天气的城市在手机页设置。右边是手机扫码卡片。焦点移到最后一行「家长密码」时，面板滚到底，让它下面的说明也露出来。
 
 「隐藏的 App」从控制中心挪到了这里：点开是原来的 `HiddenAppsSheet`，返回回到个性化；设了家长密码时先输密码。
+
+## 儿童与长辈模式（settings/Restricted.kt，issue #133 #604 #159 #863 #718 #1013）
+
+一个只显示选好的 App、不能整理的桌面，两种用法：「儿童」可以限制时间、拦住其他 App；「长辈」磁贴更大、一直显示名称、焦点固定白框，默认不拦其他 App。都在个性化最后一行「儿童与长辈模式」里设置，要先有家长密码（没有就先设一个，因为退出要用它）。
+
+- **进入、退出**：设置面板里按「进入儿童模式」。控制中心只剩时间、音量、亮度、今天还剩多少时间和「退出儿童模式」（要密码，`PinMode.Verify` 只核对，不像 `Unlock` 那样解锁 10 分钟）。退出只是暂停（`Restricted.suspended`，不存盘）：Aerial 的屏保开始、屏幕关闭（`KidsWatch` 收 SCREEN_OFF）或进程重启时自动回到模式，免得家长忘了切回去。暂停时控制中心多一行「回到儿童模式」，不用密码。设置面板里的「关闭这个模式」才是真的关掉。关闭家长密码时模式一起关掉；忘了密码时 `ConfigReceiver --ez clear_pin true` 也一起关掉，`--ez kids_off true` 只关模式。
+- **桌面**：模式有自己的列表 `Restricted.allowed`（按选择的顺序），不碰户主的排序、文件夹和隐藏（`LayoutStore`）。可选的是首页的 App（文件夹里的按位置展开）、隐藏的 App 和所有信号源（`HomeViewModel.kidsCandidates`，只在模式开着或设置面板打开时才算）。模式里固定每排 4 个（`Restricted.COLUMNS`，`AerialSettings.homeColumns` 的取值），长辈模式加上全部名称和高对比度焦点（`showAllNames`、`focusStyle` 的取值；户主自己的选择不变）。长按和菜单键不出菜单；信号源键不开控制中心的信号源页（TCL 自己的信号源面板照样出来）；`MainActivity.launch` 和开机打开的 App 都只认模式里的。新装的 App 不会自动加进来。
+- **拦住其他 App**（`KidsWatch.keepsAway`，守护的 `onAccessibilityEvent`）：模式开着、选了「拦住」时，不在列表里的 App（有启动入口的包）、电视设置、信号源的播放器一出来就 `goHome`，首页顶上说「某某不在这个模式里」。输入法、对话框、权限弹窗这类没有启动入口的包不拦；原桌面的 home activity 和创维切信号源时经过的 `SOURCE_SWITCHERS` 交给守护原来的逻辑。允许的包（信号源按它的播放器）由 `HomeViewModel.noteKidsPackages` 存进 `Restricted.allowedPackages`，守护先于首页启动时也有。没有守护时，能读用量统计的话每 2 秒看一次前台（`KidsWatch.keepAwayByUsage`）；都没有就只能限制桌面，设置面板会说明。**局限**：同一台电视的信号源共用一个播放器（TCL `com.tcl.tv`、小米 `tvplayer`），允许了一个信号源，用遥控器的信号源键就能切到别的信号源；当前是哪个信号源读不准（TCL MT5879 的 `global tvInputId` 在无信号的 HDMI 3 上是空的），设置面板选了信号源时会提示。App 里面的内容（短视频）管不到。
+- **时间**（`KidsTime`，纯函数，`KidsTimeTest`）：工作日 / 周末每天的分钟数，可以看的时段（`startMinute`–`endMinute`，精确到分钟，默认从 6:00 开始），每看多少分钟休息多少分钟（默认 5 分钟）。电视的设置面板只给几个常用值；手机页可以设任意值，不在常用值里的会作为一个额外的已选中选项显示在电视上（`withCustom`）。`RestrictedRules.valid` 检查范围（分钟数 0–1440，结束晚于开始，休息 1–120 分钟），不合法的整组不保存。只算亮屏、而且前台不是 Aerial 首页、屏保或 Aerial 的系统屏保的时间（`KidsWatch` 每 10 秒记一次，两次之间超过 20 秒当作待机不算）；连续 5 分钟没在看就算休息过。用量按本地日期存在 "restricted" 里，重启不清零，第二天清零。家长在锁屏或手机页「再看 N 分钟 / 今天不限」写 `allowUntil`：这段时间里什么都不锁，休息也重新计。时间规则一改（电视或手机上），`allowUntil` 清零，新规则马上生效：小米 MFTR0 上一段到 21:00 的额外时间曾让 19:20 设的「到 17:00」不起作用。
+- **提醒和锁定**：锁定前 5 分钟和 1 分钟提醒一次（`KidsWatch.warnIfDue`）：首页在前台时用首页的提示条，在别的 App 里时由守护画一个无障碍浮层（`TYPE_ACCESSIBILITY_OVERLAY`，不用另外申请悬浮窗权限，8 秒后消失；`HomeGuardService.showBanner`），没有守护时用 Toast。锁定时 `KidsWatch` 把 Aerial 拉回前台（守护的 `goHome`，没有守护时直接 `startActivity`），首页盖上 `KidsLockScreen`（原因、休息的倒计时、「家长」按钮），锁着时任何 App 都会被拉回来。没做「锁屏一段时间后待机」：各家电视没有通用的待机接口。
+- **手机页**：模式开着时，手机页的一切修改都要家长密码（请求头 `X-Aerial-Pin`，`PhoneServer.serve` 开头统一检查），否则返回 `kidsLocked`；`api/kids/unlock` 核对密码，连错 5 次停 1 分钟。模式开着时主屏幕标签最上面一张卡片（没开时放在「更多」标签里，不打扰不用这个功能的人）：今天看了多久、还剩多少；输入密码后可以「再看 15/30/60 分钟」「今天不限」「退出儿童模式」（`api/kids/allow|leave`）；暂停时「现在回到这个模式」（`api/kids/start`，不要密码）。输入密码后还有「设置」：手机上的完整设置（给谁用、开关、拦不拦、任意分钟数、时段、休息间隔和时长、显示哪些 App 和顺序），一次提交到 `api/kids/config`（`allowed` 每行一个 key），全部合法才保存；在手机上开启时模式马上生效。`api/state` 的 `kids` 里有完整配置和可选的 App（`AppCatalog.kidsCandidates`，设了家长密码就会准备）。只在同一个局域网里，没有远程审批（不用第三方服务器）。
+- **测试**：`ConfigReceiver --ei kids_used_minutes 27` 把今天的用量设成 27 分钟，`--ei kids_continuous_minutes 28` 设连续观看时间，用来不等待地测提醒和锁定。`dumpsys activity …MainActivity` 打印 `Kids mode …` 一行。
 
 ## 按键声音
 

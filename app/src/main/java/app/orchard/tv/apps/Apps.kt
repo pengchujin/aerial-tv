@@ -209,6 +209,8 @@ object AppCatalog {
     @Volatile var home: List<AppEntry> = emptyList()
     @Volatile var folderApps: Map<String, List<AppEntry>> = emptyMap()
     @Volatile var hiddenApps: List<AppEntry> = emptyList()
+    /** What Kids and Elders mode can show (HomeViewModel.kidsCandidates), for the phone page. */
+    @Volatile var kidsCandidates: List<AppEntry> = emptyList()
 
     /** Arranges Home from the phone page, on the main thread; set while Home is alive. */
     @Volatile var layout: LayoutOps? = null

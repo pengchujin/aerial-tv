@@ -62,7 +62,10 @@ object AerialSettings {
     private var started = false
     private lateinit var app: Context
 
-    var focusStyle by mutableStateOf(FocusStyle.HighContrast); private set
+    private var chosenFocusStyle by mutableStateOf(FocusStyle.HighContrast)
+
+    /** The style chosen; always the white frame in Elders mode (Restricted), where it is easiest to see (#969). */
+    val focusStyle: FocusStyle get() = if (Restricted.active && Restricted.kind == RestrictedKind.Elders) FocusStyle.HighContrast else chosenFocusStyle
 
 
     /** TV inputs pinned to Home as tiles, by TvInputInfo id. */
@@ -90,7 +93,10 @@ object AerialSettings {
      * Apps a row on Home: [HOME_COLUMNS], five by default as Aerial always had, six as tvOS 26 lays
      * them out, four for bigger tiles from the sofa. Folders follow it.
      */
-    var homeColumns by mutableIntStateOf(DEFAULT_HOME_COLUMNS); private set
+    private var chosenColumns by mutableIntStateOf(DEFAULT_HOME_COLUMNS)
+
+    /** The number chosen; [Restricted.COLUMNS] in Kids and Elders mode, for bigger tiles from the sofa. */
+    val homeColumns: Int get() = if (Restricted.active) Restricted.COLUMNS else chosenColumns
 
     /**
      * Home shows only its first this many tiles, for trying a nearly empty Home on a TV that has
@@ -131,7 +137,10 @@ object AerialSettings {
     var screensaverClock by mutableStateOf(true); private set
 
     /** Every app's name under its tile, not only the focused one's (issue #28), the top row's on the glass plate too. */
-    var showAllNames by mutableStateOf(false); private set
+    private var chosenAllNames by mutableStateOf(false)
+
+    /** As chosen; always every name in Elders mode (Restricted). */
+    val showAllNames: Boolean get() = chosenAllNames || (Restricted.active && Restricted.kind == RestrictedKind.Elders)
 
     /** Back on Home's top row starts the screensaver, as on tvOS; off for homes where it gets pressed by accident (issue #94). */
     var backStartsScreensaver by mutableStateOf(true); private set
@@ -183,7 +192,7 @@ object AerialSettings {
         started = true
         app = context.applicationContext
         val prefs = app.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        focusStyle = FocusStyle.of(prefs.getString("focus_style", null))
+        chosenFocusStyle = FocusStyle.of(prefs.getString("focus_style", null))
         pinnedSources = prefs.getStringSet("pinned_sources", null)?.toSet() ?: emptySet()
         bootSource = prefs.getString("boot_source", null)
         bootApp = prefs.getString("boot_app", null)
@@ -192,11 +201,11 @@ object AerialSettings {
         pinArrows = prefs.getBoolean("pin_arrows", false)
         oneRowHome = prefs.getBoolean("one_row_home", true)
         peekNextRow = prefs.getBoolean("peek_next_row", true)
-        homeColumns = prefs.getInt("home_columns", DEFAULT_HOME_COLUMNS).takeIf { it in HOME_COLUMNS } ?: DEFAULT_HOME_COLUMNS
+        chosenColumns = prefs.getInt("home_columns", DEFAULT_HOME_COLUMNS).takeIf { it in HOME_COLUMNS } ?: DEFAULT_HOME_COLUMNS
         clockRight = prefs.getBoolean("clock_right", false)
         largeClock = prefs.getBoolean("large_clock", false)
         homePlate = prefs.getBoolean("home_plate", true)
-        showAllNames = prefs.getBoolean("show_all_names", false)
+        chosenAllNames = prefs.getBoolean("show_all_names", false)
         wallpaperAlwaysMoves = prefs.getBoolean("wallpaper_always_moves", false)
         showWeather = prefs.getBoolean("show_weather", true)
         screensaverClock = prefs.getBoolean("screensaver_clock", true)
@@ -238,6 +247,9 @@ object AerialSettings {
 
     fun relock() { unlockedUntil = 0L }
 
+    /** Whether [pin] is the PIN, without unlocking anything: for leaving Kids mode and its time limits. */
+    fun pinMatches(pin: String): Boolean = pinHash != null && hash(pin) == pinHash
+
     /** Sets the PIN, digits or [arrows] (U, D, L, R), or turns it off with null. */
     fun choosePin(pin: String?, arrows: Boolean = false) {
         pinHash = pin?.let(::hash)
@@ -259,7 +271,7 @@ object AerialSettings {
 
     fun chooseHomeColumns(columns: Int) {
         if (columns !in HOME_COLUMNS) return
-        homeColumns = columns
+        chosenColumns = columns
         app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit { putInt("home_columns", columns) }
     }
 
@@ -289,7 +301,7 @@ object AerialSettings {
     }
 
     fun chooseShowAllNames(on: Boolean) {
-        showAllNames = on
+        chosenAllNames = on
         app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit { putBoolean("show_all_names", on) }
     }
 
@@ -336,7 +348,7 @@ object AerialSettings {
     }
 
     fun chooseFocusStyle(style: FocusStyle) {
-        focusStyle = style
+        chosenFocusStyle = style
         app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit { putString("focus_style", style.key) }
     }
 

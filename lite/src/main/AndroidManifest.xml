@@ -8,6 +8,8 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- Kids mode: the app in front, up to Android 4.4 (Kids.keepAway); 5.0 answers only for Lite itself. -->
+    <uses-permission android:name="android.permission.GET_TASKS" android:maxSdkVersion="20" />
     <!-- The status pill's and Control Center's Wi-Fi level and name. -->
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <!-- Control Center's brightness: granted at install before Android 6.0, as on every 4.x TV. -->

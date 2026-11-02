@@ -55,6 +55,8 @@ class PhoneServer private constructor(private val context: Context, private val 
         fun wallpaperChanged(rebake: Boolean)
         fun settingsChanged()
         fun weatherChanged()
+        /** Every app Kids mode can show, in Home's order. */
+        fun kidsCandidates(): List<AppEntry>
     }
 
     override fun serve(session: IHTTPSession): Response {
@@ -64,8 +66,31 @@ class PhoneServer private constructor(private val context: Context, private val 
         val path = uri.removePrefix(prefix).ifEmpty { "/" }
         val post = session.method == Method.POST
         return runCatching {
+            // Kids and Elders mode: nothing changes from here without the parental PIN, as in the full app.
+            if (post && path != "/api/kids/unlock" && path != "/api/kids/start" && (onMain { Kids.active } || path.startsWith("/api/kids/")) &&
+                !pinOk(session.headers["x-aerial-pin"])
+            ) return json(state().put("saved", false).put("kidsLocked", true))
             when {
                 path == "/" -> newFixedLengthResponse(Response.Status.OK, "text/html; charset=utf-8", page())
+                post && path == "/api/kids/unlock" -> {
+                    val ok = pinOk(form(session)["pin"])
+                    json(state().put("saved", ok).put("pinRight", ok))
+                }
+                post && path == "/api/kids/allow" -> {
+                    val minutes = form(session)["minutes"]?.toIntOrNull()
+                    onMain { Kids.allow(minutes?.takeIf { it > 0 }) }
+                    json(state().put("saved", true))
+                }
+                post && path == "/api/kids/config" -> kidsConfig(form(session))
+                post && path == "/api/kids/leave" -> {
+                    onMain { Kids.suspend() }
+                    json(state().put("saved", true))
+                }
+                post && path == "/api/kids/start" -> {
+                    val can = onMain { Kids.enabled && Kids.allowed.isNotEmpty() }
+                    if (can) onMain { Kids.start() }
+                    json(state().put("saved", can))
+                }
                 path == "/api/state" -> json(state())
                 path == "/api/diagnostics" -> text(Response.Status.OK, diagnostics())
                 path.startsWith("/thumb/") -> thumb(java.net.URLDecoder.decode(path.removePrefix("/thumb/"), "UTF-8"))
@@ -188,6 +213,7 @@ class PhoneServer private constructor(private val context: Context, private val 
             })
             .put("videoRoom", ScreensaverVideos.room(context))
             .put("focusStyle", LiteSettings.focusStyle.key)
+            .put("kids", onMain { kidsState() })
             .put("showWeather", LiteSettings.showWeather)
             .put("screensaverClock", LiteSettings.screensaverClock)
             .put("wallpapers", list)
@@ -359,6 +385,72 @@ class PhoneServer private constructor(private val context: Context, private val 
     private fun form(session: IHTTPSession): Map<String, String> {
         session.parseBody(HashMap())
         return session.parameters.mapValues { it.value.firstOrNull().orEmpty() }
+    }
+
+    /** As the full app: five wrong PINs in a row and none is taken for a minute. */
+    private fun pinOk(pin: String?): Boolean {
+        val now = android.os.SystemClock.elapsedRealtime()
+        if (pin.isNullOrEmpty() || now < pinRestUntil) return false
+        if (LiteSettings.pinMatches(pin)) { pinMisses = 0; return true }
+        if (++pinMisses >= 5) { pinMisses = 0; pinRestUntil = now + 60_000L }
+        return false
+    }
+    @Volatile private var pinMisses = 0
+    @Volatile private var pinRestUntil = 0L
+
+    private fun kidsState(): JSONObject {
+        val now = System.currentTimeMillis()
+        return JSONObject()
+            .put("enabled", Kids.enabled)
+            .put("active", Kids.active)
+            .put("kind", Kids.kind.key)
+            .put("pinSet", LiteSettings.pinSet)
+            .put("pinArrows", LiteSettings.pinArrows)
+            .put("usedMin", Kids.usage.usedMs / 60_000L)
+            .put("limitMin", Kids.limitToday(now))
+            .put("allowUntil", Kids.usage.allowUntil.takeIf { it > now } ?: 0L)
+            .put("lock", when (Kids.lock) { is KidsLock.Break -> "break"; KidsLock.DayUsed -> "day"; KidsLock.Late -> "late"; null -> "" })
+            .put("startMinute", Kids.rules.startMinute)
+            .put("endMinute", Kids.rules.endMinute)
+            // The whole setup, for the page's editor, as in the full app.
+            .put("blockOthers", Kids.blockOthers)
+            .put("guard", false)
+            .put("weekdayMinutes", Kids.rules.weekdayMinutes)
+            .put("weekendMinutes", Kids.rules.weekendMinutes)
+            .put("breakEvery", Kids.rules.breakEvery)
+            .put("breakMinutes", Kids.rules.breakMinutes)
+            .put("allowed", JSONArray(Kids.allowed))
+            .put("candidates", JSONArray().apply {
+                ops.kidsCandidates().forEach { put(JSONObject().put("key", it.key).put("label", it.label).put("source", false)) }
+            })
+    }
+
+    /** The full app's PhoneServer.kidsConfig: the mode set up from the phone, all of it valid or nothing. */
+    private fun kidsConfig(f: Map<String, String>): Response {
+        fun int(key: String, default: Int) = f[key]?.trim()?.toIntOrNull() ?: default
+        val ok = onMain {
+            val current = Kids.rules
+            val rules = KidsRules(
+                int("weekday", current.weekdayMinutes), int("weekend", current.weekendMinutes),
+                int("start", current.startMinute), int("end", current.endMinute),
+                int("breakEvery", current.breakEvery), int("breakMinutes", current.breakMinutes),
+            )
+            val known = ops.kidsCandidates().mapTo(HashSet()) { it.key }
+            val allowed = f["allowed"]?.split('\n')?.map { it.trim() }?.filter { it in known }?.distinct() ?: Kids.allowed
+            val on = f["enabled"]?.let { it == "1" } ?: Kids.enabled
+            if (!rules.valid || (on && allowed.isEmpty())) return@onMain false
+            f["kind"]?.let { Kids.chooseKind(KidsKind.of(it)) }
+            f["block"]?.let { Kids.chooseBlockOthers(it == "1") }
+            Kids.chooseRules(rules)
+            Kids.chooseAllowed(allowed)
+            if (on != Kids.enabled) {
+                Kids.chooseEnabled(on)
+                if (on) Kids.start()
+            }
+            Kids.changedElsewhere()
+            true
+        }
+        return json(state().put("saved", ok))
     }
 
     private fun json(o: JSONObject) = newFixedLengthResponse(Response.Status.OK, "application/json; charset=utf-8", o.toString())

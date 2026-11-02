@@ -428,7 +428,7 @@ fun HiddenAppsSheet(
  * .notify): glass, like the menus, falling in from the top edge.
  */
 @Composable
-fun NoticeBanner(text: String?, modifier: Modifier = Modifier) {
+fun NoticeBanner(text: String?, modifier: Modifier = Modifier, glyph: Glyph = Glyph.Power) {
     val shown = rememberLatest(text) ?: return
     AnimatedVisibility(
         visible = text != null,
@@ -444,7 +444,7 @@ fun NoticeBanner(text: String?, modifier: Modifier = Modifier) {
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            GlyphIcon(Glyph.Power, Palette.Label, 16.dp)
+            GlyphIcon(glyph, Palette.Label, 16.dp)
             BasicText(shown, style = Type.Callout.copy(color = Palette.Label), maxLines = 2, overflow = TextOverflow.Ellipsis)
         }
     }

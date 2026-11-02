@@ -41,13 +41,19 @@ object LiteSettings {
     private const val PREFS = "settings"
     private lateinit var prefs: SharedPreferences
 
-    var focusStyle = FocusStyle.HighContrast; private set
+    private var chosenFocusStyle = FocusStyle.HighContrast
+    /** As chosen; always the white frame in Elders mode (Kids), as in the full app. */
+    val focusStyle: FocusStyle get() = if (Kids.active && Kids.kind == KidsKind.Elders) FocusStyle.HighContrast else chosenFocusStyle
     var oneRowHome = true; private set
     var peekNextRow = true; private set
     /** Apps a row on Home and in folders, as the full app's: four, five or six. */
-    var homeColumns = 5; private set
+    private var chosenColumns = 5
+    /** As chosen; [Kids.COLUMNS] in Kids and Elders mode. */
+    val homeColumns: Int get() = if (Kids.active) Kids.COLUMNS else chosenColumns
     var homePlate = true; private set
-    var showAllNames = false; private set
+    private var chosenAllNames = false
+    /** As chosen; every name in Elders mode. */
+    val showAllNames: Boolean get() = chosenAllNames || (Kids.active && Kids.kind == KidsKind.Elders)
     var clockRight = false; private set
     var largeClock = false; private set
     var showWeather = true; private set
@@ -72,12 +78,12 @@ object LiteSettings {
     fun init(context: Context) {
         if (::prefs.isInitialized) return
         prefs = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        focusStyle = FocusStyle.of(prefs.getString("focus_style", null))
+        chosenFocusStyle = FocusStyle.of(prefs.getString("focus_style", null))
         oneRowHome = prefs.getBoolean("one_row_home", true)
         peekNextRow = prefs.getBoolean("peek_next_row", true)
-        homeColumns = prefs.getInt("home_columns", 5).takeIf { it in HOME_COLUMNS } ?: 5
+        chosenColumns = prefs.getInt("home_columns", 5).takeIf { it in HOME_COLUMNS } ?: 5
         homePlate = prefs.getBoolean("home_plate", true)
-        showAllNames = prefs.getBoolean("show_all_names", false)
+        chosenAllNames = prefs.getBoolean("show_all_names", false)
         clockRight = prefs.getBoolean("clock_right", false)
         largeClock = prefs.getBoolean("large_clock", false)
         showWeather = prefs.getBoolean("show_weather", true)
@@ -97,12 +103,12 @@ object LiteSettings {
 
     private fun put(block: SharedPreferences.Editor.() -> Unit) = prefs.edit(action = block)
 
-    fun chooseFocusStyle(v: FocusStyle) { focusStyle = v; put { putString("focus_style", v.key) } }
+    fun chooseFocusStyle(v: FocusStyle) { chosenFocusStyle = v; put { putString("focus_style", v.key) } }
     fun chooseOneRowHome(v: Boolean) { oneRowHome = v; put { putBoolean("one_row_home", v) } }
-    fun chooseHomeColumns(v: Int) { if (v in HOME_COLUMNS) { homeColumns = v; put { putInt("home_columns", v) } } }
+    fun chooseHomeColumns(v: Int) { if (v in HOME_COLUMNS) { chosenColumns = v; put { putInt("home_columns", v) } } }
     fun choosePeekNextRow(v: Boolean) { peekNextRow = v; put { putBoolean("peek_next_row", v) } }
     fun chooseHomePlate(v: Boolean) { homePlate = v; put { putBoolean("home_plate", v) } }
-    fun chooseShowAllNames(v: Boolean) { showAllNames = v; put { putBoolean("show_all_names", v) } }
+    fun chooseShowAllNames(v: Boolean) { chosenAllNames = v; put { putBoolean("show_all_names", v) } }
     fun chooseClockRight(v: Boolean) { clockRight = v; put { putBoolean("clock_right", v) } }
     fun chooseLargeClock(v: Boolean) { largeClock = v; put { putBoolean("large_clock", v) } }
     fun chooseShowWeather(v: Boolean) { showWeather = v; put { putBoolean("show_weather", v) } }
@@ -127,6 +133,9 @@ object LiteSettings {
     }
 
     fun relock() { unlockedUntil = 0L }
+
+    /** Whether [pin] is the PIN, without unlocking anything: for Kids mode, as in the full app. */
+    fun pinMatches(pin: String): Boolean = pinHash != null && hash(pin) == pinHash
 
     /** Sets the PIN, digits or [arrows] (U, D, L, R), or turns it off with null. */
     fun choosePin(pin: String?, arrows: Boolean = false) {

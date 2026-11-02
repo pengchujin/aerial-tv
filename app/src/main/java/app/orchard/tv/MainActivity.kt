@@ -69,6 +69,9 @@ import app.orchard.tv.ui.theme.FontWarmup
 import app.orchard.tv.ui.theme.canvasDensity
 import app.orchard.tv.ui.components.UhdCanvas
 import app.orchard.tv.settings.AerialSettings
+import app.orchard.tv.settings.Restricted
+import app.orchard.tv.guard.KidsWatch
+import app.orchard.tv.apps.SOURCE_KEY_PREFIX
 import app.orchard.tv.wallpaper.PhoneServer
 import app.orchard.tv.wallpaper.Wallpapers
 import app.orchard.tv.system.BootOpen
@@ -228,6 +231,8 @@ class MainActivity : ComponentActivity() {
         SourceLooks.init(this)
         AppNames.init(this)
         AerialSettings.init(this)
+        Restricted.init(this)
+        KidsWatch.start(this)
         // After the settings: the artwork's size follows the number of apps a row.
         TileArtFactory.useCanvasDensity(canvasDensity(resources.displayMetrics) * uhd)
         Sounds.init(this)
@@ -386,6 +391,11 @@ class MainActivity : ComponentActivity() {
         val id = AerialSettings.bootSource
         val pkg = AerialSettings.bootApp
         if (id == null && pkg == null) return
+        // In Kids and Elders mode only what the mode shows.
+        if (Restricted.active && (pkg ?: (SOURCE_KEY_PREFIX + id)) !in Restricted.allowed) {
+            DiagLog.i("$reason: ${id ?: pkg} is not in Kids mode; not opening it")
+            return
+        }
         if (!again && SystemClock.elapsedRealtime() - bootSourceOpenedAt < 15_000) return
         if (!again && !BootOpen.due(this)) {
             DiagLog.i("$reason: already opened ${id ?: pkg} since the TV came on")
@@ -520,6 +530,7 @@ class MainActivity : ComponentActivity() {
             writer.print(Diagnostics.report(this))
         } else {
             writer.println(HomeGuardService.diagnosticState())
+            writer.println(KidsWatch.diagnosticState())
             DiagLog.dump(writer)
         }
     }
@@ -550,6 +561,8 @@ class MainActivity : ComponentActivity() {
      */
     private fun startScreensaver(asked: Boolean) {
         AerialSettings.relock()
+        // A parent who left Kids mode has walked away.
+        Restricted.rearm()
         if (Wallpapers.screensaver == ScreensaverMode.System) {
             if (asked && !SystemScreensaver.startFirmware(this)) DiagLog.i("no system screensaver to start")
             return
@@ -851,6 +864,7 @@ class MainActivity : ComponentActivity() {
     /** What onResume does once the user is unlocked; also run by a start that was locked before. */
     private fun resumeWork() {
         vm.resumed = true
+        KidsWatch.homeInFront = true
         idleHandler.removeCallbacks(endHomeBounce)
         vm.homeBounce = false
         DiagLog.i("onResume; screensaver after ${idleBeforeScreensaver() / 1000} s")
@@ -891,6 +905,7 @@ class MainActivity : ComponentActivity() {
         super.onPause()
         if (locked) return
         vm.resumed = false
+        KidsWatch.homeInFront = false
         Updates.onHomePaused()
         DiagLog.i("onPause")
         leftForAnApp = openedAppSinceHome
@@ -928,6 +943,11 @@ class MainActivity : ComponentActivity() {
 
     /** Opens an app, growing it out of its tile. */
     private fun launch(app: AppEntry, bounds: Rect?) {
+        // Kids and Elders mode shows only its own tiles, and none while locked; this is the last word.
+        if (Restricted.active && (app.key !in Restricted.allowed || Restricted.lock != null)) {
+            DiagLog.i("kids: ${app.key} not opened")
+            return
+        }
         // The TV's settings app behind the parental PIN as well, not only Control Center's button.
         if (AerialSettings.locked && SystemProbe.isSettingsApp(this, app.packageName)) {
             vm.whenUnlocked { launch(app, bounds) }

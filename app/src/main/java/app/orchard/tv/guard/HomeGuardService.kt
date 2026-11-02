@@ -586,6 +586,7 @@ class HomeGuardService : AccessibilityService() {
 
     override fun onServiceConnected() {
         instance = this
+        KidsWatch.start(this)
         checkMouseWithFilter(this)
         BootOpen.noteStartedInStandby(this)
         watchUiBoost()
@@ -839,6 +840,8 @@ class HomeGuardService : AccessibilityService() {
 
     override fun onDestroy() {
         handler.removeCallbacks(refreshHomesAfterPackageChange)
+        handler.removeCallbacks(removeBanner)
+        removeBanner.run()
         runCatching { unregisterReceiver(packageChanges) }
         runCatching { unregisterReceiver(screenOn) }
         runCatching { unregisterReceiver(homeKey) }
@@ -1311,6 +1314,14 @@ class HomeGuardService : AccessibilityService() {
             }
         }
         if (!GuardSetup.isUserUnlocked(this)) return
+        // Kids and Elders mode: an app not chosen for it (or any, once locked) goes straight back
+        // to Home. The stock launcher's home activity and input switches are left to the rest below.
+        if (isActivity(pkg, cls) && pkg !in SOURCE_SWITCHERS && stockHomes[pkg]?.contains(cls) != true && KidsWatch.keepsAway(this, pkg)) {
+            Log.i(TAG, "$pkg kept away by Kids mode; bringing Aerial back")
+            KidsWatch.noteKeptAway(this, pkg)
+            goHome()
+            return
+        }
         val allowed = SystemClock.uptimeMillis() < allowStockUntil
         if (pkg in stockHomes) {
             // Any of its screens, uncovered once the installer of an update from Control Center closed.
@@ -1357,6 +1368,43 @@ class HomeGuardService : AccessibilityService() {
         updateKeyFilter()
         // Leaving the stock launcher for a real app ends the visit: Home goes to Aerial again.
         if (allowed && pkg != packageName && isApp(pkg)) endStockVisit("$pkg in front")
+    }
+
+    private var bannerView: android.view.View? = null
+    private val removeBanner = Runnable {
+        bannerView?.let { v -> runCatching { getSystemService<android.view.WindowManager>()?.removeView(v) } }
+        bannerView = null
+    }
+
+    private fun banner(text: String) {
+        val wm = getSystemService<android.view.WindowManager>() ?: return
+        handler.removeCallbacks(removeBanner)
+        removeBanner.run()
+        // Sized on Aerial's 960 x 540 canvas, as Home's own notice.
+        val dp = resources.displayMetrics.widthPixels / 960f
+        val view = android.widget.TextView(this).apply {
+            this.text = text
+            setTextColor(android.graphics.Color.WHITE)
+            setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX, 17 * dp)
+            setPadding((22 * dp).toInt(), (12 * dp).toInt(), (22 * dp).toInt(), (12 * dp).toInt())
+            background = android.graphics.drawable.GradientDrawable().apply {
+                setColor(0xE61C1C1E.toInt())
+                cornerRadius = 22 * dp
+            }
+        }
+        @Suppress("InlinedApi")
+        val lp = android.view.WindowManager.LayoutParams(
+            android.view.WindowManager.LayoutParams.WRAP_CONTENT, android.view.WindowManager.LayoutParams.WRAP_CONTENT,
+            android.view.WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
+            android.view.WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or android.view.WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
+                android.view.WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+            android.graphics.PixelFormat.TRANSLUCENT,
+        ).apply {
+            gravity = android.view.Gravity.TOP or android.view.Gravity.CENTER_HORIZONTAL
+            y = (28 * dp).toInt()
+        }
+        runCatching { wm.addView(view, lp); bannerView = view }.onFailure { Log.w(TAG, "could not show a banner", it) }
+        handler.postDelayed(removeBanner, BANNER_MS)
     }
 
     private val activityCache = HashMap<Pair<String, String>, Boolean>()
@@ -1784,6 +1832,7 @@ class HomeGuardService : AccessibilityService() {
         private val NOT_LAUNCHERS = setOf("com.stv.appdaemon", "com.letv.lekids")
         /** TV services whose input switch shows the stock launcher on the way (Skyworth, #155). */
         private val SOURCE_SWITCHERS = setOf("com.tianci.tv")
+        private const val BANNER_MS = 8_000L
         private const val VENDOR_HOME_PREFIX = "android.intent.category.HOME."
         private const val VENDOR_HOME_SUFFIX = "_HOME"
 
@@ -1868,6 +1917,25 @@ class HomeGuardService : AccessibilityService() {
         private var instance: HomeGuardService? = null
 
         val isRunning: Boolean get() = instance != null
+
+        /** Brings Aerial's Home to the front as Home does; false while the guard is not running. */
+        fun bringAerialBack(): Boolean {
+            val s = instance ?: return false
+            s.handler.post { s.goHome() }
+            return true
+        }
+
+        /**
+         * A line at the top of the screen over whatever app is in front (Kids mode's warnings),
+         * drawn as the accessibility service's own overlay: no other permission is needed. False
+         * where it cannot be (no guard, Android 5.0).
+         */
+        fun showBanner(text: String): Boolean {
+            val s = instance ?: return false
+            if (Build.VERSION.SDK_INT < 22) return false
+            s.handler.post { s.banner(text) }
+            return true
+        }
 
         fun diagnosticState(): String {
             val s = instance ?: return "Home Guard bound=false resumed=$aerialResumed"

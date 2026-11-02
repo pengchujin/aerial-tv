@@ -146,6 +146,9 @@ class AerialDream : DreamService(), LifecycleOwner, SavedStateRegistryOwner {
         /** The dream on screen in this process, if any. Main thread only. */
         private var running: AerialDream? = null
 
+        /** Aerial's dream is on screen: Kids mode does not count it as watching. */
+        val showing: Boolean get() = running != null
+
         /**
          * Ends the dream for a Home press the guard took before the system saw it. The system never
          * got that press, so nothing else closed the dream: Home did nothing over it (TCL MT5879,

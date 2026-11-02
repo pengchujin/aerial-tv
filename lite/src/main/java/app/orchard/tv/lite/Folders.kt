@@ -150,13 +150,14 @@ class FolderView(
  * stores it; [Mode.Unlock] checks it. [done] runs once it is right.
  */
 class PinPad(context: Context, close: () -> Unit, private val mode: Mode, private val done: () -> Unit) : Sheet(context, close) {
-    enum class Mode { Unlock, Create }
+    /** [Verify] checks the PIN without unlocking the rest for a while (Kids mode). */
+    enum class Mode { Unlock, Verify, Create }
 
     private var entered = ""
     private var first: String? = null
     private var error: Int? = null
     /** Null while a new PIN's kind is still to be chosen. */
-    private var arrows: Boolean? = if (mode == Mode.Unlock) LiteSettings.pinArrows else null
+    private var arrows: Boolean? = if (mode != Mode.Create) LiteSettings.pinArrows else null
     private val col = LinearLayout(context).apply {
         orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_HORIZONTAL
         setPadding(Ui.pxi(36f), Ui.pxi(28f), Ui.pxi(36f), Ui.pxi(28f))
@@ -175,7 +176,7 @@ class PinPad(context: Context, close: () -> Unit, private val mode: Mode, privat
         col.removeAllViews()
         clearRows()
         val title = when {
-            mode == Mode.Unlock -> R.string.pin_enter
+            mode != Mode.Create -> R.string.pin_enter
             first == null -> R.string.pin_create
             else -> R.string.pin_confirm
         }
@@ -230,6 +231,7 @@ class PinPad(context: Context, close: () -> Unit, private val mode: Mode, privat
         entered = ""
         when (mode) {
             Mode.Unlock -> if (LiteSettings.unlock(pin)) { done(); return } else error = R.string.pin_wrong
+            Mode.Verify -> if (LiteSettings.pinMatches(pin)) { done(); return } else error = R.string.pin_wrong
             Mode.Create -> when (val earlier = first) {
                 null -> { first = pin; error = null }
                 pin -> { LiteSettings.choosePin(pin, arrows = arrows == true); done(); return }

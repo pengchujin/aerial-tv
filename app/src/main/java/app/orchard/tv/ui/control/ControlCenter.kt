@@ -91,6 +91,9 @@ import app.orchard.tv.Overlay
 import app.orchard.tv.R
 import app.orchard.tv.apps.SourceLooks
 import app.orchard.tv.settings.AerialSettings
+import app.orchard.tv.settings.Restricted
+import app.orchard.tv.settings.RestrictedKind
+import app.orchard.tv.ui.home.kidsTimeLine
 import app.orchard.tv.system.HomeStatus
 import app.orchard.tv.system.LaunchFallback
 import app.orchard.tv.system.NetKind
@@ -197,7 +200,7 @@ fun ControlCenter(
                     // Closing sets the page back to Main while the panel fades out; that page must
                     // not take focus from the tile Home has just put it back on.
                     when (p) {
-                        CcPage.Main -> MainPage(vm, now, visible, onOpen)
+                        CcPage.Main -> if (Restricted.active) KidsPage(vm, now, visible) else MainPage(vm, now, visible, onOpen)
                         CcPage.Inputs -> InputsPage(vm, visible, onOpen)
                         CcPage.InputSettings -> InputSettingsPage(vm, visible)
                         CcPage.Update -> UpdatePage(vm, visible)
@@ -206,6 +209,39 @@ fun ControlCenter(
                 }
             }
         }
+    }
+}
+
+/**
+ * Control Center in Kids and Elders mode (Restricted): the time, volume and brightness, the day's
+ * time left, and leaving the mode with the PIN. No inputs, network, settings or Personalize.
+ */
+@Composable
+private fun KidsPage(vm: HomeViewModel, now: LocalDateTime, takeFocus: Boolean) {
+    val first = remember { FocusRequester() }
+    LaunchedEffect(Unit) {
+        if (!takeFocus) return@LaunchedEffect
+        withFrameNanos { }
+        runCatching { first.requestFocus() }
+    }
+    Column {
+        BasicText(timeText(now), style = Type.SmallClock.copy(fontSize = Type.LargeTitle.fontSize * 1.05f))
+        BasicText(dateText(now), style = Type.Callout)
+        kidsTimeLine()?.let {
+            Spacer(Modifier.height(6.dp))
+            BasicText(it, style = Type.Callout.copy(color = Palette.SecondaryLabel))
+        }
+        Spacer(Modifier.height(12.dp))
+        VolumeRow(vm, first)
+        Spacer(Modifier.height(6.dp))
+        BrightnessRow(vm)
+        Spacer(Modifier.height(6.dp))
+        MenuRow(
+            Glyph.Shield,
+            stringResource(if (Restricted.kind == RestrictedKind.Kids) R.string.cc_kids_leave else R.string.cc_elders_leave),
+            focusRequester = first,
+            onClick = vm::leaveKidsMode,
+        )
     }
 }
 
@@ -299,6 +335,14 @@ private fun MainPage(vm: HomeViewModel, now: LocalDateTime, takeFocus: Boolean, 
         BrightnessRow(vm)
 
         Spacer(Modifier.height(6.dp))
+        // A parent left Kids and Elders mode: one press back into it, no PIN.
+        if (Restricted.enabled && Restricted.suspended) {
+            MenuRow(
+                Glyph.Kids,
+                stringResource(if (Restricted.kind == RestrictedKind.Kids) R.string.cc_kids_back else R.string.cc_elders_back),
+                onClick = { Restricted.start(); vm.overlay = Overlay.None },
+            )
+        }
         // How Home looks (wallpaper, screensaver, focus style, hidden apps, weather) lives in one place.
         MenuRow(
             Glyph.Photo,
