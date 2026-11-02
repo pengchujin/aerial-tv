@@ -14,6 +14,7 @@ import android.graphics.drawable.ColorDrawable
 import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkRequest
+import android.media.AudioManager
 import android.os.Build
 import android.net.NetworkCapabilities
 import android.net.Uri
@@ -468,8 +469,71 @@ class MainActivity : ComponentActivity() {
     private var draws = 0
     private var keysLogged = 0
 
-    /** The press whose leftover volume repeats were last dropped; see dispatchKeyEvent. */
+    /** The press whose leftover volume repeats were last dropped; see dropVolumeKey. */
     private var staleVolumeDown = Long.MIN_VALUE
+
+    /** The last volume press to go down here and when the last one came up; see dropVolumeKey. */
+    private var volumeDownHere = Long.MIN_VALUE
+    private var volumeUpHere = Long.MIN_VALUE
+
+    /** The press the firmware had already acted on when it got here; see dropVolumeKey. */
+    private var volumeMovedDown = Long.MIN_VALUE
+
+    /** The music stream's level and mute after the last key here came up. */
+    private var volumeAtLift: Pair<Int, Boolean>? = null
+
+    private fun volumeNow(): Pair<Int, Boolean>? = getSystemService<AudioManager>()?.let {
+        runCatching {
+            it.getStreamVolume(AudioManager.STREAM_MUSIC) to (Build.VERSION.SDK_INT >= 23 && it.isStreamMute(AudioManager.STREAM_MUSIC))
+        }.getOrNull()
+    }
+
+    /**
+     * Volume keys that reach Aerial's window are a volume step each (Android's own handling of a
+     * key no view takes), repeats included. Where the TV's firmware already acts on the key before
+     * it gets here, that is a second step, and a press whose lift never comes runs the volume to
+     * 0 or 100. Seen on Skyworth / Coocaa: 8R134_A7D and 8R145_P3DM (RTD2885N, Android 11),
+     * 8A002 (T963, Android 9), Coocaa C10 (Hi3751, Android 9), issues #937 #1058 #1091 #1113.
+     * Dropped here, none of which a TV whose volume keys never reach apps sees:
+     * - repeats of a press that is over: its key came up here or at the guard's filter, or a newer
+     *   volume press went down (C10 sent VOLUME_UP #47 here after its lift, and its VOLUME_DOWN
+     *   went on repeating with a lift between every three; A7D's repeats ran on while the guard
+     *   kept newer presses, see HomeGuardService.volumePressOver);
+     * - a press, repeats included, that had already moved the volume by the time it got here, as
+     *   the guard does for keys at its filter (HomeGuardService.takeVolumeKey). The level is the
+     *   one after the last key here came up, so Control Center's slider counts as no change.
+     * Not tested on any of these TVs; none at hand.
+     */
+    private fun dropVolumeKey(event: KeyEvent): Boolean {
+        val name = KeyEvent.keyCodeToString(event.keyCode)
+        if (event.action == KeyEvent.ACTION_UP) {
+            volumeUpHere = event.eventTime
+            volumeAtLift = volumeNow()
+            return event.downTime == volumeMovedDown
+        }
+        if (event.action != KeyEvent.ACTION_DOWN) return false
+        if (event.repeatCount == 0) {
+            volumeDownHere = event.downTime
+            val now = volumeNow()
+            val before = volumeAtLift
+            if (now != null && before != null && now != before) {
+                volumeMovedDown = event.downTime
+                DiagLog.i("key $name down: the volume already moved ($before -> $now); dropped")
+                return true
+            }
+            return false
+        }
+        if (event.downTime == volumeMovedDown) return true
+        val over = volumeUpHere >= event.downTime || volumeDownHere > event.downTime ||
+            HomeGuardService.volumeKeyCameUp(event.keyCode, event.downTime) ||
+            HomeGuardService.volumePressOver(this, event.downTime)
+        if (!over) return false
+        if (event.downTime != staleVolumeDown) {
+            staleVolumeDown = event.downTime
+            DiagLog.i("key $name #${event.repeatCount} repeats a press that is over; dropped")
+        }
+        return true
+    }
 
     private fun logWindow() {
         val m = resources.displayMetrics
@@ -714,17 +778,10 @@ class MainActivity : ComponentActivity() {
             if (event.repeatCount > 0) return true
             dreamWokeKey = -1 // a new press of the same key
         }
-        // A volume key repeating in Aerial after it came up at the guard's filter: Coocaa's lift
-        // never got here, and every repeat was a step to 0 or 100 (see HomeGuardService.volumeKeyCameUp).
-        if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount > 0 &&
-            (event.keyCode == KeyEvent.KEYCODE_VOLUME_UP || event.keyCode == KeyEvent.KEYCODE_VOLUME_DOWN) &&
-            HomeGuardService.volumeKeyCameUp(event.keyCode, event.downTime)
-        ) {
-            if (event.downTime != staleVolumeDown) {
-                staleVolumeDown = event.downTime
-                DiagLog.i("key ${KeyEvent.keyCodeToString(event.keyCode)} #${event.repeatCount} repeats after it came up at the guard; dropped")
-            }
-            return true
+        if (event.keyCode == KeyEvent.KEYCODE_VOLUME_UP || event.keyCode == KeyEvent.KEYCODE_VOLUME_DOWN) {
+            if (dropVolumeKey(event)) return true
+        } else if (event.action == KeyEvent.ACTION_UP) {
+            volumeAtLift = volumeNow()
         }
         if (keysLogged++ < 200) DiagLog.i("key ${KeyEvent.keyCodeToString(event.keyCode)} ${if (event.action == KeyEvent.ACTION_DOWN) "down" else "up"} #${event.repeatCount} at ${event.eventTime}, view focused ${currentFocus != null}")
         restartIdleTimer()

@@ -1154,6 +1154,7 @@ class HomeGuardService : AccessibilityService() {
     private fun takeVolumeKey(event: KeyEvent): Boolean {
         val stepKey = event.keyCode == KeyEvent.KEYCODE_VOLUME_UP || event.keyCode == KeyEvent.KEYCODE_VOLUME_DOWN
         if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
+            lastVolumeDown = event.downTime
             handler.removeCallbacks(volumeRepeat)
             handler.removeCallbacks(volumeStepIfUnmoved)
             // A second key pressed during the first (two remotes) is not it: a lift lost there
@@ -1693,6 +1694,21 @@ class HomeGuardService : AccessibilityService() {
          * issues #937 #1091 #1058, Aerial's own key log in each). MainActivity drops such repeats.
          */
         fun volumeKeyCameUp(keyCode: Int, downTime: Long): Boolean = (volumeUps[keyCode] ?: Long.MIN_VALUE) >= downTime
+
+        /** When the filter last saw a volume press go down (down time); see volumePressOver. */
+        @Volatile
+        private var lastVolumeDown = Long.MIN_VALUE
+
+        /**
+         * Whether a volume press that went down at [downTime] is over at the filter: a newer volume
+         * press went down there, or the firmware's lifts never reach it (see [volumeLiftUnseen]).
+         * Android repeats a press passed on whose lift never came until another key reaches it, and
+         * a press the guard keeps is none: Skyworth 8R134_A7D (RTD2885N, Android 11) with 1.78 sent
+         * VOLUME_UP #120 to #152 to Aerial's window every 50 ms while the guard kept three newer
+         * presses (issue #937, the reporter's log); every repeat there was a volume step.
+         */
+        fun volumePressOver(context: Context, downTime: Long): Boolean =
+            lastVolumeDown > downTime || volumeLiftUnseen(context)
 
         /**
          * A mouse connected while the filter was on: when, and when this boot began. If Aerial is
