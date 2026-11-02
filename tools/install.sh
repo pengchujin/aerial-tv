@@ -8,8 +8,8 @@
 #   TV=<tv-ip> tools/install.sh lite          # Aerial Lite; chosen by itself on Android 4.0-4.4,
 #                                             # refused on 5.0+ (FORCE_LITE=1 to try it there)
 #
-# The APK comes from the latest release (aerial.qust.me's copy, else GitHub), so only adb is needed
-# (and python3 on TCL TVs).
+# The APK comes from the latest release (aerial.qust.me's copy, else GitHub): needs adb, curl
+# and unzip to check the download (and python3 on TCL TVs).
 #   BUILD=1        build it from this checkout instead (JDK 17 + Android SDK)
 #   APK_FILE=<apk> install this file instead
 #   STAY_CONNECTED=1  stay connected to the TV afterwards (otherwise adb lets go of it at the end)
@@ -164,6 +164,29 @@ grant() {
   esac
 }
 
+# Never pass an interrupted or corrupt download to the TV, even if curl exits successfully.
+# A subshell keeps this temporary-file trap separate from the ADB disconnect trap.
+download_apk() (
+  local flavor=$1 out="${TMPDIR:-/tmp}/aerial-$1.apk" partial url
+  command -v unzip >/dev/null || { echo "unzip is required to check downloaded APKs. Install unzip and run again." >&2; return 1; }
+  partial=$(mktemp "${TMPDIR:-/tmp}/aerial-$flavor.XXXXXX") || return 1
+  trap 'rm -f "$partial"' EXIT
+  for url in "https://aerial.qust.me/download/aerial-$flavor.apk" \
+             "https://github.com/$REPO/releases/latest/download/aerial-$flavor.apk"; do
+    echo "Downloading $url" >&2
+    if curl -fL --progress-bar --connect-timeout 10 -o "$partial" "$url"; then
+      if unzip -tq "$partial" </dev/null >/dev/null 2>&1; then
+        mv -f "$partial" "$out" || return 1
+        echo "$out"
+        return 0
+      fi
+      echo "Downloaded APK is incomplete or corrupt: $url" >&2
+    fi
+  done
+  echo "Could not download a complete aerial-$flavor.apk" >&2
+  return 1
+)
+
 # Android 4.0-4.4 cannot run the full app (Jetpack Compose needs Android 5.0). Aerial Lite is a
 # separate package that declares HOME and has no Home Guard, so the owner picks it once in
 # Android's home chooser (docs/LITE.md). Nothing else from the steps below applies.
@@ -187,12 +210,7 @@ if [ "$FLAVOR" = lite ] || [ "$OLD_ANDROID" = 1 ]; then
   if [ -n "${APK_FILE:-}" ]; then APK=$APK_FILE
   elif [ "${BUILD:-0}" = 1 ]; then ./gradlew -q --console=plain :lite:assembleRelease; APK=lite/build/outputs/apk/release/lite-release.apk
   else
-    APK="${TMPDIR:-/tmp}/aerial-lite.apk"
-    for url in "https://aerial.qust.me/download/aerial-lite.apk" "https://github.com/$REPO/releases/latest/download/aerial-lite.apk" ""; do
-      [ -n "$url" ] || { echo "Could not download aerial-lite.apk" >&2; exit 1; }
-      echo "Downloading $url" >&2
-      curl -fL --progress-bar --connect-timeout 10 -o "$APK" "$url" && break
-    done
+    APK=$(download_apk lite)
   fi
   echo "Installing $APK"
   OUT=$(adb install -r "$APK" 2>&1 | tr -d '\r') || true
@@ -228,14 +246,7 @@ build() {
     ./gradlew -q --console=plain "$task"
     echo "app/build/outputs/apk/$flavor/release/app-$flavor-release.apk"
   else
-    local out="${TMPDIR:-/tmp}/aerial-$flavor.apk" url
-    for url in "https://aerial.qust.me/download/aerial-$flavor.apk" \
-               "https://github.com/$REPO/releases/latest/download/aerial-$flavor.apk"; do
-      echo "Downloading $url" >&2
-      if curl -fL --progress-bar --connect-timeout 10 -o "$out" "$url"; then echo "$out"; return; fi
-    done
-    echo "Could not download aerial-$flavor.apk" >&2
-    return 1
+    download_apk "$flavor"
   fi
 }
 
@@ -424,3 +435,4 @@ echo "Home Guard is enabled but Android has not started it." >&2
 echo "Some TCL / Hisense firmwares block sideloaded accessibility services: allow Aerial under the" >&2
 echo "TV's security app (自启动 / 无障碍 / 权限管理), then run this script again." >&2
 exit 1
+
