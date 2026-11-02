@@ -152,7 +152,17 @@ object AppCatalog {
         val index = context.getSharedPreferences("tiles", Context.MODE_PRIVATE)
         val homeLabel = context.getString(R.string.tile_stock_home)
         // Two threads: these TVs have two to four slow cores, and Home's own thread needs one.
-        val pool = Executors.newFixedThreadPool(2)
+        // At background priority, and only one on two cores: on LeTV S40 Air (MStar napoli, two
+        // cores, Android 4.3) two at the default priority kept input and Home's thread from the
+        // CPU, and the remote did nothing for a minute after boot (issue #1118; one background
+        // thread and a pause every five tiles in the reporter's build: the stand-ins in 0.7 s, every tile in 6.2 s, the remote answering).
+        val threads = if (Runtime.getRuntime().availableProcessors() <= 2) 1 else 2
+        val pool = Executors.newFixedThreadPool(threads) { r ->
+            Thread {
+                android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_BACKGROUND)
+                r.run()
+            }.apply { name = "aerial-tiles"; isDaemon = true }
+        }
         try {
             val jobs = found.values.map { (info, leanback) ->
                 pool.submit(Callable {
