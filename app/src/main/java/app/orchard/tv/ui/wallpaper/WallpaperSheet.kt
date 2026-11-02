@@ -71,6 +71,8 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import app.orchard.tv.R
 import app.orchard.tv.settings.AerialSettings
+import app.orchard.tv.settings.Restricted
+import app.orchard.tv.settings.RestrictedKind
 import app.orchard.tv.settings.FocusStyle
 import app.orchard.tv.settings.UiSounds
 import app.orchard.tv.settings.Effects
@@ -118,6 +120,8 @@ fun WallpaperSheet(
     onHiddenApps: () -> Unit,
     onStartScreensaver: () -> Unit,
     onPin: (on: Boolean) -> Unit,
+    /** Kids and Elders mode's setup (behind the PIN). */
+    onKids: () -> Unit,
     /** The sheet is all the way in (true) or not: Home need not draw under it then ([SheetCovers]). */
     onSettled: (Boolean) -> Unit = {},
     /** Draw the closed sheet once, nearly clear, so that its first opening is not its first draw (HomeScreen). */
@@ -172,7 +176,7 @@ fun WallpaperSheet(
             // How Home looks, in the order you see it: the picture behind everything, how Home
             // is laid out over it, what replaces it when idle, then the weather and the PIN.
             // Settings sit in tvOS-style grouped rows; each group's note follows the focused row.
-            Column(Modifier.weight(1f).fillMaxHeight().verticalScroll(scroll)) {
+            Column(Modifier.weight(1f).fillMaxHeight().verticalScroll(scroll).latestBringIntoView(scroll)) {
                 BasicText(stringResource(R.string.wp_title), style = Type.LargeTitle)
                 Spacer(Modifier.height(16.dp))
                 SectionTitle(R.string.wp_wallpaper)
@@ -347,8 +351,21 @@ fun WallpaperSheet(
                 Spacer(Modifier.height(10.dp))
                 Group(stringResource(R.string.st_pin_hint)) { note ->
                     SettingRow(R.string.st_pin, null, note, first = true) {
-                        // The last row that takes focus: bring the note under it into view too.
                         PinChoice(onPin, onFocused = { scope.launch { scroll.animateScrollTo(scroll.maxValue) } })
+                    }
+                    SettingRow(R.string.st_kids, stringResource(R.string.st_kids_hint), note) {
+                        // The last row that takes focus: bring the note under it into view too.
+                        Box(Modifier.onFocusChanged { if (it.hasFocus) scope.launch { scroll.animateScrollTo(scroll.maxValue) } }) {
+                            ActionChip(
+                                when {
+                                    !Restricted.enabled -> stringResource(R.string.st_off)
+                                    Restricted.kind == RestrictedKind.Kids -> stringResource(R.string.kids_kind_kids)
+                                    else -> stringResource(R.string.kids_kind_elders)
+                                },
+                                Glyph.ChevronRight,
+                                onKids,
+                            )
+                        }
                     }
                 }
                 Spacer(Modifier.height(24.dp))

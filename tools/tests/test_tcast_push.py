@@ -103,5 +103,12 @@ class MainTest(unittest.TestCase):
         self.assertEqual(result, 1)
         self.assertIn('could not download or install', err)
 
+    def test_refused_install_fails(self):
+        # TCL MT5879 after 同意 on aerial-standard.apk: download to 100, then stage 4 (issue #1163).
+        result, _, out, err = self.run_main(frame('223>>PROGRESS>>app.orchard.tv>>Aerial>>3>>0') + frame('223>>PROGRESS>>app.orchard.tv>>Aerial>>4>>2'))
+        self.assertEqual(result, 1)
+        self.assertIn('refused to install', err)
+        self.assertNotIn('Timed out', err)
+
 if __name__ == '__main__':
     unittest.main()

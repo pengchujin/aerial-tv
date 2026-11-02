@@ -353,7 +353,7 @@ object SystemProbe {
     }
     private fun xgimiDisplayManagerClass(): Class<*>? = xgimiDisplayManagerClassOnce
 
-    private fun xgimiDisplayManager(): Any? {
+    internal fun xgimiDisplayManager(): Any? {
         val c = xgimiDisplayManagerClass() ?: return null
         return runCatching { c.getMethod("getInstance").invoke(null) }.getOrNull()
             ?: runCatching { c.getDeclaredConstructor().also { it.isAccessible = true }.newInstance() }.getOrNull()
@@ -373,6 +373,9 @@ object SystemProbe {
     fun setXgimiBrightnessLevel(level: Int): Boolean {
         val c = xgimiDisplayManagerClass() ?: return false
         val dm = xgimiDisplayManager() ?: return false
+        // X7 Max's 10+ Boost ignores ordinary DLP writes. Exit only the detected Boost mode;
+        // other XGIMI light engines keep their existing path.
+        if (XgimiBoost.enabled() == true && !XgimiBoost.disable()) return false
         val target = level.coerceIn(1, XGIMI_DLP_LUMENS_MAX)
         return runCatching { c.getMethod("setDlpLumensLevel", java.lang.Byte.TYPE).invoke(dm, target.toByte()) }.isSuccess
     }
@@ -478,6 +481,11 @@ object SystemProbe {
                     // its brightness one step in; opened by component on the TV (issue #895). Before
                     // the display action, which those TVs answer with the settings' main page.
                     Intent(Intent.ACTION_MAIN).setComponent(TIANCI_PICTURE),
+                    // Hisense VIDAA_TV (75E8H, m7642, Android 9): the picture page, its brightness
+                    // one step in; the display action opens screensaver and calibration there
+                    // (issue #1025, the reporter tried both). Not a standard action, so only where
+                    // a firmware declares it.
+                    Intent("android.settings.IMAGE_SETTINGS"),
                     Intent(Settings.ACTION_DISPLAY_SETTINGS),
                     // PPTV K55U27: picture and sound, where its brightness is (issue #264).
                     Intent("com.pptv.intent.action.PICTUREAUDIO_ACTIVITY")

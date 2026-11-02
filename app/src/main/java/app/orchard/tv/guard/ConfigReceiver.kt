@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import app.orchard.tv.apps.TileSheet
 import app.orchard.tv.settings.AerialSettings
+import app.orchard.tv.settings.Restricted
 import app.orchard.tv.settings.Effects
 import app.orchard.tv.system.DeviceProfile
 import app.orchard.tv.system.DiagLog
@@ -24,7 +25,12 @@ import kotlinx.coroutines.launch
  *   ... --ez own_screensaver true   (keep Aerial as the system screensaver; see GuardSetup)
  *   ... --ez guard_off_in_standby true  (Home Guard leaves at screen off, back at screen on;
  *                                   for TVs that do not wake with it enabled, issue #371)
- *   ... --ez clear_pin true         (turn the parental PIN off, for an owner who forgot it)
+ *   ... --ez clear_pin true         (turn the parental PIN off, for an owner who forgot it; Kids
+ *                                   and Elders mode goes off with it, as it cannot be left without)
+ *   ... --ez kids_off true          (turn Kids and Elders mode off, PIN kept)
+ *   ... --ei kids_used_minutes 55   (count that many minutes as watched today, for trying the
+ *                                   limits and their warnings without waiting)
+ *   ... --ei kids_continuous_minutes 28  (that many minutes watched since the last break)
  *   ... --ez large_clock true --ez clock_right false --ez one_row_home true
  *       --ez peek_next_row false --ez home_plate true --ez show_all_names false --ei home_columns 6
  *                                   (Home's layout, as in Personalize; for screenshots of each)
@@ -92,7 +98,22 @@ class ConfigReceiver : BroadcastReceiver() {
         if (intent.getBooleanExtra("clear_pin", false)) {
             AerialSettings.init(context)
             AerialSettings.choosePin(null)
+            Restricted.init(context)
+            Restricted.turnOff()
         }
+        if (intent.getBooleanExtra("kids_off", false)) {
+            Restricted.init(context)
+            Restricted.turnOff()
+        }
+        if (intent.hasExtra("kids_used_minutes")) {
+            Restricted.init(context)
+            Restricted.saveUsage(Restricted.usage.copy(usedMs = intent.getIntExtra("kids_used_minutes", 0) * 60_000L, continuousMs = 0, breakUntil = 0, allowUntil = 0))
+        }
+        if (intent.hasExtra("kids_continuous_minutes")) {
+            Restricted.init(context)
+            Restricted.saveUsage(Restricted.usage.copy(continuousMs = intent.getIntExtra("kids_continuous_minutes", 0) * 60_000L, breakUntil = 0, allowUntil = 0))
+        }
+        if (listOf("kids_off", "kids_used_minutes", "kids_continuous_minutes", "clear_pin").any(intent::hasExtra)) KidsWatch.poke()
         val layout = mapOf<String, (Boolean) -> Unit>(
             "large_clock" to AerialSettings::chooseLargeClock,
             "clock_right" to AerialSettings::chooseClockRight,

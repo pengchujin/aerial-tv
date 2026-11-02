@@ -26,6 +26,8 @@ import app.orchard.tv.apps.TileArtFactory
 import app.orchard.tv.apps.folderEntry
 import app.orchard.tv.apps.sourceEntry
 import app.orchard.tv.settings.AerialSettings
+import app.orchard.tv.settings.Restricted
+import app.orchard.tv.system.XgimiBoost
 import app.orchard.tv.system.Brightness
 import app.orchard.tv.system.DiagLog
 import app.orchard.tv.system.HomeStatus
@@ -37,6 +39,7 @@ import app.orchard.tv.system.VolumeStatus
 import app.orchard.tv.ui.home.PinMode
 import app.orchard.tv.ui.home.ScreensaverSkips
 import app.orchard.tv.ui.home.TileFaces
+import app.orchard.tv.ui.theme.Glyph
 import app.orchard.tv.ui.theme.canvasDensity
 import app.orchard.tv.wallpaper.Wallpapers
 import kotlinx.coroutines.Dispatchers
@@ -60,6 +63,8 @@ sealed interface Overlay {
     data object HiddenApps : Overlay
     data object Wallpaper : Overlay
     data class Pin(val mode: PinMode, val onDone: () -> Unit) : Overlay
+    /** Setting up Kids and Elders mode (Restricted), from Personalize. */
+    data object Kids : Overlay
 }
 
 enum class CcPage { Main, Inputs, InputSettings, Update, Setup }
@@ -81,6 +86,13 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
     var apps by mutableStateOf<List<AppEntry>>(emptyList()); private set
     var hiddenApps by mutableStateOf<List<AppEntry>>(emptyList()); private set
 
+    /**
+     * Every tile Kids and Elders mode can show, in the owner's Home order: Home's apps with each
+     * folder's in its place, the hidden apps, then the inputs not pinned to Home. Only filled while
+     * the mode is on or being set up.
+     */
+    var kidsCandidates by mutableStateOf<List<AppEntry>>(emptyList()); private set
+
     /** Each folder's apps, by folder id, in the folder's order. */
     var folderApps by mutableStateOf<Map<String, List<AppEntry>>>(emptyMap()); private set
 
@@ -98,6 +110,7 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Panel brightness 0..1, or null when Aerial cannot change it on this TV. */
     var brightness by mutableStateOf<Float?>(null); private set
+    var brightnessBoost by mutableStateOf<Boolean?>(null); private set
 
     /**
      * When the Control Center row last took a step (uptime ms). The light engine reports the new
@@ -182,6 +195,19 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
         // An app renamed on the phone page.
         viewModelScope.launch { snapshotFlow { AppNames.all }.drop(1).collect { if (loaded) arrange() } }
         viewModelScope.launch { snapshotFlow { AerialSettings.previewApps }.drop(1).collect { if (loaded) arrange() } }
+        // Into or out of Kids and Elders mode, or its tiles chosen: another Home.
+        viewModelScope.launch {
+            snapshotFlow { listOf(Restricted.active, Restricted.enabled, Restricted.allowed, overlay == Overlay.Kids, AerialSettings.pinSet) }.drop(1).collect {
+                if (loaded) { arrange(); prepareFaces() }
+            }
+        }
+        // What the mode keeps away or warns of, said at the top of Home.
+        viewModelScope.launch {
+            snapshotFlow { Restricted.blocked }.drop(1).collect { b ->
+                if (b != null) notify(context.getString(R.string.kids_blocked, b.first), Glyph.Kids)
+            }
+        }
+        viewModelScope.launch { snapshotFlow { Restricted.warning }.drop(1).collect { w -> if (w != null) notify(w.first, Glyph.Kids) } }
         // Another number of apps a row: the artwork again if four a row wants it larger, else
         // every face at the new size, before the tiles draw them.
         viewModelScope.launch {
@@ -356,13 +382,54 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
                 ?: TileArtFactory.forFolder(shown).also { folderArt[folder.id] = shown to it }
             folderEntry(folder, art)
         }
-        apps = AerialSettings.previewApps.takeIf { it > 0 }?.let { arrangement.home.take(it) } ?: arrangement.home
+        // With a PIN set the phone page can set the mode up too.
+        val kids = Restricted.enabled || overlay == Overlay.Kids || AerialSettings.pinSet
+        kidsCandidates = if (!kids) emptyList() else {
+            val unpinned = sources.filter { it.id !in AerialSettings.pinnedSources }.map { sourceEntry(context, it) }
+            arrangement.home.flatMap { e -> e.folder?.let { arrangement.folders[it.id].orEmpty() } ?: listOf(e) } +
+                arrangement.hidden + unpinned
+        }
+        AppCatalog.kidsCandidates = kidsCandidates
+        if (kids) noteKidsPackages()
+        apps = when {
+            Restricted.active -> Restricted.allowed.mapNotNull { key -> kidsCandidates.firstOrNull { it.key == key } }
+            else -> AerialSettings.previewApps.takeIf { it > 0 }?.let { arrangement.home.take(it) } ?: arrangement.home
+        }
         AppCatalog.home = arrangement.home
         AppCatalog.folderApps = arrangement.folders
         AppCatalog.hiddenApps = arrangement.hidden
         AppCatalog.folders = arrangement.home.filter { it.folder != null }
         folderApps = arrangement.folders
         hiddenApps = arrangement.hidden
+    }
+
+    /** Each input intent's player package, by the intent's URI: resolving it is a PackageManager query. */
+    private val players = HashMap<String, String?>()
+
+    private fun playerOf(source: TvSource): String? = players.getOrPut(source.intent.toUri(0)) {
+        source.intent.component?.packageName
+            ?: runCatching { context.packageManager.resolveActivity(source.intent, 0)?.activityInfo?.packageName }.getOrNull()
+    }
+
+    /** The packages Home Guard lets through in the mode, and the inputs' players it keeps away otherwise. */
+    private fun noteKidsPackages() {
+        val allowed = kidsCandidates.filter { it.key in Restricted.allowed }
+            .mapNotNullTo(HashSet()) { e -> e.source?.let(::playerOf) ?: e.component.packageName }
+        Restricted.notePackages(allowed, sources.mapNotNullTo(HashSet(), ::playerOf))
+    }
+
+    /** Leaves Kids and Elders mode for now, once the PIN is right; it comes back by itself. */
+    fun leaveKidsMode() {
+        overlay = Overlay.Pin(PinMode.Verify) {
+            Restricted.suspend()
+            overlay = Overlay.None
+        }
+    }
+
+    /** Opens the mode's setup: with the PIN, or choosing one first, since leaving the mode needs it. */
+    fun setUpKidsMode() {
+        if (!AerialSettings.pinSet) overlay = Overlay.Pin(PinMode.Create) { overlay = Overlay.Kids }
+        else whenUnlocked { overlay = Overlay.Kids }
     }
 
     /** An app or folder on Home, or an app inside a folder. */
@@ -413,10 +480,12 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
 
     /** A line at the top of Home that goes away by itself, confirming a choice made out of sight. */
     var notice by mutableStateOf<String?>(null); private set
+    var noticeGlyph by mutableStateOf(Glyph.Power); private set
     private var noticeJob: Job? = null
 
-    fun notify(text: String) {
+    fun notify(text: String, glyph: Glyph = Glyph.Power) {
         notice = text
+        noticeGlyph = glyph
         noticeJob?.cancel()
         noticeJob = viewModelScope.launch {
             delay(4000)
@@ -521,18 +590,22 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    /**
-     * The brightness alone, off the main thread, for the level only the TV can change: XGIMI's DLP
-     * light engine can be moved from the TV's own overlay, which does not pause Aerial, so Control
-     * Center polls this while its brightness row is up.
-     */
+    suspend fun discoverBrightnessBoost() {
+        XgimiBoost.discover(context)
+        refreshBrightness()
+    }
+
+    /** Poll the light engine and Boost together, including changes from the native overlay. */
     fun refreshBrightness() {
         viewModelScope.launch {
-            val level = withContext(Dispatchers.Default) { Brightness.level(context) }
+            val (level, boost) = withContext(Dispatchers.Default) {
+                Brightness.level(context) to XgimiBoost.enabled()
+            }
             // A step taken while this read was in flight is newer than the level it read; the poll
             // after the key is released puts the light engine's own answer back.
             if (SystemClock.elapsedRealtime() - brightnessActedAt < POLL_QUIET_MS) return@launch
             brightness = level
+            brightnessBoost = boost
         }
     }
 
@@ -564,7 +637,10 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
         if (xgimiBrightness && current != null) {
             // Step from what the row shows and hand the write to the queue: the key's own thread
             // stays free, and the row moves with the picture instead of after it.
-            val next = Brightness.xgimiStep(current, direction) ?: return
+            if (brightnessBoost == true && direction > 0) return
+            // One step down from 10+ is ordinary 10; subsequent steps use DLP levels 9..1.
+            val next = if (brightnessBoost == true) 1f else Brightness.xgimiStep(current, direction) ?: return
+            if (brightnessBoost != null) brightnessBoost = false
             brightness = next
             brightnessActedAt = SystemClock.elapsedRealtime()
             brightnessSteps.trySend(Math.round(next * SystemProbe.xgimiBrightnessMax))
