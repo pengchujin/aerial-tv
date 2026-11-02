@@ -73,10 +73,12 @@ standard release 和独立 guard release 构建、lintVital 通过。
 
 ## 2026-11-02：独立开关增量验收
 
-在纯修复之上增加开关。standard Debug、Release 完整单元测试各 170 项通过，
+在纯修复之上增加开关。standard Debug、Release 完整单元测试各 172 项通过，
 standard release 和独立 guard release 构建、lintVital 通过。
 最终 guard release 已 compile speed，并实测普通 7 → 开启 Boost（Lens 1、DLP 仍为 7，
 界面 10+ 且滑条填满）→ 关闭（普通 10）→ 再开启。滑块下调到普通 10、再到 7、
 上调至普通 10 并再按右键均正常，两套 HAL 读数一致。
 开启限制的拒绝分支只有单元测试，未在真机开启自动亮度、3D 或 IMAX。
+开启请求不提前显示成功，由现有轮询确认真实状态；两项 ViewModel 回归测试确认
+拒绝开启时重复点击保持原档位，紧接着按左键从 7 下调到 6，不误跳至普通 10。
 测试包已移除，普通 10 / 自动亮度关闭及正式版保留；未进行重启测试。

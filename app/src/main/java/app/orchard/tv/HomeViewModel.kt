@@ -565,8 +565,12 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
     fun toggleBrightnessBoost() {
         val active = brightnessBoost ?: return
         brightnessActedAt = SystemClock.elapsedRealtime()
-        brightness = 1f
-        brightnessBoost = !active
+        // Enabling can be rejected by the firmware. Keep the real ordinary level until the
+        // poll confirms Boost, so another click or a left step cannot jump to ordinary 10.
+        if (active) {
+            brightness = 1f
+            brightnessBoost = false
+        }
         brightnessSteps.trySend(BrightnessTarget(SystemProbe.xgimiBrightnessMax, boost = !active))
     }
 
