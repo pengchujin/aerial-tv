@@ -494,14 +494,16 @@ private fun SliderRow(
     steps: Int,
     onStep: (Int) -> Unit,
     modifier: Modifier = Modifier,
+    atMaximum: Boolean = level >= 0.999f,
     onClick: () -> Unit,
 ) {
     // Each step ticks, as focus does; a step past either end bumps instead. Read through state:
     // the drag handler below is made once and outlives this composition's values.
     val atLevel by rememberUpdatedState(level)
+    val atMax by rememberUpdatedState(atMaximum)
     val doStep by rememberUpdatedState(onStep)
     val step = { by: Int ->
-        if ((by > 0 && atLevel >= 0.999f) || (by < 0 && atLevel <= 0.001f)) Sounds.limit() else Sounds.step()
+        if ((by > 0 && atMax) || (by < 0 && atLevel <= 0.001f)) Sounds.limit() else Sounds.step()
         doStep(by)
     }
     val stepCount by rememberUpdatedState(steps.coerceAtLeast(1))
@@ -596,21 +598,27 @@ private fun BrightnessRow(vm: HomeViewModel) {
             SystemProbe.openPictureSettings(context)
         }, trailing = stringResource(R.string.cc_brightness_in_settings) + " ›")
     } else {
+        val extraStep = vm.brightnessBoost != null && AerialSettings.brightnessBoostAllowed
         SliderRow(
             glyph = Glyph.Sun,
             // Boost can leave the ordinary DLP getter at the previous level (X7 Max: 7).
             level = if (vm.brightnessBoost == true) 1f else level,
             value = if (vm.brightnessBoost == true) "100+" else Math.round(level * 100).toString(),
             // Brightness.adjust moves 5% a step, and stops at 1%; XGIMI steps its own levels.
-            steps = if (xgimi) SystemProbe.xgimiBrightnessMax else 20,
+            steps = if (xgimi) SystemProbe.xgimiBrightnessMax + (if (extraStep) 1 else 0) else 20,
+            atMaximum = vm.brightnessBoost == true || (level >= 0.999f && !extraStep),
             onStep = vm::adjustBrightness,
             onClick = {},
         )
-        vm.brightnessBoost?.let { enabled ->
+        vm.brightnessBoost?.let {
             MenuRow(
                 Glyph.Sun, stringResource(R.string.cc_brightness_boost),
-                onClick = vm::toggleBrightnessBoost,
-                trailing = stringResource(if (enabled) R.string.st_on else R.string.st_off),
+                onClick = vm::toggleBrightnessBoostAllowed,
+                trailing = stringResource(if (AerialSettings.brightnessBoostAllowed) R.string.st_on else R.string.st_off),
+            )
+            BasicText(
+                stringResource(R.string.cc_brightness_boost_hint), style = Type.Callout.copy(color = Palette.SecondaryLabel),
+                modifier = Modifier.padding(horizontal = 14.dp),
             )
         }
     }

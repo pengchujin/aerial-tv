@@ -7,9 +7,13 @@ class DisplayManager {
     var rejectModeChange = false
     var automatic = false
     var format: Byte = EN_XGIMI_3D_NONE
+    var beforeModeChange: ((Int) -> Unit)? = null
+    var deferLevelWrites = false
+    var rejectLevelWrites = false
     val calls = mutableListOf<String>()
     fun getLensDispMode() = lens
     fun setLensDispMode(mode: Int): Boolean {
+        beforeModeChange?.invoke(mode)
         calls += "mode:$mode"
         if (rejectModeChange) return false
         lens = mode
@@ -18,7 +22,8 @@ class DisplayManager {
     fun getDlpLumensLevel(): Byte = level.toByte()
     fun setDlpLumensLevel(value: Byte) {
         calls += "level:$value"
-        if (lens == 0) level = value.toInt()
+        check(!rejectLevelWrites)
+        if (lens == 0 && !deferLevelWrites) level = value.toInt()
     }
     fun getALOnOff() = automatic
     fun getCurrent3DFormat() = format

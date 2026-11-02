@@ -114,9 +114,11 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
      */
     private sealed interface BrightnessTarget {
         data class Level(val value: Int) : BrightnessTarget
-        data class Boost(val enabled: Boolean) : BrightnessTarget
+        class Boost : BrightnessTarget
     }
     private val brightnessSteps = Channel<BrightnessTarget>(Channel.CONFLATED)
+    private var pendingBrightness: BrightnessTarget? = null
+    private var brightnessRevision = 0L
 
     /** XGIMI's light engine steps its own levels; every other TV steps the panel in percent. */
     private val xgimiBrightness by lazy { SystemProbe.hasXgimiBrightness }
@@ -177,12 +179,36 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
         // and doing the HAL call on the key's own thread left the row lagging behind the picture.
         viewModelScope.launch(Dispatchers.Default) {
             for (target in brightnessSteps) {
+                var maximumApplied = false
                 val applied = when (target) {
                     is BrightnessTarget.Level -> SystemProbe.setXgimiBrightnessLevel(target.value)
-                    is BrightnessTarget.Boost -> if (target.enabled) XgimiBoost.enable() else XgimiBoost.disable()
+                    // Conflation may have replaced a queued ordinary maximum with this step.
+                    is BrightnessTarget.Boost -> XgimiBoost.enabled() == true || run {
+                        maximumApplied = SystemProbe.setXgimiBrightnessLevel(SystemProbe.xgimiBrightnessMax)
+                        maximumApplied && XgimiBoost.enable()
+                    }
                 }
-                if (!applied && target is BrightnessTarget.Boost && target.enabled) withContext(Dispatchers.Main) {
-                    android.widget.Toast.makeText(context, R.string.cc_boost_unavailable, android.widget.Toast.LENGTH_LONG).show()
+                // Ordinary HAL writes settle asynchronously. Keep their requested level until
+                // the existing quiet-period poll; an immediate getter can still return the old step.
+                val actual = if (!applied || target is BrightnessTarget.Boost) {
+                    val boost = XgimiBoost.enabled()
+                    if (target is BrightnessTarget.Boost || boost != null) {
+                        // A rejected extra step must not undo an accepted, still-settling 100.
+                        val level = if (!applied && maximumApplied) 1f else Brightness.level(context)
+                        level to boost
+                    } else null
+                } else null
+                withContext(Dispatchers.Main) {
+                    // A newer key or switch action owns the row until its queued write completes.
+                    if (pendingBrightness === target) {
+                        pendingBrightness = null
+                        actual?.let { (level, boost) -> acceptBrightness(level, boost) }
+                        if (!applied && (target is BrightnessTarget.Boost || actual != null)) {
+                            val message = if (target is BrightnessTarget.Boost) R.string.cc_boost_unavailable
+                                else R.string.cc_brightness_unavailable
+                            android.widget.Toast.makeText(context, message, android.widget.Toast.LENGTH_LONG).show()
+                        }
+                    }
                 }
             }
         }
@@ -513,8 +539,8 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             val ctx = context
             homeStatus = withContext(Dispatchers.Default) { SystemProbe.homeStatus(ctx) }
-            brightness = withContext(Dispatchers.Default) { Brightness.level(ctx) }
         }
+        refreshBrightness()
     }
 
     suspend fun discoverBrightnessBoost() {
@@ -525,16 +551,38 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
     /** Poll the light engine and Boost together, including changes from the native overlay. */
     fun refreshBrightness() {
         viewModelScope.launch {
+            if (pendingBrightness != null) return@launch
+            val revision = brightnessRevision
             val (level, boost) = withContext(Dispatchers.Default) {
                 Brightness.level(context) to XgimiBoost.enabled()
             }
             // A step taken while this read was in flight is newer than the level it read; the poll
             // after the key is released puts the light engine's own answer back.
-            if (SystemClock.elapsedRealtime() - brightnessActedAt < POLL_QUIET_MS) return@launch
-            brightness = level
-            brightnessBoost = boost
+            if (revision != brightnessRevision || pendingBrightness != null ||
+                SystemClock.elapsedRealtime() - brightnessActedAt < POLL_QUIET_MS) return@launch
+            acceptBrightness(level, boost)
         }
     }
+
+    private fun acceptBrightness(level: Float?, boost: Boolean?) {
+        brightness = level
+        brightnessBoost = boost
+        // Native settings can enter Boost too. Adopt that state without rewriting the hardware.
+        // This also keeps the switch on if the firmware refuses an exit from Boost.
+        if (boost == true && !AerialSettings.brightnessBoostAllowed) {
+            AerialSettings.chooseBrightnessBoostAllowed(true)
+        }
+    }
+
+    private fun requestBrightness(target: BrightnessTarget) {
+        pendingBrightness = target
+        brightnessRevision++
+        brightnessActedAt = SystemClock.elapsedRealtime()
+        brightnessSteps.trySend(target)
+    }
+
+    private val brightnessTargetsBoost: Boolean
+        get() = pendingBrightness?.let { it is BrightnessTarget.Boost } ?: (brightnessBoost == true)
 
     fun refreshNetwork() { network = SystemProbe.network(context) }
 
@@ -555,24 +603,34 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
         if (xgimiBrightness && current != null) {
             // Step from what the row shows and hand the write to the queue: the key's own thread
             // stays free, and the row moves with the picture instead of after it.
-            if (brightnessBoost == true && direction > 0) return
+            val boost = brightnessTargetsBoost
+            if (boost && direction > 0) return
+            if (!boost && direction > 0 && current >= 1f && brightnessBoost != null &&
+                AerialSettings.brightnessBoostAllowed) {
+                // Keep displaying ordinary 100 until the firmware confirms the extra level.
+                requestBrightness(BrightnessTarget.Boost())
+                return
+            }
             // One step down from 100+ is ordinary 100; subsequent steps use the DLP levels.
-            val next = if (brightnessBoost == true) 1f else Brightness.xgimiStep(current, direction) ?: return
+            val next = if (boost) 1f else Brightness.xgimiStep(current, direction) ?: return
             if (brightnessBoost != null) brightnessBoost = false
             brightness = next
-            brightnessActedAt = SystemClock.elapsedRealtime()
-            brightnessSteps.trySend(BrightnessTarget.Level(Math.round(next * SystemProbe.xgimiBrightnessMax)))
+            requestBrightness(BrightnessTarget.Level(Math.round(next * SystemProbe.xgimiBrightnessMax)))
             return
         }
         brightness = Brightness.adjust(context, direction)
     }
 
-    fun toggleBrightnessBoost() {
-        val active = brightnessBoost ?: return
-        brightnessActedAt = SystemClock.elapsedRealtime()
-        // The firmware retains the ordinary level while Boost is active. Toggle only the mode,
-        // leaving that level intact, and let the poll confirm success in either direction.
-        brightnessSteps.trySend(BrightnessTarget.Boost(!active))
+    fun toggleBrightnessBoostAllowed() {
+        if (brightnessBoost == null) return
+        val allowed = !AerialSettings.brightnessBoostAllowed
+        AerialSettings.chooseBrightnessBoostAllowed(allowed)
+        // Enabling only extends the range. Disabling clamps an active or queued 100+ to 100.
+        if (!allowed && brightnessTargetsBoost) {
+            brightness = 1f
+            brightnessBoost = false
+            requestBrightness(BrightnessTarget.Level(SystemProbe.xgimiBrightnessMax))
+        }
     }
 
     fun toggleMute() {

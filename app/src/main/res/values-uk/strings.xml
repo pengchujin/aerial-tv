@@ -62,7 +62,9 @@
     <string name="hidden_empty">Немає прихованих застосунків</string>
     <string name="launch_failed">Не вдалося відкрити %1$s</string>
     <string name="unavailable">Недоступно на цьому телевізорі</string>
-    <string name="cc_brightness_boost">100+ Boost</string>
+    <string name="cc_brightness_boost">Дозволити підсилення яскравості</string>
+    <string name="cc_brightness_boost_hint">Дозволяє збільшити яскравість до 100+</string>
+    <string name="cc_brightness_unavailable">Не вдалося змінити яскравість. Спробуйте ще раз у налаштуваннях проєктора.</string>
     <string name="cc_boost_unavailable">Не вдалося перемкнути Boost. Перевірте автояскравість, 3D та IMAX у налаштуваннях проєктора.</string>
     <string name="cc_brightness">Яскравість</string>
     <string name="cc_brightness_in_settings">Налаштування зображення</string>
