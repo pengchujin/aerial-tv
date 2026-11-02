@@ -715,7 +715,7 @@ private fun BrightnessRow(vm: HomeViewModel) {
     val xgimi = remember { SystemProbe.xgimiBrightnessLevel() != null }
     LaunchedEffect(xgimi) {
         if (!xgimi) return@LaunchedEffect
-        vm.refreshBrightness()
+        vm.discoverBrightnessBoost()
         while (isActive) {
             delay(700)
             vm.refreshBrightness()
@@ -731,7 +731,7 @@ private fun BrightnessRow(vm: HomeViewModel) {
         SliderRow(
             glyph = Glyph.Sun,
             level = level,
-            value = Math.round(level * 100).toString(),
+            value = if (vm.brightnessBoost == true) "10+" else Math.round(level * 100).toString(),
             // Brightness.adjust moves 5% a step, and stops at 1%; XGIMI steps its own levels.
             steps = if (xgimi) SystemProbe.xgimiBrightnessMax else 20,
             onStep = vm::adjustBrightness,

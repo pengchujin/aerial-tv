@@ -27,6 +27,7 @@ import app.orchard.tv.apps.folderEntry
 import app.orchard.tv.apps.sourceEntry
 import app.orchard.tv.settings.AerialSettings
 import app.orchard.tv.settings.Restricted
+import app.orchard.tv.system.XgimiBoost
 import app.orchard.tv.system.Brightness
 import app.orchard.tv.system.DiagLog
 import app.orchard.tv.system.HomeStatus
@@ -109,6 +110,7 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Panel brightness 0..1, or null when Aerial cannot change it on this TV. */
     var brightness by mutableStateOf<Float?>(null); private set
+    var brightnessBoost by mutableStateOf<Boolean?>(null); private set
 
     /**
      * When the Control Center row last took a step (uptime ms). The light engine reports the new
@@ -570,18 +572,22 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    /**
-     * The brightness alone, off the main thread, for the level only the TV can change: XGIMI's DLP
-     * light engine can be moved from the TV's own overlay, which does not pause Aerial, so Control
-     * Center polls this while its brightness row is up.
-     */
+    suspend fun discoverBrightnessBoost() {
+        XgimiBoost.discover(context)
+        refreshBrightness()
+    }
+
+    /** Poll the light engine and Boost together, including changes from the native overlay. */
     fun refreshBrightness() {
         viewModelScope.launch {
-            val level = withContext(Dispatchers.Default) { Brightness.level(context) }
+            val (level, boost) = withContext(Dispatchers.Default) {
+                Brightness.level(context) to XgimiBoost.enabled()
+            }
             // A step taken while this read was in flight is newer than the level it read; the poll
             // after the key is released puts the light engine's own answer back.
             if (SystemClock.elapsedRealtime() - brightnessActedAt < POLL_QUIET_MS) return@launch
             brightness = level
+            brightnessBoost = boost
         }
     }
 
@@ -604,7 +610,10 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
         if (xgimiBrightness && current != null) {
             // Step from what the row shows and hand the write to the queue: the key's own thread
             // stays free, and the row moves with the picture instead of after it.
-            val next = Brightness.xgimiStep(current, direction) ?: return
+            if (brightnessBoost == true && direction > 0) return
+            // One step down from 10+ is ordinary 10; subsequent steps use DLP levels 9..1.
+            val next = if (brightnessBoost == true) 1f else Brightness.xgimiStep(current, direction) ?: return
+            if (brightnessBoost != null) brightnessBoost = false
             brightness = next
             brightnessActedAt = SystemClock.elapsedRealtime()
             brightnessSteps.trySend(Math.round(next * SystemProbe.xgimiBrightnessMax))
