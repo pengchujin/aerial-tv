@@ -176,6 +176,7 @@
     <string name="device_speaker">Саундбар</string>
     <string name="cc_update_available">Жаңа нұсқа: %s</string>
     <string name="cc_update_title">Aerial %s</string>
+    <string name="cc_update_notes">%s нұсқасындағы жаңалықтар</string>
     <string name="cc_update_current">Бұл теледидарда Aerial %s орнатылған.</string>
     <string name="cc_update_keeps">Қолданбаларыңыз, орналасуыңыз, түсқағазыңыз және параметрлеріңіз сол күйінде қалады.</string>
     <string name="cc_update_scan">Қалай жаңартуды көру үшін телефонмен сканерлеңіз (орнату пәрменін көшіру немесе оны жасанды интеллект агентіне беру).</string>

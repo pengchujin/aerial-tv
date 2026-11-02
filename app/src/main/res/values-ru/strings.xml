@@ -176,6 +176,7 @@
     <string name="device_speaker">Саундбар</string>
     <string name="cc_update_available">Новая версия: %s</string>
     <string name="cc_update_title">Aerial %s</string>
+    <string name="cc_update_notes">Что нового в %s</string>
     <string name="cc_update_current">На этом телевизоре установлен Aerial %s.</string>
     <string name="cc_update_keeps">Ваши приложения, раскладка, обои и настройки останутся без изменений.</string>
     <string name="cc_update_scan">Отсканируйте телефоном, чтобы узнать, как обновиться (скопировать команду установки или передать её ИИ-агенту).</string>

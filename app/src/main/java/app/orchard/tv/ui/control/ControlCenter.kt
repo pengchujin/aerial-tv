@@ -3,6 +3,14 @@ package app.orchard.tv.ui.control
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.focusable
+import androidx.compose.foundation.gestures.animateScrollBy
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.platform.LocalDensity
+import kotlinx.coroutines.launch
 import android.view.KeyEvent as NativeKeyEvent
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
@@ -102,6 +110,7 @@ import app.orchard.tv.ui.theme.GlyphIcon
 import app.orchard.tv.ui.theme.Motion
 import app.orchard.tv.ui.theme.Palette
 import app.orchard.tv.ui.theme.Type
+import app.orchard.tv.update.ReleaseNotes
 import app.orchard.tv.update.SelfCompile
 import app.orchard.tv.update.Updates
 import app.orchard.tv.wallpaper.PhoneServer
@@ -397,6 +406,14 @@ private fun UpdatePage(vm: HomeViewModel, takeFocus: Boolean) {
                 else -> stringResource(R.string.cc_update_current, Updates.current)
             }
             BasicText(status, style = Type.Caption)
+        }
+        // Read when the page opens too: the check that found the version may have missed them.
+        LaunchedEffect(Unit) { if (Updates.notes.isEmpty()) Updates.loadNotes() }
+        Updates.notes.takeIf { it.isNotEmpty() }?.let { notes ->
+            Spacer(Modifier.height(10.dp))
+            UpdateNotes(notes)
+        }
+        Column(Modifier.padding(horizontal = 14.dp)) {
             Spacer(Modifier.height(16.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.size(104.dp).smoothBackground(Color.White, 12.dp).padding(8.dp)) {
@@ -407,6 +424,73 @@ private fun UpdatePage(vm: HomeViewModel, takeFocus: Boolean) {
                     BasicText(stringResource(if (canInstall) R.string.cc_update_scan_else else R.string.cc_update_scan), style = Type.Body)
                     Spacer(Modifier.height(6.dp))
                     BasicText(stringResource(R.string.cc_update_keeps), style = Type.Caption)
+                }
+            }
+        }
+    }
+}
+
+/**
+ * What the update brings, release by release. The lines are not controls: focused (Down from the
+ * install button), Up and Down scroll it a few lines at a time, and past either end focus moves on
+ * as from any row. The panel has room for about ten lines under the install button and above the
+ * QR code; a bar on the right shows how much more there is.
+ */
+@Composable
+private fun UpdateNotes(notes: List<ReleaseNotes>) {
+    val scroll = rememberScrollState()
+    val scope = rememberCoroutineScope()
+    var focused by remember { mutableStateOf(false) }
+    val step = with(LocalDensity.current) { 64.dp.toPx() }
+    val glow by animateFloatAsState(if (focused) 1f else 0f, tween(140, easing = Motion.EaseOut), label = "notes-focus")
+    val scrollable = scroll.maxValue > 0
+    Box(Modifier.fillMaxWidth()) {
+        Box(Modifier.matchParentSize().graphicsLayer { alpha = glow }.smoothBackground(Palette.Fill, 12.dp))
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .heightIn(max = 164.dp)
+                .onFocusChanged { focused = it.isFocused }
+                .onKeyEvent { e ->
+                    val down = when (e.nativeKeyEvent.keyCode) {
+                        NativeKeyEvent.KEYCODE_DPAD_DOWN -> true
+                        NativeKeyEvent.KEYCODE_DPAD_UP -> false
+                        else -> return@onKeyEvent false
+                    }
+                    if (if (down) scroll.value >= scroll.maxValue else scroll.value <= 0) return@onKeyEvent false
+                    if (e.type == KeyEventType.KeyDown) {
+                        Sounds.step()
+                        scope.launch { scroll.animateScrollBy(if (down) step else -step, spring(dampingRatio = 1f, stiffness = 500f)) }
+                    }
+                    true
+                }
+                .focusProperties { canFocus = scrollable }
+                .focusable()
+                .drawWithContent {
+                    drawContent()
+                    if (scroll.maxValue <= 0) return@drawWithContent
+                    // The scroll bar, inside the right padding.
+                    val track = size.height - 16.dp.toPx()
+                    val thumb = (track * size.height / (size.height + scroll.maxValue)).coerceAtLeast(12.dp.toPx())
+                    val top = 8.dp.toPx() + (track - thumb) * scroll.value / scroll.maxValue
+                    drawRoundRect(
+                        if (focused) Palette.SecondaryLabel else Palette.TertiaryLabel,
+                        topLeft = Offset(size.width - 6.dp.toPx(), top),
+                        size = Size(2.5.dp.toPx(), thumb),
+                        cornerRadius = CornerRadius(1.25.dp.toPx()),
+                    )
+                }
+                .verticalScroll(scroll)
+                .padding(start = 14.dp, end = 16.dp, top = 8.dp, bottom = 8.dp),
+        ) {
+            notes.forEachIndexed { i, release ->
+                if (i > 0) Spacer(Modifier.height(10.dp))
+                BasicText(stringResource(R.string.cc_update_notes, release.version), style = Type.Callout.copy(color = Palette.Label))
+                release.changes.forEach { line ->
+                    Row(Modifier.padding(top = 4.dp)) {
+                        BasicText("•", style = Type.Caption, modifier = Modifier.width(10.dp))
+                        BasicText(line, style = Type.Caption, modifier = Modifier.weight(1f))
+                    }
                 }
             }
         }

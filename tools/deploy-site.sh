@@ -15,6 +15,8 @@ rm -rf site/download site/tools site/install.sh
 mkdir -p site/download site/tools
 gh release download --repo "$REPO" --pattern 'aerial-*.apk' --dir site/download
 gh release view --repo "$REPO" --json tagName -q .tagName > site/download/version.txt
+# What changed, for the TV's update page (Updates.notes): the releases an owner may be coming from.
+gh api "repos/$REPO/releases?per_page=12" | python3 tools/release-notes.py > site/download/notes.json
 cp tools/get.sh site/install.sh
 cp tools/install.sh tools/restore.sh tools/tcast-push.py tools/report.sh tools/selftest.sh site/tools/
 echo "Publishing $(cat site/download/version.txt): $(ls site/download | tr '\n' ' ')"

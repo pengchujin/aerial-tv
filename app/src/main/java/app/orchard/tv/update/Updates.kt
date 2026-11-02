@@ -32,6 +32,7 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
+import java.util.Locale
 
 /**
  * Whether a newer release is out (issues #24, #76). Most owners stay on the version they installed
@@ -48,6 +49,7 @@ object Updates {
     private const val TAG = "AerialUpdates"
     private const val PREFS = "updates"
     private const val VERSION_URL = "https://aerial.qust.me/download/version.txt"
+    private const val NOTES_URL = "https://aerial.qust.me/download/notes.json"
 
     /**
      * A source that delivers less than [STALL_BYTES] in [STALL_MS] is given up for the next one
@@ -62,6 +64,13 @@ object Updates {
 
     /** The newer release's version, or null when this is the latest (or nothing is known yet). */
     var available by mutableStateOf<String?>(null); private set
+
+    /**
+     * What the update brings: each release after this one up to [available], newest first. Empty
+     * until read, and when the website has no notes (sites deployed before notes.json).
+     */
+    var notes by mutableStateOf<List<ReleaseNotes>>(emptyList()); private set
+    private var readingNotes = false
 
     /** Where an install started from Control Center has got to. */
     var install by mutableStateOf<Install>(Install.Idle); private set
@@ -85,9 +94,11 @@ object Updates {
             save = { latest, checkedAt ->
                 prefs.edit { putString("latest", latest); putLong("checked_at", checkedAt) }
                 available = latest.takeIf { newer(it, current) }
+                loadNotes()
             },
             log = { Log.i(TAG, it); DiagLog.i("update check: $it") },
         )
+        loadNotes()
         // A download left from an install that has since finished or been given up.
         scope.launch(Dispatchers.IO) {
             apkFile(context).takeIf { System.currentTimeMillis() - it.lastModified() > 60 * 60 * 1000L }?.delete()
@@ -113,7 +124,35 @@ object Updates {
     }
 
     fun diagnostics(): String = if (!started) "not initialized" else
-        "known=${prefs.getString("latest", null) ?: "unknown"}; ${checker?.diagnostics}"
+        "known=${prefs.getString("latest", null) ?: "unknown"}; notes=${notes.size}; ${checker?.diagnostics}"
+
+    /**
+     * The release notes for [available], from the copy kept with the version it was read for, else
+     * from the website (once per new version; the update page asks again while it has none). The
+     * file is about 30 KB. A missing or bad file leaves the page as it was, without notes.
+     */
+    fun loadNotes() {
+        if (!started) return
+        val latest = available ?: run { notes = emptyList(); return }
+        val zh = Locale.getDefault().language == "zh"
+        if (prefs.getString("notes_for", null) == latest) {
+            prefs.getString("notes", null)?.let { json ->
+                runCatching { ReleaseNotesParser.parse(json, current, latest, zh) }.getOrNull()?.let { notes = it; return }
+            }
+        }
+        if (readingNotes) return
+        readingNotes = true
+        scope.launch {
+            val json = runCatching { withContext(Dispatchers.IO) { read(NOTES_URL) } }
+                .onFailure { Log.i(TAG, "release notes: ${it.javaClass.simpleName}") }.getOrNull()
+            readingNotes = false
+            val parsed = json?.let { runCatching { ReleaseNotesParser.parse(it, current, latest, zh) }.getOrNull() }
+            // Only notes that already have this release: the site's file may be a deploy behind.
+            if (parsed.isNullOrEmpty() || parsed.first().version != latest || available != latest) return@launch
+            prefs.edit { putString("notes", json); putString("notes_for", latest) }
+            notes = parsed
+        }
+    }
 
     /** Whether version [a] comes after [b], comparing dotted numbers ("1.10" after "1.9"). */
     fun newer(a: String, b: String): Boolean {

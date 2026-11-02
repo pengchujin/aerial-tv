@@ -183,6 +183,7 @@
     <string name="device_speaker">回音壁</string>
     <string name="cc_update_available">有新版本 %s</string>
     <string name="cc_update_title">Aerial %s</string>
+    <string name="cc_update_notes">%s 更新内容</string>
     <string name="cc_update_current">这台电视上是 Aerial %s。</string>
     <string name="cc_update_keeps">App、排列顺序、壁纸和设置都会保留。</string>
     <string name="cc_update_scan">用手机扫码，看怎么升级（可以复制安装命令，或者发给 AI 助手）。</string>
