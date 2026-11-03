@@ -1174,12 +1174,18 @@ class MainActivity : ComponentActivity() {
      * (com.coocaa.aigc.home.home.rootpage.HomeActivity: MAIN +
      * coocaa.intent.category.MYAPP_DISMISS).
      */
-    private fun startStockDirectly(app: AppEntry): Boolean = runCatching {
-        startActivity(
-            Intent(Intent.ACTION_MAIN).setComponent(app.component)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED),
-        )
-    }.isSuccess
+    private fun startStockDirectly(app: AppEntry): Boolean {
+        // Coocaa firmware from Android 13 only. On every other TV a failed stock-launcher start
+        // used to end there; trying the component once more with MAIN alone would change what those
+        // TVs do, so keep the extra attempt behind the same check bringBackIntent() uses.
+        if (!hidesStandardTasks(this)) return false
+        return runCatching {
+            startActivity(
+                Intent(Intent.ACTION_MAIN).setComponent(app.component)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED),
+            )
+        }.isSuccess
+    }
 
     private fun open(intent: Intent) {
         FilmAfterInput.noteOpened(this, intent)
@@ -1315,7 +1321,7 @@ class MainActivity : ComponentActivity() {
          * Coocaa firmware (com.tianci.system) from Android 13, where a standard task's surface can stay
          * hidden (see [bringBackIntent]). Seen on Skyworth 8R734_A7HP and 8R721_A5FP (titanite, PR #992).
          */
-        private fun hidesStandardTasks(context: Context): Boolean =
+        internal fun hidesStandardTasks(context: Context): Boolean =
             Build.VERSION.SDK_INT >= 33 &&
                 runCatching { context.packageManager.getPackageInfo("com.tianci.system", 0) }.isSuccess
 
