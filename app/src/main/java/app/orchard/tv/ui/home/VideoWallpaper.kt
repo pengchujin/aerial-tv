@@ -108,6 +108,10 @@ fun VideoWallpaper(
                     scope.launch {
                         val poster = withContext(Dispatchers.IO) { Wallpapers.videoPoster(id, Wallpapers.screenW, Wallpapers.screenH) } ?: return@launch
                         Wallpapers.useLiveFrame(poster, id, 0L)
+                        // And the plate's glass while it moves, made once from the first film's picture
+                        // (sampleGlass): it kept that film's colours until Control Center was opened
+                        // (issue #1158 on 1.81, the reporter on MT9655).
+                        Wallpapers.useStillFilmFrost()
                     }
                 }
 
