@@ -32,9 +32,12 @@ fi
 sh_() { adb shell "$@" 2>/dev/null | tr -d '\r'; }
 # Addresses, MACs and the phone page's token out of anything that is not a build property.
 mask() {
+  # Re-scan: adjacent addresses can share the boundary consumed by the previous match.
   sed -E \
     -e 's#:8790/[A-Za-z0-9]+#:8790/<token>#g' \
+    -e ':mask_ip' \
     -e 's#(^|[^0-9A-Za-z.])([0-9]{1,3}\.){3}[0-9]{1,3}([^0-9A-Za-z.]|$)#\1<ip>\3#g' \
+    -e 't mask_ip' \
     -e 's#([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}#<mac>#g'
 }
 
