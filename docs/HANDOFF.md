@@ -4,6 +4,8 @@
 
 ## 现状（2026-11-03）
 
+- **未发布（2026-11-03 傍晚，户主重启小米时发现开机先停在小米桌面）：小米开机更快进 Aerial**（ce74832，只在 PatchWall 上）。守护进程 `onCreate` 时用量统计显示 PatchWall 主界面在前，就马上开始接管，连上守护时不再重新计时。MFTR0 屏幕亮起到 Aerial 第一帧：改前 12.3 / 19 秒，改后 6.7 / 9.9 秒，细节见 `devices/xiaomi-mitv-mftr0.md`「开机到 Aerial 的时间」。412 个单元测试通过。**没验证**：开着小米「开机自动播放上次信号源」时不被打断（这台 `boot_auto_play=0`，要改户主的设置才能测）。
+
 - **两台测试机装的是 main ff86031（含 #858 #995 #1206），没有发版**（2026-11-03 16:00）：小米 MFTR0 `adb install -r` standard + compile speed，`selftest.sh` 守护、两项主页键（从设置 0.3 秒）、`INPUTS=1` 8 个信号源逐个打开通过，返回键进屏保、唤醒正常，没有崩溃和 ANR。TCL MT5879 多屏互动推 guard（versionCode 仍是 107，ADB 右键到「同意」确认后再按），compile speed，约 60 秒后守护绑定，`selftest.sh` 守护、两项主页键（从酷控 0.1 秒）、`INPUTS=1` 7 个信号源通过，没有崩溃和 ANR，`media.player` 正常。两台都不是酷开、MFTR0 有 `BootActivity`，所以 #1206 的新路径两台都走不到，#995 在 MFTR0 上走得到（开机那一段没重启测）。PR #1206 #995 已留言关闭。
 
 - **未发布（2026-11-03 下午，合 PR #1206，户主定的原则：只提升兼容性，不改变其他电视现在的状况）：创维 8R734 按键没反应、ANR 循环**。cherry-pick 保留作者 wzpan（610452e 的内容），另加一个提交把它收窄：Aerial 是系统桌面时用 HOME 方式拉回自己（`bringBackIntent`），以及被普通方式新开成独立任务时用 HOME 方式重开（`reopenAsHome`），都只在 Android 13 及以上、装了 `com.tianci.system` 的酷开固件上生效（`hidesStandardTasks`）；其他把 Aerial 设成默认桌面的电视仍按组件启动，和以前一样。原因：那个固件的 `Task.prepareSurfaces` 只给 home 类型的任务每帧补一次可见性，普通任务的图层一直隐藏。作者在 8R734_A7HP 上验证，#992 里 CodeBenderPlus 在 8R721_A5FP 上交叉验证；#421 #839 #365 同芯片、同现象，可能也是它。我们这边：412 个单元测试通过，小米 MFTR0 装 release + compile speed，`selftest.sh` 守护、主页键通过（这台不是酷开，代码路径不变）。没有酷开 Android 13 真机，收窄后的版本没在作者那台上复测（收窄不改变那台上走的路径）。同一轮：#842 关闭，由 #992 取代（#992 的第 2 部分仍等户主定，作者需先变基去掉已合的部分）；#1197 请作者收窄到 `TCHotelApi` 真能加载时才接管；#1102 请作者拆开，并在液晶 Vidda 上确认不被当成激光机（MT9653 上和 #1112 会抢同一块背光）。
