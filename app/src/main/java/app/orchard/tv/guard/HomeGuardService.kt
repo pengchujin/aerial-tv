@@ -99,7 +99,13 @@ class HomeGuardService : AccessibilityService() {
     // window change, so the last window seen was still Aerial's and the launcher stayed after the
     // wake (issue #928, the reporter's log). coveredAerial needs Aerial's Home not resumed and a
     // stock home as the newest move to the front.
-    private val takeOver = Runnable { takeOverIfStockHomeInFront(takeOverReason, takeOverOnWake, coveredSilently = takeOverOnWake) }
+    private val takeOver = Runnable {
+        patchwallEarlyTakeOver = false
+        takeOverIfStockHomeInFront(takeOverReason, takeOverOnWake, coveredSilently = takeOverOnWake)
+    }
+
+    /** The take-over onCreate started on PatchWall is still settling; see onServiceConnected. */
+    private var patchwallEarlyTakeOver = false
 
     /**
      * A profile's [DeviceProfile.bootStockMs]: at power-on the stock launcher is left in front
@@ -587,7 +593,8 @@ class HomeGuardService : AccessibilityService() {
      * MiTV-MFTR0 (Android 14) 4.7 s and 5 s in two boots, with PatchWall on screen meanwhile
      * (11-13 s from the screen lighting to Aerial). Within the boot window the take-over starts
      * here; it treats the front as unknown, as onServiceConnected does when nothing has been seen.
-     * Only with something chosen to open at power-on, which goes over whatever is in front anyway.
+     * With something chosen to open at power-on, which goes over whatever is in front anyway; or
+     * on PatchWall while usage stats show its home itself in front ([patchwallHomeInFront]).
      * Otherwise an input PatchWall plays at power-on (the last one used) or an HDMI-CEC device
      * switched to would be pulled out of, which only the window changes after the connection can
      * tell (see takeOverOnceSettled). Not after a wake either, for the same reason.
@@ -595,10 +602,30 @@ class HomeGuardService : AccessibilityService() {
     override fun onCreate() {
         super.onCreate()
         if (SystemClock.elapsedRealtime() >= BOOT_WINDOW_MS || !GuardSetup.isUserUnlocked(this)) return
-        if (!hasBootSource()) return
         if (getSystemService<PowerManager>()?.isInteractive != true) return
+        val bootSource = hasBootSource()
+        val patchwall = !bootSource && patchwallHomeInFront()
+        if (!bootSource && !patchwall) return
         Log.i(TAG, "started shortly after boot; taking over before the service is connected")
         takeOverOnceSettled("started shortly after boot", woke = true)
+        patchwallEarlyTakeOver = patchwall
+    }
+
+    /**
+     * PatchWall's home activity is what usage stats last saw come to the front. MiTV-MFTR0
+     * (Android 14) lets third-party processes start 4.6 s after the screen lights, and the service
+     * was connected 3.9 s and, in another boot, 9.7 s after that (two boots on 2026-11-03: 12.3 s
+     * and 19 s of PatchWall). An input PatchWall plays at power-on, or one a CEC device switches
+     * to, is its ExternalSourceActivity there, so it is left alone here; the take-over looks again
+     * once settled, and an input opened after that comes up over Aerial.
+     */
+    private fun patchwallHomeInFront(): Boolean {
+        if (!usageStatsAllowed(this)) return false
+        val (pkg, cls) = frontByUsage() ?: return false
+        if (pkg != PATCHWALL) return false
+        // Read here as well: the take-over needs them, and the connection may come after it.
+        refreshStockHomes()
+        return cls in stockHomes[PATCHWALL].orEmpty()
     }
 
     // The opt-in CEC Home (CecHome) depends on the input in front, which can change without a new
@@ -671,7 +698,9 @@ class HomeGuardService : AccessibilityService() {
             SystemClock.elapsedRealtime() < BOOT_WINDOW_MS &&
             getSystemService<PowerManager>()?.isInteractive == true
         if (fastBootTakeOver) {
-            takeOverOnceSettled("bound shortly after boot", woke = true)
+            // Starting the wait again would undo what onCreate saved: on MiTV-MFTR0 the connection
+            // came 1.3 s into it, and Aerial came a few seconds later than it could have.
+            if (!patchwallEarlyTakeOver) takeOverOnceSettled("bound shortly after boot", woke = true)
             scheduleBootRechecks()
         }
         refreshStockHomes()
