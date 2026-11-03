@@ -512,6 +512,20 @@ object GuardSetup {
      * so after the owner has granted the ADB takeover permission, as for the guard itself.
      */
     private fun restoreReceivers(context: Context) {
+        restoreReceiversNow(context)
+        // Vidda's startup manager disables them again about 2 s after a wake, after the screen-on
+        // and onStart that come here had looked; only the notification listener's later rebind
+        // found them, and that not on every wake (Vidda 75E5K, MT9653, Android 11, issue #1181,
+        // the reporter's timeline). Look again once the firmware is done.
+        val app = context.applicationContext
+        receiverRecheck.removeCallbacksAndMessages(null)
+        for (delay in RECEIVER_RECHECK_MS) receiverRecheck.postDelayed({ restoreReceiversNow(app) }, delay)
+    }
+
+    private val receiverRecheck by lazy { Handler(Looper.getMainLooper()) }
+    private val RECEIVER_RECHECK_MS = longArrayOf(5_000L, 15_000L)
+
+    private fun restoreReceiversNow(context: Context) {
         val pm = context.packageManager
         for (receiver in listOf(BootReceiver::class.java, ConfigReceiver::class.java)) {
             val component = ComponentName(context, receiver)
