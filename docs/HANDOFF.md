@@ -4,6 +4,8 @@
 
 ## 现状（2026-11-03）
 
+- **未发布（2026-11-03 下午，合 PR #995）：小米开机广告 `BootActivity` 盖住 Aerial 时立刻拉回**。cherry-pick 保留作者 kitamaruramito，只改 `HomeGuardService.kt`：装有 `com.mitv.tvhome/.BootActivity` 的电视，在开机 3 分钟内、亮屏 15 秒内（守护绑定时屏幕已亮也算，记在 `boundAwakeAt`，不动 `screenOnAt`）每秒查一次用量统计，并把 `BootActivity` 当原桌面；时间窗外轮询自己停。以前 Android 7 以上只有 30 / 45 秒的复查。作者在 4S Max（AZFP0，Android 9）上用收窄前的版本重启两次，广告出来 0.4–0.5 秒拉回；最终版没有在他那台上复测。我们这边：412 个单元测试通过，release 版装到小米 MFTR0 + compile speed。**MFTR0 也有这个 `BootActivity`**（没导出，`am start` 报 not exported），所以新路径在它上面会走：装完绑定时轮询一次就把小米桌面换回 Aerial；`selftest.sh` 守护、主页键（从设置 0.3–0.9 秒）通过；`STANDBY=1` 让它进了待机、ADB 断开，户主用遥控器开机后 Aerial 在前台，守护日志正常。没测：重启（开机广告那一段，要户主同意）。Lite 没有守护，不用改。
+
 - **未发布（2026-11-03 下午，合 PR #858）：按返回进屏保时焦点磁贴变直角（#725 #654）**。cherry-pick 保留作者 tonv：进屏保的淡出不再在磁贴外面套一层 `graphicsLayer`（在 Android 9 的小米上，这一层会丢掉焦点放大和圆角裁剪），下沉改用 `offset`，透明度用 `AppTile(opacity = …)` 乘进磁贴、阴影、焦点框和名字各自的图层。作者在小米电视 6（MFZP0）上逐帧验证过，淡出全程保持 1.15 倍放大和圆角。我们这边：standard 单元测试通过，release 版装到小米 MFTR0 并 compile speed，户主看过进屏保的淡出，没有问题，唤醒回首页正常（MFTR0 本来就不出这个问题，只能确认没改坏）。Lite 没有这层淡出，不用改。**待办**：请 #654（NSOP0）和 #725（MFZP0）的报告人用下个版本复测；确认修好后删掉已经不起作用的实验开关 `saver_fade_offscreen`（`DiagLog`、`ConfigReceiver` 注释、诊断 display 行），删掉 `site/diag/` 并重跑 `tools/deploy-site.sh`。
 
 - **未发布（分支 `film-glass-1103`，worktree `/Users/jzb/Documents/ATV-glass`）：小米 MFTR0 航拍壁纸下看不到玻璃**（户主发现：底板、右上角按钮、个性化都不是磨砂）。诊断 `file_stuck=true glassless=true`：「文件取帧卡住」标记按开机存在偏好里，慢调用返回才清；当天装 1.81 时进程没了、调用没等到返回，标记沿用到重启，小米被当成 TCL 那样的「取不到帧」电视。现在别的进程留下的标记只在有 TCL 解析器（`FilmFrames.tclExtractor`）的电视上算数，TCL MT5879 不变。验证：MFTR0 `adb install -r` standard release + compile speed，日志 `a stuck mark from an earlier process dropped`，`glassless=false`；临时切航拍壁纸截图，底板、控制中心、个性化都是磨砂，测完用手机页换回 `daily:latest`。小米上现在装的是这个测试包（versionCode 仍 107，下次发版要大于 107）。TCL 没装、没测（行为按代码不变）。
