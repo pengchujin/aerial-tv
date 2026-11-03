@@ -4,6 +4,8 @@
 
 ## 现状（2026-11-03）
 
+- **未发布（2026-11-03 下午，合 PR #858）：按返回进屏保时焦点磁贴变直角（#725 #654）**。cherry-pick 保留作者 tonv：进屏保的淡出不再在磁贴外面套一层 `graphicsLayer`（在 Android 9 的小米上，这一层会丢掉焦点放大和圆角裁剪），下沉改用 `offset`，透明度用 `AppTile(opacity = …)` 乘进磁贴、阴影、焦点框和名字各自的图层。作者在小米电视 6（MFZP0）上逐帧验证过，淡出全程保持 1.15 倍放大和圆角。我们这边：standard 单元测试通过，release 版装到小米 MFTR0 并 compile speed，户主看过进屏保的淡出，没有问题，唤醒回首页正常（MFTR0 本来就不出这个问题，只能确认没改坏）。Lite 没有这层淡出，不用改。**待办**：请 #654（NSOP0）和 #725（MFZP0）的报告人用下个版本复测；确认修好后删掉已经不起作用的实验开关 `saver_fade_offscreen`（`DiagLog`、`ConfigReceiver` 注释、诊断 display 行），删掉 `site/diag/` 并重跑 `tools/deploy-site.sh`。
+
 - **未发布（分支 `film-glass-1103`，worktree `/Users/jzb/Documents/ATV-glass`）：小米 MFTR0 航拍壁纸下看不到玻璃**（户主发现：底板、右上角按钮、个性化都不是磨砂）。诊断 `file_stuck=true glassless=true`：「文件取帧卡住」标记按开机存在偏好里，慢调用返回才清；当天装 1.81 时进程没了、调用没等到返回，标记沿用到重启，小米被当成 TCL 那样的「取不到帧」电视。现在别的进程留下的标记只在有 TCL 解析器（`FilmFrames.tclExtractor`）的电视上算数，TCL MT5879 不变。验证：MFTR0 `adb install -r` standard release + compile speed，日志 `a stuck mark from an earlier process dropped`，`glassless=false`；临时切航拍壁纸截图，底板、控制中心、个性化都是磨砂，测完用手机页换回 `daily:latest`。小米上现在装的是这个测试包（versionCode 仍 107，下次发版要大于 107）。TCL 没装、没测（行为按代码不变）。
 
 - **1.81（versionCode 107）+ Aerial Lite 1.17（19），2026-11-03 发布**（[v1.81](https://github.com/pengchujin/aerial-tv/releases/tag/v1.81)）：下面这一轮上午巡检的全部代码、PR #1191 天气定位，加上户主测过后要求的 **TCL 开机组件进安装脚本**（909f309：装有 `com.tcl.ttvs` 或 `system boot_app_componentname` 已有值时，`install.sh` 设 `boot_app_mode=boot_launcher`（原来空才设）和 `boot_app_componentname=app.orchard.tv/.MainActivity`，原值记在 `settings global aerial_boot_app_componentname` / `aerial_boot_app_mode`（空记成 `none`），`restore.sh` 改回；agent.md 中英同步；`tools/test_install.py` 的 adb 桩补了这两条）。三个包签名 e089…。小米 MFTR0 `adb install -r` standard + compile speed；TCL MT5879 先把开机组件清空，再用 `install.sh guard` 走多屏互动（截图确认焦点在「同意」再按确定），脚本打印「TCL: the TV now opens Aerial at power-on.」，两项和记下的原值（none）都对，两个 walleve 服务保留。回归：小米从设置和 HDMI 2、TCL 从 AIDA64 和 HDMI 2 用 `hid` 造的主页键拉回，信号源小米 8 项、TCL 7 项。官网已部署：version.txt = v1.81，三个 APK 大小和 md5 与 Release 一致，`tools/install.sh`、`restore.sh` 是新版。14 个 issue 贴了发布链接（`local/triage/release-1.81-posts.py`）。**户主的 TCL 现在开机组件是 Aerial（户主要求保留）**，见 `local/TVS.md`。
@@ -373,7 +375,7 @@ plutil -convert json -o en.json TVIdleScreenStrings.bundle/en.lproj/Localizable.
 - 手机配置页是局域网 HTTP，只靠随机令牌保护。
 - 签名用的是 debug key。想换成正式密钥，必须先在两台电视上卸载重装（会丢掉壁纸、照片和图标排序），TCL 还要走一遍当贝流程。
 - 海信等其他品牌没有在真机上验证过。
-- 按返回进屏保时焦点磁贴变直角（#654 #725，Redmi X50 MiTV-NSOP0 Novatek、小米电视 6 MiTV-MFZPO，都是 Android 9）：`saver_fade_offscreen` 没用（NSOP0 开着开关、重启后照样出现，2026-10-27）。逐帧看三段视频：变直角的是当时有焦点的那块磁贴（云视听极光、PlayStation 都出现过，不是某个图标），按返回后它一下子落下（名字消失、缩回原大小），就在这一刻变成直角，还完全不透明，之后才淡出；同一行其他磁贴一直是圆角。角上露出的是磁贴自己的图，但成品图和原图路径按代码都裁成了圆角，没找到会画出整张方图的地方。Android 9 模拟器（aerial28）复现不了：那里按返回后磁贴一直保持选中，电视上却会先失去焦点，窗口焦点不变（日志里没有 window focus false）。下一步：给 NSOP0 的报告人（有 adb）做诊断版，每条绘制路径标一种颜色，日志记失去焦点和磁贴重建。
+- 按返回进屏保时焦点磁贴变直角（#654 #725；**2026-11-03 合入 PR #858，去掉了磁贴外层的淡出图层，等报告人复测，下面是之前的记录**，Redmi X50 MiTV-NSOP0 Novatek、小米电视 6 MiTV-MFZPO，都是 Android 9）：`saver_fade_offscreen` 没用（NSOP0 开着开关、重启后照样出现，2026-10-27）。逐帧看三段视频：变直角的是当时有焦点的那块磁贴（云视听极光、PlayStation 都出现过，不是某个图标），按返回后它一下子落下（名字消失、缩回原大小），就在这一刻变成直角，还完全不透明，之后才淡出；同一行其他磁贴一直是圆角。角上露出的是磁贴自己的图，但成品图和原图路径按代码都裁成了圆角，没找到会画出整张方图的地方。Android 9 模拟器（aerial28）复现不了：那里按返回后磁贴一直保持选中，电视上却会先失去焦点，窗口焦点不变（日志里没有 window focus false）。下一步：给 NSOP0 的报告人（有 adb）做诊断版，每条绘制路径标一种颜色，日志记失去焦点和磁贴重建。
 
 ## 可以继续做的事（按价值排序）
 
