@@ -103,9 +103,6 @@ fun FolderView(
                                 focusRequester = requester(app.key),
                                 enabled = enabled,
                                 moving = false,
-                                // The folder grows in by itself: its tiles replaying the grid's first
-                                // entrance on top of that made every open drag on.
-                                appearDelayMs = null,
                                 onFocused = { focusedKey = app.key },
                                 onClick = { bounds -> onLaunch(app, bounds) },
                                 onLongPress = { bounds -> menuKey = app.key; onLongPress(app, bounds) },

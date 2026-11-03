@@ -7,6 +7,7 @@ import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.platform.LocalDensity
@@ -601,7 +602,7 @@ private fun RoundButton(
     Pressable(onClick = onClick, modifier = modifier, focusRequester = focusRequester, focusedScale = 1.1f) { state ->
         val bg by animateColorAsState(if (state.focused) Palette.Focus else Palette.Fill, tween(140, easing = Motion.EaseOut), label = "round-bg")
         Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(64.dp)) {
-            Box(Modifier.size(48.dp).clip(CircleShape).background(bg), contentAlignment = Alignment.Center) {
+            Box(Modifier.size(48.dp).clip(CircleShape).drawBehind { drawRect(bg) }, contentAlignment = Alignment.Center) {
                 GlyphIcon(glyph, if (state.focused) Palette.OnFocus else Palette.Label, 20.dp)
             }
             Spacer(Modifier.height(6.dp))
@@ -666,7 +667,7 @@ private fun SliderRow(
                         while (travelled <= -pitch) { step(-1); travelled += pitch }
                     }
                 }
-                .smoothBackground(bg, 14.dp).height(40.dp).padding(horizontal = 14.dp),
+                .smoothBackground({ bg }, 14.dp).height(40.dp).padding(horizontal = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
@@ -853,7 +854,7 @@ private fun ChoiceRow(text: String, selected: Boolean, focusRequester: FocusRequ
         val bg by animateColorAsState(if (state.focused) Palette.Focus else Color.Transparent, tween(140, easing = Motion.EaseOut), label = "choice-bg")
         val fg = if (state.focused) Palette.OnFocus else Palette.Label
         Row(
-            Modifier.fillMaxWidth().smoothBackground(bg, 12.dp).height(44.dp).padding(horizontal = 14.dp),
+            Modifier.fillMaxWidth().smoothBackground({ bg }, 12.dp).height(44.dp).padding(horizontal = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             BasicText(text, style = Type.Body.copy(color = fg), modifier = Modifier.weight(1f))

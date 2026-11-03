@@ -291,6 +291,28 @@ tcast_install() {
   return $rc
 }
 
+# From Android 9 the APK goes with its own dex metadata (assets/aerial-dm in release builds, as
+# Control Center's updates do), so Android compiles Aerial as it installs. Without it Xiaomi
+# MiTV-MFTR0 (Android 14) installs it interpreted and compiles "speed" as "speed-profile", which
+# straight after the install has no profile yet: Aerial stayed interpreted ("verify"), focus moves
+# over the aerial wallpaper at p90 46 ms against 28 ms compiled. Any failure falls back to the APK alone.
+install_apk() {
+  local apk=$1 tmp out
+  if [ "${SDK:-0}" -ge 28 ] 2>/dev/null && command -v unzip >/dev/null; then
+    tmp=$(mktemp -d)
+    if unzip -p "$apk" "assets/aerial-dm/$([ "$SDK" -ge 31 ] && echo 31 || echo 28).dm" >"$tmp/aerial.dm" 2>/dev/null && [ -s "$tmp/aerial.dm" ]; then
+      cp "$apk" "$tmp/aerial.apk"
+      if out=$(adb install-multiple -r "$tmp/aerial.apk" "$tmp/aerial.dm" 2>&1) && printf '%s\n' "$out" | grep -q Success; then
+        rm -rf "$tmp"
+        printf '%s\n' "$out"
+        return 0
+      fi
+    fi
+    rm -rf "$tmp"
+  fi
+  adb install -r "$apk" 2>&1
+}
+
 BEFORE=$(installed_code)
 APK=$(build "$FLAVOR")
 echo "Installing $APK"
@@ -298,7 +320,7 @@ echo "Installing $APK"
 # INCONSISTENT_CERTIFICATES]" with exit 0, issue #1017), so only "Success" counts.
 # Catch a nonzero exit here so errexit does not skip the fallback and error explanations below.
 RC=0
-OUT=$(adb install -r "$APK" 2>&1) || RC=$?
+OUT=$(install_apk "$APK") || RC=$?
 if [ "$RC" -ne 0 ] || ! printf '%s\n' "$OUT" | grep -q Success; then
   echo "$OUT" >&2
   case "$OUT" in
@@ -393,7 +415,8 @@ if ! adb shell am start -W -n "$PKG/.MainActivity" | grep -q "Status: ok"; then
 fi
 
 # Compose runs much smoother ahead-of-time compiled on TV chips: Home's tiles show in about half the
-# time. After Aerial's first start, not before: some firmwares compile "speed" as "speed-profile"
+# time. For TVs the dex metadata above did not reach (Android 8 and older, a debug build, a refused
+# install-multiple). After Aerial's first start, not before: some firmwares compile "speed" as "speed-profile"
 # (Xiaomi MiTV-MFTR0, Android 14), which needs the profile Aerial writes as it starts; compiled
 # straight after the install it was left interpreted ("verify").
 sleep 5

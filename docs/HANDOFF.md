@@ -4,6 +4,17 @@
 
 ## 现状（2026-11-03）
 
+- **未发布（2026-11-03 晚，PR #1212 分支，户主在小米上试航拍壁纸觉得卡）：航拍壁纸流畅度**。小米 MFTR0，全部用 `tools/perf.py` 实测：
+  - **户主试的包没编译**：当天下午的测试包是 `install -r` 后马上 `compile -m speed` 装的，MFTR0 把命令行的任何编译档都改成 `speed-profile`，那时 profile 还是空的，结果是 `verify`（解释执行）。同一个包未编译 / 编译后：影片上移动焦点 p90 46 / 28 ms、p99 97 / 36 ms。`tools/install.sh` 改成 Android 9 起连同 APK 自带的 .dm 一起 `install-multiple`（实测 `install-dm`、`speed-profile`、odex 13.7 MB），「日常操作」的快速更新命令和 AGENTS.md 同步改了。
+  - **影片又被压暗了**：10-27（#659）起航拍壁纸按键也不停（`Wallpapers.keepsMoving`），`HomeScreen` 把它当成「一直播放」传 `shadeMoving`，所以户主 10-29 决定去掉的全屏压暗其实一直在画（截图：左上角亮度 150，去掉后 181）。现在只给信号源画面压暗。影片上移动焦点中位 18.6 → 15.7 ms，GPU 9.8 → 6.8 ms（进到 16.7 ms 预算内），影片在播时空闲换玻璃那几帧中位 18.0 → 14.5 ms。**画面变化**：航拍 / 我的视频壁纸比之前亮，户主看一下是否满意。
+  - 进屏保时磁贴主图层淡出不再开离屏缓冲（`AppTile`，阴影、焦点框、名字早就这样）：四次合计掉帧 49 → 27，中位 26.5 → 24 ms，噪声大。
+  - 试过没采用：ExoPlayer 进基线 profile（播放时进程 CPU 31.6% / 30.9% 一核，JIT 很快就编好热循环，没差别）；大时钟放进 GPU 缓存层（时钟模糊阴影每帧重画，`skip_layers=clock` 能省 2–4 ms 渲染线程，但缓存后只省约 0.4 ms GPU，在噪声里）。
+  - 还剩的：影片上磁贴比静态壁纸贵（`skip_layers=tiles` 影片上省 GPU 2 ms，静态只省 0.3 ms），这台电视影片和静态壁纸都是整屏重画（`debug.hwui.show_dirty_regions` 看过），剖析下来渲染线程时间分散在 HWUI 和 Mali 驱动里，没有单个热点。按住方向键连移（中位约 30 ms）、长按菜单（15–30 ms，两次之间跳）仍偏慢。
+  - **没编译的 Android 7–11 电视自己编译**（`update/PackageCompile.kt`，详见 ARCHITECTURE「升级」）：请系统 PackageManager 编译 Aerial 自己，不重装、不弹框。TCL MT5879 多屏互动装完实测两次，93 KB → 约 9 MB，9–10 秒；影片下首页移动启动后第一组中位 20.5 → 11.0 ms。用到了 package 服务的 shell 命令事务（隐藏接口，Android 12 起系统自己堵了），**户主 2026-11-03 同意随下个版本发**；不经过 adbd，只编 Aerial 自己。小米 MFTR0 是 Android 14，不走这条，只回归了没坏。没在 Android 7、8、9 真机上测过（9 的模拟器调用成功，但镜像本身只编到 extract）。
+  - 壁纸影片不再让 TCL 切到 120 Hz（`videoChangeFrameRateStrategy = OFF`）：改前影片一放 TCL 就从 60 切到 120 Hz，界面每帧只有 8.3 ms；改后放影片、按键都保持 60 Hz（`dumpsys SurfaceFlinger` 逐秒看过）。
+  - 新增：`ConfigReceiver --es wallpaper <id>`（换壁纸测影片，回复原壁纸和航拍画质，`""` 只查询）；`perf.py` 的 `film_idle`、`film_row`（等影片放起来再测）。
+  - 验证：单元测试 standard、guard 各 206 个、`tools/` 19 个测试、guard release 编译；小米上 `install.sh`（APK_FILE）走通 `install-dm`。小米、TCL 现在装的都是这一版（versionCode 仍 107；TCL 用多屏互动推了三次，都先截图确认焦点在「同意」再按，现在已编译）。小米的壁纸：测试中途户主自己换成了 `aerial:live`，测完按它还原；画质 auto 没动。TCL 的壁纸本来就是航拍，没改。Lite 没有影片壁纸，不用改。
+
 - **未发布（2026-11-03 傍晚，户主重启小米时发现开机先停在小米桌面）：小米开机更快进 Aerial**（ce74832，只在 PatchWall 上）。守护进程 `onCreate` 时用量统计显示 PatchWall 主界面在前，就马上开始接管，连上守护时不再重新计时。MFTR0 屏幕亮起到 Aerial 第一帧：改前 12.3 / 19 秒，改后 6.7 / 9.9 秒，细节见 `devices/xiaomi-mitv-mftr0.md`「开机到 Aerial 的时间」。412 个单元测试通过。开着小米「开机自动播放上次信号源」时（户主同意临时打开 `system boot_auto_play`，测完改回 0）重启停在 HDMI 1，没被拉走；那次守护进程在解锁前就起来了，提前接管那条路没走到，所以「进程启动时用量统计看到信号源就不接管」这一支没有直接实测。
 
 - **两台测试机装的是 main ff86031（含 #858 #995 #1206），没有发版**（2026-11-03 16:00）：小米 MFTR0 `adb install -r` standard + compile speed，`selftest.sh` 守护、两项主页键（从设置 0.3 秒）、`INPUTS=1` 8 个信号源逐个打开通过，返回键进屏保、唤醒正常，没有崩溃和 ANR。TCL MT5879 多屏互动推 guard（versionCode 仍是 107，ADB 右键到「同意」确认后再按），compile speed，约 60 秒后守护绑定，`selftest.sh` 守护、两项主页键（从酷控 0.1 秒）、`INPUTS=1` 7 个信号源通过，没有崩溃和 ANR，`media.player` 正常。两台都不是酷开、MFTR0 有 `BootActivity`，所以 #1206 的新路径两台都走不到，#995 在 MFTR0 上走得到（开机那一段没重启测）。PR #1206 #995 已留言关闭。
@@ -309,9 +320,13 @@ TV=<ip> tools/restore.sh [--uninstall]                  # 撤销所有授权和�
 只改了代码、想快速更新小米时：
 
 ```bash
-adb -s $XIAOMI_TV:5555 install -r app/build/outputs/apk/standard/release/app-standard-release.apk
-adb -s $XIAOMI_TV:5555 shell cmd package compile -m speed -f app.orchard.tv
+APK=app/build/outputs/apk/standard/release/app-standard-release.apk
+unzip -p $APK assets/aerial-dm/31.dm > ${APK%.apk}.dm   # Android 9–11 用 28.dm
+adb -s $XIAOMI_TV:5555 install-multiple -r $APK ${APK%.apk}.dm
+adb -s $XIAOMI_TV:5555 shell "dumpsys package dexopt | grep -A2 'app.orchard.tv\]'"   # 应是 speed-profile / install-dm
 ```
+
+**不要再用 `install -r` 加 `compile -m speed`**：小米 MFTR0 把命令行的 `speed`（连 `everything`、`verify`）都改成 `speed-profile`，装完马上编译时还没有 profile，结果是 `verify`，也就是没编译（2026-11-03 下午的测试包就是这样，户主用它试航拍壁纸觉得卡：首页移动 p90 46 ms，编译后 28 ms）。连同 APK 自带的 .dm 一起装，安装时就按基线 profile 编译；`tools/install.sh` 在 Android 9 及以上也这么装。
 
 覆盖安装会保留之前的授权；守护服务由 App 启动时自己恢复。
 
@@ -341,6 +356,7 @@ adb -s $XIAOMI_TV:5555 shell cmd package compile -m speed -f app.orchard.tv
 - **手机配置页**：令牌不写日志，从电视截图里识别二维码即可：`swift tools/qr-from-screenshot.swift shot.png`。
 - **剖析 release 包**：临时加 `<profileable android:shell="true" />`（不要提交），`simpleperf record --app app.orchard.tv -e cpu-clock -g`，用同一次编译的 mapping.txt 还原符号。见 [PERF-2026-10-28.md](PERF-2026-10-28.md)「怎么剖析 release 包」。
 - **逐层找开销**：`ConfigReceiver --es skip_layers picture,shade,plate,clock,pill,tiles,shadow,names`，下一帧生效，不保存，`--es skip_layers ""` 恢复。
+- **影片壁纸下测**：`ConfigReceiver --es wallpaper aerial:live`（回复 `wallpaper_before=… aerial_quality=…`，测完用同一开关换回原值），再 `tools/perf.py <serial> film_idle film_row`。
 - **按操作测卡顿**：`python3 tools/perf.py <serial> [row row_hold grid cc wallpaper menu idle saver cold]`。脚本自动按键，读 `gfxinfo framestats`，打印中位数、p90、主线程和 GPU 时间。测之前先装 release 版并 compile speed。A/B 对比时用 `ConfigReceiver --es effects auto|full|lite`、`--es aerial_quality auto|1080p|4k|dolby_vision` 切换（这两项是户主的设置，测完要还原）。`setprop debug.hwui.overdraw show` 加上 `service call activity 1599295570` 可以看过度绘制，**测帧之前一定要关掉**，开着时 GPU 时间会多一半。
 - **立即预览屏保**：`adb shell am start -a app.orchard.tv.PREVIEW_SCREENSAVER -n app.orchard.tv/.MainActivity`；TCL 上测系统屏保：`am start -n com.android.systemui/.Somnambulator`。
 - **模拟小米的待机清理**：`adb shell am force-stop app.orchard.tv`，然后看日志里出现 `revived by the notification listener binding`。

@@ -19,7 +19,7 @@ source local/tvs.env && BUILD=1 KEEP_ADB=1 TV=$XIAOMI_TV tools/install.sh   # BU
 ```
 
 - 连电视的命令（adb、curl 访问电视）需要关闭沙箱。
-- 在电视上测试一律用 release 版并执行 `cmd package compile -m speed -f app.orchard.tv`，debug 版在电视上会卡。
+- 在电视上测试一律用 release 版，并连同 APK 里的 .dm 一起装（`adb install-multiple -r x.apk x.dm`，命令见 `docs/HANDOFF.md`「日常操作」），装完看 `dumpsys package dexopt` 是 `speed-profile`。debug 版在电视上会卡；小米 MFTR0 上 `install -r` 后再 `compile -m speed` 得到的是没编译的 `verify`。
 - 发 TCL 版本前先给 `versionCode` 加 1。
 
 ## 代码约定
