@@ -91,6 +91,7 @@ import app.orchard.tv.ui.theme.Type
 import app.orchard.tv.ui.components.diagLayer
 import androidx.compose.runtime.snapshotFlow
 import app.orchard.tv.system.DiagLog
+import app.orchard.tv.system.LaunchFallback
 import app.orchard.tv.system.SystemProbe
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
@@ -506,6 +507,18 @@ fun HomeScreen(
                         // Inside a folder, Menu is the focused app's, as on Home.
                         if (overlay is Overlay.Folder) return@onPreviewKeyEvent false
                         vm.overlay = if (overlay is Overlay.ControlCenter) Overlay.None else Overlay.ControlCenter()
+                        true
+                    }
+                    NativeKeyEvent.KEYCODE_SETTINGS -> {
+                        // The remote's gear key reaches Home where no firmware answers it: a stock
+                        // Android TV launcher opens the settings on it, and with Aerial as Home it did
+                        // nothing (Riviera RLED-GLT32TPQ10, MediaTek, Android 14, issue #1190).
+                        // Kids and Elders mode keeps the settings shut, as Control Center does.
+                        if (kidsLock != null || Restricted.active) return@onPreviewKeyEvent true
+                        vm.whenUnlocked {
+                            LaunchFallback.arm(SystemProbe.settingsFallbacks(appContext))
+                            onOpen(SystemProbe.settingsIntent(appContext))
+                        }
                         true
                     }
                     NativeKeyEvent.KEYCODE_TV_INPUT -> {

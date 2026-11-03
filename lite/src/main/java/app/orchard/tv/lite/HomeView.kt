@@ -366,6 +366,12 @@ class HomeView(context: Context, private val host: Host) : FrameLayout(context) 
                 if (e.action == KeyEvent.ACTION_UP && focus != PILL && app != null && !moving) host.openMenu(app, tiles[focus])
                 return true
             }
+            // The remote's gear key, which a stock launcher answers (the full app's issue #1190):
+            // Control Center, where Settings is, behind the PIN when one is set.
+            KeyEvent.KEYCODE_SETTINGS -> {
+                if (e.action == KeyEvent.ACTION_UP && !moving) host.openControlCenter()
+                return true
+            }
         }
         val dir = when (e.keyCode) {
             KeyEvent.KEYCODE_DPAD_LEFT -> -1
