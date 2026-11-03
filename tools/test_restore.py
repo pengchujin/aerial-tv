@@ -26,6 +26,8 @@ case "$*" in
   'shell settings get secure screensaver_components') echo org.example/.Screensaver ;;
   'shell settings get secure enabled_accessibility_services') echo app.orchard.tv/app.orchard.tv.guard.HomeGuardService ;;
   'shell settings get global aerial_vt_home_pkg') echo null ;;
+  'shell settings get global aerial_boot_app_componentname') echo null ;;
+  'shell settings get system boot_app_componentname') echo null ;;
   'shell getprop persist.vt.use_home_pkg') ;;
   'shell pm path com.mitv.tvhome'|'shell pm path app.orchard.tv.lite') exit 1 ;;
   'shell cmd role remove-role-holder '*) exit "$CMD_STATUS" ;;
