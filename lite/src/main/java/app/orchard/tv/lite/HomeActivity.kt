@@ -587,11 +587,15 @@ class HomeActivity : Activity(), HomeView.Host {
 
     /**
      * Down in the grid the background is the plate's glass over the whole screen, as in the full app.
-     * The swap fades over the window background (two full-screen draws only while it fades), then
-     * the window background itself becomes the new picture. Without hardware acceleration it jumps.
-     * The old picture stays opaque under the new one fading in: cross-faded, both were half
-     * transparent halfway and a quarter of the black window showed through, a dark blink on every
-     * row change (Letv S40 Air, MStar, Android 4.3, issues #1118 #940; the reporter's analysis).
+     * The swap fades over the window background (two full-screen draws only while it fades).
+     * Without hardware acceleration it jumps. The old picture stays opaque under the new one fading
+     * in: cross-faded, both were half transparent halfway and a quarter of the black window showed
+     * through, a dark blink on every row change (Letv S40 Air, MStar, Android 4.3, issues #1118
+     * #940; the reporter's analysis). The fade then stays the window background and runs back the
+     * other way next time: making the new picture the background 260 ms later left a one-frame
+     * dark flash there each time (#1118 on Lite 1.16, the reporter's reading of it). Once it is
+     * done, cross-fading is switched on, which has a finished fade draw only the picture on top,
+     * not both: one full-screen draw again.
      */
     override fun inGrid(grid: Boolean) {
         if (inGrid == grid) return
@@ -600,11 +604,28 @@ class HomeActivity : Activity(), HomeView.Host {
         if (saver != null) return
         if (!LiteSettings.full(root.isHardwareAccelerated)) { window.setBackgroundDrawable(to); return }
         val from = (if (grid) backdrop else gridBackdrop) ?: run { window.setBackgroundDrawable(to); return }
-        val fade = android.graphics.drawable.TransitionDrawable(arrayOf(from, to))
-        window.setBackgroundDrawable(fade)
-        fade.startTransition(220)
-        handler.postDelayed({ if (inGrid == grid && saver == null) window.setBackgroundDrawable(to) }, 260)
+        val running = rowFade?.takeIf { window.decorView.background === it }
+        if (running != null) {
+            running.isCrossFadeEnabled = false
+            if (rowFadeToGrid != grid) running.reverseTransition(220)
+        } else {
+            val fade = android.graphics.drawable.TransitionDrawable(arrayOf(from, to))
+            rowFade = fade
+            window.setBackgroundDrawable(fade)
+            fade.startTransition(220)
+        }
+        rowFadeToGrid = grid
+        handler.removeCallbacks(rowFadeDone)
+        handler.postDelayed(rowFadeDone, 260)
     }
+
+    private val rowFadeDone = Runnable { rowFade?.takeIf { window.decorView.background === it }?.isCrossFadeEnabled = true }
+
+    /** The row change's fade while it is the window background; see inGrid. */
+    private var rowFade: android.graphics.drawable.TransitionDrawable? = null
+
+    /** Whether rowFade, done or still running, ends on the grid's background. */
+    private var rowFadeToGrid = false
 
     override fun moved(key: String, target: String) {
         layout.move(key, target)
