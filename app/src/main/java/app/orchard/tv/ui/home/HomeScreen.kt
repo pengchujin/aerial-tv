@@ -710,10 +710,12 @@ fun HomeScreen(
                 scroll = { scroll.value },
                 collapse = collapsePx,
                 cover = { filmCover.value },
-                // A film kept moving, or an input's picture, gets the shade a picture has, so the
-                // top row reads over it without the plate. In the grid both give way to the
-                // glass, as any wallpaper does (an input's picture cannot be blurred).
-                shadeMoving = Wallpapers.keepsMoving || sourceInput != null,
+                // An input's picture gets the shade a picture has; in the grid it gives way to the
+                // glass, as any wallpaper does (it cannot be blurred). Not a film, moving or not
+                // (the owner, 2026-10-29): since the aerial wallpaper keeps moving under keys
+                // (Wallpapers.keepsMoving) it was still shaded here, a full-screen draw each frame
+                // (Xiaomi MiTV-MFTR0: GPU 9.8 -> 6.9 ms a frame moving focus over the film).
+                shadeMoving = sourceInput != null,
                 filmStopped = { filmStopped },
                 toSaver = { toSaver.value },
                 filmGlass = (Wallpapers.filmFrost ?: Wallpapers.frosted).takeIf { Wallpapers.moves() && Wallpapers.backdrop != null },

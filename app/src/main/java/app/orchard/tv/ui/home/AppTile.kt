@@ -277,6 +277,11 @@ fun AppTile(
                 .onGloballyPositioned { bounds = it.boundsInWindow() }
                 .graphicsLayer {
                     alpha = opacity()
+                    // Fading into the screensaver, without an offscreen buffer per tile: every tile
+                    // of both rows fades at once (Xiaomi MiTV-MFTR0 over the aerial film, four
+                    // screensaver entries: 49 janky frames with the buffers, 27 without). The logo
+                    // over the plate lets a little of it through meanwhile, unseen in a fade that short.
+                    compositingStrategy = CompositingStrategy.ModulateAlpha
                     zoom(scale)
                     rotationY = leanY.value
                     rotationX = leanX.value
