@@ -622,6 +622,16 @@ private const val PANEL_IN_MS = 450L
 private var pixelCopy: Boolean? = null
 
 /**
+ * Whether reading frames from a film's file can jam the media server here: TCL's own MP4 extractor
+ * (see FilmFrames.tclExtractor), whatever PixelCopy did. Reads a library once per firmware: call it
+ * off the main thread.
+ */
+internal fun fileFramesJam(context: android.content.Context): Boolean {
+    FilmFrames.load(context)
+    return FilmFrames.tclExtractor(context)
+}
+
+/**
  * Where the glass over a moving wallpaper gets the film's frames, for the diagnostics. Owners who
  * saw the plate turn milky after 1.77 (issues #1140 #589) sent photos, and nothing said which of
  * these had shut the frames out.

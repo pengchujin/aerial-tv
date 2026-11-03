@@ -171,8 +171,15 @@ fun VideoWallpaper(
                 val h = surface?.height?.takeIf { it > 0 } ?: Wallpapers.screenH
                 // Neither on TCL MT9655 at times: then the film's own poster, so the picture and its
                 // glass are at least the film that played, not the one shown before (issue #1158).
+                // Not from the file where reading frames jams the media server (TCL's extractor): on
+                // TCL MT5879 every stop read one, and the decoders failed to start or failed
+                // mid-film after it, each time a stop came before (issue #1188, Aerial's own log).
                 val frame = surface?.let { copyFrame(it) }
-                    ?: film?.let { id -> withContext(Dispatchers.IO) { fileFrame(context, id, at, w, h) ?: Wallpapers.videoPoster(id, w, h) } }
+                    ?: film?.let { id ->
+                        withContext(Dispatchers.IO) {
+                            (if (fileFramesJam(context)) null else fileFrame(context, id, at, w, h)) ?: Wallpapers.videoPoster(id, w, h)
+                        }
+                    }
                 if (frame != null && film != null) Wallpapers.useLiveFrame(frame, film, at)
                 cover.animateTo(0f, tween(if (frame != null) 320 else 600, easing = Motion.EaseOut))
             }
