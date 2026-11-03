@@ -166,6 +166,18 @@ class ConfigReceiver : BroadcastReceiver() {
             Wallpapers.init(context)
             ScreensaverMode.entries.firstOrNull { it.key == key }?.let { Wallpapers.chooseScreensaver(it) }
         }
+        // ... --es wallpaper aerial:live   (choose a wallpaper by id, as the phone page does, for
+        //                                 measuring with a film; the reply names the one before
+        //                                 and the aerial quality, to put the owner's back. ""
+        //                                 only reports them.)
+        intent.getStringExtra("wallpaper")?.let { id ->
+            Wallpapers.init(context)
+            AerialSettings.init(context)
+            val before = Wallpapers.selectedId
+            if (id.isNotEmpty()) Wallpapers.select(id)
+            resultData = "wallpaper_before=$before aerial_quality=${AerialSettings.aerialQuality.key}"
+            return
+        }
         // ... --es skip_layers picture,plate   (parts of Home left undrawn until Aerial restarts, to
         //                                 find what a slow TV's frames cost; see DiagLayers)
         intent.getStringExtra("skip_layers")?.let { list ->

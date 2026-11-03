@@ -105,6 +105,12 @@ SCENARIOS = {
     "menu": lambda: keys([M, ("sleep", 1.2), D, D, U, U, B, ("sleep", 1)], gap=0.4),
     # Home left alone for 8 s: nothing should draw once a film has faded in.
     "idle": lambda: keys([("sleep", 8)]),
+    # With a film wallpaper: the film fades in after 10 s on the top row and plays on, glass
+    # samples swapping under the plate (needs Home in front and the film chosen; `film_*` reset
+    # the counters only once the film has had time to start).
+    "film_idle": lambda: keys([("sleep", 20)]),
+    # The first keys on a playing film: it stops, its frame is fetched, focus moves.
+    "film_row": lambda: keys([R] * 6 + [L] * 6, gap=0.3),
     # The screensaver coming in, 8 s of it, and a key back.
     "saver": lambda: (sh(f"am start -a {PKG}.PREVIEW_SCREENSAVER -n {PKG}/.MainActivity"), keys([("sleep", 8), D, ("sleep", 2)])),
 }
@@ -123,6 +129,8 @@ for name in ONLY or list(SCENARIOS) + ["cold"]:
         print("cold", "start ms:", [cold() for _ in range(3)], flush=True)
         continue
     keys([3, ("sleep", 2.5)])  # Home, out of any panel or screensaver
+    if name.startswith("film_"):
+        time.sleep(14)  # the film fades in after 10 s without keys
     sh(f"dumpsys gfxinfo {PKG} reset")
     SCENARIOS[name]()
     time.sleep(1)
