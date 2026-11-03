@@ -1281,7 +1281,7 @@ class HomeGuardService : AccessibilityService() {
                     KeyEvent.KEYCODE_VOLUME_DOWN -> -1
                     else -> 0
                 }
-                if (volumeRepeatDirection != 0 && repeatsHeldVolume) {
+                if (volumeRepeatDirection != 0 && (repeatsHeldVolume || takenVolumeLiftSeen)) {
                     volumeRepeatUntil = SystemClock.uptimeMillis() + VOLUME_REPEAT_MAX_MS
                     handler.postDelayed(volumeRepeat, ViewConfiguration.getKeyRepeatTimeout().toLong())
                 }
@@ -1295,6 +1295,10 @@ class HomeGuardService : AccessibilityService() {
             DiagLog.i("guard: ${KeyEvent.keyCodeToString(event.keyCode)} down at ${event.downTime}${if (taken) ", not passed on" else ""}")
         }
         if (event.action == KeyEvent.ACTION_UP) {
+            if (taken && stepKey && !takenVolumeLiftSeen) {
+                takenVolumeLiftSeen = true
+                DiagLog.i("guard: the lift of a volume press not passed on reached the filter; held keys step the volume from now on")
+            }
             volumeDownPassedAt = Long.MAX_VALUE
             volumeUps[event.keyCode] = event.eventTime
             DiagLog.i("guard: ${KeyEvent.keyCodeToString(event.keyCode)} up at ${event.eventTime}")
@@ -1326,6 +1330,16 @@ class HomeGuardService : AccessibilityService() {
         // Its own step is no change the firmware made: the next press must not look moved first.
         volumeSeen = volumeNow()
     }
+
+    /**
+     * A volume press not passed on gets no repeats from Android, so held it moved one step:
+     * Skyworth/Coocaa 8R145_P3DM (Android 11, issue #1091 on 1.80, the reporter's log: one step
+     * for a 6.3 s hold, the lift at the end). Where such a press's lift has reached the filter, the
+     * guard steps a held key as on TCL. Not before: on 7AA46_H5D and 8A002_H5D (issues #448 #451)
+     * and 8R134_A7D (issue #937, Aerial's log on 1.81) no lift ever came, and stepping until the
+     * cap would run the volume for seconds after every press.
+     */
+    private var takenVolumeLiftSeen = false
 
     private var volumeRepeatDirection = 0
     private var volumeRepeatUntil = 0L
