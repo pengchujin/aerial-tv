@@ -310,6 +310,10 @@ object Wallpapers {
     /** A film's own picture for its card, kept beside it, so it goes when the film is deleted. */
     private fun posterOf(film: ScreensaverVideo) = File(film.file.parentFile, "poster.jpg")
 
+    /** The poster kept for the owner's video [film], if one was; never read from the film itself. */
+    fun videoPoster(film: String, w: Int, h: Int): Bitmap? =
+        videoFilms(VIDEOS).firstOrNull { it.id == film }?.let(::posterOf)?.takeIf { it.exists() }?.let { Images.decodeCover(it, w, h) }
+
     private fun keepPoster(film: ScreensaverVideo, frame: Bitmap) {
         val poster = posterOf(film)
         if (poster.exists()) return
