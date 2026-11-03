@@ -460,7 +460,17 @@ object SystemProbe {
         }
         if (isInstalled(context, "com.tcl.settings")) {
             val shown = runCatching {
-                context.startService(Intent("com.tcl.settings.SHOW_WINDOW").setPackage("com.tcl.settings"))
+                context.startService(
+                    Intent("com.tcl.settings.SHOW_WINDOW").apply {
+                        if (TclBacklight.available) {
+                            setClassName("com.tcl.settings", "com.tcl.settings.ShowWindowService")
+                            putExtra("Type", "Settings")
+                            putExtra("Catagory", "picture")
+                        } else {
+                            setPackage("com.tcl.settings")
+                        }
+                    },
+                )
             }.getOrNull() != null
             if (shown) return true
         }

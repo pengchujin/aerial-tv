@@ -17,8 +17,8 @@ import androidx.core.content.ContextCompat
  *   "backLightForNormal" (0–100). The setting alone does not move the backlight: the value has to
  *   be pushed to TvService as well, and only once [MitvPanel.usable] has found that the
  *   transactions match this firmware (issues #23, #346).
- * - TCL: TTvPictureManager in TCL's framework (see TclPicture), or on newer MT9655 firmware
- *   TvBacklightManager (see TclPq); where neither answers, Control Center opens TCL's picture panel.
+ * - TCL: TTvPictureManager or TvBacklightManager where usable. Amlogic Android 9 can instead use
+ *   the firmware's local sbinder command service (TclBacklight), without creating Settings UI.
  * - Sony BRAVIA: the screen brightness setting changes but the backlight does not (no backlight in
  *   the display config); Control Center opens Sony's picture settings, which DISPLAY_SETTINGS
  *   resolves to. Reported on a BRAVIA VH1, Android 12 (GitHub issue #2).
@@ -85,7 +85,10 @@ object Brightness {
         // setting does not follow it (issue #241).
         SystemProbe.xgimiBrightnessLevel()?.let { return it }
         val r = context.contentResolver
-        if (isTcl(context)) TclPicture.backlight(context)?.let { return it / 100f }
+        if (isTcl(context)) {
+            TclBacklight.level()?.let { return it / 100f }
+            TclPicture.backlight(context)?.let { return it / 100f }
+        }
         return when {
             usesXiaomiBacklight(context) -> {
                 if (ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_SECURE_SETTINGS) != PackageManager.PERMISSION_GRANTED) return null
@@ -97,14 +100,19 @@ object Brightness {
             // A Xiaomi TV where neither place works: open the TV's own backlight slider rather than
             // show one that changes nothing (issue #346).
             isXiaomi(context) -> null
-            // TCL, Sony, Hisense VIDAA and Skyworth/Coocaa drive the backlight through their own TV
-            // services and ignore the system setting; Control Center opens their picture panels.
+            // These TVs ignore the standard setting. When their real panel API is unavailable,
+            // open the native picture settings instead of showing a slider with fake feedback.
             // Before Android 6.0 WRITE_SETTINGS is granted at install.
             isTcl(context) || isSony(context) || isVidaa(context) || SystemProbe.skyworthPicturePanel(context) ||
                 DeviceProfile.current(context).ignoresScreenBrightness ||
                 Build.VERSION.SDK_INT >= 23 && !Settings.System.canWrite(context) -> null
             else -> Settings.System.getInt(r, Settings.System.SCREEN_BRIGHTNESS, 128) / 255f
         }
+    }
+
+    internal fun percentStep(current: Float, direction: Int): Int {
+        val percent = Math.round(current * 100)
+        return (if (direction > 0) (percent / 5 + 1) * 5 else ((percent + 4) / 5 - 1) * 5).coerceIn(1, 100)
     }
 
     /**
@@ -140,7 +148,7 @@ object Brightness {
         }
         val current = level(context) ?: return null
         val percent = Math.round(current * 100)
-        val next = (if (direction > 0) (percent / 5 + 1) * 5 else ((percent + 4) / 5 - 1) * 5).coerceIn(1, 100)
+        val next = percentStep(current, direction)
         val r = context.contentResolver
         // The same order as level(): TCL's SDK and picture_backlight come first, so a Xiaomi that
         // has both never has its panel probed or moved this way.
@@ -161,6 +169,7 @@ object Brightness {
         }
         runCatching {
             if (isTcl(context)) {
+                if (TclBacklight.available) return TclBacklight.setLevel(next)?.let { it / 100f }
                 TclPicture.setBacklight(context, next)
             } else if (usesXiaomiBacklight(context)) {
                 Settings.Global.putInt(r, XIAOMI_BACKLIGHT, next)

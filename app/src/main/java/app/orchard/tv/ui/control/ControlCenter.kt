@@ -100,6 +100,7 @@ import app.orchard.tv.system.NetKind
 import app.orchard.tv.system.SourceKind
 import app.orchard.tv.system.Sounds
 import app.orchard.tv.system.SystemProbe
+import app.orchard.tv.system.TclBacklight
 import app.orchard.tv.ui.components.Pressable
 import app.orchard.tv.ui.components.consumeTaps
 import app.orchard.tv.ui.components.dismissOnTap
@@ -735,7 +736,12 @@ private fun BrightnessRow(vm: HomeViewModel) {
             // Brightness.adjust moves 5% a step, and stops at 1%; XGIMI steps its own levels.
             steps = if (xgimi) SystemProbe.xgimiBrightnessMax else 20,
             onStep = vm::adjustBrightness,
-            onClick = {},
+            onClick = {
+                if (TclBacklight.available) {
+                    vm.overlay = Overlay.None
+                    SystemProbe.openPictureSettings(context)
+                }
+            },
         )
     }
 }

@@ -137,6 +137,7 @@ object Diagnostics {
         appendLine("```")
         appendLine("Aerial can set it: ${Brightness.level(context) != null}")
         appendLine("  global picture_backlight=${global(context, "picture_backlight")}  system screen_brightness=${system(context, Settings.System.SCREEN_BRIGHTNESS)} mode=${system(context, Settings.System.SCREEN_BRIGHTNESS_MODE)}")
+        if (TclBacklight.available) appendLine(TclBacklight.diagnostics())
         appendLine("```")
 
         appendLine()

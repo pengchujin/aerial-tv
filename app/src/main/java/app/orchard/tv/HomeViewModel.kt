@@ -34,6 +34,7 @@ import app.orchard.tv.system.HomeStatus
 import app.orchard.tv.system.NetworkStatus
 import app.orchard.tv.system.SourceKind
 import app.orchard.tv.system.SystemProbe
+import app.orchard.tv.system.TclBacklight
 import app.orchard.tv.system.TvSource
 import app.orchard.tv.system.VolumeStatus
 import app.orchard.tv.ui.home.PinMode
@@ -180,10 +181,19 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
         AppCatalog.pinSource = ::pinSourceById
         AppCatalog.layout = layoutOps
         reload()
-        // The light engine is written off the main thread: a held key repeats every few tens of ms,
-        // and doing the HAL call on the key's own thread left the row lagging behind the picture.
+        // Conflate held-key repeats and drag steps; vendor IPC never runs on the key's thread.
         viewModelScope.launch(Dispatchers.Default) {
-            for (level in brightnessSteps) SystemProbe.setXgimiBrightnessLevel(level)
+            for (level in brightnessSteps) {
+                if (xgimiBrightness) {
+                    SystemProbe.setXgimiBrightnessLevel(level)
+                } else {
+                    val actual = TclBacklight.setLevel(level)
+                    withContext(Dispatchers.Main) {
+                        // An older acknowledgement must not move a newer requested slider target.
+                        if (Math.round((brightness ?: -1f) * 100) == level) brightness = actual?.let { it / 100f }
+                    }
+                }
+            }
         }
         // A tile picture set or removed from the phone page.
         CustomIcons.onChange(customIconsChanged)
@@ -617,6 +627,13 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
             brightness = next
             brightnessActedAt = SystemClock.elapsedRealtime()
             brightnessSteps.trySend(Math.round(next * SystemProbe.xgimiBrightnessMax))
+            return
+        }
+        if (TclBacklight.available && current != null) {
+            val next = Brightness.percentStep(current, direction)
+            brightness = next / 100f
+            brightnessActedAt = SystemClock.elapsedRealtime()
+            brightnessSteps.trySend(next)
             return
         }
         brightness = Brightness.adjust(context, direction)
