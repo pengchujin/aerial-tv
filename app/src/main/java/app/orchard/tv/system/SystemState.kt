@@ -463,6 +463,14 @@ object SystemProbe {
                 context.startService(Intent("com.tcl.settings.SHOW_WINDOW").setPackage("com.tcl.settings"))
             }.getOrNull() != null
             if (shown) return true
+
+            // Fallback for TCL Android 11 models (e.g., G06 / mt5867) where SHOW_WINDOW service is restricted
+            val activityShown = runCatching {
+                val intent = Intent().setComponent(ComponentName("com.tcl.settings", "com.tcl.settings.PictureActivity"))
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                context.startActivity(intent)
+            }.isSuccess
+            if (activityShown) return true
         }
         if (skyworthPicturePanel(context)) {
             val shown = runCatching {
