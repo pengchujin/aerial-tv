@@ -1021,11 +1021,16 @@ class HomeGuardService : AccessibilityService() {
      * resolves to: with Aerial default and no filter, every Home showed it and Aerial came back
      * after Android's 5 s hold (issue #883, the reporter's log). Known by YunOS's home shell being
      * installed.
+     *
+     * Not on Coocaa, though its CVTE firmware has the same AT package: Coocaa C10 (3H352_C10,
+     * Hi3751V350, Android 9) dispatched every volume press the filter passed on a second time,
+     * one lift for the two, and the other ran on as Android's repeats, the volume to 0 or 100.
+     * 1.76, which left a default Home's keys alone there, stepped once a press (issue #1113, the
+     * reporter's system_server log). Known by Coocaa's system app; not tested on a C10.
      */
     private val defaultHomeNeedsHomeFilter by lazy {
-        listOf("com.cvte.factory.at", "com.yunos.tv.homeshell").any {
-            runCatching { packageManager.getPackageInfo(it, 0) }.isSuccess
-        }
+        fun installed(name: String) = runCatching { packageManager.getPackageInfo(name, 0) }.isSuccess
+        (installed("com.cvte.factory.at") && !installed("com.tianci.system")) || installed("com.yunos.tv.homeshell")
     }
 
     override fun onKeyEvent(event: KeyEvent): Boolean {
