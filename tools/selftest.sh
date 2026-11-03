@@ -21,6 +21,9 @@ set -uo pipefail
 
 : "${TV:?set TV to the TV IP address, e.g. TV=<tv-ip> $0}"
 command -v adb >/dev/null || { echo "adb not found. macOS: brew install android-platform-tools; Linux: install android-tools / adb." >&2; exit 1; }
+# The timings and timeouts below are perl's: without it every wait ended at once, and a Home that
+# worked was reported FAIL (issue #1208, the reporter's agent).
+command -v perl >/dev/null || { echo "perl not found; this script times each check with it. Linux: install perl; Windows: run it in Git Bash, which has perl." >&2; exit 1; }
 PKG=app.orchard.tv
 case "$TV" in *:*) SERIAL="$TV" ;; *) SERIAL="$TV:5555" ;; esac
 export ANDROID_SERIAL="$SERIAL"
