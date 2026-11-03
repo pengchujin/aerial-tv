@@ -19,7 +19,7 @@ adb shell cmd notification disallow_listener "$PKG/$PKG.guard.RevivalListener" >
 LISTENERS=$(adb shell settings get secure enabled_notification_listeners 2>/dev/null | tr -d '\r')
 case "$LISTENERS" in
   *"$PKG/$PKG.guard.RevivalListener"*)
-    REST=$(printf '%s' "$LISTENERS" | tr ':' '\n' | grep -v "^$PKG/" | paste -sd: -)
+    REST=$(printf '%s' "$LISTENERS" | tr ':' '\n' | grep -v "^$PKG/" | paste -sd: - || true)
     if [ -n "$REST" ]; then adb shell settings put secure enabled_notification_listeners "$REST" >/dev/null 2>&1 || true
     else adb shell settings delete secure enabled_notification_listeners >/dev/null 2>&1 || true; fi ;;
 esac
