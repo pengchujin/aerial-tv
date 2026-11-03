@@ -10,6 +10,8 @@
   - 验证：412 个单元测试（standard、guard）、Lite lint、release 编译、`tools/` 两组 19 个测试（桩 adb/curl）。测试包 **1.81-test（versionCode 105，Lite 18，没提交，下次发版 ≥ 106）**：小米 MFTR0 `adb install -r` standard + compile speed：设置键打开电视设置、主页键从设置和 HDMI 2（`hid` 造的主页键）拉回、信号源 8 项、屏保进出录屏（影片连续、磁贴淡入、无黑帧；这台录屏约每秒 1 帧）。小米上的 Lite 换成本轮测试包：点磁贴打开云视听小电视、点状态图标打开控制中心；测完重装成 `-Pnohome` 包，HOME 候选只剩完整版（Lite 的儿童模式和密码还是上一轮留下的）。TCL MT5879 多屏互动推 guard（截图确认焦点在「同意」再按确定），compile speed，两个 walleve 服务保留：主页键从 AIDA64 和 HDMI 2 拉回，信号源 7 项，屏保退出直接回首页无黑帧，进入仍黑约 9 秒等影片（老问题）。
   - **没有真机验证的**：C10 / A7D 音量、海信接收器复查（小米 shell 停用不了组件）、MTEQ0、Lite 换行渐变（没有安卓 4 电视）、#1158（MT9655）、#1188 的视频壁纸路径（TCL 上没放 4K 视频复现，怕卡媒体服务）、夏普面板、Riviera、天气中文名兜底。
   - 交户主：PR #1191 第三方定位服务；#942 极米 H3S 双 HOME 首选记录（报告人实测成功，用 `service call package` 事务号写，是否进安装脚本）；#1185 TCL `boot_app_componentname` 是否进安装脚本；#1113 报告人要「跳过此版本」开关（功能轮次）。
+  - 同日追加（户主要求）：**合入 PR #1191**（8dc5d22，天气先取 IPv4 再查 ipwho.is，ipinfo 兜底，和 #1195 的中文名兜底合在一起；Lite 同步 c09ca0d）。测试包 1.81-test2（**versionCode 106**，没提交，**下次发版 ≥ 107**）装在小米：手机页切自动定位后由 ipwho.is 定到 Singapore（家里网络出口在新加坡，测不到国内宽带），测完选回户主的「安庆」。从 Mac 查 6 个国内 IP：ipwho.is 和 ipinfo 4 个一致，114.114.114.114、180.76.76.76 ipinfo 判成上海、ipwho.is 是南京、北京；城市名都能对上中文表。Lite 只编译、lint，没上机。
+  - TCL `boot_app_componentname`（户主让在 TCL 上测）：设上后两次重启 Aerial 都是开机第一个画面，不设时对照一次露 10 秒 TCL 桌面、一次一直停在 TCL 桌面，详见 `devices/tcl-mt5879-cn.md`；测完改回空值，要不要留着 / 进安装脚本待户主定。
   - 观察到：TCL TC8000 第一次因鼠标崩溃后固件会进 STR 黑屏 3 分半（#1109，已修好关闭）；#1140 #589 玻璃取不到影片画面（PixelCopy 慢、文件解帧 1–10 s），请报告人试 1080p，待办。
 
 ## 现状（2026-11-02）
