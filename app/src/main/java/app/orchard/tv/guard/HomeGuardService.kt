@@ -1161,6 +1161,10 @@ class HomeGuardService : AccessibilityService() {
         if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
             lastVolumeDown = event.downTime
             handler.removeCallbacks(volumeRepeat)
+            // Held, the remote sends a new press every 200 ms, sooner than the step waits: each
+            // cancelled the one before, and holding the key moved the volume one step in all
+            // (Skyworth 8R134_A7D, Android 11, issue #937 on 1.80). Settle the one before first.
+            if (volumeStepPending) volumeStepIfUnmoved.run()
             handler.removeCallbacks(volumeStepIfUnmoved)
             // A second key pressed during the first (two remotes) is not it: a lift lost there
             // leaves the volume running for seconds before the next press.
@@ -1174,6 +1178,7 @@ class HomeGuardService : AccessibilityService() {
                 // it did not, the step is Aerial's, once.
                 volumeStepFrom = now
                 volumeStepDirection = if (event.keyCode == KeyEvent.KEYCODE_VOLUME_UP) 1 else -1
+                volumeStepPending = true
                 handler.postDelayed(volumeStepIfUnmoved, VOLUME_UNMOVED_MS)
             }
             volumeDownPassedAt = if (stepKey && !volumeKeyTaken) event.downTime else Long.MAX_VALUE
@@ -1220,7 +1225,9 @@ class HomeGuardService : AccessibilityService() {
     private var volumeDownPassedAt = Long.MAX_VALUE
     private var volumeStepFrom: Pair<Int, Boolean>? = null
     private var volumeStepDirection = 0
+    private var volumeStepPending = false
     private val volumeStepIfUnmoved = Runnable {
+        volumeStepPending = false
         if (volumeNow() != volumeStepFrom) return@Runnable
         DiagLog.i("guard: the volume did not move for a press not passed on; stepping it")
         SystemProbe.adjustVolume(this, volumeStepDirection, fromKey = true)
