@@ -1200,17 +1200,26 @@ class MainActivity : ComponentActivity() {
          * firmware's Task.prepareSurfaces re-applies the visibility every frame only for home-type
          * root tasks, and Aerial started as Home showed and took keys at once. Where Aerial is not the
          * system's Home the category stays off: it made the system open a second, home-type task with
-         * a fresh MainActivity every time (Xiaomi MiTV-MFTR0, 1.11).
+         * a fresh MainActivity every time (Xiaomi MiTV-MFTR0, 1.11). Only on Coocaa firmware from
+         * Android 13 ([hidesStandardTasks]): other TVs with Aerial as their Home keep the start they had.
          */
         fun bringBackIntent(context: Context): Intent {
             val home = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
-            val intent = if (isSystemHome(context)) {
+            val intent = if (hidesStandardTasks(context) && isSystemHome(context)) {
                 home.setPackage(context.packageName)
             } else {
                 Intent(context, MainActivity::class.java).setAction(Intent.ACTION_MAIN)
             }
             return intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
         }
+
+        /**
+         * Coocaa firmware (com.tianci.system) from Android 13, where a standard task's surface can stay
+         * hidden (see [bringBackIntent]). Seen on Skyworth 8R734_A7HP and 8R721_A5FP (titanite, PR #992).
+         */
+        private fun hidesStandardTasks(context: Context): Boolean =
+            Build.VERSION.SDK_INT >= 33 &&
+                runCatching { context.packageManager.getPackageInfo("com.tianci.system", 0) }.isSuccess
 
         /**
          * Whether the system's Home is Aerial. Also when no Home is chosen yet but Aerial is one of
