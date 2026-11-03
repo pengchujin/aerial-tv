@@ -128,11 +128,13 @@ private val SineEasing = Easing { t -> (1f - cos(PI * t).toFloat()) / 2f }
 private val Corner = 12.dp
 private const val RIM_AT_REST = 0.07f
 
-// High-contrast focus frame: a white ring this far outside the tile, as tvOS draws it.
-private val RingGap = 5.dp
+// High-contrast focus frame: a thin white ring flush against the tile. It grows out from the tile
+// by [RingGrow] as it comes on.
+private val RingGap = 0.dp
+private val RingGrow = 5.dp
 private val ShadowBlur = 14.dp
 private val ShadowDrop = 12.dp
-private val RingWidth = 3.dp
+private val RingWidth = 2.dp
 
 /**
  * One app on the home screen, drawn the tvOS way: it lifts toward you when focused, a soft light
@@ -497,7 +499,7 @@ fun AppTile(
                 // The frame grows out from the tile to its place: drawn at its full gap, pulled in
                 // by what the gap still lacks.
                 val frame = ringFrame(size.width.roundToInt(), size.height.roundToInt(), Corner.toPx(), RingGap.toPx(), RingWidth.toPx(), 1.dp.toPx())
-                val e = frame.ext - RingGap.toPx() * 0.6f * (1f - ringIn)
+                val e = frame.ext - RingGrow.toPx() * 0.6f * (1f - ringIn)
                 translate(-e, -e) {
                     scale((size.width + 2 * e) / frame.image.width, (size.height + 2 * e) / frame.image.height, pivot = Offset.Zero) {
                         drawImage(frame.image)
@@ -707,7 +709,5 @@ private fun ringFrame(w: Int, h: Int, corner: Float, gap: Float, width: Float, d
                 Shader.TileMode.CLAMP,
             )
         })
-        // A thin inner line of light, the glass's thickness.
-        canvas.drawPath(around(out - width / 2 - 0.75f * dp), line(dp, Color.White.copy(alpha = 0.35f)))
         RingFrame(bitmap.frozen().asImageBitmap(), ext)
     }
