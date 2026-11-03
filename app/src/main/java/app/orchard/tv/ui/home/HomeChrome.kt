@@ -19,7 +19,6 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -45,6 +44,7 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.composed
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.TransformOrigin
@@ -832,7 +832,7 @@ fun StatusPill(
         Row(
             Modifier
                 .clip(RoundedCornerShape(50))
-                .background(bg)
+                .drawBehind { drawRect(bg) }
                 .height(34.dp)
                 .padding(horizontal = 14.dp),
             verticalAlignment = Alignment.CenterVertically,

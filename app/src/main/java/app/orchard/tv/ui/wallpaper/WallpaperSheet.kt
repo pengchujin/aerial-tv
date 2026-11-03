@@ -668,7 +668,7 @@ private fun Chip(label: String, on: Boolean, onFocused: (() -> Unit)? = null, on
         )
         val fg = if (state.focused) Palette.OnFocus else Palette.Label
         Row(
-            Modifier.clip(RoundedCornerShape(50)).background(bg).height(40.dp).padding(horizontal = 20.dp),
+            Modifier.clip(RoundedCornerShape(50)).drawBehind { drawRect(bg) }.height(40.dp).padding(horizontal = 20.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
@@ -685,7 +685,7 @@ private fun ActionChip(label: String, glyph: Glyph, onClick: () -> Unit) {
         val bg by animateColorAsState(if (state.focused) Palette.Focus else Palette.FillStrong, tween(140, easing = Motion.EaseOut), label = "action-bg")
         val fg = if (state.focused) Palette.OnFocus else Palette.Label
         Row(
-            Modifier.clip(RoundedCornerShape(50)).background(bg).height(40.dp).padding(start = 20.dp, end = 14.dp),
+            Modifier.clip(RoundedCornerShape(50)).drawBehind { drawRect(bg) }.height(40.dp).padding(start = 20.dp, end = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
@@ -713,7 +713,7 @@ private fun ScreensaverChoice(onStart: () -> Unit) {
             val bg by animateColorAsState(if (state.focused) Palette.Focus else Palette.FillStrong, tween(140, easing = Motion.EaseOut), label = "ss-start")
             val fg = if (state.focused) Palette.OnFocus else Palette.Label
             Row(
-                Modifier.clip(RoundedCornerShape(50)).background(bg).height(40.dp).padding(horizontal = 20.dp),
+                Modifier.clip(RoundedCornerShape(50)).drawBehind { drawRect(bg) }.height(40.dp).padding(horizontal = 20.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {

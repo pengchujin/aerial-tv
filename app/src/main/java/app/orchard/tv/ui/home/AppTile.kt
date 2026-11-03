@@ -33,6 +33,7 @@ import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -193,23 +194,31 @@ fun AppTile(
         animationSpec = if (pressed) tween(110, easing = Motion.EaseOut) else spring(dampingRatio = 1f, stiffness = 520f),
         label = "tile-scale",
     )
-    val lift by animateFloatAsState(
+    val liftState = animateFloatAsState(
         targetValue = if (focused || moving) 1f else 0f,
         animationSpec = spring(dampingRatio = 1f, stiffness = 380f),
         label = "tile-lift",
     )
-    val ring by animateFloatAsState(
+    val lift by liftState
+    val ringState = animateFloatAsState(
         targetValue = if (AerialSettings.focusStyle == FocusStyle.HighContrast) 1f else 0f,
         animationSpec = tween(200, easing = Motion.EaseOut),
         label = "tile-ring",
     )
+    val ring by ringState
     // The frame comes on quickly with the zoom and goes off faster still, so moving along a row
     // never shows two frames at once. It grows out from the tile's edge to its place.
-    val ringIn by animateFloatAsState(
+    val ringInState = animateFloatAsState(
         targetValue = if (focused || moving) 1f else 0f,
         animationSpec = if (focused || moving) spring(dampingRatio = 1f, stiffness = 700f) else spring(dampingRatio = 1f, stiffness = 2400f),
         label = "tile-ring-in",
     )
+    val ringIn by ringInState
+    // Whether the shadow and the frame are there at all changes once per focus move; the values
+    // themselves are read only in the layers and draws below. Read in composition, every frame of
+    // the springs recomposed the whole tile and threw away its drawing cache.
+    val showShadow by remember { derivedStateOf { liftState.value > 0.01f } }
+    val showFrame by remember { derivedStateOf { ringState.value > 0.01f && ringInState.value > 0.01f } }
 
     // tvOS "jiggle" while the app is being moved.
     val wobble = if (moving && !reduced) {
@@ -239,7 +248,7 @@ fun AppTile(
     }
 
     Box(modifier.size(width, height)) {
-        if (lift > 0.01f && !AerialSettings.lite && DiagLayers.shows("shadow")) {
+        if (showShadow && !AerialSettings.lite && DiagLayers.shows("shadow")) {
             // A lifted tile casts a soft shadow below it, as cards do on tvOS. The system's
             // elevation shadow is too faint to read on a TV; this one is baked, so it costs one
             // image draw while a tile is lifted.
@@ -458,7 +467,7 @@ fun AppTile(
             })
         }
 
-        if (ring > 0.01f && ringIn > 0.01f) {
+        if (showFrame) {
             // The frame sits outside the tile, so it is drawn on its own unclipped layer that moves
             // exactly as the tile does: same lift, lean, push and jiggle.
             Canvas(
