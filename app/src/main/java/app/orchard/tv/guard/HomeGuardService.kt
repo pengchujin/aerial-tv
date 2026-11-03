@@ -264,6 +264,20 @@ class HomeGuardService : AccessibilityService() {
         return front
     }
 
+    /**
+     * Without usage stats to ask (see coveredAerial): Aerial's Home was brought back, covered with no
+     * window change within moments of showing, and is still not resumed. Xiaomi MiTV-MTEQ0 (Android
+     * 10) started PatchWall's BootActivity, its 15 s start-up advert, 1.6 s after the boot take-over
+     * and then uncovered PatchWall; the boot rechecks found Aerial's window last and left it there
+     * (issue #1047, the reporter's log). No viewer opens an app that fast from a Home just shown.
+     */
+    private fun aerialCoveredUnseen(window: Pair<String, String>): Boolean {
+        if (window.first != packageName || !window.second.endsWith(".MainActivity") || aerialResumed) return false
+        if (aerialResumedAt < broughtBackAt || aerialPausedAt - aerialResumedAt !in 0 until COVERED_UNSEEN_MS) return false
+        Log.i(TAG, "Aerial's Home was covered ${aerialPausedAt - aerialResumedAt} ms after it showed, with no window change")
+        return true
+    }
+
     private fun scheduleBootRechecks() {
         handler.removeCallbacks(bootRecheck)
         BOOT_RECHECKS_MS.forEach { handler.postDelayed(bootRecheck, it) }
@@ -686,8 +700,11 @@ class HomeGuardService : AccessibilityService() {
         // allowed but name nothing: XGIMI Z9X (MT9660, Android 13, usage allowed) pulled Aerial
         // over TVBox the same way (issue #1068, PR #1090, checked there for an hour). Where they
         // name the stock launcher, or an app gone to the back with nothing after it (#1023), Home
-        // is still taken back.
-        if (revived && !diedInFront && !GuardSetup.wasHomeInFront(this) && frontByUsage() == null && !nothingInFrontByUsage() &&
+        // is still taken back. So it is where the guard saw a stock home come up after Aerial's
+        // Home left: Xiaomi MiTV-MTEQ0 (Android 10) going to standby starts PatchWall over Aerial
+        // and stops Aerial 2 s later, and at wake PatchWall stayed (issue #1047, the reporter's log).
+        if (revived && !diedInFront && !GuardSetup.wasHomeInFront(this) && !GuardSetup.stockHomeSinceHomeLeft(this) &&
+            frontByUsage() == null && !nothingInFrontByUsage() &&
             SystemClock.elapsedRealtime() >= BOOT_WINDOW_MS && !fastBootTakeOver
         ) {
             // In Aerial's own diagnostics too: on these TVs the owner often cannot read logcat.
@@ -810,7 +827,8 @@ class HomeGuardService : AccessibilityService() {
         // also serves "open with", but only right after a revival or a wake, which is rarer than a
         // boot and was already accepted there.
         val stockInFront = last == null || last.first in stockHomes ||
-            (last.first == XGIMI_FRAMEWORK && last.second.endsWith(".resolver.ResolverActivity"))
+            (last.first == XGIMI_FRAMEWORK && last.second.endsWith(".resolver.ResolverActivity")) ||
+            (coveredSilently && aerialCoveredUnseen(last))
         // Aerial is in front after a wake because the guard already brought it back when the stock
         // launcher showed, or because it survived standby; either way the input the TV starts on
         // still has to open. Only with one chosen: bringing Aerial back also resets its focus.
@@ -1651,6 +1669,7 @@ class HomeGuardService : AccessibilityService() {
         private const val BOOT_STOCK_CAP_MS = 20_000L
         private const val WAKE_WINDOW_MS = 15_000L
         private val BOOT_RECHECKS_MS = listOf(30_000L, 45_000L)
+        private const val COVERED_UNSEEN_MS = 3_000L
         private const val DEAF_AFTER_MS = 20_000L
         /** How long a stock launcher's window change may take to arrive after Home (see frontAfterHome). */
         private const val FRONT_AFTER_HOME_MS = 1_500L
@@ -2052,6 +2071,10 @@ class HomeGuardService : AccessibilityService() {
         @Volatile
         private var aerialResumedAt = Long.MIN_VALUE / 2
 
+        /** When Aerial last left the front, in uptime. */
+        @Volatile
+        private var aerialPausedAt = Long.MIN_VALUE / 2
+
         /** Called when Aerial comes back to the front: the stock launcher is fair game again. */
         fun onAerialResumed() {
             aerialResumed = true
@@ -2073,6 +2096,7 @@ class HomeGuardService : AccessibilityService() {
          */
         fun onAerialPaused(): Boolean {
             aerialResumed = false
+            aerialPausedAt = SystemClock.uptimeMillis()
             val s = instance ?: return false
             s.updateKeyFilter()
             // Within the pause Home itself makes, not one the viewer makes after it by opening an app.
