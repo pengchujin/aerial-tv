@@ -4,6 +4,13 @@
 
 ## 现状（2026-11-03）
 
+- **2026-11-03 晚巡检（main，未发版）**，记录见 `local/triage/2026-11-03c-full.md`（原始 `raw-2026-11-03c/`），回复 `replies-2026-11-03c.py`。332 issue / 56 PR，用户最后发言 43 + 11，上一轮已定不回的 11 个不动，逐个读了 43 个。在 worktree `.claude/worktrees/aerial-tv-triage-916420` 上做，`ATV`（smooth-corners-everywhere）别的会话的改动没碰。
+  - 修：**#684 #1213 #1205 守护在解锁前绑定就崩**（678e319）：1.79 儿童模式在 `onServiceConnected` 开头调 `KidsWatch.start`，读加密存储；没设锁屏密码的电视也有解锁前那一两秒，守护崩两次后系统把它推迟 30 分钟，开机没人接管（红米投影仪 4 mt5873、峰米 spiderman、海尔 YunOS 三份崩溃日志一样）。现在解锁后（`userUnlocked`）再启动，屏幕关、主页键的 `BootOpen` 记录也只在解锁后写。#1091 创维 8R145 按住音量只走一格（8f9d65f，见 `devices/skyworth-coocaa.md`）。#1158 轮播视频时底板玻璃不跟着换（3ebb21b：取不到画面的电视上，动着时的玻璃是开头那张图一次做好的静态磨砂，换段时重做）。#1118 #940 Lite 换行闪黑（97064b3：窗口背景只用一个渐变，做好后一直留着，「流畅」也用 1 ms 的同一个渐变跳）。
+  - 合 PR（cherry-pick，保留作者）：#1216 守护没绑定时认出原桌面（b0acc82，openzzm），加 8c4a25f：「桌面」磁贴走权限兜底打开时也算主动打开（新进程里守护还没绑定，PR 那条缓存是空的）；#1197 创维 43H30 原生背光（d42cc15，hiper25，按上次意见收窄后）；#1196 restore.sh 唯一监听（a206486，测试桩补了 1.81 的 TCL 开机组件读取）；#1198 report.sh 相邻 IP（df19632，macOS 的 BSD sed 上也试过）。不合：#1218（TCL ak30a5 静默背光，加 NDK/CMake 构建依赖和固件私有 sbinder 调用，交户主）；#992 第 2 部分仍交户主。
+  - 验证：412 个单元测试（standard、guard）、`tools/` 32 + 19 个测试、Lite lint、三个包签名 e089…。**解锁前崩溃在 Google TV 模拟器（Android 13，加密 unsupported，设了 PIN）上复现并对照**：1.81 正式包重启后守护在 `onServiceConnected` 崩两次（R8 map id 和报告人的一样）；本分支包重启后 `bound while user locked; deferred takeover until unlock`，解锁后 `bringing Aerial back`，没有崩溃。小米 MFTR0 `install-multiple` 本分支 standard（versionCode 仍 107，`install-dm` / `speed-profile`）：`selftest.sh` 守护、主页键（从设置 0.3 秒）、`INPUTS=1` 8 个信号源通过，屏保进出录屏同一部影片、无黑帧。TCL MT5879 多屏互动推 guard 测试包 **1.82-test（versionCode 108，没提交，下次发版 ≥ 109）**，截图确认焦点在「同意」再按确定，两个 walleve 服务保留，compile speed：`selftest.sh` 通过（信号源 7 项），`hid` 造的遥控器主页键从 AIDA64 和 HDMI 2 直接回 Aerial，音量单按一格、按住 1.5 秒连调、松手停（音量 9 → 30，已改回 9），屏保进出录屏无黑帧。Lite：安卓 4.3 模拟器在这台 Mac 上起不来（32 位 ARM），在 Google TV 模拟器上看了换行、快速来回换行、屏保进出后的背景都对；小米上的 Lite 测试包换成本轮的 `-Pnohome` 包（19，数据保留）。
+  - **没有真机验证的**：解锁前崩溃（三台报告机型都没有，模拟器复现）、8R145 按住音量、#1158（MT9655；TCL MT5879 上视频没有封面，走不到）、Lite 换行（没有 MStar 4.3）、#1216 的路径（MFTR0 上守护一直绑着）、43H30 背光。
+  - 待办：#710 康佳诊断包链接 404（1.81 部署时 `site/diag/` 没带上），这轮部署官网时带上；#937 A7D 按住音量：守护见不到抬起，暂无办法。
+
 - **未发布（2026-11-03 晚，户主在 TCL 上觉得难看）：取不到影片画面的电视上，控制中心在首页的玻璃**（`LiquidGlass` 的 `FilmGlass`）。33% 黑 → 74% 烟色，加烘焙的顶部淡光。TCL MT5879 截图对比过（户主看过同意），控制中心帧耗时不变（中位 7.6–9.7 ms，GPU 9.5 ms）。只影响 `Wallpapers.filmGlassless` 的电视，小米不变。全部 App 的背景（那张之前取到的静止画面的磨砂）没改，换片后可能和身后影片对不上，可选改成同样的烟色盖在暂停的影片上，待户主定。TCL 上装的是这一版（versionCode 仍 107）。
 
 - **未发布（2026-11-03 晚，PR #1212 分支，户主在小米上试航拍壁纸觉得卡）：航拍壁纸流畅度**。小米 MFTR0，全部用 `tools/perf.py` 实测：
