@@ -28,6 +28,7 @@ import androidx.core.graphics.createBitmap
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
@@ -226,6 +227,10 @@ fun LiveWallpaper(
         var failures = 0
         var rendered = false
         return AerialStream.player(context, quality).apply {
+            // Home is drawn over the film: it keeps the display's rate. Left to ask for the film's
+            // (Media3's default, only where the change is seamless), TCL MT5879 went from 60 to
+            // 120 Hz for a 29.97 fps film, and every frame of Home had 8.3 ms instead of 16.7.
+            videoChangeFrameRateStrategy = C.VIDEO_CHANGE_FRAME_RATE_STRATEGY_OFF
             addListener(object : Player.Listener {
                 override fun onRenderedFirstFrame() {
                     rendered = true
