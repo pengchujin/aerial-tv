@@ -76,9 +76,20 @@ root 后把 `/system/pcfg/<型号目录>/config/general_config.xml` 里的 `DEFA
 - C10：Aerial 是默认桌面，守护不过滤按键，诊断里没有一行 `guard:`。窗口里照样有抬起之后的 `VOLUME_UP #47`，`VOLUME_DOWN` 每三个重复夹一个抬起地一直来。报告人用 Agent 抓到每次按键 `ccSystem onRecvKey` 两次（+2），但这台有海思自己的无障碍服务 `HiRMService`，第二条通道不一定是守护传下去的。
 - main 上（未发版）窗口这边丢掉：已结束的按下的重复（这里或守护见过它抬起、有更新的音量按下、或守护已经知道抬起到不了），以及到达窗口前音量已经变了的整次按下（`MainActivity.dropVolumeKey`）。小米 MFTR0 上音量键根本不进 Aerial 窗口，TCL MT5879 上走守护，两台行为不变（实测）。创维 / 酷开没有真机，发版后看诊断里的 `repeats a press that is over; dropped` / `the volume already moved`。
 
+1.80 之后（2026-11-03，#1113 C10 报告人的 system_server 日志、#937 A7D 的诊断）：
+- C10 的原因找到了：1.77 合入红米投影仪 Lite 的改动，装有 `com.cvte.factory.at`（CVTE 工厂测试）时，Aerial 是默认桌面也开按键过滤。C10 也是 CVTE 代工、同是 Hi3751V350，过滤开着时每次音量按下被固件分发两次（主线程 Local 一次、android.ui Broadcast 一次），抬起只回一次，另一条变成系统的自动重复，463 次重复每次一格。1.76 没有这个过滤，一按一格。main 上（未发版）有酷开的 `com.tianci.system` 时不再因 `com.cvte.factory.at` 过滤（e8f4155）。没有 C10 真机。
+- A7D：1.80 后不连冲了，但按住也只走一格。守护拿走按下、固件不动时自己补一格，等 300 ms；按住时遥控器每 200 ms 发一次新的按下，每次都取消了上一次的补格，最后只补一格。main 上（未发版）新按下先把上一次没补的补上（1dc3357），按住应恢复连续调。没有 A7D 真机。
+
 ## 开机属性 `persist.service.model.*`（#1046 7AA49_D4 T963 安卓 9，#1096 65G650P / #1069 7S77_V40 sky848_9s60 安卓 8.0）
 
 - 固件开机按 `persist.service.model.pkg / .cls` 直接启动组件；7S77_V40 上只改 `persist.service.homepage.*` 反而让 Aerial 被反复强停（#1069 实验 6）；65G650P 上清空 `model.*` 后固件写回 `com.tianci.movieplatform`。
 - 7AA49_D4：第三方 App 能执行 `setprop` 写这几个属性；`adb install -r` 后酷开清掉本包的无障碍登记；`com.coocaa.*` 包名会被 SkyProcManager 放过。
 - 65G650P：第三方收不到 `BOOT_COMPLETED`；`pm install` 报 `INSTALL_FAILED_USER_RESTRICTED`，要用 `cmd package install-create/write/commit` 会话装；`cmd notification allow_listener` 报 No shell command implementation，用 `settings put secure enabled_notification_listeners`。
 - 报告人的办法是改包名或多装一个「壳」App 占住 `model.*`，都和原则冲突（只装 Aerial 自己、不冒充厂商包名），Aerial 不做。
+
+## 9S89_S8A（MStar，安卓 6.0 / CCOS）：假待机唤醒后 Aerial 回不来（#1173，报告人实测）
+
+- 遥控器电源键是「假待机」：待机时前台是 `com.tianci.system/.WakeLockActivity`，内核不重启，唤醒不发开机广播。
+- 唤醒后固件把非 `com.coocaa.*` 的包置成停止态（`stopped=true`，报告人用两个空壳包对照），并把 Aerial 从 `enabled_accessibility_services` 里拿掉；被停止的包收不到广播、不会被绑定，Aerial 自己回不来。
+- `system boot_app_mode` 取 0 / 1 / 2 加 `boot_app_componentname` 都没让固件在唤醒后打开 Aerial；`/data/ccos/customStart` 要 root。
+- 报告人自编了改包名（`com.coocaa.aerial`）的版本：重启能进 Aerial，假待机唤醒后仍不会被打开。改包名进名单和项目原则冲突，不做。这台只能唤醒后手动打开一次 Aerial，或用 guard 版、别把 Aerial 设成默认桌面。

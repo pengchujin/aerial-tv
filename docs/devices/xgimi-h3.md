@@ -33,3 +33,11 @@ H3 和 [Z6X 第四代 XK03U](xgimi-xk03u-android8.md) 是同一平台（`ironman
 ## H3S：设成默认桌面后开机黑屏（#942，未复现）
 
 2026-10-30 一位用户报告：原版极米 H3S（系统 V6.12.61，Android 9）用 Aerial 1.70 设成默认桌面（极米桌面 `com.xgimi.home` 仍装着、启用）后重启，开机画面之后黑屏，主页键、设置键无效，ADB 5555 连不上，两次都只能刷机恢复。没有日志，原因不明。在弄清楚之前，H3S 上不要把 Aerial 设成默认桌面，只当普通 App 或靠守护接管；如果有人愿意再试，先确认 ADB 在黑屏时还能连（有线 / USB），以便还原。
+
+## H3S：双 HOME 首选记录能避开重启黑屏（#942，2026-11-02 报告人实测）
+
+报告人先确认 `adb shell pm enable com.xgimi.home` 能用（网络 ADB 5555 重启后自动恢复），再按 #767 的办法写两条 HOME 首选记录：`MAIN+HOME+DEFAULT`（候选极米桌面和 Aerial）与 `MAIN+HOME`（再加 FallbackHome），都指向 Aerial、`always=true`。重启后直接进 Aerial、不黑屏，极米桌面保持启用，按主页键回 Aerial。只用 `set-home-activity` 写的单条记录在极米桌面启用后变成 `always="false"`，HOME 解析到极米框架的选择器 `com.xgimi.xgimiframeworkui/.resolver.ResolverActivity`，推测这就是默认桌面重启黑屏的原因。
+
+写入用的是 `service call package <事务号>`（这台固件 70），事务号随固件变，报告人的脚本带校验和回滚。是否放进安装脚本要户主决定，现在没有放。
+
+当贝 D7X Pro（`horse_popular`，mt5877 / mt9952，安卓 14，#1182 #1180）用的也是极米框架的选择器：`cmd role`、`set-home-activity` 返回成功但不生效，选择器里点「始终」重启后失效，开机先停在选择器约 30 秒再被守护拉回。报告人的 Agent 停用了当贝桌面和七个广告组件（不推荐，没有写进安装说明）；双 HOME 记录在这台上还没试过。
