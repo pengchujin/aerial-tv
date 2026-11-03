@@ -554,10 +554,18 @@ object SystemProbe {
         if (runCatching { pm.getActivityInfo(LETV_SOURCES, 0) }.getOrNull()?.exported == true &&
             runCatching { context.startActivity(letv) }.isSuccess
         ) return true
+        // Sharp's Foxconn-built MStar firmware (CVTM648, Android 6) lists no inputs either; its own
+        // source panel, the one the remote's input key shows, picks one and switches through
+        // MStar's player (issue #1048, the reporter opened it with adb). Only where it is exported.
+        val sharp = Intent(Intent.ACTION_MAIN).setComponent(FOXCONN_SOURCES).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        if (runCatching { pm.getActivityInfo(FOXCONN_SOURCES, 0) }.getOrNull()?.exported == true &&
+            runCatching { context.startActivity(sharp) }.isSuccess
+        ) return true
         return false
     }
 
     private val LETV_SOURCES = ComponentName("com.stv.signalsourcemanager", "com.stv.signalsourcemanager.MainActivity")
+    private val FOXCONN_SOURCES = ComponentName("com.mstar.tvsetting", "com.foxconn.etvg.inputsource.FxcInputSourceActitvity")
 
     /**
      * TCL's own input panel, where the firmware has one. The remote's input key opens it by itself,
