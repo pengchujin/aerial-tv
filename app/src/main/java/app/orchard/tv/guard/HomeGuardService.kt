@@ -1619,6 +1619,9 @@ class HomeGuardService : AccessibilityService() {
         stockHomes = (stockHomes.keys + unfiltered.keys).associateWith {
             stockHomes[it].orEmpty() + unfiltered[it].orEmpty()
         }
+        // Kept in the companion: a tile pressed while the guard is unbound still has to be
+        // recognised as the stock launcher (see knownStockHomes).
+        knownStockHomes = stockHomes
     }
 
     /**
@@ -2110,8 +2113,22 @@ class HomeGuardService : AccessibilityService() {
         /** The stock launchers the guard keeps away from the front, or null while it is not running. */
         fun stockHomes(): Map<String, Set<String>>? = instance?.stockHomes
 
+        /**
+         * The stock launchers the guard found last, kept in the companion so it outlives the
+         * service. The firmware may unbind the guard at any moment — Xiaomi kills Aerial's process
+         * and binds the service again — and a tile pressed in that gap must still be recognised as
+         * the stock launcher: [isStockHome] answered false without this, so Aerial took PatchWall
+         * for an ordinary app, the direct start threw for the signature permission and
+         * [MainActivity.startStockLauncher] opened the same screen from its fallback, which never
+         * calls [allowStockLauncher]; the guard then took Home back at once (MiTV-ANSP0, Android 9,
+         * issue #971).
+         */
+        @Volatile
+        private var knownStockHomes: Map<String, Set<String>> = emptyMap()
+
         /** True if [packageName] is a stock launcher the guard keeps away from the front. */
-        fun isStockHome(packageName: String): Boolean = instance?.stockHomes?.containsKey(packageName) == true
+        fun isStockHome(packageName: String): Boolean =
+            instance?.stockHomes?.containsKey(packageName) == true || knownStockHomes.containsKey(packageName)
 
         /**
          * Opens the stock launcher [pkg] on purpose (its tile in Aerial's grid). While Home still
@@ -2125,8 +2142,10 @@ class HomeGuardService : AccessibilityService() {
          * Returns false if neither opened it.
          */
         fun openStockLauncher(pkg: String, startDirectly: () -> Boolean): Boolean {
-            val s = instance ?: return startDirectly()
+            // Before the instance check: the allowance lives in the companion, so it counts even
+            // while the guard is unbound, and the guard reads it again as soon as it binds.
             allowStockLauncher()
+            val s = instance ?: return startDirectly()
             if (s.resolvedHome() == pkg && s.pressHomeForStock()) return true
             return startDirectly() || s.pressHomeForStock()
         }
