@@ -49,7 +49,7 @@ Aerial 1.69 standard 版，固件 `TQ1A.230205.002 / eng.www-da.20260205.170347`
 - 遥控器主页键由 `com.tianci.system` 按 `persist.service.homepage.pkg/.cls` 按组件启动（uid 1000），不看 HOME 解析。
 - 每次开机：`model.*` 被清空；`SkyBootIntent.initGeneralConfig()` 在 `DEFAULT_HOMEPAGE` 不包含 `homepage.pkg` 时把 `homepage.*` 改回酷开桌面。
 - 这台 SELinux permissive，应用身份（`run-as` 实测 rc=0）也能 `/system/bin/setprop`。Aerial 是系统桌面时在回到前台及开机后 40 s、90 s 把四个属性写成自己；第一次覆盖前把原值存进 `Settings.Global` 的 `aerial_coocaa_homepage` / `aerial_coocaa_model`（`包名/类名`），`restore.sh` 按它写回或清空。连续两次重启：开机由系统（uid 0）直接拉起 Aerial，不先出酷开桌面；主页键直接进 Aerial。
-- 卸载而不先跑 `restore.sh`：开机那次有 `checkIntentExists`，会跳过不存在的组件，随后固件自己清空 `model.*`、改回 `homepage.*`；开机之后、清空之前的回桌面请求会指向不存在的组件。没有实测。
+- 卸载而不先跑 `restore.sh`：开机那次有 `checkIntentExists`，会跳过不存在的组件，随后固件自己清空 `model.*`、改回 `homepage.*`；开机之后、清空之前的回桌面请求会指向不存在的组件。**已实测（2026-11-03，PR #992）**：`pm uninstall --user 0` 卸载后属性仍指向 Aerial，此时按主页键**黑屏、`mCurrentFocus=null`**，再按无效，`am start -n` 拉酷开 AIGC 桌面也无效（系统不崩、无 ANR，就是没有桌面）；**固件不自愈**。`reboot` 一次后固件把 `homepage.*` 回落为 `DEFAULT_HOMEPAGE`、`model.*` 清空，开机进酷开屏保/桌面，无 ANR。所以 8R734 上卸载前必须先跑 restore；8R720-P7F（@penguin868 实测）固件会自愈，8R734 不会。
 - 开机自启：`SkyResourceManagerService.isProcessLocked()` 拦非系统应用（`Boot denial: startProcessLocked() from package=app.orchard.tv`、`is't allow to start settings by user`），守护和 `BootReceiver` 开机都起不来。`adb shell service call skyresource 5 s16 app.orchard.tv i32 0 i32 1`（`setProcessInfo`，开机自启）后不再拦；`i32 1 i32 2` 是后台保留。重装后要重设，`install.sh` 还没有做。
 - 开机「重置」`homepage.*` 时，`SkyBootIntent.initGeneralConfig()` 写进去的是字面字符串 `home[0]` / `home[1]`（数组元素被写成了带引号的常量），过一会儿才有别的组件写回真实值；开机后约 20 秒读到的就是这两个字符串。所以 Aerial 只把真实存在的 activity 当原值保存，原桌面也先读 `DEFAULT_HOMEPAGE`。
 
