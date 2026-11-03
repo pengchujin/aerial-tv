@@ -363,6 +363,25 @@ if [ "$(adb shell settings get secure screensaver_enabled | tr -d '\r')" = 1 ]; 
   adb shell am broadcast -a "$PKG.CONFIG" -n "$PKG/.guard.ConfigReceiver" --ez own_screensaver true >/dev/null
   echo "Aerial's screensaver is now the TV's screensaver."
 fi
+# TCL's "open at power-on" (system boot_app_mode / boot_app_componentname, read by com.tcl.ttvs at
+# boot): with Aerial there it is the first screen after power-on, before TCL's launcher ever shows.
+# Without it the guard brings Aerial back over the launcher some 10 s later, and once on TCL MT5879
+# not at all (2026-11-03, the owner's TV, two reboots each way). Thunderbird He 6 2027 (T966D5) the
+# same (issue #1185). Only where the firmware has it: com.tcl.ttvs installed, or a value already
+# set. The old values are kept on the TV for restore.sh ("none" for an empty one).
+BOOT_APP=$(adb shell settings get system boot_app_componentname 2>/dev/null | tr -d '\r')
+if adb shell pm path com.tcl.ttvs 2>/dev/null | grep -q package: || { [ -n "$BOOT_APP" ] && [ "$BOOT_APP" != null ]; }; then
+  if [ "$BOOT_APP" != "$PKG/.MainActivity" ]; then
+    BOOT_MODE=$(adb shell settings get system boot_app_mode 2>/dev/null | tr -d '\r')
+    case "$BOOT_APP" in ""|null) BOOT_APP=none ;; esac
+    case "$BOOT_MODE" in ""|null) BOOT_MODE=none ;; esac
+    adb shell settings put global aerial_boot_app_componentname "$BOOT_APP" >/dev/null
+    adb shell settings put global aerial_boot_app_mode "$BOOT_MODE" >/dev/null
+    [ "$BOOT_MODE" = none ] && adb shell settings put system boot_app_mode boot_launcher >/dev/null
+    adb shell settings put system boot_app_componentname "$PKG/.MainActivity" >/dev/null
+    echo "TCL: the TV now opens Aerial at power-on."
+  fi
+fi
 if [ "${KEEP_ADB:-0}" = 1 ]; then
   adb shell am broadcast -a "$PKG.CONFIG" -n "$PKG/.guard.ConfigReceiver" --ez keep_adb true >/dev/null
   echo "Aerial will switch ADB debugging back on whenever the TV turns it off."

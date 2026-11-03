@@ -126,6 +126,11 @@ curl -fsSL https://aerial.qust.me/install.sh | KEEP_ADB=1 TV=<IP> bash
    Android 6、7 没有 `cmd`（`allow_listener` 那条报 `cmd: not found`）：先运行 `adb shell settings get secure enabled_notification_listeners`。输出是 `null` 或空的，运行 `adb shell settings put secure enabled_notification_listeners app.orchard.tv/app.orchard.tv.guard.RevivalListener`；否则把 `:app.orchard.tv/app.orchard.tv.guard.RevivalListener` 加在原值后面再 `settings put`，原有的不要删。乐视等会在后台强停 App 的固件靠它把 Aerial 拉回来（#1127）。
    最后四条 `appops` 只有 TCL / 雷鸟认（不同固件认其中两条），别的电视报错是正常的。
    `ACCESS_RESTRICTED_SETTINGS` 只有 Android 13 及以上认：用文件装的 App 在这些系统上开不了无障碍，守护会一直被关掉（#811 #829）。
+   TCL / 雷鸟（装有 `com.tcl.ttvs`，或 `adb shell settings get system boot_app_componentname` 已经有值）：先把 `boot_app_mode`、`boot_app_componentname` 两项的原值告诉用户并记下，再运行下面两条，开机第一个画面就是 Aerial，不再先出 TCL 桌面（#1185）。`boot_app_mode` 原来有值就只改第二条：
+   ```
+   adb shell settings put system boot_app_mode boot_launcher
+   adb shell settings put system boot_app_componentname app.orchard.tv/.MainActivity
+   ```
 
    再启动一次 Aerial，等 5 秒后编译（要几十秒，让 Aerial 在电视上更流畅；有的电视要先启动过一次，编译才有效）：
    ```
@@ -274,6 +279,7 @@ adb shell appops set app.orchard.tv ACCESS_RESTRICTED_SETTINGS default
 adb shell am force-stop app.orchard.tv
 adb shell cmd role remove-role-holder --user 0 android.app.role.HOME app.orchard.tv
 ```
+TCL / 雷鸟改过开机组件的，用记下的原值改回去（原来是空的就写 `''`）：`adb shell settings put system boot_app_componentname <原值>`，`boot_app_mode` 同样。
 
 Android 6、7 没有 `cmd` 时，`disallow_listener` 那条改为：`settings get secure enabled_notification_listeners`，去掉其中 `app.orchard.tv/app.orchard.tv.guard.RevivalListener` 这一项（连同它前面的 `:`）后 `settings put` 回去；只剩它自己时用 `adb shell settings delete secure enabled_notification_listeners`。
 

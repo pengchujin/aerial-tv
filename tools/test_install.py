@@ -30,7 +30,8 @@ case "$*" in
   'shell dumpsys accessibility') echo label=Aerial ;;
   'shell settings get secure screensaver_enabled') echo 0 ;;
   'shell settings get secure enabled_accessibility_services') echo app.orchard.tv/app.orchard.tv.guard.HomeGuardService ;;
-  'shell getprop persist.vt.use_home_pkg'|'shell pm path com.mitv.tvhome'|'shell pm path com.dangbeimarket') ;;
+  'shell getprop persist.vt.use_home_pkg'|'shell pm path com.mitv.tvhome'|'shell pm path com.dangbeimarket'|'shell pm path com.tcl.ttvs') ;;
+  'shell settings get system boot_app_componentname') echo null ;;
   'shell cmd package resolve-activity'*) echo app.orchard.tv/.MainActivity ;;
   'shell am start -W'*) echo 'Status: ok' ;;
   'shell pm grant '*|'shell appops set '*|'shell cmd notification '*|'shell cmd package compile '*|'shell cmd role '*|'shell settings put '*|'shell content call '*|'shell rm -f /sdcard/Download/Aerial.apk') ;;
