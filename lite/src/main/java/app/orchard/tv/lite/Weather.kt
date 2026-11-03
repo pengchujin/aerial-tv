@@ -83,7 +83,13 @@ object Weather {
             // ipinfo names the city in English ("Shangqiu"); in China, say it as the TV's owner would.
             val city = ip.optString("city").ifBlank { null }
             val zh = city?.takeIf { ip.optString("country") == "CN" && Locale.getDefault().language == "zh" }
-                ?.let { runCatching { Cities.near(app, it, lat.toDouble(), lon.toDouble(), km = 80.0, ascii = true)?.name }.getOrNull() }
+                ?.let {
+                    // Else the main listed place at ipinfo's point (the full app's issue #1195).
+                    runCatching {
+                        (Cities.near(app, it, lat.toDouble(), lon.toDouble(), km = 80.0, ascii = true)
+                            ?: Cities.mainNear(app, lat.toDouble(), lon.toDouble(), km = 20.0))?.name
+                    }.getOrNull()
+                }
             prefs.edit().putFloat("lat", lat).putFloat("lon", lon).putString("place", zh ?: city)
                 .putLong("located_at", System.currentTimeMillis()).apply()
         }

@@ -48,6 +48,17 @@ object Cities {
             .minByOrNull { distanceKm(it.lat, it.lon, lat, lon) }
             ?.takeIf { distanceKm(it.lat, it.lon, lat, lon) <= km }
 
+    /**
+     * The most important listed place within [km] of a point (a province seat before a prefecture,
+     * before a county), the nearest of those; null if none is that close.
+     */
+    fun mainNear(context: Context, lat: Double, lon: Double, km: Double): City? =
+        load(context)
+            .map { it to distanceKm(it.lat, it.lon, lat, lon) }
+            .filter { it.second <= km }
+            .minWithOrNull(compareBy<Pair<City, Double>>({ it.first.rank }, { it.second }))
+            ?.first
+
     /** Same suffixes tools/make-cities.py takes off. */
     private val suffix = Regex("(壮族自治区|回族自治区|维吾尔自治区|特别行政区|自治区|自治州|自治县|地区|新区|省|市|县|区|盟|旗)$")
 

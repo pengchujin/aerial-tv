@@ -125,9 +125,14 @@ object Weather {
             lat = loc[0].toFloat()
             lon = loc[1].toFloat()
             // ipinfo names the city in English ("Shangqiu"); in China, say it as the TV's owner would.
+            // A name the table spells otherwise, or a district's, stayed in pinyin among Chinese text
+            // (Hisense 43E3G, issue #1195): then the main listed place at ipinfo's point names it.
             val city = ip.optString("city").ifBlank { null }
             val zh = city?.takeIf { ip.optString("country") == "CN" && Locale.getDefault().language == "zh" }
-                ?.let { Cities.near(app, it, lat.toDouble(), lon.toDouble(), km = 80.0, ascii = true)?.name }
+                ?.let {
+                    (Cities.near(app, it, lat.toDouble(), lon.toDouble(), km = 80.0, ascii = true)
+                        ?: Cities.mainNear(app, lat.toDouble(), lon.toDouble(), km = 20.0))?.name
+                }
             prefs.edit {
                 putFloat("lat", lat); putFloat("lon", lon)
                 putString("place", zh ?: city)
