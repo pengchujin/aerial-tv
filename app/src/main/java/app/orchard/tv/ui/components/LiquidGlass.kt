@@ -25,6 +25,7 @@ import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.ColorMatrix
+import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.ShaderBrush
 import androidx.compose.ui.graphics.TileMode
@@ -107,6 +108,7 @@ fun Modifier.liquidGlass(corner: Dp, bottomCorners: Boolean = true, seeThroughFi
             onDrawBehind {
                 if (solid) {
                     drawImage(flat, dstSize = IntSize(w, h), colorFilter = ColorFilter.tint(if (seeThroughFilm) FilmGlass else FilmPanel))
+                    if (seeThroughFilm) drawImage(filmSheen, dstSize = IntSize(w, h), filterQuality = FilterQuality.Low)
                     drawGlassEdge(size, radius, bottomCorners)
                 } else if (shader == null || brush == null || root == IntSize.Zero) {
                     drawImage(flat, dstSize = IntSize(w, h), colorFilter = ColorFilter.tint(Palette.Glass))
@@ -253,10 +255,29 @@ private val liteColors = java.util.WeakHashMap<ImageBitmap, Color>()
 private val FilmPanel = Color(0xFF4A4B51)
 
 /**
- * The same see-through, over the film and Control Center's dimming (28% black): the film comes out
- * at 48% of its light lifted by 14, as [PanelTint] makes the frosted picture of the glass.
+ * The same see-through, over the film and Control Center's dimming (28% black): a smoke dense
+ * enough that what a blur would soften is quieted instead. The film shows at about a fifth of its
+ * contrast (19% of its light, lifted by 46), so its colours and movement still come through but
+ * not its edges. At 33% black it came out at 48% of its light: the trees and cliffs behind it were
+ * as sharp as outside it, under the white text, a frame drawn over the film more than glass (the
+ * owner, TCL MT5879, 2026-11-03).
  */
-private val FilmGlass = Color(red = 42, green = 42, blue = 42, alpha = 85)
+private val FilmGlass = Color(red = 62, green = 63, blue = 69, alpha = 189)
+
+/**
+ * Light from above over [FilmGlass]: white, 10% at the top edge, gone by 45% of the way down, so
+ * the smoke reads as a pane catching the room's light. Baked as one column and stretched, as no
+ * gradient is drawn per frame here.
+ */
+private val filmSheen: ImageBitmap by lazy {
+    val h = 96
+    val bitmap = android.graphics.Bitmap.createBitmap(1, h, android.graphics.Bitmap.Config.ARGB_8888)
+    for (y in 0 until h) {
+        val t = (1f - (y + 0.5f) / h / 0.45f).coerceIn(0f, 1f)
+        bitmap.setPixel(0, y, android.graphics.Color.argb((t * t * 0.10f * 255).roundToInt(), 255, 255, 255))
+    }
+    bitmap.asImageBitmap()
+}
 
 private val PanelTint = ColorFilter.colorMatrix(ColorMatrix(floatArrayOf(
     0.48f, 0f, 0f, 0f, 14f,
