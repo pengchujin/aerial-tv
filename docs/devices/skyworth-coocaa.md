@@ -55,6 +55,7 @@ root 后把 `/system/pcfg/<型号目录>/config/general_config.xml` 里的 `DEFA
 - 70A9（7S70_A9，MStar m7221，Android 8，低内存）：`TvInputManager` 没有输入，信号源走 `com.skyworth.tv.sdk.provider`（查询必须带 projection，`displayName` 是实时的，HDMI 从 0 编号，AV、VOD 是 -1）；遥控器「信号源」键被固件截走，打开原桌面；待机唤醒先经过 `com.tianci.system/...WakeLockActivity` 10–12 秒再到 Aerial（#461）。
 - 7AA46_H5D、8A002_H5D（T963，Android 9）：Aerial 在前台、守护过滤按键时，音量键的抬起到不了守护，1.41–1.46 按一下音量就一直加到 100 或减到 0（#448 #451），1.47 修了（后来又出现，见下面「音量键连冲」）。把 Aerial 设为默认桌面（`cmd package set-home-activity`）后守护不过滤按键，音量正常，开机和主页键也正常（#449）。
 - 酷开 aigc 系（C10 投影仪 3H352_C10 Android 9 #487、P60 Android 11、7T863_N6E Android 10 #106）：主页键在 WindowManager 里变成创维热键广播，`com.tianci.system` 的 SLauncher 按组件拉起 `com.coocaa.aigc.home/.home.rootpage.HomeActivity`，不走 HOME 解析；这个桌面不声明任何 Home 类别。1.48 起守护把它算原桌面（未在真机验证）。7T863_N6E 上改 `persist.service.model.pkg/.cls`（加上 `homepage.*`）后主页键进 Aerial，但每次开机被固件写回。
+- 8H57_H5（#981，报告人的 logcat 和 `ps`）：酷开屏保开始时（`sky.action.dream.startSkyDream`），`com.skyworth.android.skyRMService`（system 用户）强停 Aerial，守护跟着停，之后按主页键先到酷开桌面。App 这边拦不住；变通是关掉电视自己的屏保 / 名画，只用 Aerial 的屏保。
 - 8R145_P3DM（Android 11）：`SkyProcManager` 会强停「不可见的非系统应用」，从 Aerial 打开别的 App 后 Aerial 就被杀，这时按主页键先到酷开桌面，等复活约 20–30 秒才回 Aerial（#106 的日志）。目前没有办法。
 - 创维/酷开 Whaley 55D2UK（helios，MStar，Android 5.0.2，arm64）：standard 版能装能接管，原桌面 `com.helios.guide` priority 1，设不成默认桌面，靠守护（主页键约 4 秒、先闪原桌面）；信号源走微鲸的 `com.whaley.tv.tvplayer.ui/.RootActivity`；亮度 `screen_brightness` 可调（#457）。
 
