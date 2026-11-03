@@ -1061,12 +1061,23 @@ class MainActivity : ComponentActivity() {
             if (app.source != null && SystemProbe.openInputPicker(this)) return
             // PatchWall's entry needs its permission whether or not the guard runs, and with the
             // guard switched off its tile did nothing (MiTV-ANSP0, Android 9, issue #971).
-            if (e is SecurityException && startStockLauncher(app)) return
+            if (e is SecurityException && startStockLauncher(app)) {
+                // Opened on purpose all the same. In a process the firmware had just killed the
+                // guard had not bound yet, so isStockHome said no above, and once bound it took
+                // PatchWall for one the TV raised (MiTV-ANSP0, Android 9, issue #971, PR #1216).
+                if (isHomeApp(app.packageName)) HomeGuardService.allowStockLauncher()
+                return
+            }
             Toast.makeText(this, getString(R.string.launch_failed, app.label), Toast.LENGTH_SHORT).show()
         }
     }
 
     /** The stock launcher's own entry, or one of the same page Aerial may start (StandIn, issue #971). */
+    private fun isHomeApp(pkg: String): Boolean = runCatching {
+        packageManager.queryIntentActivities(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME), 0)
+            .any { it.activityInfo.packageName == pkg }
+    }.getOrDefault(false)
+
     private fun startStockLauncher(app: AppEntry): Boolean {
         val intent = app.launchIntent()
         return try {
