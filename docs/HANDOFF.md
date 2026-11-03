@@ -10,8 +10,10 @@
   - 进屏保时磁贴主图层淡出不再开离屏缓冲（`AppTile`，阴影、焦点框、名字早就这样）：四次合计掉帧 49 → 27，中位 26.5 → 24 ms，噪声大。
   - 试过没采用：ExoPlayer 进基线 profile（播放时进程 CPU 31.6% / 30.9% 一核，JIT 很快就编好热循环，没差别）；大时钟放进 GPU 缓存层（时钟模糊阴影每帧重画，`skip_layers=clock` 能省 2–4 ms 渲染线程，但缓存后只省约 0.4 ms GPU，在噪声里）。
   - 还剩的：影片上磁贴比静态壁纸贵（`skip_layers=tiles` 影片上省 GPU 2 ms，静态只省 0.3 ms），这台电视影片和静态壁纸都是整屏重画（`debug.hwui.show_dirty_regions` 看过），剖析下来渲染线程时间分散在 HWUI 和 Mali 驱动里，没有单个热点。按住方向键连移（中位约 30 ms）、长按菜单（15–30 ms，两次之间跳）仍偏慢。
+  - **没编译的 Android 7–11 电视自己编译**（`update/PackageCompile.kt`，详见 ARCHITECTURE「升级」）：请系统 PackageManager 编译 Aerial 自己，不重装、不弹框。TCL MT5879 多屏互动装完实测两次，93 KB → 约 9 MB，9–10 秒；影片下首页移动启动后第一组中位 20.5 → 11.0 ms。**用到了 package 服务的 shell 命令事务（隐藏接口，Android 12 起系统自己堵了），户主决定能不能发**；不经过 adbd，只编 Aerial 自己。小米 MFTR0 是 Android 14，不走这条，只回归了没坏。没在 Android 7、8、9 真机上测过（9 的模拟器调用成功，但镜像本身只编到 extract）。
+  - 壁纸影片不再让 TCL 切到 120 Hz（`videoChangeFrameRateStrategy = OFF`）：改前影片一放 TCL 就从 60 切到 120 Hz，界面每帧只有 8.3 ms；改后放影片、按键都保持 60 Hz（`dumpsys SurfaceFlinger` 逐秒看过）。
   - 新增：`ConfigReceiver --es wallpaper <id>`（换壁纸测影片，回复原壁纸和航拍画质，`""` 只查询）；`perf.py` 的 `film_idle`、`film_row`（等影片放起来再测）。
-  - 验证：单元测试 standard、guard 各 206 个、`tools/` 19 个测试、guard release 编译；小米上 `install.sh`（APK_FILE）走通 `install-dm`。小米现在装的是这一版（versionCode 仍 107），户主的壁纸已换回 `daily:latest`、画质 auto。TCL 没装（它走多屏互动，install.sh 改动不影响）；Lite 没有影片壁纸，不用改。
+  - 验证：单元测试 standard、guard 各 206 个、`tools/` 19 个测试、guard release 编译；小米上 `install.sh`（APK_FILE）走通 `install-dm`。小米、TCL 现在装的都是这一版（versionCode 仍 107；TCL 用多屏互动推了三次，都先截图确认焦点在「同意」再按，现在已编译）。小米的壁纸：测试中途户主自己换成了 `aerial:live`，测完按它还原；画质 auto 没动。TCL 的壁纸本来就是航拍，没改。Lite 没有影片壁纸，不用改。
 
 - **未发布（2026-11-03 傍晚，户主重启小米时发现开机先停在小米桌面）：小米开机更快进 Aerial**（ce74832，只在 PatchWall 上）。守护进程 `onCreate` 时用量统计显示 PatchWall 主界面在前，就马上开始接管，连上守护时不再重新计时。MFTR0 屏幕亮起到 Aerial 第一帧：改前 12.3 / 19 秒，改后 6.7 / 9.9 秒，细节见 `devices/xiaomi-mitv-mftr0.md`「开机到 Aerial 的时间」。412 个单元测试通过。开着小米「开机自动播放上次信号源」时（户主同意临时打开 `system boot_auto_play`，测完改回 0）重启停在 HDMI 1，没被拉走；那次守护进程在解锁前就起来了，提前接管那条路没走到，所以「进程启动时用量统计看到信号源就不接管」这一支没有直接实测。
 
