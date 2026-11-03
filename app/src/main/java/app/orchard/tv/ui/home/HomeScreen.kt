@@ -796,7 +796,6 @@ fun HomeScreen(
                             enabled = gridEnabled,
                             moving = moving == app.key,
                             opacity = { 1f - saverFade() },
-                            appearDelayMs = (index * 28).coerceAtMost(320),
                             onFocused = {
                                 focusedKey = app.key
                                 lastFocusedIndex = index

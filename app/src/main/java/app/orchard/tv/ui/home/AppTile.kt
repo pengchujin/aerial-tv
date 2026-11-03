@@ -33,7 +33,6 @@ import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -150,8 +149,6 @@ fun AppTile(
     moving: Boolean,
     /** Extra opacity applied inside each drawing layer, without a layer around the whole tile. */
     opacity: () -> Float = { 1f },
-    /** Delay of the first-appearance stagger; null for no entrance (tiles in a folder that just opened). */
-    appearDelayMs: Int?,
     onFocused: () -> Unit,
     onClick: (Rect?) -> Unit,
     onLongPress: (Rect?) -> Unit,
@@ -224,15 +221,6 @@ fun AppTile(
         )
     } else null
 
-    // First appearance: a short stagger, so the grid settles in rather than popping on.
-    val appear = remember { Animatable(if (reduced || appearDelayMs == null) 1f else 0f) }
-    LaunchedEffect(Unit) {
-        if (appear.value < 1f && appearDelayMs != null) {
-            delay(appearDelayMs.toLong())
-            appear.animateTo(1f, tween(420, easing = Motion.EaseOut))
-        }
-    }
-
     // One small bump back, as tvOS does: at 0.45 damping it swung past rest and rocked once more.
     fun nudge(dx: Float, dy: Float) {
         if (reduced) return
@@ -250,14 +238,7 @@ fun AppTile(
         }
     }
 
-    Box(
-        modifier
-            .size(width, height)
-            .graphicsLayer {
-                alpha = appear.value
-                translationY = (1f - appear.value) * 18.dp.toPx()
-            },
-    ) {
+    Box(modifier.size(width, height)) {
         if (lift > 0.01f && !AerialSettings.lite && DiagLayers.shows("shadow")) {
             // A lifted tile casts a soft shadow below it, as cards do on tvOS. The system's
             // elevation shadow is too faint to read on a TV; this one is baked, so it costs one
