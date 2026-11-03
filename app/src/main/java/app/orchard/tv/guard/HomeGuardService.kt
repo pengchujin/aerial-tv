@@ -365,6 +365,7 @@ class HomeGuardService : AccessibilityService() {
             // FIRMWARE_HOMES_WITHOUT_FILTER lost it until Aerial restarted (MiTV-MOOQ0, Android 11).
             activityCache.clear()
             refreshStockHomes()
+            KidsWatch.start(this@HomeGuardService)
             checkMouseWithFilter(this@HomeGuardService)
             restartForegroundCheck()
             watchCecInput()
@@ -389,7 +390,8 @@ class HomeGuardService : AccessibilityService() {
             screenOff = intent.action == Intent.ACTION_SCREEN_OFF
             updateKeyFilter()
             if (screenOff) {
-                BootOpen.noteScreenOff(this@HomeGuardService)
+                // Credential storage, like the Home note below: not while locked.
+                if (GuardSetup.isUserUnlocked(this@HomeGuardService)) BootOpen.noteScreenOff(this@HomeGuardService)
                 if (GuardSetup.offInStandby(this@HomeGuardService)) GuardSetup.stepOutForStandby(this@HomeGuardService)
                 return
             }
@@ -426,7 +428,9 @@ class HomeGuardService : AccessibilityService() {
             if (SystemClock.uptimeMillis() - ownHomeAt < OWN_HOME_MS) return
             // On disk as well: in the boot window, answering Home here can end with accessibility
             // restarted (frontAfterHome), and the guard that starts then has to know of it too.
-            if (SystemClock.elapsedRealtime() < BOOT_WINDOW_MS) BootOpen.noteHomeKey(this@HomeGuardService)
+            if (SystemClock.elapsedRealtime() < BOOT_WINDOW_MS && GuardSetup.isUserUnlocked(this@HomeGuardService)) {
+                BootOpen.noteHomeKey(this@HomeGuardService)
+            }
             if (backOnPause) noteHomeInAerial()
             val front = lastWindow?.first
             if (front != null && front !in stockHomes) {
@@ -660,9 +664,16 @@ class HomeGuardService : AccessibilityService() {
 
     override fun onServiceConnected() {
         instance = this
-        KidsWatch.start(this)
+        // Both read credential storage: bound before unlock, the guard crashed here twice and the
+        // system put off its restart for 30 min, so nothing took Home at boot (1.79 to 1.81: Redmi
+        // Projector 4 mt5873, Android 13, issue #684; Formovie spiderman, Android 9, issue #1213;
+        // Haier HRA962X2, Android 9, issue #1205; all from the reporters' crash logs). The unlock
+        // receiver starts them instead.
+        if (GuardSetup.isUserUnlocked(this)) {
+            KidsWatch.start(this)
+            BootOpen.noteStartedInStandby(this)
+        }
         checkMouseWithFilter(this)
-        BootOpen.noteStartedInStandby(this)
         watchUiBoost()
         // The profile is in credential storage: only once unlocked.
         if (SystemClock.elapsedRealtime() < BOOT_WINDOW_MS && GuardSetup.isUserUnlocked(this) &&
