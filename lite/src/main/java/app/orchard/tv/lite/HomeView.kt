@@ -114,6 +114,7 @@ class HomeView(context: Context, private val host: Host) : FrameLayout(context) 
         topRight.gravity = Gravity.CENTER_VERTICAL
         topRight.clipChildren = false
         topRight.addView(pill)
+        pill.setOnClickListener { if (!moving) { focus = PILL; showFocus(animate = true); host.openControlCenter() } }
         addView(topRight, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT, Gravity.END or Gravity.TOP).apply {
             topMargin = Ui.pxi(28f)
             rightMargin = Ui.pxi(MARGIN - 14f)
@@ -218,6 +219,8 @@ class HomeView(context: Context, private val host: Host) : FrameLayout(context) 
             val (t, n) = old.remove(app.key) ?: (TileView(context) to nameView(context)).also { (t, n) ->
                 layer.addView(t, 1, LayoutParams(Ui.pxi(TILE_W + 2 * TILE_EXT), Ui.pxi(TILE_H + 2 * TILE_EXT)))
                 layer.addView(n, LayoutParams(Ui.pxi(TILE_W + 36f), Ui.pxi(24f)))
+                t.setOnClickListener { tapped(tiles.indexOf(t), long = false) }
+                t.setOnLongClickListener { tapped(tiles.indexOf(t), long = true); true }
             }
             t.entry = app
             t.invalidate()
@@ -373,6 +376,23 @@ class HomeView(context: Context, private val host: Host) : FrameLayout(context) 
         }
         if (e.action == KeyEvent.ACTION_DOWN) step(dir)
         return true
+    }
+
+    /**
+     * A tap on a tile (a mouse or a touch screen) does what the full app's Pressable does: it takes
+     * the focus there and opens the app, or its menu when held. Lite had no touch at all, and a
+     * mouse only moved its pointer over Home (Mi TV 2, Android 4.4, issue #1094).
+     */
+    private fun tapped(i: Int, long: Boolean) {
+        val app = apps.getOrNull(i) ?: return
+        if (moving) { if (i == focus) finishMove(); return }
+        focus = i
+        showFocus(animate = true)
+        when {
+            long -> host.openMenu(app, tiles[i])
+            app.folder != null -> host.openFolder(app)
+            else -> host.launch(app)
+        }
     }
 
     /** Back: in the grid, to the top row; on the top row, the screensaver (tvOS) if chosen. */
