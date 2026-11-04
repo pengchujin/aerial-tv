@@ -50,7 +50,7 @@
 
 <p align="center">
   <img src="site/img/screensaver-aerial.jpg" width="49%" alt="航拍屏保">
-  <img src="site/img/columns.jpg" width="49%" alt="个性化：每排 App 选 6 个">
+  <img src="site/img/columns.jpg" width="49%" alt="个性化：每排 App 选 4、5 或 6 个">
 </p>
 
 ## 安装

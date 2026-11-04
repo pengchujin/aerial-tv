@@ -50,7 +50,7 @@ Made for Xiaomi, TCL, Skyworth, Sony and other TVs sold in China, and runs on bo
 
 <p align="center">
   <img src="site/img/screensaver-aerial.jpg" width="49%" alt="Aerial screensaver">
-  <img src="site/img/columns.jpg" width="49%" alt="Personalize, with six apps per row">
+  <img src="site/img/columns.jpg" width="49%" alt="Personalize, with four, five or six apps per row">
 </p>
 
 ## Install
