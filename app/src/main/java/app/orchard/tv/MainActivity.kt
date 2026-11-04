@@ -87,6 +87,7 @@ import app.orchard.tv.system.Sounds
 import app.orchard.tv.system.NetKind
 import app.orchard.tv.system.SystemProbe
 import app.orchard.tv.system.HisenseSources
+import app.orchard.tv.system.KonkaSources
 import app.orchard.tv.system.LaunchFallback
 import app.orchard.tv.system.settingsLaunchIntent
 import app.orchard.tv.update.SelfCompile
@@ -1096,6 +1097,19 @@ class MainActivity : ComponentActivity() {
 
     private fun open(intent: Intent) {
         FilmAfterInput.noteOpened(this, intent)
+        // Older Konka: the input first, then its page, which only shows what is on (issue #710).
+        if (KonkaSources.needsSwitch(intent)) {
+            val app = applicationContext
+            kotlin.concurrent.thread(name = "AerialKonkaInput") {
+                KonkaSources.switchTo(app, intent)
+                runOnUiThread { startPage(intent) }
+            }
+            return
+        }
+        startPage(intent)
+    }
+
+    private fun startPage(intent: Intent) {
         try {
             SystemProbe.startSettingsIntent(this, bareOnRewritingFirmware(intent))
         } catch (e: Exception) {

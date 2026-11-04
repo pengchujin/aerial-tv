@@ -64,4 +64,32 @@ internal object KonkaSources {
             }.distinctBy { it.id }.sortedWith(compareBy({ it.kind.ordinal }, { it.label }))
         }.onFailure { Log.w(TAG, "Could not read the native Konka input list", it) }.getOrDefault(emptyList())
     }
+
+    /**
+     * Whether [intent] opens a Konka input whose page will not switch by itself: before Android 6
+     * RootActivity ignores the `source` extra and shows the input last used; the remote switches
+     * because com.konka.tvsettings calls the TV manager in its own process first (Konka 828 /
+     * QLED65X80U, MStar, Android 5.0.1, issue #710). Konka U86V9 (Android 9) switches from the
+     * extra and is left as it was.
+     */
+    fun needsSwitch(intent: Intent): Boolean =
+        android.os.Build.VERSION.SDK_INT < 23 && intent.component == player && intent.hasExtra("source")
+
+    /**
+     * Switches to the input of [intent] the way Konka's settings app does, through
+     * KKCommonManager.setInputSource with the public Konka enum. Takes 0.4-0.8 s on the 828, so not
+     * on the main thread. All three calls of the diagnostic build switched there (KKCommonManager,
+     * MStar's TvCommonManager and TvManager); Konka's own is the one used.
+     */
+    fun switchTo(context: Context, intent: Intent) {
+        val ordinal = intent.getIntExtra("source", -1)
+        runCatching {
+            val managerClass = Class.forName(MANAGER)
+            val sourceClass = Class.forName(SOURCE_ENUM)
+            val source = sourceClass.enumConstants?.getOrNull(ordinal) ?: error("no input $ordinal")
+            val manager = managerClass.getMethod("getInstance", Context::class.java).invoke(null, context.applicationContext)
+            val switched = managerClass.getMethod("setInputSource", sourceClass).invoke(manager, source)
+            DiagLog.i("konka: switched to $source before its page: $switched")
+        }.onFailure { Log.w(TAG, "Could not switch the Konka input to $ordinal", it) }
+    }
 }
