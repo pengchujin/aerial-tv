@@ -1034,6 +1034,10 @@ class MainActivity : ComponentActivity() {
             return
         }
         openedAppSinceHome = true
+        SystemProbe.settingsTileIntent(this, app.packageName)?.let {
+            open(it)
+            return
+        }
         // The stock launcher (Xiaomi's PatchWall, with the maker's own iQIYI / Mango content) opens
         // through the system Home action where it can; see HomeGuardService.openStockLauncher.
         if (HomeGuardService.isStockHome(app.packageName) &&

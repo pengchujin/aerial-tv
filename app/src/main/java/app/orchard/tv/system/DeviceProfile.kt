@@ -50,12 +50,13 @@ class DeviceProfile(
      * reporter's local build). Which of the two is worse is the owner's call, so only by profile.
      */
     val filterHomeAlways: Boolean = false,
+    val changhongTvos: Boolean = false,
 ) {
     val isEmpty get() = hiddenHardware.isEmpty() && labels.isEmpty() && xiaomiSourceIds.isEmpty() &&
         xiaomiFallbackSourceIds.isEmpty() && !ignoresPictureBacklight && bootStockMs <= 0 &&
-        !ignoresScreenBrightness && !filterHomeAlways
+        !ignoresScreenBrightness && !filterHomeAlways && !changhongTvos
 
-    /** The same fields `devices.json` uses, without the matching ones (models, buildMajorBelow, buildAtLeast). */
+    /** The same fields `devices.json` uses, without the matching ones (models, products, buildMajorBelow, buildAtLeast). */
     fun toJson(): JSONObject = JSONObject().apply {
         if (hiddenHardware.isNotEmpty()) put("hidden", JSONArray(hiddenHardware.sorted()))
         if (labels.isNotEmpty()) put("labels", JSONObject(labels.toSortedMap().mapKeys { it.key.toString() }))
@@ -65,6 +66,7 @@ class DeviceProfile(
         if (bootStockMs > 0) put("bootStockMs", bootStockMs)
         if (ignoresScreenBrightness) put("ignoresScreenBrightness", true)
         if (filterHomeAlways) put("filterHomeAlways", true)
+        if (changhongTvos) put("changhongTvos", true)
     }
 
     /** Where the profile in use came from, for the diagnostics. */
@@ -81,7 +83,13 @@ class DeviceProfile(
         fun origin(context: Context): Origin = load(context).second
 
         private fun load(context: Context): Pair<DeviceProfile, Origin> = cached ?: run {
-            val own = ownJson(context)?.let { runCatching { parse(JSONObject(it)) }.getOrNull() }
+            val own = ownJson(context)?.let { text ->
+                runCatching {
+                    parse(JSONObject(text).apply {
+                        if (optBoolean("changhongTvos") && builtIn(context)?.changhongTvos != true) remove("changhongTvos")
+                    })
+                }.getOrNull()
+            }
             val result = when {
                 own != null -> own to Origin.ThisTv
                 else -> builtIn(context)?.let { it to Origin.BuiltIn } ?: (DeviceProfile() to Origin.None)
@@ -93,7 +101,7 @@ class DeviceProfile(
         /** This model's entry in devices.json, ignoring the TV's own profile. */
         fun builtIn(context: Context): DeviceProfile? = runCatching {
             val json = context.assets.open("devices.json").bufferedReader().use { it.readText() }
-            match(json, Build.MODEL, buildMajor(), buildMinor())
+            match(json, Build.MODEL, buildMajor(), buildMinor(), Build.PRODUCT)
         }.getOrNull()
 
         /** The TV's own profile as stored, or null when it uses the built-in one. */
@@ -115,12 +123,14 @@ class DeviceProfile(
         }
 
         /** The first entry of [json] (devices.json) for [model] whose firmware condition holds. */
-        fun match(json: String, model: String, buildMajor: Int, buildMinor: Int = 0): DeviceProfile? {
+        fun match(json: String, model: String, buildMajor: Int, buildMinor: Int = 0, product: String = ""): DeviceProfile? {
             val entries = JSONObject(json).getJSONArray("profiles")
             for (i in 0 until entries.length()) {
                 val entry = entries.getJSONObject(i)
                 val models = entry.getJSONArray("models")
                 if ((0 until models.length()).none { models.getString(it) == model }) continue
+                val products = entry.optJSONArray("products")
+                if (products != null && (0 until products.length()).none { products.getString(it) == product }) continue
                 if (entry.has("buildMajorBelow") && buildMajor >= entry.getInt("buildMajorBelow")) continue
                 // "22.11": Mi TV 4 numbers its HDMI ports differently from firmware 22.11 on (#584).
                 if (entry.has("buildAtLeast")) {
@@ -147,6 +157,7 @@ class DeviceProfile(
                 bootStockMs = o.optInt("bootStockMs", 0).coerceIn(0, 10_000),
                 ignoresScreenBrightness = o.optBoolean("ignoresScreenBrightness", false),
                 filterHomeAlways = o.optBoolean("filterHomeAlways", false),
+                changhongTvos = o.optBoolean("changhongTvos", false),
             )
         }
 

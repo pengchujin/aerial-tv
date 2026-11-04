@@ -158,6 +158,7 @@ object Diagnostics {
         appendLine("```json")
         appendLine(JSONObject().put("models", JSONArray(listOf(Build.MODEL))).apply {
             val profile = DeviceProfile.current(context).toJson()
+            if (profile.optBoolean("changhongTvos")) put("products", JSONArray(listOf(Build.PRODUCT)))
             profile.keys().forEach { put(it, profile.get(it)) }
         }.toString())
         appendLine("```")

@@ -89,6 +89,7 @@ object Brightness {
         // XGIMI: the real brightness is the DLP light-engine level; the system screen_brightness
         // setting does not follow it (issue #241).
         SystemProbe.xgimiBrightnessLevel()?.let { return it }
+        if (DeviceProfile.current(context).changhongTvos) return ChanghongPicture.backlight(context)?.div(100f)
         val r = context.contentResolver
         if (isTcl(context)) TclPicture.backlight(context)?.let { return it / 100f }
         return when {
@@ -153,7 +154,7 @@ object Brightness {
         val r = context.contentResolver
         // The same order as level(): TCL's SDK and picture_backlight come first, so a Xiaomi that
         // has both never has its panel probed or moved this way.
-        if (!isTcl(context) && !usesXiaomiBacklight(context) && MitvPanel.usable(context)) {
+        if (!DeviceProfile.current(context).changhongTvos && !isTcl(context) && !usesXiaomiBacklight(context) && MitvPanel.usable(context)) {
             runCatching {
                 // Start the relative step from the level Aerial set last: the middleware's getter is
                 // animated, so a panel reading taken mid-step is only the seed of the first step
@@ -169,7 +170,9 @@ object Brightness {
             return next / 100f
         }
         runCatching {
-            if (isTcl(context)) {
+            if (DeviceProfile.current(context).changhongTvos) {
+                ChanghongPicture.setBacklight(context, next)
+            } else if (isTcl(context)) {
                 TclPicture.setBacklight(context, next)
             } else if (usesXiaomiBacklight(context)) {
                 Settings.Global.putInt(r, XIAOMI_BACKLIGHT, next)

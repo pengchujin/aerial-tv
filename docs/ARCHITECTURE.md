@@ -231,9 +231,11 @@ NanoHTTPD 监听 8790 端口，路径前缀是 8 位随机令牌（每次打开�
 
 ## 机型修正（system/DeviceProfile.kt）
 
-框架看不出来、只能按机型写的修正，以数据形式放在 `assets/devices.json`：按 `ro.product.model` 匹配，第一条命中的生效，`buildMajorBelow` 限定 `Build.DISPLAY` 第一个数字低于它的固件。字段：`hidden`（不显示的硬件编号）、`labels`（改名）、`xiaomiSources` / `xiaomiFallbackSources`（小米播放器的信号源编号，后者只在固件没有 `hdmiN_order` 时用）、`ignoresPictureBacklight`（有 `picture_backlight` 但不跟着变，亮度交给电视自己的滑块；`Brightness` 和 `MitvPanel` 都看它）。信号源按 TvInputInfo id 末尾的 `HWn` 编号。每条的 `note` 写明是哪台电视、哪个 issue 验证的。Lite 构建时复制 `DeviceProfile.kt` 和 `devices.json`。
+框架看不出来、只能按机型写的修正，以数据形式放在 `assets/devices.json`：按 `ro.product.model` 匹配，可选的 `products` 进一步限定 `ro.product.name`（`Build.PRODUCT`），第一条命中的生效，`buildMajorBelow` 限定 `Build.DISPLAY` 第一个数字低于它的固件。字段：`hidden`（不显示的硬件编号）、`labels`（改名）、`xiaomiSources` / `xiaomiFallbackSources`（小米播放器的信号源编号，后者只在固件没有 `hdmiN_order` 时用）、`ignoresPictureBacklight`（有 `picture_backlight` 但不跟着变，亮度交给电视自己的滑块；`Brightness` 和 `MitvPanel` 都看它）、`changhongTvos`（完整版的长虹设置、网络、图像、信号源和 TVOS 背光入口，仅户主指定机型启用）。信号源按 TvInputInfo id 末尾的 `HWn` 编号。每条的 `note` 写明是哪台电视、哪个 issue 验证的。Lite 构建时复制 `DeviceProfile.kt` 和 `devices.json`，但未接入长虹入口。
 
 **这台电视自己的修正**（`system` prefs 里的 `device_profile`）整段替换内置的那一条，所以 Agent 在电视上试出来的 JSON 原样就是要加进 `devices.json` 的内容。电视上没有修改它的界面：1.59 有过控制中心里的「校正信号源」，用户在上面不知道该选哪个编号，户主决定去掉（2026-10-27），适配只走 Agent 和提交诊断，不改变日常使用。
+
+`changhongTvos` 额外受内置机型白名单限制：本机配置只能在型号和产品都命中长虹条目时启用它，不能给其他电视强行开启。加载时只过滤不适用的长虹标记，不修改保存的配置或其他字段；非长虹设备的诊断导出也不会携带该标记和产品限制。直接传入长虹设置组件同样必须通过机型检查，否则仍按原来的 Activity 路径处理。
 
 - ADB：`ConfigReceiver --es device_profile '<json>'`（`default` 回到内置），`--ez list_sources true` 以 JSON 列出信号源（含隐藏的、硬件编号、固件名、小米编号），`--es open_source <id>` 按磁贴的方式打开一个信号源。通过 `adb shell` 传带空格的 JSON 时，整条命令要放进一对引号里（`adb shell "am broadcast … --es device_profile '{\"6\":…}'"`），否则远端 shell 会吃掉引号。
 - 诊断报告末尾的 **Device profile** 一节输出当前生效的 JSON 和来源（`BuiltIn` / `ThisTv` / `None`）；手机页「去 GitHub 反馈」预填型号、版本，来源是 `ThisTv` 时把那段 JSON 填进 issue 表单的 `profile` 字段（GitHub 表单支持按字段 id 用 URL 参数预填），诊断全文复制到剪贴板。
@@ -329,6 +331,8 @@ NanoHTTPD 监听 8790 端口，路径前缀是 8 位随机令牌（每次打开�
 **只装了 APK 的电视**（U 盘、应用商店，#207 #213）：1.32 起 `MainActivity` 也声明 `CATEGORY_LAUNCHER`，国内电视的「我的应用」大多只列这种，以前装完找不到图标。打开后没有 `WRITE_SECURE_SETTINGS`（只有 install.sh 会授权）、桌面状态又是「尚未设为默认桌面」时，4 秒后自动打开一次控制中心的「设为主屏幕」页（`CcPage.Setup`，`settings` 的 `setup_offered` 记住），以后从控制中心底部进去。页上按电视有没有这些设置页显示：无障碍（手动打开桌面守护，小米 MFTR0 有，TCL MT5879 没有）、默认桌面（只有 standard 版；小米会忽略）、通知使用权（待机被杀后复活），以及二维码：打开 `site/update/#setup=1`，给出这台电视的安装命令和 Agent 提示词。Google TV 模拟器（Android 13）上验证过自动弹出和跳到无障碍设置。
 
 ## 系统能力（system/）
+
+- **长虹适配**：按户主要求，`devices.json` 同时匹配型号 `长虹智能电视` 和产品 `mt5520_ll`，以 `DeviceProfile.changhongTvos` 统一控制设置、网络、图像、信号源和背光，不再按包或服务存在与否启用。`ChanghongSettings.kt` 让设置按钮与原生设置磁贴打开原厂左侧栏，网络入口打开其网络分类（用户已接受，不再要求 Wi-Fi 列表直达）；`ChanghongPicture` 通过 TVOS 的 `getBackLight` / `setBackLight` 调背光，拒绝读写时不再落到无效的安卓亮度。实际服务启动失败仍保留原有回退。standard release 已保留数据覆盖安装，户主于 2026-11-04 确认验证完成；结论仅限这台机型与固件，详见 `docs/devices/changhong-mt5520-ll.md`。
 
 - **信号源**：`TvInputManager` 列出直通输入和调谐器（调谐器只认系统包的：VLC 给预览频道注册的调谐器类输入不算，#882）。小米电视（不含 `ro.build.characteristics` 带 stb / mbx 的盒子）系统一个 HDMI 都没列时，用小米播放器补 HDMI 1–3（MiTV4C 两个），编号先读 `hdmiN_order`，没有就 22 + 口号，id 仍是 `xiaomi:<编号>`（#874 #599）。装了 `com.xiaomi.mitv.tvplayer` 的走小米的 Intent（HDMI 的 `input = HW 编号 + 18`，AV=2，ATV/DTMB 各自的 Activity），否则走 `TvContract` 的通用 URI。CEC 子输入的名字用于显示设备名，`Playback_1` 这类通用名会被过滤。`DeviceProfile` 存放按机型的修正，见下面「机型修正」。
 - **网络设置入口**：海信的 `com.android.tv.settings/com.hisense.systemsettings.MainActivity`
