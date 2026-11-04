@@ -521,6 +521,8 @@ fun AppTile(
                     // Only the focused app shows its name. With every name shown, the others stay a
                     // little dimmer than the focused one.
                     alpha = (if (AerialSettings.showAllNames) 0.7f + 0.3f * lift else lift) * opacity()
+                    // Keep the shadow outside the text bounds when the name is dimmed or fading.
+                    compositingStrategy = CompositingStrategy.ModulateAlpha
                     // Sits just under the lifted tile, and rises into place as it appears.
                     translationY = height.toPx() * (scale - 1f) / 2f - (1f - lift) * 6.dp.toPx() +
                         if (nameOnPlate) 0f else ring * ringIn * (RingGap + RingWidth).toPx() * scale
