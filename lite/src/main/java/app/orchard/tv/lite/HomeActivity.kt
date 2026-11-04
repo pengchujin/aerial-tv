@@ -493,7 +493,8 @@ class HomeActivity : Activity(), HomeView.Host {
             bootLabel = LiteSettings.bootApp?.let { pkg -> entry(pkg)?.label ?: pkg },
             clearBoot = { LiteSettings.chooseBootApp(null); showControlCenter(CcPage.Main) },
             noInputs = { Toast.makeText(this, getString(R.string.cc_no_inputs), Toast.LENGTH_SHORT).show() },
-            kidsLeave = { whenVerified { Kids.suspend(); closeAll() } },
+            // Unlocking as well: the parent who just typed the PIN was asked again on opening Settings (#718).
+            kidsLeave = { showPanel(PinPad(this, ::closePanel, PinPad.Mode.Unlock) { closePanel(); Kids.suspend(); closeAll() }, keepBelow = true) },
             kidsBack = { closeAll(); Kids.start() },
         ))
     }

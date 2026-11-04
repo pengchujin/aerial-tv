@@ -407,9 +407,14 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
         Restricted.notePackages(allowed, sources.mapNotNullTo(HashSet(), ::playerOf))
     }
 
-    /** Leaves Kids and Elders mode for now, once the PIN is right; it comes back by itself. */
+    /**
+     * Leaves Kids and Elders mode for now, once the PIN is right; it comes back by itself. The PIN
+     * also unlocks the rest, as any PIN entry does: the parent who just typed it was asked again on
+     * opening Settings right after (issue #718). Locked again as ever, on an app, the screensaver,
+     * standby or Home.
+     */
     fun leaveKidsMode() {
-        overlay = Overlay.Pin(PinMode.Verify) {
+        overlay = Overlay.Pin(PinMode.Unlock) {
             Restricted.suspend()
             overlay = Overlay.None
         }
