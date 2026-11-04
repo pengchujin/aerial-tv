@@ -27,6 +27,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
@@ -55,7 +56,14 @@ fun WatchNextPreview(
     requester: FocusRequester, onFocused: () -> Unit, onAdvance: (Int) -> Unit,
     onUp: () -> Unit, onDown: () -> Unit, onPlay: (WatchNextProgram) -> Unit,
     direction: Int = 1, animate: Boolean = true, backgroundReady: Boolean = true,
+    visibility: () -> Float = { 1f },
 ) {
+    val visible by remember(visibility) { derivedStateOf { visibility() > 0f } }
+    if (!visible) return
+    val shelfModifier = Modifier.graphicsLayer {
+        alpha = visibility()
+        compositingStrategy = CompositingStrategy.ModulateAlpha
+    }
     val reduced = LocalReducedMotion.current
     val density = LocalDensity.current
     val context = LocalContext.current
@@ -75,7 +83,7 @@ fun WatchNextPreview(
     var pressedProgram by remember { mutableStateOf<ProgramKey?>(null) }
     Column(
         Modifier.offset(layout.textLeft.dp, layout.contentTop.dp).width(layout.textWidth.dp)
-            .height(layout.contentHeight.dp),
+            .height(layout.contentHeight.dp).then(shelfModifier),
         verticalArrangement = Arrangement.Center,
     ) {
         // Keep one focus node while the complete content group exits and enters.
@@ -191,7 +199,15 @@ fun WatchNextPreview(
             }
         }
     }
-    if (layout.artWidth > 0f) Box(Modifier.offset(layout.artLeft.dp, layout.contentTop.dp).size(layout.artWidth.dp, layout.contentHeight.dp).clipToBounds(), contentAlignment = Alignment.Center) {
+    if (layout.artWidth > 0f) Box(
+        Modifier.offset(layout.artLeft.dp, layout.contentTop.dp)
+            .size(layout.artWidth.dp, layout.contentHeight.dp).clipToBounds()
+            .graphicsLayer {
+                alpha = watchNextArtworkShelfAlpha(visibility())
+                compositingStrategy = CompositingStrategy.Auto
+            },
+        contentAlignment = Alignment.Center,
+    ) {
         artwork.image?.let { displayedImage ->
             // Retained artwork must also fit if the host changes the grid while it is exiting.
             val size = artworkSize(displayedImage.width, displayedImage.height,
@@ -230,7 +246,7 @@ fun WatchNextPreview(
         }
         val indicatorColumn = if (layout.artWidth > 0f) Modifier.fillMaxWidth()
             else Modifier.offset(x = layout.textLeft.dp).width(layout.textWidth.dp)
-        Box(indicatorColumn.offset(y = layout.indicatorTop.dp).height(24.dp), contentAlignment = Alignment.Center) {
+        Box(indicatorColumn.offset(y = layout.indicatorTop.dp).height(24.dp).then(shelfModifier), contentAlignment = Alignment.Center) {
             LazyRow(Modifier.width(bandWidth.dp).height(24.dp).clipToBounds()
                 .background(Color.Black.copy(alpha = 0.18f), CircleShape)
                 .drawWithContent {
@@ -257,6 +273,9 @@ fun WatchNextPreview(
         }
     }
 }
+
+internal fun watchNextArtworkShelfAlpha(visibility: Float): Float =
+    1f - Motion.EaseOut.transform(1f - visibility.coerceIn(0f, 1f))
 
 /** Spend only the remaining text height; never leave a clipped half-line above the action row. */
 @Composable

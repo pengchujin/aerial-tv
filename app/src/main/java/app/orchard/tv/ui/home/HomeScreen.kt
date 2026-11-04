@@ -327,9 +327,7 @@ fun HomeScreen(
     }
     val watchAllowed = if (!Restricted.active) watchCatalog.keys else
         if (Restricted.lock != null) emptySet() else watchCatalog.keys.intersect(Restricted.allowed)
-    val watch = rememberWatchNextHost(watchCatalog, watchAllowed, !vm.screensaverVisible,
-        windowFocused && overlay == Overlay.None && moving == null && !vm.screensaverVisible &&
-            !programFocused && !pillFocused && (!Restricted.active || Restricted.lock == null), vm.lastInputAt)
+    val watch = rememberWatchNextHost()
     val program = watch.state.current
     val hasProgram = program != null && onWatchNext != null
 
@@ -602,11 +600,34 @@ fun HomeScreen(
         val programLayout = WatchNextHomeLayout.calculate(maxWidth.value,
             (metrics.topRowY - PlatePadV).value, oneRow, largeClock, clockRightNow)
         val programArtwork = rememberWatchNextHomeArtwork(watch.state, program, programLayout,
-            active = hasProgram && vm.resumed && !vm.screensaverVisible && kidsLock == null,
+            active = hasProgram && vm.resumed && kidsLock == null,
             previewingWallpaper = overlay is Overlay.Wallpaper, frozen = overlay != Overlay.None,
-            screenWidth = Wallpapers.screenW, screenHeight = Wallpapers.screenH)
+            screenWidth = Wallpapers.screenW, screenHeight = Wallpapers.screenH,
+            paused = vm.screensaverVisible)
         val programFrame = programArtwork.frame
         val programBackground = programFrame.image
+        // Retain the programme picture for waking, but let the original carried screensaver
+        // reveal its photo/film and fade the shelf glass over that retained home picture.
+        val programCoversFilm = programBackground != null && !filmSaver
+        val backgroundVisible by remember(collapsePx, programBackground != null) {
+            derivedStateOf {
+                !vm.screensaverVisible &&
+                    gridGlassAmount(scroll.value, collapsePx, if (programBackground != null) 0f else toSaver.value) < 0.99f
+            }
+        }
+        val programOpacity = remember(collapsePx) { { shelfContentAlpha(scroll.value, collapsePx) } }
+        val programVisible by remember(programOpacity) { derivedStateOf { programOpacity() > 0f } }
+        LaunchedEffect(programVisible, overlay, windowFocused, vm.resumed, vm.screensaverVisible) {
+            if (!programVisible && programFocused && gridEnabled && moving == null &&
+                windowFocused && vm.resumed && !vm.screensaverVisible) {
+                programFocused = false
+                statusReturnsProgram = true
+                runCatching { pillRequester.requestFocus() }
+            }
+        }
+        BindWatchNextLifecycle(watch.state, watchCatalog, watchAllowed, !vm.screensaverVisible,
+            hasProgram && backgroundVisible && windowFocused && overlay == Overlay.None && moving == null &&
+                !programFocused && !pillFocused && kidsLock == null, vm.lastInputAt)
 
         // Into the grid as from one row: the first row whole at the top. Two rows go in a row
         // further down, from the second shelf row to the third, so they scroll a row less; scrolled
@@ -774,7 +795,7 @@ fun HomeScreen(
                 plate = plate,
                 scroll = { scroll.value },
                 collapse = collapsePx,
-                cover = { if (programBackground != null) 0f else filmCover.value },
+                cover = { if (programCoversFilm) 0f else filmCover.value },
                 // An input's picture gets the shade a picture has; in the grid it gives way to the
                 // glass, as any wallpaper does (it cannot be blurred). Not a film, moving or not
                 // (the owner, 2026-10-29): since the aerial wallpaper keeps moving under keys
@@ -782,9 +803,9 @@ fun HomeScreen(
                 // (Xiaomi MiTV-MFTR0: GPU 9.8 -> 6.9 ms a frame moving focus over the film).
                 shadeMoving = programBackground == null && sourceInput != null,
                 filmStopped = { if (programBackground != null) 0f else filmStopped },
-                toSaver = { if (programBackground != null) 0f else toSaver.value },
+                toSaver = { toSaver.value },
                 filmGlass = (Wallpapers.filmFrost ?: Wallpapers.frosted).takeIf { programBackground == null && Wallpapers.moves() && Wallpapers.backdrop != null },
-                saverImage = saverImage.takeIf { programBackground == null },
+                saverImage = saverImage,
                 saverReveal = { saverReveal.value },
                 saverPush = { saverPush.value },
                 lift = { lift },
@@ -795,6 +816,7 @@ fun HomeScreen(
                 pictureTransition = if (programArtwork.transitionEnabled) { image, content ->
                     WatchNextPictureTransition(image, programBackground != null, programFrame.direction,
                         animate = vm.resumed && windowFocused && overlay == Overlay.None && moving == null && !vm.screensaverVisible,
+                        revealFilm = filmSaver,
                         filmCover = { filmCover.value },
                         content = content)
                 } else null,
@@ -824,7 +846,7 @@ fun HomeScreen(
                             // No offscreen buffer while it fades: it would be the clock's capBox, and the
                             // Chinese, the icon and the shadows above and below it were cut off (#727).
                             .graphicsLayer {
-                                alpha = 1f - (scroll.value / collapsePx * 1.6f).coerceIn(0f, 1f)
+                                alpha = shelfContentAlpha(scroll.value, collapsePx)
                                 compositingStrategy = CompositingStrategy.ModulateAlpha
                             },
                         toSaver = { clockToSaver.value },
@@ -838,7 +860,7 @@ fun HomeScreen(
                             .diagLayer("clock")
                             .padding(start = metrics.margin, top = 28.dp)
                             .graphicsLayer {
-                                alpha = 1f - (scroll.value / collapsePx * 1.6f).coerceIn(0f, 1f)
+                                alpha = shelfContentAlpha(scroll.value, collapsePx)
                                 compositingStrategy = CompositingStrategy.ModulateAlpha
                             },
                         toSaver = { toSaver.value },
@@ -918,7 +940,9 @@ fun HomeScreen(
                                 .diagLayer("tiles")
                                 .focusProperties {
                                     if (hasProgram && moving == null) {
-                                        up = if (index < columns) programRequester else requester(apps[index - columns].key)
+                                        up = if (index < columns) {
+                                            if (programVisible) programRequester else FocusRequester.Cancel
+                                        } else requester(apps[index - columns].key)
                                         if (index + columns < apps.size) down = requester(apps[index + columns].key)
                                     }
                                 }
@@ -946,23 +970,26 @@ fun HomeScreen(
             }
             if (program != null && hasProgram && kidsLock == null && !vm.screensaverVisible) {
                 watchCatalog[program.key.source]?.let { source ->
-                    WatchNextPreview(program, source, watch.state.records, programLayout, programArtwork.localImage,
-                        enabled = gridEnabled && moving == null,
-                        indicators = overlay == Overlay.None && moving == null,
-                        requester = programRequester,
-                        onFocused = { watch.state.pauseCarousel(); programFocused = true; pillFocused = false },
-                        onAdvance = watch.state::advance,
-                        onUp = { statusReturnsProgram = true; runCatching { pillRequester.requestFocus() } },
-                        onDown = { programFocused = false; focusApp(lastFocusedIndex) },
-                        direction = watch.state.navigationDirection,
-                        backgroundReady = programFrame.programKey == program.key,
-                        animate = vm.resumed && windowFocused && overlay == Overlay.None && moving == null,
-                        onPlay = { displayed -> watch.state.current?.takeIf { it.key == displayed.key }?.let { selected ->
-                            watchCatalog[selected.key.source]?.let { source ->
-                                onWatchNext?.invoke(source, selected) { result -> watch.state.launched(selected.key, result) }
-                            }
-                        } },
-                    )
+                    Box(Modifier.fillMaxSize().offset { IntOffset(0, -scroll.value.roundToInt()) }) {
+                        WatchNextPreview(program, source, watch.state.records, programLayout, programArtwork.localImage,
+                            enabled = gridEnabled && moving == null,
+                            indicators = overlay == Overlay.None && moving == null,
+                            requester = programRequester,
+                            onFocused = { watch.state.pauseCarousel(); programFocused = true; pillFocused = false },
+                            onAdvance = watch.state::advance,
+                            onUp = { statusReturnsProgram = true; runCatching { pillRequester.requestFocus() } },
+                            onDown = { programFocused = false; focusApp(lastFocusedIndex) },
+                            direction = watch.state.navigationDirection,
+                            backgroundReady = programFrame.programKey == program.key,
+                            animate = vm.resumed && windowFocused && overlay == Overlay.None && moving == null && programVisible,
+                            visibility = programOpacity,
+                            onPlay = { displayed -> watch.state.current?.takeIf { it.key == displayed.key }?.let { selected ->
+                                watchCatalog[selected.key.source]?.let { source ->
+                                    onWatchNext?.invoke(source, selected) { result -> watch.state.launched(selected.key, result) }
+                                }
+                            } },
+                        )
+                    }
                 }
             }
         }
@@ -987,7 +1014,7 @@ fun HomeScreen(
                         .diagLayer("clock")
                         .padding(end = 14.dp)
                         .graphicsLayer {
-                            alpha = 1f - (scroll.value / collapsePx * 1.6f).coerceIn(0f, 1f)
+                            alpha = shelfContentAlpha(scroll.value, collapsePx)
                             compositingStrategy = CompositingStrategy.ModulateAlpha
                         },
                     toSaver = { toSaver.value },
@@ -1006,7 +1033,7 @@ fun HomeScreen(
                     // which under the pill is the last of the row (issue #703).
                     .focusProperties {
                         val key = focusedKey
-                        if (hasProgram && statusReturnsProgram) down = programRequester
+                        if (hasProgram && programVisible && statusReturnsProgram) down = programRequester
                         else if (key != null && apps.indexOfFirst { it.key == key } in 0 until columns) down = requester(key)
                     }
                     .graphicsLayer {

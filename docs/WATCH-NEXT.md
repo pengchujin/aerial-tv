@@ -203,6 +203,8 @@ App 图标和名称从现有应用目录及缓存取得，不要求 Provider 重
 
 按项目 960×540dp 画布设计。节目区放在应用网格的滚动容器外；下方应用区独立滚动，保证当前 App、名称及焦点外框完整可见。
 
+2026-11-04：进入深层 App 网格时，节目标题、资料、来源图标、播放按钮、局部海报和圆点使用首页时钟相同的滚动淡出进度；完全隐藏后不保留不可见的节目焦点目标。返回首页展示范围时恢复当前节目，不重选首条、不抢走 App 焦点。单排从第二行、双排从第三行进入深层网格，实际淡出跟随滚动位置，也适用于拖动。
+
 节目区按顺序包含：
 
 1. 节目标题。
@@ -392,12 +394,13 @@ masterEnabled && systemPermissionGranted
 && homeInteractionAllowed
 && focusRegion == Apps
 && overlay == None && movingApp == null && !screensaverVisible
+&& gridGlassAmount < 0.99
 && effectiveRecords.size >= 2
 ```
 
 规则与建议初值：
 
-- 在任意 App 行停留时，对全局列表每 8 秒向右前进一条；最后一条回到第一条，与手动向右切换的顺序及首尾衔接一致。零条或单条不启动自动轮播。
+- 仅在清晰背景仍可见的 App 行停留时，对全局列表每 8 秒向右前进一条；最后一条回到第一条，与手动向右切换的顺序及首尾衔接一致。网格磨砂程度复用背景绘制的 `gridGlassAmount`，达到 `0.99` 时停止轮播，保留当前节目及背景；返回后重新计算完整停留时间，不补播。网格遮挡只暂停轮播，不停止 Provider 监听。零条或单条不启动自动轮播。
 - 完成上一段转场后再开始计算完整停留时间。用户导航后重新计时，便于稳定阅读当前内容。
 - 进入节目区时先取消任务、锁定当前节目键，再转移焦点；随后确定打开的必须是眼前这一条。
 - 进入浮层、后台、屏保、移动模式或失去窗口焦点时暂停；恢复后重新计时，不补播错过的次数。
@@ -915,3 +918,53 @@ subst W: /D
 - `git diff --check` 及新增文件空白检查通过。首次构建遇到不同盘符的旧 Kotlin 增量缓存，Gradle 自动回退完整编译；未改构建配置。日志：`local/debug/watchnext-fixes-targeted.log`、`local/debug/watchnext-fixes-release.log`、`local/debug/watchnext-fixes-final-checks.log`。
 
 本轮未在模拟器或真实电视安装；固件 Provider、遥控器、屏保接力与性能仍需 release + compile speed 真机验证。
+
+### 17.22 网格与屏保中的节目可见性（2026-11-04，未发布）
+
+- 背景绘制与轮播共用 `gridGlassAmount`。屏保显示或网格磨砂程度达到 `0.99` 时暂停自动切换；回到可见背景后重新计算停留时间。网格遮挡时继续监听 Provider，保留当前节目与图片。
+- 节目标题、资料、来源图标、播放按钮、局部海报和圆点以首页时钟的 `shelfContentAlpha` 为共同滚动依据；局部海报的退场曲线随后按 17.23 调整。完全隐藏时移除节目交互节点；返回时不抢走 App 焦点。单排、双排及不同列数沿用原布局与滚动距离，不另外按固定行号计算可见性。
+- Host 的创建与生命周期绑定分开：授权请求器仍在首页稳定节点，绑定在取得布局可见性后执行；保留原有前后台、窗口焦点、浮层、移动模式与节目聚焦的暂停条件。
+
+验证：新增三项回归用例，覆盖单／双排的实际网格几何、整组节目隐藏及焦点恢复、网格／屏保暂停与恢复后的完整停留时间。Standard / Guard debug 单元测试各 288 项通过，共 576 项，0 失败、0 错误、0 跳过；Standard release 构建及 `lintVitalStandardRelease` 通过。
+
+现有 API 30 模拟器覆盖安装 Standard release + APK 对应的 `.dm`，确认 `install-dm` / `speed-profile`。沿用当前单排设置：进入第二行后时钟与节目内容、圆点均隐藏；等待 12 秒再回首排仍为原节目，再等 9 秒切到下一条。照片屏保停留 12 秒后唤醒也保留节目与 App 焦点，之后恢复轮播。验证截图为 `local/debug/watchnext-visibility-*-20261104.png`，日志为 `watchnext-visibility-targeted-20261104.log`、`watchnext-visibility-all-tests-20261104.log`；没有修改壁纸、网格设置或节目数据，只清理本轮创建的远端截图。双排由自动化测试覆盖，未在模拟器切换设置验收；本轮未在真实电视验证。
+
+### 17.23 局部海报的淡出过程（2026-11-04，未发布）
+
+- 用户反馈的是淡出中途的观感，而非最终没有隐藏。API 30 模拟器慢速拖动复现：海报已经半透明，阴影仍呈现很重的暗框，图片与秋树林壁纸混在一起。
+- 海报容器由 `ModulateAlpha` 改为 `Auto`，在局部区域将图片、边框和阴影作为整体合成后淡出，沿用原有阴影留白。没有增加全屏离屏层或实时模糊；文字、圆点、网格和轮播暂停条件不变。
+- 海报透明度采用 `1 - Motion.EaseOut.transform(1 - shelfContentAlpha)`，更早退出，缩短半透明图片与复杂壁纸混合的阶段。继续直接跟随滚动弹簧，没有另设计时器；滚动反向时沿相同曲线恢复。节目间切换的原有缩放、位移与加载过渡不变。
+- 新增原生图形像素测试，在条纹背景上检查多档中间透明度、隐藏和重新出现，并补充曲线连续性、单调性与反向一致性检查。Robolectric 软件画布不能替代硬件阴影验证，暗框问题另在模拟器 release 上对照。
+
+验证：Standard / Guard debug 单元测试各 290 项通过，共 580 项，0 失败、0 错误、0 跳过；Standard release 构建及 `lintVitalStandardRelease` 通过，`git diff --check` 通过。旧 Kotlin 增量元数据一度导致同模块符号解析失败，本次使用 `-Pkotlin.incremental=false` 完成编译，未修改构建配置。最终日志为 `local/debug/watchnext-artwork-fade-validation-20261104.log`。
+
+现有 API 30 模拟器覆盖安装本次 release 和对应 `.dm`，确认 `install-dm` / `speed-profile`。相同壁纸、节目与慢速拖动下，对照 `watchnext-fade-old-mid-20261104.png` / `watchnext-fade-new-mid-20261104.png`：新版本中段海报已接近不可见，没有原来的粗暗框；`watchnext-fade-new-early-20261104.png` 检查仍明显半透明的早期画面，图片、细边与阴影一起退去。方向键进第二行完全隐藏，上下往返后恢复原海报且焦点仍在 App；近期 AndroidRuntime 无错误。截图均保留在 `local/debug/`，没有修改壁纸、网格设置或节目数据。本轮未在真实电视验证观感与 GPU 开销，仍需用户验收。
+
+### 17.24 节目区域随时钟上移（2026-11-04，未发布）
+
+- Watch Next 的标题、资料、操作、局部海报和圆点整体使用与首页时钟相同的 `-scroll.value.roundToInt()` 位移，直接跟随现有滚动弹簧。
+- 上移同时保留 17.22 的滚动淡出和 17.23 的海报整体合成及提前退场，保证离屏幕顶部较远的内容也能及时隐藏。返回首排时沿相同滚动进度下移并淡入，不增加独立动画或全屏合成层。
+
+验证：Standard release 构建及 `lintVitalStandardRelease` 通过，现有 Preview / Grid 共 9 项测试通过，`git diff --check` 通过。日志 `local/debug/watchnext-scroll-with-clock-20261104.log`。现有 API 30 模拟器覆盖安装 release + 对应 `.dm`，确认 `install-dm` / `speed-profile`；慢速拖动的早期截图中，时钟、节目文字、海报和圆点一起上移，中段继续上移并淡出，最终全部隐藏。反向拖动及方向键快速上下往返后，原节目位置和海报恢复，焦点保留在首排 App；近期 AndroidRuntime 无错误。截图 `local/debug/watchnext-scroll-*-20261104.png`。未修改用户设置或节目数据，未在真实电视验证。
+
+### 17.25 屏保唤醒保留原节目背景（2026-11-04，未发布）
+
+- 屏保可见不再等同于停用节目背景。新增独立的 `paused` 状态：暂停加载并保留已经显示的背景帧，唤醒同一节目时复用原帧，不先退回壁纸再播放一次横向切换。
+- 保留完整的已解析结果，包括没有合适全屏图片、继续使用壁纸的结果，避免屏保期间下载完成后在唤醒时突然更换背景。尚未解析的加载任务在暂停时取消，恢复后按当前请求重新加载。
+- 真正停用、预览壁纸或节目不再可用时仍沿用原清理与可见记录校验；来源移除、权限撤销不会因背景保留而绕过限制。屏保期间的影片覆盖及局部缩略图加载继续暂停。
+
+验证：新增三项回归测试，覆盖重复暂停／恢复不重载且不重播过渡、无全屏图片的结果保持、未完成加载的取消与恢复，并检查移除记录及停用后清除。背景过渡／状态／生命周期定向测试共 23 项通过；Standard / Guard debug 单元测试各 293 项通过，共 586 项，0 失败、0 错误、0 跳过。Standard release 构建及 `lintVitalStandardRelease` 通过；构建使用 `-Pkotlin.incremental=false`，未修改构建配置。日志 `local/debug/watchnext-wake-retention-targeted-20261104.log`、`local/debug/watchnext-wake-retention-validation-20261104.log`。
+
+现有 API 30 模拟器覆盖安装 release + 对应 `.dm`，确认 `install-dm` / `speed-profile`。检查两次屏保唤醒的早期、中段与结束截图，原节目背景直接恢复，没有壁纸插入或额外横向切入；第二次屏保停留超过 12 秒。当前进程日志中仅启动时准备过一次背景，两次唤醒均无新增背景准备记录，未见 AndroidRuntime 错误。截图 `local/debug/watchnext-wake-fix-*-20261104.png`，日志 `local/debug/watchnext-wake-fix-device-20261104.log`。未修改壁纸、网格设置或节目数据，仅清理本轮创建的远端截图；未在真实电视验证，未提交或发布。
+
+
+### 17.26 保留海报时仍让原屏保接管（2026-11-04，未发布）
+
+- 用户反馈并在现有 API 30 模拟器复现：进入照片屏保后已有屏保时钟和照片说明，但画面仍是节目海报，APP 栏玻璃底板未退出。17.25 的验证只检查了唤醒恢复，漏掉进入屏保时的实际照片与底板显示，不能作为屏保全流程通过的证据。
+- 原因：背景保留后 `programBackground` 在屏保中仍非空，首页用这个条件把 `HomeBackground.toSaver` 固定为 0，并过滤掉 `saverImage`。屏保组件已在运行，但其首张照片和底板退场被宿主阻断。
+- 首页始终向原 `HomeBackground` 传递屏保退场进度与首张照片，继续复用 `Screensaver` 的设置、轮播和退出流程。海报缓存作为退场底图和唤醒原帧保留。
+- 航拍续播时，`WatchNextPictureTransition.revealFilm` 允许原播放器透出；这只改变绘制覆盖，不改变保留图片的身份，避免唤醒时重新播放节目横向过渡。未新增屏保实现、播放器或设置。
+
+验证：新增原生绘图回归，使用原 `HomeBackground` 与节目过渡组件检查保留海报时照片接管、照片变化、底板消失、影片透出及唤醒恢复。背景过渡测试共 11 项通过，Standard release 构建及 lintVital 通过，`git diff --check` 通过。最终日志 `local/debug/watchnext-screensaver-handoff-verified-20261104.log`。曾将测试时钟冻结到中间帧导致原生画布读取到旧帧，最终按 Compose 空闲帧验证终态；不把该测试作为真实播放时序的证明。
+
+在当前 API 30 模拟器先复现用户问题（`watchnext-handoff-before-saver.png`），最终 release 与 APK 自带 28.dm 一起覆盖安装，确认 `speed-profile / install-dm`。进入照片屏保显示与说明对应的落羽杉图片且无 APP 玻璃底板；不按键等待后切换到另一张照片；退出后原节目海报和 APP 栏恢复。最终截图 `local/debug/watchnext-handoff-final-first.png`、`watchnext-handoff-final-auto.png`、`watchnext-handoff-final-wake.png`。早期同修复包还验证了右键手动换图。近期 AndroidRuntime 无错误。没有更改壁纸、屏保或用户数据。航拍接管仅由绘图回归覆盖，未在当前设备切换到航拍设置验证；没有真机验收、未提交或发布。

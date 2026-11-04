@@ -277,6 +277,12 @@ fun HomeBackground(
     }
 }
 
+internal fun gridGlassAmount(scroll: Float, collapse: Float, toSaver: Float = 0f): Float =
+    (((scroll / collapse).coerceIn(0f, 1f) - 0.3f) / 0.4f).coerceIn(0f, 1f) * (1f - toSaver)
+
+internal fun shelfContentAlpha(scroll: Float, collapse: Float): Float =
+    1f - (scroll / collapse * 1.6f).coerceIn(0f, 1f)
+
 /**
  * The sharp picture and the grid's glass. A new wallpaper fades in over the old, which stays whole
  * beneath it: crossfaded, the screen dimmed half-way through.
@@ -303,7 +309,7 @@ private fun Pictures(
 ) {
     // The grid's glass goes as the film carries on into the screensaver, as the apps do: the
     // screensaver over it is see-through, and the film showed frosted under it.
-    fun gridGlass(): Float = (((scroll() / collapse).coerceIn(0f, 1f) - 0.3f) / 0.4f).coerceIn(0f, 1f) * (1f - toSaver())
+    fun gridGlass(): Float = gridGlassAmount(scroll(), collapse, toSaver())
     fun moving(pictureCover: () -> Float = cover): Boolean = filmGlass != null && pictureCover() > 0.01f && filmStopped() < 0.99f
     var held by remember { mutableStateOf(frosted to wallpaper) }
     LaunchedEffect(frosted, wallpaper) {

@@ -2,6 +2,8 @@ package app.orchard.tv.watchnext
 
 import androidx.compose.ui.unit.dp
 import app.orchard.tv.ui.home.GridMetrics
+import app.orchard.tv.ui.home.gridGlassAmount
+import app.orchard.tv.ui.home.shelfContentAlpha
 import org.junit.Assert.*
 import org.junit.Test
 
@@ -46,5 +48,29 @@ class WatchNextGridTest {
         assertEquals(395.2f, grid.topRowY.value, 0.01f)
         assertEquals(204.8f, grid.restY.value, 0.01f)
         assertEquals(323.2f, grid.scrollFor(1, 8).value, 0.01f)
+    }
+    @Test fun deepRowsHideProgramContentAndCoverTheBackgroundInBothLayouts() {
+        for (columns in 4..6) for (oneRow in listOf(false, true))
+            for (names in listOf(false, true)) for (plate in listOf(false, true))
+            for (peek in listOf(false, true)) for (largeClock in listOf(false, true)) {
+                val grid = GridMetrics(960.dp, 540.dp, columns, oneRow, names && plate, peek, plate,
+                    largeClock = largeClock, clockRight = false, programArea = true)
+                for (row in 0..5) {
+                    val inGrid = row >= grid.shelfRows
+                    val scroll = grid.scrollFor(if (inGrid) row - (grid.shelfRows - 1) else 0, 8).value
+                    val label = "columns=$columns oneRow=$oneRow names=$names plate=$plate peek=$peek largeClock=$largeClock row=$row"
+                    val glass = gridGlassAmount(scroll, grid.collapse.value)
+                    val alpha = shelfContentAlpha(scroll, grid.collapse.value)
+                    if (!inGrid) {
+                        assertEquals(label, 0f, glass, 0.001f)
+                        assertEquals(label, 1f, alpha, 0.001f)
+                    } else {
+                        assertTrue(label, glass > 0f)
+                        assertTrue(label, alpha < 1f)
+                        if (glass >= 0.99f) assertEquals(label, 0f, alpha, 0.001f)
+                        if (row > grid.shelfRows) assertTrue(label, glass >= 0.99f)
+                    }
+                }
+            }
     }
 }

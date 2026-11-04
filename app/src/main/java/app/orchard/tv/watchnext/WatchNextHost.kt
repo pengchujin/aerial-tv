@@ -35,10 +35,7 @@ internal fun authorizeWatchNext(
 
 /** Called once at the stable Home node, never from a menu or a nonempty-content branch. */
 @Composable
-fun rememberWatchNextHost(
-    catalog: Map<String, AppEntry>, allowed: Set<String>, visible: Boolean,
-    carouselAllowed: Boolean, inputAt: Long,
-): WatchNextHost {
+fun rememberWatchNextHost(): WatchNextHost {
     val state: WatchNextViewModel = viewModel()
     val context = LocalContext.current
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { state.permissionResult(it) }
@@ -51,7 +48,6 @@ fun rememberWatchNextHost(
             )
         }
     }
-    BindWatchNextLifecycle(state, catalog, allowed, visible, carouselAllowed, inputAt)
     return host
 }
 

@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -13,12 +14,18 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.unit.Density
@@ -31,6 +38,7 @@ import app.orchard.tv.ui.components.LocalGlassSource
 import app.orchard.tv.ui.components.Pressable
 import app.orchard.tv.ui.home.GridMetrics
 import app.orchard.tv.ui.home.ShelfClock
+import app.orchard.tv.ui.home.shelfContentAlpha
 import app.orchard.tv.ui.theme.LocalReducedMotion
 import org.junit.After
 import org.junit.Assert.*
@@ -41,6 +49,7 @@ import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.android.controller.ActivityController
 import org.robolectric.annotation.Config
+import org.robolectric.annotation.GraphicsMode
 import java.time.LocalDateTime
 
 @RunWith(RobolectricTestRunner::class)
@@ -49,6 +58,139 @@ class WatchNextPreviewTest {
     @get:Rule val compose = createEmptyComposeRule()
     private var host: ActivityController<ComponentActivity>? = null
     @After fun close() { compose.runOnUiThread { host?.close() } }
+
+    @Test @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    fun localArtworkFadesAsOneCardAndClearsBeforeTheMetadata() {
+        val opacity = mutableStateOf(1f)
+        val layout = WatchNextHomeLayout.calculate(960f, 385f, true)
+        val program = WatchNextProgram(ProgramKey("source", 1), title = "Current programme")
+        compose.runOnUiThread {
+            host = Robolectric.buildActivity(ComponentActivity::class.java).setup()
+            val bitmap = Bitmap.createBitmap(640, 360, Bitmap.Config.ARGB_8888)
+                .apply { eraseColor(android.graphics.Color.rgb(32, 80, 128)) }
+            val image = bitmap.asImageBitmap()
+            val source = AppEntry("source", "Source", ComponentName("source", "Main"), true, false,
+                TileArt(image, null, Rect.Zero, Color.Black, image))
+            host!!.get().setContent {
+                CompositionLocalProvider(LocalDensity provides Density(1f), LocalReducedMotion provides true,
+                    LocalGlassSource provides GlassSource("test", null)) {
+                    Box(Modifier.fillMaxSize().drawBehind {
+                        drawRect(Color(0xFFF0C080))
+                        for (stripe in 0..(size.width / 8).toInt()) {
+                            drawRect(Color(0xFF408060),
+                                topLeft = Offset(stripe * 8f, 0f),
+                                size = Size(4f, size.height))
+                        }
+                    }) {
+                        WatchNextPreview(program, source, listOf(program), layout, bitmap, true, true,
+                            remember { FocusRequester() }, {}, {}, {}, {}, {},
+                            visibility = { opacity.value })
+                    }
+                }
+            }
+        }
+        fun capture() = compose.runOnIdle {
+            val view = host!!.get().findViewById<android.view.View>(android.R.id.content)
+            Bitmap.createBitmap(view.width, view.height, Bitmap.Config.ARGB_8888).also {
+                view.draw(android.graphics.Canvas(it))
+            }.asImageBitmap().toPixelMap()
+        }
+        compose.waitForIdle()
+        val full = capture()
+        compose.runOnIdle { opacity.value = 0f }
+        val wallpaper = capture()
+        for (level in listOf(0.85f, 0.65f, 0.5f, 0.25f, 0f, 0.5f, 0.85f, 1f)) {
+            compose.runOnIdle { opacity.value = level }
+            val frame = capture()
+            val artworkAlpha = watchNextArtworkShelfAlpha(level)
+            assertTrue("Artwork must not linger behind the metadata", artworkAlpha <= level)
+            if (level == 0.5f) assertTrue("The thumbnail should be almost gone halfway through", artworkAlpha < 0.1f)
+            var artworkPixels = 0
+            for (row in layout.contentTop.toInt() until (layout.contentTop + layout.contentHeight).toInt())
+                for (column in layout.artLeft.toInt() until (layout.artLeft + layout.artWidth).toInt()) {
+                    val original = full[column, row]
+                    val behind = wallpaper[column, row]
+                    val expected = Color(
+                        behind.red + (original.red - behind.red) * artworkAlpha,
+                        behind.green + (original.green - behind.green) * artworkAlpha,
+                        behind.blue + (original.blue - behind.blue) * artworkAlpha,
+                    )
+                    val actual = frame[column, row]
+                    if (kotlin.math.abs(original.red - behind.red) > 0.1f) artworkPixels++
+                    assertEquals("Red at $column,$row, opacity=$level", expected.red, actual.red, 0.02f)
+                    assertEquals("Green at $column,$row, opacity=$level", expected.green, actual.green, 0.02f)
+                    assertEquals("Blue at $column,$row, opacity=$level", expected.blue, actual.blue, 0.02f)
+                }
+            assertTrue("The thumbnail was not drawn", artworkPixels > 10_000)
+            if (level > 0f) compose.onNodeWithText(program.title!!).assertExists()
+            else compose.onNodeWithText(program.title!!).assertDoesNotExist()
+        }
+    }
+
+    @Test fun artworkShelfFadeIsContinuousAndReversible() {
+        assertEquals(0f, watchNextArtworkShelfAlpha(-1f), 0f)
+        assertEquals(1f, watchNextArtworkShelfAlpha(2f), 0f)
+        val entering = (0..100).map { watchNextArtworkShelfAlpha(it / 100f) }
+        val leaving = (100 downTo 0).map { watchNextArtworkShelfAlpha(it / 100f) }
+        assertEquals(entering, leaving.reversed())
+        assertEquals(0f, entering.first(), 0f)
+        assertEquals(1f, entering.last(), 0f)
+        entering.zipWithNext().forEach { (previous, next) ->
+            assertTrue(next >= previous)
+            assertTrue("The fade must not jump between adjacent scroll positions", next - previous < 0.05f)
+        }
+    }
+
+    @OptIn(ExperimentalTestApi::class)
+    @Test fun scrollingAwayHidesTheWholePreviewAndRestoresItWithoutTakingAppFocus() {
+        val scroll = mutableStateOf(0f)
+        val program = WatchNextProgram(ProgramKey("source", 1), title = "Current programme")
+        val appRequester = FocusRequester()
+        val programRequester = FocusRequester()
+        val played = mutableListOf<ProgramKey>()
+        var play = ""
+        compose.runOnUiThread {
+            host = Robolectric.buildActivity(ComponentActivity::class.java).setup()
+            play = host!!.get().getString(R.string.watch_next_play)
+            val bitmap = Bitmap.createBitmap(640, 360, Bitmap.Config.ARGB_8888)
+            val image = bitmap.asImageBitmap()
+            val source = AppEntry("source", "Source", ComponentName("source", "Main"), true, false,
+                TileArt(image, null, Rect.Zero, Color.Black, image))
+            host!!.get().setContent {
+                CompositionLocalProvider(LocalDensity provides Density(1f), LocalReducedMotion provides true,
+                    LocalGlassSource provides GlassSource("test", null)) {
+                    Box(Modifier.size(960.dp, 540.dp)) {
+                        Pressable({}, Modifier.offset(56.dp, 400.dp).size(147.dp, 83.dp).testTag("app"),
+                            focusRequester = appRequester) {}
+                        WatchNextPreview(program, source, listOf(program),
+                            WatchNextHomeLayout.calculate(960f, 385f, true), bitmap, true, true,
+                            programRequester, {}, {}, {}, {}, { played += it.key },
+                            visibility = { shelfContentAlpha(scroll.value, 200f) })
+                    }
+                }
+            }
+        }
+        compose.waitForIdle()
+        compose.runOnIdle { appRequester.requestFocus() }
+        val indicators = SemanticsMatcher.keyIsDefined(SemanticsProperties.HorizontalScrollAxisRange)
+        compose.onNodeWithText(program.title!!).assertExists()
+        compose.onNodeWithText(play).assertExists()
+        compose.onAllNodes(indicators).assertCountEquals(1)
+        compose.runOnIdle { scroll.value = 200f }
+        compose.onNodeWithText(program.title!!).assertDoesNotExist()
+        compose.onNodeWithText(play).assertDoesNotExist()
+        compose.onAllNodes(indicators).assertCountEquals(0)
+        compose.onRoot().performKeyInput { pressKey(Key.DirectionUp); pressKey(Key.Enter) }
+        compose.onNodeWithTag("app").assertIsFocused()
+        compose.runOnIdle { assertTrue(played.isEmpty()); scroll.value = 0f }
+        compose.onNodeWithText(program.title!!).assertExists()
+        compose.onNodeWithText(play).assertExists()
+        compose.onAllNodes(indicators).assertCountEquals(1)
+        compose.onNodeWithTag("app").assertIsFocused()
+        compose.runOnIdle { programRequester.requestFocus() }
+        compose.onRoot().performKeyInput { pressKey(Key.Enter) }
+        compose.runOnIdle { assertEquals(listOf(program.key), played) }
+    }
 
     @Test fun inlineSourceAndCompactDetailsLeavePlayVisibleAboveDotsInEveryGrid() {
         val layout = mutableStateOf(WatchNextHomeLayout.calculate(960f, 385f, true))

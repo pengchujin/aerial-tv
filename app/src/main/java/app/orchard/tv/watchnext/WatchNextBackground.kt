@@ -35,9 +35,9 @@ internal fun backgroundSize(sourceWidth: Int, sourceHeight: Int, screenWidth: In
 
 @Composable
 fun watchNextBackground(state: WatchNextViewModel, program: WatchNextProgram?, enabled: Boolean,
-    width: Int, height: Int, frozen: Boolean): WatchNextBackgroundFrame {
+    width: Int, height: Int, frozen: Boolean, paused: Boolean = false): WatchNextBackgroundFrame {
     return rememberWatchNextBackground(listOf(program, width, height), enabled && program != null, frozen,
-        state.navigationDirection, program?.key, state.records.mapTo(mutableSetOf()) { it.key }) {
+        state.navigationDirection, program?.key, state.records.mapTo(mutableSetOf()) { it.key }, paused) {
         state.artwork.background(requireNotNull(program), width, height)
     }
 }
@@ -47,19 +47,22 @@ fun watchNextBackground(state: WatchNextViewModel, program: WatchNextProgram?, e
 internal fun rememberWatchNextBackground(request: Any?, enabled: Boolean, frozen: Boolean,
     direction: Int = 1, programKey: ProgramKey? = null,
     allowedKeys: Set<ProgramKey>? = null,
+    paused: Boolean = false,
     load: suspend () -> WatchNextBackground?): WatchNextBackgroundFrame {
-    var result by remember(enabled) { mutableStateOf(WatchNextBackgroundFrame()) }
+    var resolved by remember(enabled) { mutableStateOf<Pair<Any?, WatchNextBackgroundFrame>?>(null) }
     val freeze = rememberUpdatedState(frozen)
-    LaunchedEffect(request, enabled) {
-        if (enabled) {
+    LaunchedEffect(request, enabled, paused) {
+        if (enabled && !paused) {
             val entryDirection = direction
-            val ready = load()
+            val ready = resolved?.takeIf { it.first == request }?.second
+                ?: WatchNextBackgroundFrame(load(), entryDirection, programKey)
             snapshotFlow { freeze.value }.collect { held ->
-                if (!held) result = WatchNextBackgroundFrame(ready, entryDirection, programKey)
+                if (!held) resolved = request to ready
             }
         }
     }
     // Retention is visual continuity, never permission to show a removed source or record.
+    val result = resolved?.second ?: WatchNextBackgroundFrame()
     return result.takeIf { it.programKey == null || allowedKeys == null || it.programKey in allowedKeys }
         ?: WatchNextBackgroundFrame()
 }
@@ -70,10 +73,13 @@ private data class WatchNextPicture(val image: ImageBitmap?, val coversFilm: Boo
 @Composable
 internal fun WatchNextPictureTransition(
     image: ImageBitmap?, coversFilm: Boolean, direction: Int = 1, animate: Boolean = true,
+    revealFilm: Boolean = false,
     filmCover: () -> Float, content: @Composable (ImageBitmap?, () -> Float) -> Unit,
 ) {
     WatchNextBackgroundTransition(WatchNextPicture(image, coversFilm), direction, animate) { picture ->
-        content(picture.image) { if (picture.coversFilm) 0f else filmCover() }
+        // A carried screensaver reveals the existing player without changing the retained
+        // picture's identity, so waking does not start another programme slide.
+        content(picture.image) { if (picture.coversFilm && !revealFilm) 0f else filmCover() }
     }
 }
 

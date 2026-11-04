@@ -9,6 +9,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.lifecycle.ViewModelStore
 import app.orchard.tv.apps.AppEntry
 import app.orchard.tv.apps.TileArt
+import app.orchard.tv.ui.home.gridGlassAmount
 import kotlinx.coroutines.channels.ProducerScope
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.callbackFlow
@@ -157,6 +158,37 @@ class WatchNextStateTest {
         shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(4_000))
         assertEquals(record(2).key, state.currentKey)
         assertEquals(1, state.navigationDirection)
+    }
+    @Test fun gridAndScreensaverPauseCarouselUntilAFreshDwellAfterReturning() {
+        enable(); publish(record(1), record(2), record(3))
+        fun bindVisibility(screensaver: Boolean, scroll: Float) {
+            state.bind(catalog, catalog.keys, !screensaver)
+            state.carousel(!screensaver && gridGlassAmount(scroll, 100f) < 0.99f, 0L)
+            idle()
+        }
+        bindVisibility(false, 0f)
+        shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofSeconds(4))
+        bindVisibility(false, 100f)
+        shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofSeconds(10))
+        assertEquals(record(1).key, state.currentKey)
+        assertEquals(1, repo.openReaders)
+
+        bindVisibility(false, 0f)
+        shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofSeconds(4))
+        assertEquals(record(1).key, state.currentKey)
+        shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofSeconds(5))
+        assertEquals(record(2).key, state.currentKey)
+
+        bindVisibility(true, 0f)
+        shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofSeconds(10))
+        assertEquals(record(2).key, state.currentKey)
+        assertEquals(0, repo.openReaders)
+        bindVisibility(false, 0f)
+        assertEquals(1, repo.openReaders)
+        shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofSeconds(4))
+        assertEquals(record(2).key, state.currentKey)
+        shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofSeconds(5))
+        assertEquals(record(3).key, state.currentKey)
     }
     @Test fun wrappingUsesGestureDirectionRatherThanIndexDifference() {
         enable(); publish(record(1), record(2), record(3))

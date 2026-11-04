@@ -25,22 +25,23 @@ internal fun rememberWatchNextHomeArtwork(
     frozen: Boolean,
     screenWidth: Int,
     screenHeight: Int,
+    paused: Boolean = false,
 ): WatchNextHomeArtwork {
     val reduced = LocalReducedMotion.current
     val frame = watchNextBackground(state, program, active && !previewingWallpaper,
-        screenWidth, screenHeight, frozen)
+        screenWidth, screenHeight, frozen, paused)
     val localImage = watchNextArtwork(state, program, layout,
-        active && frame.image == null && layout.artWidth > 0f && layout.top >= 60f)
+        active && !paused && frame.image == null && layout.artWidth > 0f && layout.top >= 60f)
     var coversFilm by remember { mutableStateOf(false) }
-    LaunchedEffect(frame.image != null, active, reduced) {
-        if (!active) coversFilm = false
+    LaunchedEffect(frame.image != null, active, paused, reduced) {
+        if (!active || paused) coversFilm = false
         else {
             if (!reduced) delay(WatchNextDefaults.BackgroundTransitionMs.toLong())
             coversFilm = frame.image != null
         }
     }
     val visibleKeys = remember(state.records) { state.records.mapTo(mutableSetOf()) { it.key } }
-    return WatchNextHomeArtwork(frame, localImage, active && coversFilm,
+    return WatchNextHomeArtwork(frame, localImage, active && !paused && coversFilm,
         visibleKeys.isNotEmpty(), visibleKeys)
 }
 
