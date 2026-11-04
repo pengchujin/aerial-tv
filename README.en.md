@@ -216,6 +216,7 @@ Most TVs sold in China only accept their own home screen and clear third-party a
 | Xiaomi / Redmi | MiTV-ASTR0 (Redmi A Pro 75, HyperOS 2) | Android 11 | ✅ Home, reboot, standby wake, volume and brightness work ([#1042](https://github.com/pengchujin/aerial-tv/issues/1042)) |
 | Xiaomi | MiTV-ASTP0, ASTP1, NSOP0, MFTP0 | Android 9 | ✅ MFTP0 takes 30–60 s to come back after the system clears it ([notes](docs/devices/xiaomi-mitv-mftp0.md)) |
 | Xiaomi | Mi TV 4 / 4A / 4X / 3S, Mi Box 4 | Android 6 | ✅ From 1.43; Home takes a few seconds to return to Aerial ([notes](docs/devices/xiaomi-android6.md)) |
+| Xiaomi | Mi TV 2S (MIUITV 1.3.33) | Android 5.1 | ✅ Full app installed from USB; with Home Guard turned on from Control Center, Home, power cycle and standby wake return to Aerial ([#1237](https://github.com/pengchujin/aerial-tv/issues/1237)) |
 | Xiaomi | Mi TV 2 (MiTV2-49) | Android 4.3 | ❌ Aerial Lite installs and runs, but the system opens Xiaomi's launcher by component on Home, so it cannot be the home screen ([#770](https://github.com/pengchujin/aerial-tv/issues/770)) |
 | Huawei | M330 box | Android 4.4 | ❌ Aerial Lite installs, but the firmware sets its own launcher back as the default at every boot ([#850](https://github.com/pengchujin/aerial-tv/issues/850)) |
 | Xiaomi (Fengmi) | Ultraman series projector | Android 9 | ✅ ([notes](docs/devices/xiaomi-ultraman-projector.md)) |
