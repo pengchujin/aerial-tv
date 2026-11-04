@@ -134,6 +134,8 @@
     <string name="st_home_layout_hint">«Один ряд» показывает на экране только верхний ряд, пониже, чтобы виднелось больше обоев, например семейного фото. «Два ряда» показывает ещё верх второго ряда. Нажмите вниз, чтобы увидеть остальное.</string>
     <string name="st_plate">Верхний ряд</string>
     <string name="st_plate_hint">Подложка из матового стекла под верхним рядом, как на Apple TV, или приложения прямо на обоях.</string>
+    <string name="st_plate_strength">Оттенок подложки</string>
+    <string name="st_plate_strength_hint">Настройка силы оттенка подложки на главном экране.</string>
     <string name="st_plate_glass">Стекло</string>
     <string name="st_plate_none">Нет</string>
     <string name="st_sounds">Звуки</string>

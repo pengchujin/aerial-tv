@@ -51,6 +51,7 @@ object LiteSettings {
     /** As chosen; [Kids.COLUMNS] in Kids and Elders mode. */
     val homeColumns: Int get() = if (Kids.active) Kids.COLUMNS else chosenColumns
     var homePlate = true; private set
+    var homePlateStrength = 100; private set
     private var chosenAllNames = false
     /** As chosen; every name in Elders mode. */
     val showAllNames: Boolean get() = chosenAllNames || (Kids.active && Kids.kind == KidsKind.Elders)
@@ -83,6 +84,7 @@ object LiteSettings {
         peekNextRow = prefs.getBoolean("peek_next_row", true)
         chosenColumns = prefs.getInt("home_columns", 5).takeIf { it in HOME_COLUMNS } ?: 5
         homePlate = prefs.getBoolean("home_plate", true)
+        homePlateStrength = prefs.getInt("home_plate_strength", 100).takeIf { it in plateStrengthChoices } ?: 100
         chosenAllNames = prefs.getBoolean("show_all_names", false)
         clockRight = prefs.getBoolean("clock_right", false)
         largeClock = prefs.getBoolean("large_clock", false)
@@ -108,6 +110,7 @@ object LiteSettings {
     fun chooseHomeColumns(v: Int) { if (v in HOME_COLUMNS) { chosenColumns = v; put { putInt("home_columns", v) } } }
     fun choosePeekNextRow(v: Boolean) { peekNextRow = v; put { putBoolean("peek_next_row", v) } }
     fun chooseHomePlate(v: Boolean) { homePlate = v; put { putBoolean("home_plate", v) } }
+    fun chooseHomePlateStrength(v: Int) { if (v in plateStrengthChoices) { homePlateStrength = v; put { putInt("home_plate_strength", v) } } }
     fun chooseShowAllNames(v: Boolean) { chosenAllNames = v; put { putBoolean("show_all_names", v) } }
     fun chooseClockRight(v: Boolean) { clockRight = v; put { putBoolean("clock_right", v) } }
     fun chooseLargeClock(v: Boolean) { largeClock = v; put { putBoolean("large_clock", v) } }

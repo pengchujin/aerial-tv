@@ -134,6 +134,8 @@
     <string name="st_home_layout_hint">«Один ряд» показує на екрані лише верхній ряд, нижче, щоб було видно більше шпалер, наприклад родинного фото. «Два ряди» показує ще верх другого ряду. Натисніть вниз, щоб побачити решту.</string>
     <string name="st_plate">Верхній ряд</string>
     <string name="st_plate_hint">Підкладка з матового скла під верхнім рядом, як на Apple TV, або застосунки просто на шпалерах.</string>
+    <string name="st_plate_strength">Відтінок підкладки</string>
+    <string name="st_plate_strength_hint">Налаштування сили відтінку підкладки на головному екрані.</string>
     <string name="st_plate_glass">Скло</string>
     <string name="st_plate_none">Немає</string>
     <string name="st_sounds">Звуки</string>

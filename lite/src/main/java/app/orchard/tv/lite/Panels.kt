@@ -510,6 +510,9 @@ class Personalize(
                 LiteSettings.homeColumns) { LiteSettings.chooseHomeColumns(it); onLayout() }
             choices(R.string.st_plate, string(R.string.st_plate_hint), listOf(true to R.string.st_plate_glass, false to R.string.st_plate_none),
                 LiteSettings.homePlate) { LiteSettings.chooseHomePlate(it); onLayout() }
+            if (LiteSettings.homePlate) choices(R.string.st_plate_strength, string(R.string.st_plate_strength_hint),
+                plateStrengthChoices.map { it to it.toString().plus("%") },
+                LiteSettings.homePlateStrength) { LiteSettings.chooseHomePlateStrength(it); onLayout() }
             choices(R.string.st_names, string(R.string.st_names_hint), listOf(false to R.string.st_names_focused, true to R.string.st_names_all),
                 LiteSettings.showAllNames) { LiteSettings.chooseShowAllNames(it); onLayout() }
             val hidden = Chip(context, if (hiddenCount == 0) string(R.string.st_hidden_none) else context.getString(R.string.st_hidden_count, hiddenCount), { false }, Glyph.ChevronRight)

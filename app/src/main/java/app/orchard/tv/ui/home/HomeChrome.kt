@@ -405,31 +405,35 @@ private fun Plate(glass: ImageBitmap?, film: ImageBitmap?, filmPlate: Boolean, d
     // opening. A glass not baked yet is not drawn; until then the one before it stays.
     val density = LocalDensity.current
     var screen by remember { mutableStateOf(Size.Zero) }
+    val strength = AerialSettings.homePlateStrength
     suspend fun baked(glass: ImageBitmap?): ImageBitmap? {
         // A film's plate is never the still glass (below): nothing to bake.
         if (glass == null || plate == null || screen == Size.Zero || filmPlate) return null
         val size = screen
         return withContext(Dispatchers.Default) {
-            bakePlate(plateTinted(glass), size, plate, with(density) { PlateCorner.toPx() }, with(density) { 1.2.dp.toPx() })
+            bakePlate(plateTinted(glass, strength), size, plate, with(density) { PlateCorner.toPx() }, with(density) { 1.2.dp.toPx() })
         }
     }
-    val top by produceState<ImageBitmap?>(null, shown, plate, screen) { value = baked(shown) }
-    val bottom by produceState<ImageBitmap?>(null, under, plate, screen) { value = baked(under) }
+    val top by produceState<ImageBitmap?>(null, shown, plate, screen, strength) { value = baked(shown) }
+    val bottom by produceState<ImageBitmap?>(null, under, plate, screen, strength) { value = baked(under) }
     var filmTop by remember { mutableStateOf<ImageBitmap?>(null) }
     var filmBottom by remember { mutableStateOf<ImageBitmap?>(null) }
     var smoke by remember { mutableStateOf<ImageBitmap?>(null) }
     val filmSwap = remember { Animatable(1f) }
-    LaunchedEffect(plate, screen, deepSmoke) {
+    // A still plate over a film uses its own tinted frame, not the veil.
+    val veilStrength = if (film == null && !stillOverFilm) strength else 100
+    LaunchedEffect(plate, screen, deepSmoke, veilStrength) {
         if (plate == null || screen == Size.Zero) return@LaunchedEffect
-        smoke = withContext(Dispatchers.Default) { bakePlate(smokeGlass(if (deepSmoke) FILM_SMOKE_ALONE else FILM_SMOKE), screen, plate, with(density) { PlateCorner.toPx() }, with(density) { 1.2.dp.toPx() }) }
+        val color = plateVeilColor(if (deepSmoke) FILM_SMOKE_ALONE else FILM_SMOKE, veilStrength)
+        smoke = withContext(Dispatchers.Default) { bakePlate(smokeGlass(color), screen, plate, with(density) { PlateCorner.toPx() }, with(density) { 1.2.dp.toPx() }) }
     }
-    LaunchedEffect(film, plate, screen) {
+    LaunchedEffect(film, plate, screen, strength) {
         if (film == null || plate == null || screen == Size.Zero) {
             filmTop = null
             filmBottom = null
             return@LaunchedEffect
         }
-        val baked = withContext(Dispatchers.Default) { bakePlate(plateTinted(film), screen, plate, with(density) { PlateCorner.toPx() }, 0f, edge = false) }
+        val baked = withContext(Dispatchers.Default) { bakePlate(plateTinted(film, strength), screen, plate, with(density) { PlateCorner.toPx() }, 0f, edge = false) }
         // Not on screen: the new frame simply takes over.
         if (filmTop == null || cover() < 0.01f) {
             filmTop = baked
@@ -547,9 +551,10 @@ private val PlateTint = floatArrayOf(
 )
 
 /** The glass picture with the plate's tint applied ahead of time, so the plate is one plain draw. */
-private fun plateTinted(src: ImageBitmap): ImageBitmap {
+private fun plateTinted(src: ImageBitmap, strength: Int = 100): ImageBitmap {
     val out = src.asAndroidBitmap().copy(android.graphics.Bitmap.Config.ARGB_8888, true)
-    val paint = android.graphics.Paint().apply { colorFilter = android.graphics.ColorMatrixColorFilter(PlateTint) }
+    val tint = if (strength == 100) PlateTint else plateTintMatrix(strength)
+    val paint = android.graphics.Paint().apply { colorFilter = android.graphics.ColorMatrixColorFilter(tint) }
     android.graphics.Canvas(out).drawBitmap(src.asAndroidBitmap(), 0f, 0f, paint)
     return out.frozen().asImageBitmap()
 }

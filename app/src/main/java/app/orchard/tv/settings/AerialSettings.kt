@@ -114,6 +114,9 @@ object AerialSettings {
     /** The Liquid Glass plate under the top row; some prefer the apps straight on the wallpaper (#151). */
     var homePlate by mutableStateOf(true); private set
 
+    /** Strength of the home plate's tint. 100 preserves the original appearance. */
+    var homePlateStrength by mutableIntStateOf(100); private set
+
     /** The clock, with the date and weather, in the top right instead of the top left. */
     var clockRight by mutableStateOf(false); private set
 
@@ -205,6 +208,7 @@ object AerialSettings {
         clockRight = prefs.getBoolean("clock_right", false)
         largeClock = prefs.getBoolean("large_clock", false)
         homePlate = prefs.getBoolean("home_plate", true)
+        homePlateStrength = prefs.getInt("home_plate_strength", 100).takeIf { it in listOf(50, 75, 100) } ?: 100
         chosenAllNames = prefs.getBoolean("show_all_names", false)
         wallpaperAlwaysMoves = prefs.getBoolean("wallpaper_always_moves", false)
         showWeather = prefs.getBoolean("show_weather", true)
@@ -288,6 +292,12 @@ object AerialSettings {
     fun chooseHomePlate(on: Boolean) {
         homePlate = on
         app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit { putBoolean("home_plate", on) }
+    }
+
+    fun chooseHomePlateStrength(value: Int) {
+        if (value !in listOf(50, 75, 100)) return
+        homePlateStrength = value
+        app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit { putInt("home_plate_strength", value) }
     }
 
     fun chooseClockRight(on: Boolean) {
