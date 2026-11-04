@@ -190,10 +190,16 @@ object SystemProbe {
         pkg in SETTINGS_PACKAGES ||
             context.packageManager.resolveActivity(Intent(Settings.ACTION_SETTINGS), 0)?.activityInfo?.packageName == pkg
 
-    private val SETTINGS_PACKAGES = setOf("com.android.settings", "com.android.tv.settings", "com.xiaomi.mitv.settings", "com.tcl.settings", "com.helios.setting", "com.haier.tv.menusetting")
+    private val SETTINGS_PACKAGES = setOf("com.android.settings", "com.android.tv.settings", "com.xiaomi.mitv.settings", "com.tcl.settings", "com.helios.setting", "com.haier.tv.menusetting", ChanghongSettings.PACKAGE)
+
+    fun settingsTileIntent(context: Context, pkg: String): Intent? =
+        if (pkg in setOf("com.android.settings", "com.android.tv.settings", ChanghongSettings.PACKAGE)) {
+            ChanghongSettings.intent(context)
+        } else null
 
     fun settingsIntent(context: Context): Intent =
-        xgimiSettingsIntent(context, "Settings://com.xgimi.misckey.main/mainPage")
+        ChanghongSettings.intent(context)
+            ?: xgimiSettingsIntent(context, "Settings://com.xgimi.misckey.main/mainPage")
             ?: konkaSettingsIntent(context)
             ?: settingsActivityIntent(context)
 
@@ -286,7 +292,8 @@ object SystemProbe {
      * MiTV-MFTP0 (Android 9) viewer saw "crash" (issue #369); MiTV-MFTR0 has the page too.
      */
     fun networkSettingsIntents(context: Context, ethernet: Boolean = false): List<Intent> =
-        listOfNotNull(xgimiSettingsIntent(context, XGIMI_NETWORK_PAGE)) + networkSettingsActivityIntents(context, ethernet)
+        listOfNotNull(ChanghongSettings.intent(context, ChanghongSettings.NETWORK), xgimiSettingsIntent(context, XGIMI_NETWORK_PAGE)) +
+            networkSettingsActivityIntents(context, ethernet)
 
     private fun networkSettingsActivityIntents(context: Context, ethernet: Boolean = false): List<Intent> {
         val wired = listOfNotNull(Intent("com.xiaomi.mitv.settings.ETHERNET_SETTINGS").setPackage("com.xiaomi.mitv.settings").takeIf { ethernet })
@@ -398,6 +405,16 @@ object SystemProbe {
 
     fun startSettingsIntent(context: Context, intent: Intent) {
         if (HisenseSources.open(context, intent)) return
+        if (intent.component == ChanghongSettings.component) {
+            if (ChanghongSettings.open(context, intent)) return
+            val fallback = if (intent.getBooleanExtra(ChanghongSettings.NETWORK, false)) {
+                networkSettingsActivityIntents(context).first()
+            } else {
+                settingsActivityIntent(context)
+            }
+            context.startActivity(settingsLaunchIntent(context, fallback))
+            return
+        }
         if (intent.action == XIAOMI_SETTINGS_POPUP.action && intent.`package` == XIAOMI_SETTINGS_POPUP.`package`) {
             context.sendBroadcast(intent)
             return
@@ -452,6 +469,9 @@ object SystemProbe {
      * found in PR #85; MiTV-MFTP0, Mi TV 4A, #23, #130, #185), and MiTV-MFTR0 has the receiver too.
      */
     fun openPictureSettings(context: Context): Boolean {
+        ChanghongSettings.intent(context, ChanghongSettings.PICTURE)?.let {
+            if (ChanghongSettings.open(context, it)) return true
+        }
         val backlight = Intent("com.xiaomi.mitv.settings.BACKLIGHT_POPUP")
             .setComponent(ComponentName("com.xiaomi.mitv.settings", "com.xiaomi.mitv.settings.SettingsBroadcastReceiver"))
         if (context.packageManager.queryBroadcastReceivers(backlight, 0).any { it.activityInfo.exported }) {
@@ -519,6 +539,9 @@ object SystemProbe {
      */
     fun openInputPicker(context: Context): Boolean {
         val pm = context.packageManager
+        changhongInputPanel(context)?.let { intent ->
+            if (runCatching { context.startService(intent) }.getOrNull() != null) return true
+        }
         // XGIMI (GMUI): TvInputManager does list the inputs here, but nothing on the firmware answers
         // the passthrough intent they carry - `am start` cannot resolve it - so a source tile and the
         // inputs page of Control Center both end at "this TV does not support it" (issue #241, and
@@ -588,6 +611,21 @@ object SystemProbe {
 
     private val LETV_SOURCES = ComponentName("com.stv.signalsourcemanager", "com.stv.signalsourcemanager.MainActivity")
     private val FOXCONN_SOURCES = ComponentName("com.mstar.tvsetting", "com.foxconn.etvg.inputsource.FxcInputSourceActitvity")
+
+    /** ChangHong mt5520_ll (Android 5.1): 2001 shows the menu; 3006 also starts the last input. */
+    private fun changhongInputPanel(context: Context): Intent? {
+        val intent = Intent("CH_MENU_SOURCE")
+            .setComponent(ComponentName("com.changhong.SourceMenu", "com.changhong.source.SourceMenuService"))
+            .putExtra("MenuSource", "menuSource")
+            .putExtra("keyCode", 2001)
+        return intent.takeIf {
+            runCatching {
+                val info = context.packageManager.resolveService(it, 0)?.serviceInfo
+                info != null && info.exported && info.enabled && info.applicationInfo.enabled &&
+                    (info.permission.isNullOrEmpty() || context.checkCallingOrSelfPermission(info.permission) == PackageManager.PERMISSION_GRANTED)
+            }.getOrDefault(false)
+        }
+    }
 
     /**
      * TCL's own input panel, where the firmware has one. The remote's input key opens it by itself,
