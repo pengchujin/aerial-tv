@@ -164,6 +164,11 @@ class HomeView(context: Context, private val host: Host) : FrameLayout(context) 
             for (n in names) n.layoutParams = n.layoutParams.apply { width = Ui.pxi(TILE_W + 36f) }
         }
         val rows = (apps.size + COLS - 1) / COLS
+        // Tall enough to hold every row: Home scrolls the layer up by translation, and a click lands
+        // on a tile only within the layer's own bounds. One screen high, the third row down and
+        // below took no clicks once scrolled to (Mi TV 2, Android 4.4, issue #1094).
+        val layerH = Ui.screenH * 2 + Ui.pxi(PITCH) * rows
+        if (layer.layoutParams.height < layerH) layer.layoutParams = layer.layoutParams.apply { height = layerH }
         oneRow = LiteSettings.oneRowHome || rows <= 1
         peek = LiteSettings.peekNextRow
         hasPlate = LiteSettings.homePlate && apps.isNotEmpty()

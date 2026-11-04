@@ -299,7 +299,22 @@ open class Sheet(context: Context, protected val close: () -> Unit) : FrameLayou
 
     fun row(vararg controls: Control): List<Control> {
         rows += controls.toMutableList()
+        // A mouse click or a tap: focus goes there and the control does what OK does. Sheets took
+        // keys only, so with a mouse Control Center opened and nothing in it could be clicked
+        // (Mi TV 2, Android 4.4, issue #1094).
+        for (control in controls) control.setOnClickListener { tapped(control) }
         return controls.toList()
+    }
+
+    private fun tapped(control: Control) {
+        val at = rows.indexOfFirst { control in it }
+        if (at < 0) return
+        focused?.focusedLook = false
+        r = at
+        c = rows[at].indexOf(control)
+        control.focusedLook = true
+        onFocusMoved(control)
+        control.click()
     }
 
     val focused: Control? get() = rows.getOrNull(r)?.getOrNull(c)
