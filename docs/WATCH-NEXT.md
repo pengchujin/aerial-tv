@@ -1,6 +1,6 @@
 # Watch Next 设计
 
-更新日期：2026-11-03。状态：基础接入已编码，release 构建与单元测试通过；完整 lint 仍有基线错误，尚未做真机验证。实际接点与验证记录见第 17 节。
+更新日期：2026-11-04。状态：基础接入已编码，release 构建与单元测试通过；完整 lint 仍有基线错误，尚未做真机验证。实际接点与验证记录见第 17 节。
 
 本文记录本轮讨论收敛后的方案，供后续实现与验收使用。布局、导航和开关规则以本文为准；尺寸、动画时长及缓存参数是实现初值，需结合电视实测调整。
 
@@ -898,3 +898,20 @@ subst W: /D
 - 删除旧文字顶部内缩常量。保留进度说明 1dp 间隔、图标与按钮 38dp 等高、原焦点反馈，以及原时钟／网格／圆点位置。
 
 验证：最终 Standard release 构建及 lintVital 通过，Preview/Grid 共 4 项测试通过；192 组布局检查文字组中心、时钟避让、操作等高及边界，几何测试按新区域校验不同海报宽高比的尺寸。Preview 测试不带真实图片，不能据此声称 192 组海报实绘验证。已复用 UI 审查代理，按其建议同步图片加载高度。最终 release 已覆盖安装至现有 API 30 模拟器并执行 speed 编译，截图确认《行星》的文字组与局部海报垂直居中、资料完整、原时钟／网格保留；近期 AndroidRuntime 无错误。最终日志 `local/debug/watch-next-centered-final.log`，最终截图 `local/debug/watch-next-center-final-planet.png`。未真机验证，未发布。
+
+### 17.21 审查问题修复（2026-11-04，未发布）
+
+- 生命周期由 Host 直接监听 `ON_RESUME`、`ON_PAUSE` 和 `ON_STOP`。暂停当场取消 Provider 监听和轮播，恢复时重新检查权限并重建监听，不依赖下一帧重组；屏保可见性仍由首页提供。
+- 网格使用共享的矩形 `clipBelow`，同时约束绘制和点击命中，滚动到节目区背后的磁贴不再响应触摸；保持原网格坐标和滚动方式。
+- `Pressable` 提供可选的初次按下回调，节目按钮在触摸按下时取得焦点并暂停轮播。触摸与遥控器统一记录按下时的节目身份，松开时仍须匹配当前可播放节目，避免播放中途替换的节目。
+- 图片缓存先检查本地址的磁盘文件，命中时不等待下载分段锁；未命中时才等待网络请求锁并再次检查缓存，保留同地址下载去重、取消和缓存截止时间规则。
+- 背景过渡同时保留每张图片及其影片覆盖属性，由 Watch Next 适配现有背景绘制。节目与航拍互切时，旧节目保持到过渡结束，进入节目时不会闪出航拍的静态壁纸；底板继续使用原本的首页覆盖状态。
+- 新增六项回归用例，覆盖无 Compose 帧的暂停／恢复和权限撤销、隐藏磁贴点击、按压期间节目替换、同下载锁内的独立缓存命中，以及两方向背景切换的实际像素颜色。
+
+验证结果：
+
+- Standard / Guard release 构建及各自 `lintVital` 通过。最终两套 release 单元测试各 285 项、43 个测试类通过，共 570 项，0 失败、0 错误、0 跳过。轮播回归等待超过一次停留时间，避免整圈转回原节目而漏报。
+- 完整 `lintStandardRelease` 仍报 20 项原有错误：RestrictedApi 5、UnsafeOptInUsageError 12、MissingTranslation 1、UnsafeImplicitIntentLaunch 1、IntentFilterExportedReceiver 1。与修复前报告逐项比较错误类型、消息和源文件，一致，无新增错误；没有添加 suppress 或 lint baseline。
+- `git diff --check` 及新增文件空白检查通过。首次构建遇到不同盘符的旧 Kotlin 增量缓存，Gradle 自动回退完整编译；未改构建配置。日志：`local/debug/watchnext-fixes-targeted.log`、`local/debug/watchnext-fixes-release.log`、`local/debug/watchnext-fixes-final-checks.log`。
+
+本轮未在模拟器或真实电视安装；固件 Provider、遥控器、屏保接力与性能仍需 release + compile speed 真机验证。

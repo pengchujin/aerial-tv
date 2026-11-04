@@ -121,4 +121,37 @@ class WatchNextImageFilesTest {
             assertEquals(1, count.get())
         } finally { release.countDown(); workers.shutdownNow() }
     }
+
+    @Test fun cachedReadsDoNotWaitForAnotherAddressInTheSameRequestBucket() {
+        // These distinct URLs share a request stripe; only their own disk entries matter on a hit.
+        val downloading = "https://example.org/image/1"
+        val cached = "https://example.org/image/2"
+        val started = CountDownLatch(1)
+        val release = CountDownLatch(1)
+        val count = AtomicInteger()
+        val workers = Executors.newFixedThreadPool(2)
+        val cache = WatchNextImageFiles(temporary.newFolder()) { address, _ ->
+            count.incrementAndGet()
+            if (address == downloading) {
+                started.countDown()
+                check(release.await(5, TimeUnit.SECONDS))
+            }
+            byteArrayOf(7)
+        }
+        val signal = CancellationSignal()
+        cache.get(cached, signal)
+        val enteredAt = System.currentTimeMillis()
+        try {
+            val fetch = workers.submit<ByteArray> { cache.get(downloading, signal) }
+            assertTrue(started.await(5, TimeUnit.SECONDS))
+            val hit = workers.submit {
+                assertArrayEquals(byteArrayOf(7), cache.get(cached, signal, cachedBefore = enteredAt))
+                assertArrayEquals(byteArrayOf(7), cache.get(cached, signal))
+            }
+            hit.get(2, TimeUnit.SECONDS)
+            assertEquals(2, count.get())
+            release.countDown()
+            fetch.get(5, TimeUnit.SECONDS)
+        } finally { release.countDown(); workers.shutdownNow() }
+    }
 }

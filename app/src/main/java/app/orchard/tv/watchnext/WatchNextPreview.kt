@@ -43,7 +43,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.orchard.tv.R
 import app.orchard.tv.apps.AppEntry
-import app.orchard.tv.ui.components.isSelect
 import app.orchard.tv.ui.components.Pressable
 import app.orchard.tv.ui.components.liquidGlass
 import app.orchard.tv.ui.home.MiniTile
@@ -73,7 +72,6 @@ fun WatchNextPreview(
     val shown = transition.shown.program
     val shownSource = transition.shown.source
     val artwork = rememberWatchNextArtworkTransition(shown.key, program.key, image, animate)
-    var keyPress by remember { mutableStateOf(false) }
     var pressedProgram by remember { mutableStateOf<ProgramKey?>(null) }
     Column(
         Modifier.offset(layout.textLeft.dp, layout.contentTop.dp).width(layout.textWidth.dp)
@@ -144,19 +142,20 @@ fun WatchNextPreview(
                         .semantics { contentDescription = shownSource.label })
                 Pressable(
                     onClick = {
-                        val pressed = if (keyPress) pressedProgram else shown.key
-                        keyPress = false
+                        val pressed = pressedProgram
+                        pressedProgram = null
                         if (enabled && transition.canPlay(program.key) && pressed == shown.key) onPlay(shown)
                     }, enabled = enabled, focusRequester = requester,
+                    onPress = {
+                        // Take focus on pointer down as well, so browsing cannot advance mid-press.
+                        runCatching { requester.requestFocus() }
+                        pressedProgram = shown.key.takeIf { enabled && transition.canPlay(program.key) }
+                    },
                     modifier = Modifier.weight(1f, fill = false).onFocusChanged {
-                        if (it.isFocused) onFocused() else { keyPress = false; pressedProgram = null }
+                        if (it.isFocused) onFocused() else pressedProgram = null
                     },
                     onKey = { event ->
                         val code = event.nativeKeyEvent.keyCode
-                        if (event.isSelect() && event.type == KeyEventType.KeyDown && event.nativeKeyEvent.repeatCount == 0) {
-                            keyPress = true
-                            pressedProgram = shown.key.takeIf { enabled && transition.canPlay(program.key) }
-                        }
                         if (code in listOf(NativeKeyEvent.KEYCODE_DPAD_LEFT, NativeKeyEvent.KEYCODE_DPAD_RIGHT,
                                 NativeKeyEvent.KEYCODE_DPAD_UP, NativeKeyEvent.KEYCODE_DPAD_DOWN)) {
                             if (event.type == KeyEventType.KeyDown) when (code) {

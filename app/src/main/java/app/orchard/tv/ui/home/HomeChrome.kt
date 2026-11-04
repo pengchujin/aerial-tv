@@ -250,7 +250,7 @@ fun HomeBackground(
     /** The grid's own glass, where it is not the picture's ([frosted]): the aerial film's (Wallpapers.clipGlass). */
     gridGlass: ImageBitmap? = null,
     /** Optional host transition; the default keeps the original wallpaper dissolve. */
-    pictureTransition: (@Composable (ImageBitmap?, @Composable (ImageBitmap?) -> Unit) -> Unit)? = null,
+    pictureTransition: (@Composable (ImageBitmap?, @Composable (ImageBitmap?, () -> Float) -> Unit) -> Unit)? = null,
     glassless: Boolean = Wallpapers.filmGlassless,
 ) {
     val shade = remember { Images.homeShade.asImageBitmap() }
@@ -299,23 +299,23 @@ private fun Pictures(
     cover: () -> Float,
     filmStopped: () -> Float,
     toSaver: () -> Float,
-    pictureTransition: (@Composable (ImageBitmap?, @Composable (ImageBitmap?) -> Unit) -> Unit)?,
+    pictureTransition: (@Composable (ImageBitmap?, @Composable (ImageBitmap?, () -> Float) -> Unit) -> Unit)?,
 ) {
     // The grid's glass goes as the film carries on into the screensaver, as the apps do: the
     // screensaver over it is see-through, and the film showed frosted under it.
     fun gridGlass(): Float = (((scroll() / collapse).coerceIn(0f, 1f) - 0.3f) / 0.4f).coerceIn(0f, 1f) * (1f - toSaver())
-    fun moving(): Boolean = filmGlass != null && cover() > 0.01f && filmStopped() < 0.99f
+    fun moving(pictureCover: () -> Float = cover): Boolean = filmGlass != null && pictureCover() > 0.01f && filmStopped() < 0.99f
     var held by remember { mutableStateOf(frosted to wallpaper) }
     LaunchedEffect(frosted, wallpaper) {
         if (wallpaper == held.second) snapshotFlow { gridGlass() < 0.01f || moving() }.first { it }
         held = frosted to wallpaper
     }
-    val drawPicture: @Composable (ImageBitmap?) -> Unit = { bmp ->
+    val drawPicture: @Composable (ImageBitmap?, () -> Float) -> Unit = { bmp, pictureCover ->
         // In "Follow App" mode there is no frosted copy: the app's light is small and soft
         // already, so it makes the glass itself, changing with it.
         val own = remember(bmp, frosted == null) { bmp?.takeIf { frosted == null }?.let(::plateTinted) }
         Canvas(Modifier.fillMaxSize()) {
-            val film = cover()
+            val film = pictureCover()
             // On the top row, the film alone through the window: nothing of Compose's full-screen.
             if (film > 0.99f && scroll() < collapse * 0.3f) return@Canvas
             if (bmp == null) {
@@ -331,16 +331,16 @@ private fun Pictures(
         }
     }
     if (pictureTransition != null) pictureTransition(backdrop, drawPicture)
-    else Dissolve(backdrop, 450, Motion.EaseOut, Modifier.fillMaxSize(), "ambient", drawPicture)
+    else Dissolve(backdrop, 450, Motion.EaseOut, Modifier.fillMaxSize(), "ambient") { drawPicture(it, cover) }
     // The glass of the chosen wallpaper: a new wallpaper fades in, a new glass of the same one is
     // put in only where it does not show.
-    val drawGlass: @Composable (ImageBitmap?) -> Unit = { frost ->
+    val drawGlass: @Composable (ImageBitmap?, () -> Float) -> Unit = { frost, pictureCover ->
         val glass = remember(frost) { frost?.let(::plateTinted) }
         val moved = remember(filmGlass) { filmGlass?.let(::plateTinted) }
         Canvas(Modifier.fillMaxSize()) {
             val g = gridGlass()
             if (g < 0.01f) return@Canvas
-            val src = (if (moving()) moved else null) ?: glass ?: return@Canvas
+            val src = (if (moving(pictureCover)) moved else null) ?: glass ?: return@Canvas
             drawImage(src, dstSize = IntSize(size.width.roundToInt(), size.height.roundToInt()), filterQuality = FilterQuality.Low, alpha = g)
         }
     }
@@ -353,7 +353,7 @@ private fun Pictures(
         },
         modifier = Modifier.fillMaxSize(),
         label = "glass",
-    ) { (frost, _) -> drawGlass(frost) }
+    ) { (frost, _) -> drawGlass(frost, cover) }
 }
 
 /**

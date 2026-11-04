@@ -64,28 +64,41 @@ internal fun rememberWatchNextBackground(request: Any?, enabled: Boolean, frozen
         ?: WatchNextBackgroundFrame()
 }
 
+private data class WatchNextPicture(val image: ImageBitmap?, val coversFilm: Boolean)
+
+/** Keep film coverage with each picture, including the outgoing half of a transition. */
+@Composable
+internal fun WatchNextPictureTransition(
+    image: ImageBitmap?, coversFilm: Boolean, direction: Int = 1, animate: Boolean = true,
+    filmCover: () -> Float, content: @Composable (ImageBitmap?, () -> Float) -> Unit,
+) {
+    WatchNextBackgroundTransition(WatchNextPicture(image, coversFilm), direction, animate) { picture ->
+        content(picture.image) { if (picture.coversFilm) 0f else filmCover() }
+    }
+}
+
 /** Full-screen coverage is partitioned; only the narrow seam is blended in a bounded layer. */
 @Composable
-fun WatchNextBackgroundTransition(target: ImageBitmap?, direction: Int = 1, animate: Boolean = true,
-    content: @Composable (ImageBitmap?) -> Unit) {
+fun <T> WatchNextBackgroundTransition(target: T, direction: Int = 1, animate: Boolean = true,
+    content: @Composable (T) -> Unit) {
     val reduced = LocalReducedMotion.current
     var shown by remember { mutableStateOf(target) }
-    var previous by remember { mutableStateOf<ImageBitmap?>(null) }
+    var previous by remember { mutableStateOf(target) }
     var transitioning by remember { mutableStateOf(false) }
     var travel by remember { mutableStateOf(1) }
     val progress = remember { Animatable(1f) }
     val layerPaint = remember { Paint() }
     LaunchedEffect(target, reduced, animate) {
-        if (shown === target && !transitioning) return@LaunchedEffect
+        if (shown == target && !transitioning) return@LaunchedEffect
         if (reduced || !animate) {
-            shown = target; previous = null; transitioning = false; progress.snapTo(1f)
+            shown = target; previous = target; transitioning = false; progress.snapTo(1f)
         } else {
             travel = if (direction < 0) -1 else 1
             previous = if (progress.value >= 0.5f) shown else previous
             shown = target; transitioning = true
             progress.snapTo(0f)
             progress.animateTo(1f, tween(WatchNextDefaults.BackgroundTransitionMs, easing = Motion.EaseOut))
-            previous = null; transitioning = false
+            previous = shown; transitioning = false
         }
     }
     Box(Modifier.fillMaxSize().clipToBounds()) {

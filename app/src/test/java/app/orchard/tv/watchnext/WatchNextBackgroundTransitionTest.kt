@@ -16,8 +16,11 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
+import app.orchard.tv.ui.home.HomeBackground
 import app.orchard.tv.ui.theme.LocalReducedMotion
 import org.junit.After
 import org.junit.Rule
@@ -190,5 +193,60 @@ class WatchNextBackgroundTransitionTest {
         }
         assertTrue("No soft seam was drawn", mixed > 8)
         assertTrue("Blending escaped the narrow band: $mixed", mixed < pixels.width / 8)
+    }
+
+    @Test @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    fun programmeAndFilmKeepTheirOwnCoverageThroughBothDirectionsOfTheTransition() {
+        val programme = Bitmap.createBitmap(2, 2, Bitmap.Config.ARGB_8888)
+            .apply { eraseColor(android.graphics.Color.RED) }.asImageBitmap()
+        val wallpaper = Bitmap.createBitmap(2, 2, Bitmap.Config.ARGB_8888)
+            .apply { eraseColor(android.graphics.Color.BLUE) }.asImageBitmap()
+        val showingProgramme = mutableStateOf(true)
+        compose.runOnUiThread {
+            host = Robolectric.buildActivity(ComponentActivity::class.java).setup()
+            host!!.get().setContent {
+                CompositionLocalProvider(LocalReducedMotion provides false, LocalDensity provides Density(1f)) {
+                    // The film plane is green; its older static wallpaper must never flash blue.
+                    Box(Modifier.fillMaxSize().background(Color.Green)) {
+                        HomeBackground(
+                            backdrop = if (showingProgramme.value) programme else wallpaper,
+                            frosted = null, plate = null, scroll = { 0f }, collapse = 100f,
+                            cover = { if (showingProgramme.value) 0f else 1f },
+                            pictureTransition = { image, content ->
+                                WatchNextPictureTransition(image, showingProgramme.value,
+                                    filmCover = { 1f }, content = content)
+                            },
+                        )
+                    }
+                }
+            }
+        }
+        compose.waitForIdle()
+        compose.mainClock.autoAdvance = false
+        repeat(2) { visit ->
+            compose.runOnIdle { showingProgramme.value = visit != 0 }
+            compose.waitForIdle()
+            compose.mainClock.advanceTimeBy(96)
+            compose.waitForIdle()
+            val bitmap = compose.runOnIdle {
+                val view = host!!.get().window.decorView
+                Bitmap.createBitmap(view.width, view.height, Bitmap.Config.ARGB_8888).also {
+                    view.draw(android.graphics.Canvas(it))
+                }
+            }
+            val pixels = bitmap.asImageBitmap().toPixelMap()
+            var red = 0
+            var green = 0
+            for (x in 0 until pixels.width) {
+                val color = pixels[x, pixels.height / 2]
+                assertTrue("Static wallpaper flashed through the film: $color", color.blue < 0.02f)
+                assertTrue("Uncovered transition pixel at $x: $color", color.red + color.green > 0.98f)
+                if (color.red > 0.98f) red++
+                if (color.green > 0.98f) green++
+            }
+            assertTrue("The outgoing programme/film disappeared before the transition", red > 0 && green > 0)
+            compose.mainClock.advanceTimeBy(1_000)
+            compose.waitForIdle()
+        }
     }
 }

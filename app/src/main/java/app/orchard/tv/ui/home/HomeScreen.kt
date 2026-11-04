@@ -87,6 +87,7 @@ import app.orchard.tv.wallpaper.AerialFormats
 import app.orchard.tv.wallpaper.ScreensaverMode
 import app.orchard.tv.wallpaper.Wallpapers
 import app.orchard.tv.ui.components.liquidGlass
+import app.orchard.tv.ui.components.clipBelow
 import app.orchard.tv.ui.components.GlassSource
 import app.orchard.tv.ui.components.LocalGlassSource
 import app.orchard.tv.ui.theme.LocalReducedMotion
@@ -325,7 +326,7 @@ fun HomeScreen(
     }
     val watchAllowed = if (!Restricted.active) watchCatalog.keys else
         if (Restricted.lock != null) emptySet() else watchCatalog.keys.intersect(Restricted.allowed)
-    val watch = rememberWatchNextHost(watchCatalog, watchAllowed, vm.resumed && !vm.screensaverVisible,
+    val watch = rememberWatchNextHost(watchCatalog, watchAllowed, !vm.screensaverVisible,
         windowFocused && overlay == Overlay.None && moving == null && !vm.screensaverVisible &&
             !programFocused && !pillFocused && (!Restricted.active || Restricted.lock == null), vm.lastInputAt)
     val program = watch.state.current
@@ -778,8 +779,9 @@ fun HomeScreen(
                 gridGlass = clipGlass.takeIf { programBackground == null },
                 glassless = programBackground == null && Wallpapers.filmGlassless,
                 pictureTransition = if (programArtwork.transitionEnabled) { image, content ->
-                    WatchNextBackgroundTransition(image, programFrame.direction,
+                    WatchNextPictureTransition(image, programBackground != null, programFrame.direction,
                         animate = vm.resumed && windowFocused && overlay == Overlay.None && moving == null && !vm.screensaverVisible,
+                        filmCover = { filmCover.value },
                         content = content)
                 } else null,
             )
@@ -835,10 +837,7 @@ fun HomeScreen(
             // into the screensaver and must remain outside this viewport.
             Box(
                 Modifier.fillMaxSize()
-                    .drawWithContent {
-                        if (hasProgram) clipRect(top = (metrics.topRowY - PlatePadV).toPx()) { this@drawWithContent.drawContent() }
-                        else drawContent()
-                    }
+                    .then(if (hasProgram) Modifier.clipBelow(metrics.topRowY - PlatePadV) else Modifier)
                     .offset { IntOffset(0, -scroll.value.roundToInt()) },
             ) {
                 // The rows below the shelf stay out of sight until Home scrolls to them: in one row

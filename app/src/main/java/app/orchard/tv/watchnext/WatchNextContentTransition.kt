@@ -58,4 +58,3 @@ internal fun rememberWatchNextContent(
     SideEffect { if (state.shown.program.key == target.program.key) state.shown = target }
     return state
 }
-

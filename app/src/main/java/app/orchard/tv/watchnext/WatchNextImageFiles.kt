@@ -24,34 +24,15 @@ internal class WatchNextImageFiles(
     fun get(address: String, signal: CancellationSignal, cachedBefore: Long? = null): ByteArray {
         val digest = MessageDigest.getInstance("SHA-256").digest(address.toByteArray(Charsets.UTF_8))
         val name = digest.joinToString("") { "%02x".format(it.toInt() and 255) } + ".img"
+        val file = File(directory, name)
+        cached(file, signal, cachedBefore)?.let { return it }
+        check(cachedBefore == null) { "Artwork was not cached on entry" }
         val lock = requests[(digest[0].toInt() and 255) % requests.size]
-        if (cachedBefore != null) {
-            check(lock.tryLock()) { "Artwork is still downloading" }
-        } else while (!lock.tryLock(100, TimeUnit.MILLISECONDS)) signal.throwIfCanceled()
+        while (!lock.tryLock(100, TimeUnit.MILLISECONDS)) signal.throwIfCanceled()
         try {
             signal.throwIfCanceled()
-            val file = File(directory, name)
-            synchronized(diskLock) {
-                if (file.isFile) {
-                    val bytes = runCatching {
-                        check(file.length() in 9..(WatchNextDefaults.RemoteMaxBytes + 8L))
-                        DataInputStream(file.inputStream().buffered()).use { input ->
-                            val downloadedAt = input.readLong()
-                            if (cachedBefore != null && downloadedAt > cachedBefore) return@use null
-                            val age = now() - downloadedAt
-                            check(age in 0 until lifetimeMs)
-                            input.readBytes()
-                        }
-                    }.getOrNull()
-                    if (bytes != null) {
-                        signal.throwIfCanceled()
-                        file.setLastModified(now())
-                        return bytes
-                    }
-                    if (cachedBefore == null) file.delete()
-                }
-            }
-            check(cachedBefore == null) { "Artwork was not cached on entry" }
+            // The request ahead of us may have populated the cache while we waited.
+            cached(file, signal, null)?.let { return it }
             val bytes = fetch(address, signal)
             signal.throwIfCanceled()
             require(bytes.isNotEmpty() && bytes.size <= WatchNextDefaults.RemoteMaxBytes)
@@ -74,6 +55,25 @@ internal class WatchNextImageFiles(
             signal.throwIfCanceled()
             return bytes
         } finally { lock.unlock() }
+    }
+
+    private fun cached(file: File, signal: CancellationSignal, cachedBefore: Long?): ByteArray? = synchronized(diskLock) {
+        signal.throwIfCanceled()
+        if (!file.isFile) return@synchronized null
+        val bytes = runCatching {
+            check(file.length() in 9..(WatchNextDefaults.RemoteMaxBytes + 8L))
+            DataInputStream(file.inputStream().buffered()).use { input ->
+                val downloadedAt = input.readLong()
+                if (cachedBefore != null && downloadedAt > cachedBefore) return@use null
+                check(now() - downloadedAt in 0 until lifetimeMs)
+                input.readBytes()
+            }
+        }.getOrNull()
+        if (bytes != null) {
+            signal.throwIfCanceled()
+            file.setLastModified(now())
+        } else if (cachedBefore == null) file.delete()
+        bytes
     }
 
     private fun trim() {

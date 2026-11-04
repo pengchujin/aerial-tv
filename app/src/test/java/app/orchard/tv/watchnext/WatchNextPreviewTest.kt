@@ -28,6 +28,7 @@ import app.orchard.tv.apps.AppEntry
 import app.orchard.tv.apps.TileArt
 import app.orchard.tv.ui.components.GlassSource
 import app.orchard.tv.ui.components.LocalGlassSource
+import app.orchard.tv.ui.components.Pressable
 import app.orchard.tv.ui.home.GridMetrics
 import app.orchard.tv.ui.home.ShelfClock
 import app.orchard.tv.ui.theme.LocalReducedMotion
@@ -226,5 +227,48 @@ class WatchNextPreviewTest {
         compose.waitForIdle()
         compose.onRoot().performKeyInput { pressKey(Key.Enter) }
         compose.runOnIdle { assertEquals(listOf(programs[1].key, programs[2].key), played) }
+    }
+
+    @Test fun pointerDownTakesFocusAndCannotPlayAReplacementProgramOnRelease() {
+        val programs = (1L..2L).map { WatchNextProgram(ProgramKey("source", it), title = "Title $it") }
+        val selected = mutableStateOf(programs[0])
+        val played = mutableListOf<ProgramKey>()
+        val tileRequester = FocusRequester()
+        var focused = false
+        var play = ""
+        compose.runOnUiThread {
+            host = Robolectric.buildActivity(ComponentActivity::class.java).setup()
+            play = host!!.get().getString(R.string.watch_next_play)
+            val image = Bitmap.createBitmap(2, 2, Bitmap.Config.ARGB_8888).asImageBitmap()
+            val source = AppEntry("source", "Source", ComponentName("source", "Main"), true, false,
+                TileArt(image, null, Rect.Zero, Color.Black, image))
+            host!!.get().setContent {
+                CompositionLocalProvider(LocalDensity provides Density(1f), LocalReducedMotion provides false,
+                    LocalGlassSource provides GlassSource("test", null)) {
+                    Box(Modifier.size(960.dp, 540.dp)) {
+                        Pressable({}, Modifier.offset(56.dp, 400.dp).size(147.dp, 83.dp),
+                            focusRequester = tileRequester) {}
+                        WatchNextPreview(selected.value, source, programs,
+                            WatchNextHomeLayout.calculate(960f, 385f, true), null, true, true,
+                            remember { FocusRequester() }, { focused = true }, {}, {}, {}, { played += it.key })
+                    }
+                }
+            }
+        }
+        compose.waitForIdle()
+        compose.runOnIdle { tileRequester.requestFocus(); focused = false }
+        compose.mainClock.autoAdvance = false
+        compose.onNodeWithText(play).performTouchInput { down(center) }
+        compose.runOnIdle {
+            assertTrue("Pointer down must pause browsing by focusing the programme", focused)
+            selected.value = programs[1]
+        }
+        compose.waitForIdle()
+        compose.mainClock.advanceTimeBy(800)
+        compose.waitForIdle()
+        compose.onNodeWithText(play).performTouchInput { up() }
+        compose.runOnIdle { assertTrue("Release must not play a different programme", played.isEmpty()) }
+        compose.onNodeWithText(play).performTouchInput { click() }
+        compose.runOnIdle { assertEquals(listOf(programs[1].key), played) }
     }
 }
