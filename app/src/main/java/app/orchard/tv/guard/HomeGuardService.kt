@@ -359,30 +359,56 @@ class HomeGuardService : AccessibilityService() {
      * an input that HDMI-CEC switched to at power-on is left alone.
      */
     private val userUnlocked = object : BroadcastReceiver() {
-        override fun onReceive(context: Context, intent: Intent) {
-            // Before unlock only Direct Boot aware launchers resolve, and only Direct Boot aware
-            // activities are found: PatchWall's home screen was cached as missing while locked, so
-            // FIRMWARE_HOMES_WITHOUT_FILTER lost it until Aerial restarted (MiTV-MOOQ0, Android 11).
-            activityCache.clear()
-            refreshStockHomes()
-            KidsWatch.start(this@HomeGuardService)
-            checkMouseWithFilter(this@HomeGuardService)
-            restartForegroundCheck()
-            watchCecInput()
-            updateKeyFilter()
-            // The ADB and screensaver checks were skipped while locked.
-            GuardSetup.ensureEnabled(this@HomeGuardService)
-            // Not bounded by the boot window: the unlock is where a boot ends for apps, however late
-            // it comes. XGIMI Play 6 (GMUI, Android 11, low RAM) unlocked 5 min 35 s into a boot,
-            // and the guard, bound since Direct Boot, left the firmware's Home chooser on screen
-            // (issue #1126, the reporter's timeline). The take-over still looks at the front first.
-            val skipReason = when {
-                getSystemService<PowerManager>()?.isInteractive != true -> "screen off"
-                else -> null
-            }
-            if (skipReason == null) takeOverOnceSettled("user unlocked", woke = true)
-            else Log.i(TAG, "user unlocked; not taking over Home ($skipReason)")
+        override fun onReceive(context: Context, intent: Intent) = onUserUnlocked("user unlocked")
+    }
+
+    /** Bound while locked and the unlock not handled yet; see onUserUnlocked. */
+    private var unlockPending = false
+    private var unlockPolledSince = 0L
+
+    /**
+     * Not every firmware sends ACTION_USER_UNLOCKED to the guard: on Formovie spiderman (Android 9,
+     * ro.crypto.state=unsupported) the guard bound while locked, Aerial's receivers then had
+     * LOCKED_BOOT_COMPLETED and BOOT_COMPLETED, and the guard heard nothing more, so Home went to
+     * FallbackHome for good (1.82, issue
+     * #1213, the reporter's log; polling isUserUnlocked fixed it in their local build). So the
+     * unlock is also looked for every 2 s, for 10 min, and taken from BOOT_COMPLETED.
+     */
+    private val unlockPoll = object : Runnable {
+        override fun run() {
+            if (!unlockPending) return
+            if (GuardSetup.isUserUnlocked(this@HomeGuardService)) onUserUnlocked("user unlocked (polled)")
+            else if (SystemClock.elapsedRealtime() - unlockPolledSince < UNLOCK_POLL_FOR_MS) handler.postDelayed(this, UNLOCK_POLL_MS)
         }
+    }
+
+    private fun onUserUnlocked(how: String) {
+        if (!unlockPending) return
+        unlockPending = false
+        handler.removeCallbacks(unlockPoll)
+        // Before unlock only Direct Boot aware launchers resolve, and only Direct Boot aware
+        // activities are found: PatchWall's home screen was cached as missing while locked, so
+        // FIRMWARE_HOMES_WITHOUT_FILTER lost it until Aerial restarted (MiTV-MOOQ0, Android 11).
+        activityCache.clear()
+        refreshStockHomes()
+        KidsWatch.start(this@HomeGuardService)
+        checkMouseWithFilter(this@HomeGuardService)
+        restartForegroundCheck()
+        watchCecInput()
+        updateKeyFilter()
+        // The ADB and screensaver checks were skipped while locked.
+        GuardSetup.ensureEnabled(this@HomeGuardService)
+        // Not bounded by the boot window: the unlock is where a boot ends for apps, however late
+        // it comes. XGIMI Play 6 (GMUI, Android 11, low RAM) unlocked 5 min 35 s into a boot,
+        // and the guard, bound since Direct Boot, left the firmware's Home chooser on screen
+        // (issue #1126, the reporter's timeline). The take-over still looks at the front first.
+        val skipReason = when {
+            getSystemService<PowerManager>()?.isInteractive != true -> "screen off"
+            else -> null
+        }
+        DiagLog.i("guard: $how; running what was put off while locked")
+        if (skipReason == null) takeOverOnceSettled(how, woke = true)
+        else Log.i(TAG, "$how; not taking over Home ($skipReason)")
     }
 
     private val screenOn = object : BroadcastReceiver() {
@@ -664,6 +690,7 @@ class HomeGuardService : AccessibilityService() {
 
     override fun onServiceConnected() {
         instance = this
+        unlockPending = !GuardSetup.isUserUnlocked(this)
         // Both read credential storage: bound before unlock, the guard crashed here twice and the
         // system put off its restart for 30 min, so nothing took Home at boot (1.79 to 1.81: Redmi
         // Projector 4 mt5873, Android 13, issue #684; Formovie spiderman, Android 9, issue #1213;
@@ -752,8 +779,12 @@ class HomeGuardService : AccessibilityService() {
         patchwallBootCover = isActivity(PATCHWALL, PATCHWALL_BOOT)
         if (patchwallBootCover && !screenOff && !recoveryWindow()) boundAwakeAt = SystemClock.elapsedRealtime()
         restartForegroundCheck()
+        // Unlocked while binding: what was skipped above at once, whether or not the broadcast follows.
+        if (unlockPending && GuardSetup.isUserUnlocked(this)) onUserUnlocked("user unlocked while binding")
         if (!GuardSetup.isUserUnlocked(this)) {
             Log.i(TAG, "bound while user locked; deferred takeover until unlock")
+            unlockPolledSince = SystemClock.elapsedRealtime()
+            handler.postDelayed(unlockPoll, UNLOCK_POLL_MS)
             return
         }
         // Bound a little after boot, or brought back after the firmware killed Aerial: either way
@@ -1752,6 +1783,8 @@ class HomeGuardService : AccessibilityService() {
         private const val TAG = "AerialGuard"
         private const val BRING_BACK_REQUEST = 933
         private const val BOOT_WINDOW_MS = 3 * 60 * 1000L
+        private const val UNLOCK_POLL_MS = 2_000L
+        private const val UNLOCK_POLL_FOR_MS = 10 * 60 * 1000L
         private const val HOME_KEY_CHECK_MS = 1500L
         /**
          * How long after what the TV starts on was opened the stock launcher may still come over it
@@ -2104,6 +2137,11 @@ class HomeGuardService : AccessibilityService() {
         fun onBootCompleted(): Boolean {
             val s = instance ?: return false
             s.handler.post {
+                // Unlocked by now, whether or not the guard heard of it (issue #1213).
+                if (s.unlockPending && GuardSetup.isUserUnlocked(s)) {
+                    s.onUserUnlocked("boot completed while the unlock was unheard")
+                    return@post
+                }
                 // Aerial already in front: the take-over at bind time worked, and has opened the
                 // input the TV starts on if there is one.
                 if (s.lastWindow?.first == s.packageName) return@post
