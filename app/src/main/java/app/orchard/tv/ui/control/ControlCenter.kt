@@ -183,8 +183,7 @@ fun ControlCenter(
                 Modifier
                     .width(300.dp)
                     .consumeTaps()
-                    .liquidGlass(24.dp, seeThroughFilm = onShelf)
-                    .padding(16.dp),
+                    .liquidGlass(24.dp, seeThroughFilm = onShelf),
             ) {
                 AnimatedContent(
                     targetState = page,
@@ -198,14 +197,17 @@ fun ControlCenter(
                     },
                     label = "cc-page",
                 ) { p ->
-                    // Closing sets the page back to Main while the panel fades out; that page must
-                    // not take focus from the tile Home has just put it back on.
-                    when (p) {
-                        CcPage.Main -> if (Restricted.active) KidsPage(vm, now, visible) else MainPage(vm, now, visible, onOpen)
-                        CcPage.Inputs -> InputsPage(vm, visible, onOpen)
-                        CcPage.InputSettings -> InputSettingsPage(vm, visible)
-                        CcPage.Update -> UpdatePage(vm, visible)
-                        CcPage.Setup -> SetupPage(vm, visible, onOpen)
+                    // Keep room for focused rows inside the fade layer so their scaled edges are not clipped.
+                    Box(Modifier.padding(16.dp)) {
+                        // Closing sets the page back to Main while the panel fades out; that page must
+                        // not take focus from the tile Home has just put it back on.
+                        when (p) {
+                            CcPage.Main -> if (Restricted.active) KidsPage(vm, now, visible) else MainPage(vm, now, visible, onOpen)
+                            CcPage.Inputs -> InputsPage(vm, visible, onOpen)
+                            CcPage.InputSettings -> InputSettingsPage(vm, visible)
+                            CcPage.Update -> UpdatePage(vm, visible)
+                            CcPage.Setup -> SetupPage(vm, visible, onOpen)
+                        }
                     }
                 }
             }
