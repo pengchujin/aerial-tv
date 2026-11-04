@@ -221,11 +221,13 @@ curl -fsSL https://aerial.qust.me/install.sh | TV=192.168.1.20 bash -s restore
 | TCL | Q9L Pro | Android 14 | ⚠️ 只能 USB 线连 adb；要在电视管家里允许 Aerial 自启；信号源 1.77 起能切（[#792](https://github.com/pengchujin/aerial-tv/issues/792)） |
 | TCL | 65V8E（tc8000 ay30a2） | Android 11 | ✅ 断电开机先显示原桌面 6–8 秒（[#1137](https://github.com/pengchujin/aerial-tv/issues/1137)） |
 | 雷鸟 | 75S78A Plus（FFALCON T966D5） | Android 14 | ❌ 固件约每分钟清掉无障碍，主页键接管不了；`boot_app_componentname` 能让开机进 Aerial（[笔记](docs/devices/ffalcon-t966d5.md)） |
+| 雷鸟 | 鹤 6 2027 款 55 英寸（T966D5 / AU01） | Android 14 | ⚠️ guard 版，把 `boot_app_componentname` 设成 Aerial 后重启进 Aerial，守护在；只试过一次重启（[#1185](https://github.com/pengchujin/aerial-tv/issues/1185)） |
 | TCL | 75V2（m7221） | Android 8 | ✅ 免 root，开机直达（[笔记](docs/devices/tcl-m7221-cn.md)） |
 | TCL / 雷鸟 | 60A730U、55V2 Pro（x32a0）、65Q10E 与鹤 6（m7642）、75S365C、75Q10L | Android 5.1–14 | ✅ 60A730U 只能装 guard 版；55V2 Pro 先 `setprop persist.tcl.debug.installapk 1` 才能 adb 安装（[#620](https://github.com/pengchujin/aerial-tv/issues/620)） |
 | 雷鸟 | FF55S515D-E674（tcl_m7642） | Android 9 | ✅ 多屏互动安装 guard，主页键可接管；重启亮屏后先出原桌面再切入 Aerial，待机唤醒偶尔同样短暂切换（[实测与限制](docs/devices/ffalcon-55s515d.md)） |
 | 雷鸟 | 55S595C Ultra、鹤 6 2025 Ultra | Android 11+ | ❌ 能装，接管不了主页键（[笔记](docs/devices/tcl-mt9655-cn.md)） |
 | 索尼 | A80J 国行、BRAVIA VH1 | Android 10 / 12 | ✅ |
+| 索尼 | BRAVIA 4K VH2 | 未说 | ✅（[#1193](https://github.com/pengchujin/aerial-tv/issues/1193)） |
 | 索尼 | KD55X7000D 国行 | Android 8 | ✅ 亮度要在电视设置里调（[#757](https://github.com/pengchujin/aerial-tv/issues/757)） |
 | 创维 / 酷开 | K3 Pro、75A7D | Android 11 | ✅ 75A7D 的信号源 1.45 起能用；开机先出酷开桌面 3–6 秒，报告人改固件属性后开机直达（[#894](https://github.com/pengchujin/aerial-tv/issues/894)） |
 | 创维 / 酷开 | 65G60、8R134 / 8R145、aigc 系（C10 投影、P60、7T863） | Android 8–11 | ⚠️ 开机先进酷开桌面，或被系统清理后要等 20–30 秒（[笔记](docs/devices/skyworth-coocaa.md)） |
@@ -233,6 +235,7 @@ curl -fsSL https://aerial.qust.me/install.sh | TV=192.168.1.20 bash -s restore
 | 创维 / 酷开 | 8H83 M6（Hi3751V500） | Android 4.4 | ❌ Aerial Lite 能装能开，但主页键和开机都由固件按组件直接打开酷开桌面，选择框里没有第三方桌面（[#903](https://github.com/pengchujin/aerial-tv/issues/903)） |
 | 创维 / 酷开 | 8H57_H5 | Android 5.1 | ⚠️ 开机先转圈十几秒才进 Aerial（[#785](https://github.com/pengchujin/aerial-tv/issues/785)） |
 | 创维 | 1AA46_D4（T963） | Android 9 | ✅（[#796](https://github.com/pengchujin/aerial-tv/issues/796)） |
+| 创维 | 43H30（1MC02，MT5862） | Android 9 | ✅ 冷开机先出原厂桌面 1–2 秒；背光只能在电视自己的图像设置里调（[#1192](https://github.com/pengchujin/aerial-tv/issues/1192)） |
 | 创维 | 7T641、7T634_P3H、75A6E、55A5F Pro（8R702）、8R721_A6FP | Android 13 | ❌ 黑屏，或拿不到焦点被系统结束（[#864](https://github.com/pengchujin/aerial-tv/issues/864)、[#839](https://github.com/pengchujin/aerial-tv/issues/839)） |
 | 创维 | 小湃 P3（Q5001 / cupid-p2）盒子 | Android 10 | ⚠️ 要改包名才能接管 HOME；开机广播全被拦（[笔记](docs/devices/skyworth-p3-box.md)） |
 | 松下 | TH-55HX560C（创维代工） | Android 8 | ⚠️ 信号源列不出来 |

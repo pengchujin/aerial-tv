@@ -223,11 +223,13 @@ Most TVs sold in China only accept their own home screen and clear third-party a
 | TCL | Q9L Pro | Android 14 | ⚠️ ADB over a USB cable only; allow Aerial to auto-start in the TV manager; inputs switch from 1.77 on ([#792](https://github.com/pengchujin/aerial-tv/issues/792)) |
 | TCL | 65V8E (tc8000 ay30a2) | Android 11 | ✅ After a power cut the stock launcher shows for 6–8 s first ([#1137](https://github.com/pengchujin/aerial-tv/issues/1137)) |
 | Thunderbird | 75S78A Plus (FFALCON T966D5) | Android 14 | ❌ The firmware clears accessibility about once a minute, so Home cannot be taken over; `boot_app_componentname` boots into Aerial ([notes](docs/devices/ffalcon-t966d5.md)) |
+| Thunderbird | He 6 2027, 55" (T966D5 / AU01) | Android 14 | ⚠️ guard flavor; with `boot_app_componentname` set to Aerial it booted into Aerial with the guard running; one reboot tried ([#1185](https://github.com/pengchujin/aerial-tv/issues/1185)) |
 | TCL | 75V2 (m7221) | Android 8 | ✅ Starts straight into Aerial, no root ([notes](docs/devices/tcl-m7221-cn.md)) |
 | TCL / FFALCON | 60A730U, 55V2 Pro (x32a0), 65Q10E and Crane 6 (m7642), 75S365C, 75Q10L | Android 5.1–14 | ✅ 60A730U only takes the guard build; 55V2 Pro needs `setprop persist.tcl.debug.installapk 1` before adb installs ([#620](https://github.com/pengchujin/aerial-tv/issues/620)) |
 | FFALCON | FF55S515D-E674 (tcl_m7642) | Android 9 | ✅ guard installed through Multi-screen Interaction; Home works. After reboot and screen-on, stock Home appears before Aerial; wake sometimes briefly shows stock Home too ([observations and limits](docs/devices/ffalcon-55s515d.md)) |
 | FFALCON | 55S595C Ultra, Crane 6 2025 Ultra | Android 11+ | ❌ Installs, can't take over Home ([notes](docs/devices/tcl-mt9655-cn.md)) |
 | Sony | A80J (China), BRAVIA VH1 | Android 10 / 12 | ✅ |
+| Sony | BRAVIA 4K VH2 | not given | ✅ ([#1193](https://github.com/pengchujin/aerial-tv/issues/1193)) |
 | Sony | KD55X7000D (China) | Android 8 | ✅ Brightness only in the TV's own settings ([#757](https://github.com/pengchujin/aerial-tv/issues/757)) |
 | Skyworth / Coocaa | K3 Pro, 75A7D | Android 11 | ✅ 75A7D inputs work from 1.45; at power-on Coocaa's launcher shows for 3–6 s, which the reporter removed by changing firmware properties ([#894](https://github.com/pengchujin/aerial-tv/issues/894)) |
 | Skyworth / Coocaa | 65G60, 8R134 / 8R145, aigc models (C10 projector, P60, 7T863) | Android 8–11 | ⚠️ Boots into Coocaa's home first, or takes 20–30 s to come back after the system clears it ([notes](docs/devices/skyworth-coocaa.md)) |
@@ -235,6 +237,7 @@ Most TVs sold in China only accept their own home screen and clear third-party a
 | Skyworth / Coocaa | 8H83 M6 (Hi3751V500) | Android 4.4 | ❌ Aerial Lite installs and runs, but the firmware opens its own launcher by component on Home and at power-on, and its chooser lists no third-party launcher ([#903](https://github.com/pengchujin/aerial-tv/issues/903)) |
 | Skyworth / Coocaa | 8H57_H5 | Android 5.1 | ⚠️ Spins for a dozen seconds at boot before Aerial ([#785](https://github.com/pengchujin/aerial-tv/issues/785)) |
 | Skyworth | 1AA46_D4 (T963) | Android 9 | ✅ ([#796](https://github.com/pengchujin/aerial-tv/issues/796)) |
+| Skyworth | 43H30 (1MC02, MT5862) | Android 9 | ✅ On a cold boot the stock launcher shows for 1–2 s; the backlight is set only in the TV's own picture settings ([#1192](https://github.com/pengchujin/aerial-tv/issues/1192)) |
 | Skyworth | 7T641, 7T634_P3H, 75A6E, 55A5F Pro (8R702), 8R721_A6FP | Android 13 | ❌ Black screen, or no window focus and stopped by the system ([#864](https://github.com/pengchujin/aerial-tv/issues/864), [#839](https://github.com/pengchujin/aerial-tv/issues/839)) |
 | Skyworth | Xiaopai P3 (Q5001 / cupid-p2) box | Android 10 | ⚠️ Needs a renamed package to take over Home; boot broadcasts are all blocked ([notes](docs/devices/skyworth-p3-box.md)) |
 | Panasonic | TH-55HX560C (built by Skyworth) | Android 8 | ⚠️ No inputs listed |

@@ -39,6 +39,7 @@
 
 - 屏幕亮起后，小米先显示 PatchWall，约 4–5 秒后 `LaunchOtherAppsUtils: enable start process` 才放开第三方进程；Aerial 的进程为守护启动，系统再过 4–5 秒才连上守护。1.41 是连上后再等 1.5 秒接管，屏幕亮起后 11–13 秒才到 Aerial。
 - 1.42 起设了「开机时打开」时，开机 3 分钟内守护进程一启动（`onCreate`）就开始接管（没设的不提前，免得打断小米开机自动播放的信号源，见下一节）；开机打开的 App 直接用它自己的入口启动，不再等 Aerial 列完全部 App（开机时要 5.5–6.5 秒）。实测从屏幕亮起到打开开机 App（云视听小电视）是 7.2 秒。
+- 2026-11-03（OS3.0.101）没设「开机时打开」时的实测：屏幕亮起 4.6 秒后才放开第三方进程，系统连上守护又要 3.9 秒；有一次连不上，靠通知监听 5 秒后的「拿出再放回」才连上，又多等约 5 秒。从屏幕亮起到 Aerial 第一帧 12.3 秒和 19 秒。改法（`HomeGuardService.patchwallHomeInFront`）：守护进程 `onCreate` 时用量统计显示 PatchWall 的主界面（`MainActivityUserMode`）在前，就和设了「开机时打开」一样马上开始接管（照样等 1.5 秒再看一次前台），连上守护时不再重新计时。改后三次重启：6.7 秒、9.9 秒（守护又要靠「拿出再放回」才连上），以及一次重启前停在 HDMI 1 的，开机后到 Aerial、没有信号源。那次没自动播放是因为这台 `boot_auto_play=0`（PatchWall 日志 `bootAutoPlay=false`）；PatchWall 在第 15.5 秒左右就决定要不要播，比第三方进程放开早，所以开着自动播放时，守护启动时前台已经是 `ExternalSourceActivity`。户主同意后临时设 `settings put system boot_auto_play 1` 实测（测完改回 0）：停在 HDMI 1 重启，PatchWall 16.5 秒 `autoPlay = true` 打开 HDMI 1；那次守护进程起得早、还没解锁（`bound while user locked`），解锁时「user unlocked with com.xiaomi.mitv.tvplayer in front; leaving it there」，`onCreate` 的提前接管没走到。HDMI 1 没接信号，58.8 秒播放器自己退出（`app-request`）回到 PatchWall，守护才把 Aerial 拉上来，和以前一样。连上时偶尔还会再拉一次（用量统计还说 PatchWall 在前），Aerial 只是多一次 onPause / onNewIntent / onResume，改之前也有。
 - 开机打开 App 后「又被拉回 Aerial」：户主遇到的那次，日志里是有人在小电视里连按了三次主页键（`interceptKeyTq keycode=3`），守护把它当作主页键处理。不按键时连续三次重启，小电视都停在前台，开机 30 秒、45 秒的两次复查也没动它。
 - 主页键：Android 12 以上 1.36 起不过滤按键（#293），在 Aerial 里按主页键会先启动 PatchWall，守护 0.1 秒后再拉回，户主看到「闪一下小米桌面」。1.42 起 Aerial 自己在前台时过滤按键，主页键在系统之前被接住；原桌面和其他 App 里仍不过滤。户主用真遥控器确认不闪了。注意 adb `input keyevent` 注入的按键不经过过滤，测不出来。
 - 待机唤醒：小米待机时杀掉了 Aerial，唤醒后要等进程重新拉起，所以会先看到小米桌面。这里没有提前接管：唤醒时 Apple TV 可能通过 CEC 正在切信号源，守护连上之前分辨不出来。
@@ -168,5 +169,6 @@
 
 - PixelCopy 读这台的视频层得到的是黑屏（`result 0, black`），每次 3–31ms；所以底板的磨砂全靠 `FrameReader` 从 1080p 文件解帧。`screencap` 倒是截得到影片画面。
 - 1.76 及以前，两条标记会让这台丢掉磨砂、只剩烟色：某次黑屏复制超过 150ms 被记成「PixelCopy 慢」（按固件指纹永久保存，连带不读文件）；或者某次解帧超过 10 秒被记成「本次开机文件卡住」。开机 2 天后户主发现底板没有磨砂，日志是 `copy false, file frames stuck true`。修复见 ARCHITECTURE「航拍壁纸取不到帧的电视」⑥。旧版写下的 `stuck_boot` 要重启一次才清掉。
+- 1.81 还会丢：慢调用最终返回时才清标记，可调用还没返回进程就没了（当天早上装了 1.81），标记存在偏好里，后面的进程都沿用到重启。2026-11-03 户主发现航拍壁纸下底板、右上角按钮、个性化都没有玻璃，诊断 `file_stuck=true glassless=true`，当前进程里没有卡住的调用。现在别的进程留下的标记只在有 TCL 解析器的电视上算数（ARCHITECTURE 同一条 ①），这台装上后 `file_stuck=false glassless=false`，三处恢复磨砂。
 
 - 小米显示器 MFFU1（安卓 14）和这台不同：PixelCopy 读得到影片，但 4K 时一次 0.7 秒、有时读出绿色。1.77 里一次慢复制按固件指纹记成慢（`copy_slow_read`），连带不读文件，户主切成杜比视界画质（壁纸随之换成 4K）后底板和面板的磨砂都没了，日志 `copy false, file frames stuck false`。现在慢复制只在有 TCL 解析器的电视上关文件（ARCHITECTURE 同一条 ⑦），这台日志 `TCL's extractor false`，从文件解帧，控制中心是磨砂玻璃。

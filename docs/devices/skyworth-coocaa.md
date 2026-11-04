@@ -55,6 +55,7 @@ root 后把 `/system/pcfg/<型号目录>/config/general_config.xml` 里的 `DEFA
 - 70A9（7S70_A9，MStar m7221，Android 8，低内存）：`TvInputManager` 没有输入，信号源走 `com.skyworth.tv.sdk.provider`（查询必须带 projection，`displayName` 是实时的，HDMI 从 0 编号，AV、VOD 是 -1）；遥控器「信号源」键被固件截走，打开原桌面；待机唤醒先经过 `com.tianci.system/...WakeLockActivity` 10–12 秒再到 Aerial（#461）。
 - 7AA46_H5D、8A002_H5D（T963，Android 9）：Aerial 在前台、守护过滤按键时，音量键的抬起到不了守护，1.41–1.46 按一下音量就一直加到 100 或减到 0（#448 #451），1.47 修了（后来又出现，见下面「音量键连冲」）。把 Aerial 设为默认桌面（`cmd package set-home-activity`）后守护不过滤按键，音量正常，开机和主页键也正常（#449）。
 - 酷开 aigc 系（C10 投影仪 3H352_C10 Android 9 #487、P60 Android 11、7T863_N6E Android 10 #106）：主页键在 WindowManager 里变成创维热键广播，`com.tianci.system` 的 SLauncher 按组件拉起 `com.coocaa.aigc.home/.home.rootpage.HomeActivity`，不走 HOME 解析；这个桌面不声明任何 Home 类别。1.48 起守护把它算原桌面（未在真机验证）。7T863_N6E 上改 `persist.service.model.pkg/.cls`（加上 `homepage.*`）后主页键进 Aerial，但每次开机被固件写回。
+- 8H57_H5（#981，报告人的 logcat 和 `ps`）：酷开屏保开始时（`sky.action.dream.startSkyDream`），`com.skyworth.android.skyRMService`（system 用户）强停 Aerial，守护跟着停，之后按主页键先到酷开桌面。App 这边拦不住；变通是关掉电视自己的屏保 / 名画，只用 Aerial 的屏保。
 - 8R145_P3DM（Android 11）：`SkyProcManager` 会强停「不可见的非系统应用」，从 Aerial 打开别的 App 后 Aerial 就被杀，这时按主页键先到酷开桌面，等复活约 20–30 秒才回 Aerial（#106 的日志）。目前没有办法。
 - 创维/酷开 Whaley 55D2UK（helios，MStar，Android 5.0.2，arm64）：standard 版能装能接管，原桌面 `com.helios.guide` priority 1，设不成默认桌面，靠守护（主页键约 4 秒、先闪原桌面）；信号源走微鲸的 `com.whaley.tv.tvplayer.ui/.RootActivity`；亮度 `screen_brightness` 可调（#457）。
 
@@ -76,9 +77,24 @@ root 后把 `/system/pcfg/<型号目录>/config/general_config.xml` 里的 `DEFA
 - C10：Aerial 是默认桌面，守护不过滤按键，诊断里没有一行 `guard:`。窗口里照样有抬起之后的 `VOLUME_UP #47`，`VOLUME_DOWN` 每三个重复夹一个抬起地一直来。报告人用 Agent 抓到每次按键 `ccSystem onRecvKey` 两次（+2），但这台有海思自己的无障碍服务 `HiRMService`，第二条通道不一定是守护传下去的。
 - main 上（未发版）窗口这边丢掉：已结束的按下的重复（这里或守护见过它抬起、有更新的音量按下、或守护已经知道抬起到不了），以及到达窗口前音量已经变了的整次按下（`MainActivity.dropVolumeKey`）。小米 MFTR0 上音量键根本不进 Aerial 窗口，TCL MT5879 上走守护，两台行为不变（实测）。创维 / 酷开没有真机，发版后看诊断里的 `repeats a press that is over; dropped` / `the volume already moved`。
 
+1.80 之后（2026-11-03，#1113 C10 报告人的 system_server 日志、#937 A7D 的诊断）：
+- C10 的原因找到了：1.77 合入红米投影仪 Lite 的改动，装有 `com.cvte.factory.at`（CVTE 工厂测试）时，Aerial 是默认桌面也开按键过滤。C10 也是 CVTE 代工、同是 Hi3751V350，过滤开着时每次音量按下被固件分发两次（主线程 Local 一次、android.ui Broadcast 一次），抬起只回一次，另一条变成系统的自动重复，463 次重复每次一格。1.76 没有这个过滤，一按一格。main 上（未发版）有酷开的 `com.tianci.system` 时不再因 `com.cvte.factory.at` 过滤（e8f4155）。没有 C10 真机。
+- A7D：1.80 后不连冲了，但按住也只走一格。守护拿走按下、固件不动时自己补一格，等 300 ms；按住时遥控器每 200 ms 发一次新的按下，每次都取消了上一次的补格，最后只补一格。main 上（未发版）新按下先把上一次没补的补上（1dc3357），按住应恢复连续调。没有 A7D 真机。
+
+1.81 之后（2026-11-03 晚）：
+- 8R145_P3DM（#1091，报告人的 system_server 日志，1.80）：短按一格了，按住 6.3 秒只走一格：固件在过滤之前动了音量，守护不把按下传下去，Android 只给分发出去的按下补重复，于是固件再也收不到重复。这台的抬起能到守护（日志末尾有 `down=false`）。main 上（未发版，8f9d65f）：守护见过一次「没传下去的按下的抬起」之后，按住时自己按系统的重复节奏调（和 TCL 一样，最多 8 秒、抬起即停）；进程内第一次按住仍是一格。TCL MT5879 上用 `hid` 造的遥控器回归：单按一格、按住 1.5 秒连调、松手停。没有 8R145 真机。
+- A7D（#937，1.81 的诊断）：守护只记到按下、一条抬起都没有，按住期间也没有新的按下。守护分不清按住和短按，上面这条帮不了它；把按下传下去又会回到 1.76 的连冲。暂无办法；控制中心的音量条可以试（没在创维上验证）。
+
 ## 开机属性 `persist.service.model.*`（#1046 7AA49_D4 T963 安卓 9，#1096 65G650P / #1069 7S77_V40 sky848_9s60 安卓 8.0）
 
 - 固件开机按 `persist.service.model.pkg / .cls` 直接启动组件；7S77_V40 上只改 `persist.service.homepage.*` 反而让 Aerial 被反复强停（#1069 实验 6）；65G650P 上清空 `model.*` 后固件写回 `com.tianci.movieplatform`。
 - 7AA49_D4：第三方 App 能执行 `setprop` 写这几个属性；`adb install -r` 后酷开清掉本包的无障碍登记；`com.coocaa.*` 包名会被 SkyProcManager 放过。
 - 65G650P：第三方收不到 `BOOT_COMPLETED`；`pm install` 报 `INSTALL_FAILED_USER_RESTRICTED`，要用 `cmd package install-create/write/commit` 会话装；`cmd notification allow_listener` 报 No shell command implementation，用 `settings put secure enabled_notification_listeners`。
 - 报告人的办法是改包名或多装一个「壳」App 占住 `model.*`，都和原则冲突（只装 Aerial 自己、不冒充厂商包名），Aerial 不做。
+
+## 9S89_S8A（MStar，安卓 6.0 / CCOS）：假待机唤醒后 Aerial 回不来（#1173，报告人实测）
+
+- 遥控器电源键是「假待机」：待机时前台是 `com.tianci.system/.WakeLockActivity`，内核不重启，唤醒不发开机广播。
+- 唤醒后固件把非 `com.coocaa.*` 的包置成停止态（`stopped=true`，报告人用两个空壳包对照），并把 Aerial 从 `enabled_accessibility_services` 里拿掉；被停止的包收不到广播、不会被绑定，Aerial 自己回不来。
+- `system boot_app_mode` 取 0 / 1 / 2 加 `boot_app_componentname` 都没让固件在唤醒后打开 Aerial；`/data/ccos/customStart` 要 root。
+- 报告人自编了改包名（`com.coocaa.aerial`）的版本：重启能进 Aerial，假待机唤醒后仍不会被打开。改包名进名单和项目原则冲突，不做。这台只能唤醒后手动打开一次 Aerial，或用 guard 版、别把 Aerial 设成默认桌面。

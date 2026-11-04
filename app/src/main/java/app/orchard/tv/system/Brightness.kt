@@ -79,8 +79,13 @@ object Brightness {
         return if (value in 1..100) value else null
     }
 
+    private fun stepPercent(percent: Int, direction: Int): Int =
+        (if (direction > 0) (percent / 5 + 1) * 5 else ((percent + 4) / 5 - 1) * 5).coerceIn(1, 100)
+
     /** Current level as 0..1, or null when Aerial cannot change it on this TV. */
-    fun level(context: Context): Float? {
+    fun level(context: Context): Float? = level(context, probeSkyworth = true)
+
+    private fun level(context: Context, probeSkyworth: Boolean): Float? {
         // XGIMI: the real brightness is the DLP light-engine level; the system screen_brightness
         // setting does not follow it (issue #241).
         SystemProbe.xgimiBrightnessLevel()?.let { return it }
@@ -103,7 +108,11 @@ object Brightness {
             isTcl(context) || isSony(context) || isVidaa(context) || SystemProbe.skyworthPicturePanel(context) ||
                 DeviceProfile.current(context).ignoresScreenBrightness ||
                 Build.VERSION.SDK_INT >= 23 && !Settings.System.canWrite(context) -> null
-            else -> Settings.System.getInt(r, Settings.System.SCREEN_BRIGHTNESS, 128) / 255f
+            else -> {
+                // Only extend the standard path; existing native controls and picture panels win.
+                val skyworth = if (probeSkyworth) SkyworthPicture.backlight(context) else null
+                skyworth?.let { it / 100f } ?: Settings.System.getInt(r, Settings.System.SCREEN_BRIGHTNESS, 128) / 255f
+            }
         }
     }
 
@@ -138,9 +147,9 @@ object Brightness {
             // Control Center's poll shows what it settled at — including where a TV drops the write.
             return if (SystemProbe.setXgimiBrightnessLevel(level)) next else current
         }
-        val current = level(context) ?: return null
+        val current = level(context, probeSkyworth = false) ?: return null
         val percent = Math.round(current * 100)
-        val next = (if (direction > 0) (percent / 5 + 1) * 5 else ((percent + 4) / 5 - 1) * 5).coerceIn(1, 100)
+        val next = stepPercent(percent, direction)
         val r = context.contentResolver
         // The same order as level(): TCL's SDK and picture_backlight come first, so a Xiaomi that
         // has both never has its panel probed or moved this way.
@@ -165,11 +174,18 @@ object Brightness {
             } else if (usesXiaomiBacklight(context)) {
                 Settings.Global.putInt(r, XIAOMI_BACKLIGHT, next)
             } else {
+                // Reached only after the original native and picture-settings paths were ruled out.
+                val skyworth = SkyworthPicture.backlight(context)
+                if (skyworth != null) {
+                    SkyworthPicture.setBacklight(context, stepPercent(skyworth, direction))
+                    // A void vendor setter may reject a write; never fall through to Android.
+                    return SkyworthPicture.backlight(context)?.let { it / 100f }
+                }
                 Settings.System.putInt(r, Settings.System.SCREEN_BRIGHTNESS_MODE, Settings.System.SCREEN_BRIGHTNESS_MODE_MANUAL)
                 Settings.System.putInt(r, Settings.System.SCREEN_BRIGHTNESS, (next * 255 / 100).coerceAtLeast(1))
             }
         }
-        return level(context)
+        return level(context, probeSkyworth = false)
     }
 }
 
@@ -254,5 +270,64 @@ private object TclPq {
             api.set.invoke(api.manager, api.current, percent, api.save) == true && api.get.invoke(api.manager) as Int == percent
         }.getOrDefault(false)
         if (!ok) failed = true
+    }
+}
+
+/**
+ * Skyworth / Coocaa picture interface.
+ * The panel backlight (SKY_CFG_TV_MANUAL_BACKLIGHT_ADJUST, 1-100) is managed by SkySetting / SkySystemService
+ * via com.tianci.system.api.TCHotelApi, loaded dynamically from /system/app/SkySetting/SkySetting.apk
+ * or /system/app/SkySystemService/SkySystemService.apk via PathClassLoader.
+ */
+private object SkyworthPicture {
+    private class Api(val api: Any, val get: java.lang.reflect.Method, val set: java.lang.reflect.Method)
+    private var failed = false
+    private var cached: Api? = null
+
+    fun isSkyworth(context: Context): Boolean =
+        android.os.Build.MANUFACTURER.equals("Skyworth", ignoreCase = true) ||
+            android.os.Build.BRAND.equals("Skyworth", ignoreCase = true) ||
+            runCatching { context.packageManager.getPackageInfo("com.tianci.system", 0) }.isSuccess
+
+    @Synchronized
+    private fun api(context: Context): Api? {
+        if (failed) return null
+        cached?.let { return it }
+        return runCatching {
+            val paths = listOf(
+                "/system/app/SkySystemService/SkySystemService.apk",
+                "/system/app/SkySetting/SkySetting.apk",
+            ).filter { java.io.File(it).exists() }
+            check(paths.isNotEmpty()) { "No Tianci system APK found" }
+            val dexPath = paths.joinToString(":")
+            val loader = dalvik.system.PathClassLoader(dexPath, context.classLoader)
+            val clazz = Class.forName("com.tianci.system.api.TCHotelApi", true, loader)
+            val instance = runCatching {
+                clazz.getMethod("getInstance", Context::class.java).invoke(null, context.applicationContext)
+            }.getOrNull() ?: clazz.getDeclaredConstructor(Context::class.java).apply { isAccessible = true }.newInstance(context.applicationContext)
+            val get = clazz.getMethod("getBacklightAdjust")
+            val set = clazz.getMethod("setBacklightAdjust", Int::class.javaPrimitiveType)
+            Api(instance, get, set).also {
+                cached = it
+                android.util.Log.i("SkyworthPicture", "TCHotelApi initialized successfully from $dexPath")
+            }
+        }.getOrElse { e ->
+            android.util.Log.w("SkyworthPicture", "API initialization failed: ${(e.cause ?: e).javaClass.simpleName}")
+            failed = true
+            null
+        }
+    }
+    fun backlight(context: Context): Int? {
+        if (!isSkyworth(context)) return null
+        val a = api(context) ?: return null
+        return runCatching {
+            val v = a.get.invoke(a.api) as Int
+            v.takeIf { it in 1..100 }
+        }.getOrNull()
+    }
+
+    fun setBacklight(context: Context, percent: Int) {
+        val a = api(context) ?: return
+        runCatching { a.set.invoke(a.api, percent.coerceIn(1, 100)) }
     }
 }

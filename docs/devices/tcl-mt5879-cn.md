@@ -64,7 +64,7 @@ TCL 手机 App 有一个「把手机里的 APK 推到电视」的功能。电视
 - 冷启动后，第三方 App 的服务绑定、广播接收和进程启动，都要经过 `TclAppBootManagerImpl`（在 `/apex/com.tcl.tcore/javalib/tcl-service.jar` 里，由 `ActiveServices` 调用 `getTclAppBootManagerInjector().canBindServiceGo`）。默认会拒绝，日志里是 `ActivityManager: forbid bind service app.orchard.tv/...HomeGuardService`，所以开机后停在 TCL 桌面。
 - 放行条件是两个 TCL 自定义的 AppOps：`APP_AUTO_START`（op 100，系统拉起）和 `APP_ASSOC_START`（op 101，其他 App 关联拉起）。默认分别是 `ignore` 和 `default`。`install.sh` 用 `appops set app.orchard.tv APP_AUTO_START allow`（以及 `APP_ASSOC_START`）放行，`restore.sh` 会改回 `default`。
 - 2026-10-20 实测：放行后 `adb reboot`，开机约 0.5 秒通知监听就被绑定，Aerial 被拉起，守护服务接管桌面。
-- 试过但没用的办法：`settings put system boot_app_mode boot_launcher` 加上 `boot_app_componentname app.orchard.tv/.MainActivity`（TCL「开机进入」的设置，由 `com.tcl.ttvs` 的 MMMService 管理），重启后还是进 TCL 桌面，已改回空值。
+- `system boot_app_mode boot_launcher` 加 `boot_app_componentname app.orchard.tv/.MainActivity`（TCL「开机进入」，`com.tcl.ttvs` 的 MMMService 管）：2026-10-20 试时重启后还是进 TCL 桌面；2026-11-03 在 1.81 测试包、当前固件上重测有效：两次 `adb reboot` 都是 13.7–14.1 秒第一个起来的就是 Aerial（在开机画面结束前），TCL 桌面没到过前台；守护在 20.8 秒还以为原桌面在前、多拉了一次（onPause 到 onResume 7 ms）。不设时对照两次：一次 13.8 秒 TCL 桌面、24 秒守护拉回（TCL 桌面露 10 秒），一次一直停在 TCL 桌面直到 5 分钟后屏保（那次开机日志被冲掉，原因没查到）。测完两项改回空值，户主自己再试也满意，1.81 起 `install.sh` 在装有 `com.tcl.ttvs` 或这项已有值的电视上设它，原值记在 `settings global aerial_boot_app_*`，`restore.sh` 改回。#1185 雷鸟鹤 6 2027（T966D5）也是这个设置。
 - TCL 开机时有可能把 `screensaver_components` 写回「艺术画报」（实测出现过一次）。所以 `install.sh` 接管屏保时，会通过 ConfigReceiver 发送 `own_screensaver=true`，之后 Aerial 每次启动都会检查，被改回去就再改成 Aerial（`GuardSetup.keepScreensaver`）。
 
 ## HOME 与守护

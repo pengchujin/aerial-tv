@@ -76,14 +76,19 @@ object Weather {
         var lat = prefs.getFloat("lat", Float.NaN)
         var lon = prefs.getFloat("lon", Float.NaN)
         if (!prefs.getBoolean("chosen", false) && (lat.isNaN() || System.currentTimeMillis() - prefs.getLong("located_at", 0) > RELOCATE_MS)) {
-            val ip = JSONObject(get("https://ipinfo.io/json"))
-            val loc = ip.getString("loc").split(',')
-            lat = loc[0].toFloat()
-            lon = loc[1].toFloat()
-            // ipinfo names the city in English ("Shangqiu"); in China, say it as the TV's owner would.
-            val city = ip.optString("city").ifBlank { null }
-            val zh = city?.takeIf { ip.optString("country") == "CN" && Locale.getDefault().language == "zh" }
-                ?.let { runCatching { Cities.near(app, it, lat.toDouble(), lon.toDouble(), km = 80.0, ascii = true)?.name }.getOrNull() }
+            val guess = locate() ?: throw java.io.IOException("no location")
+            lat = guess.lat
+            lon = guess.lon
+            // The services name the city in English ("Shangqiu"); in China, say it as the TV's owner would.
+            val city = guess.city
+            val zh = city?.takeIf { guess.cn && Locale.getDefault().language == "zh" }
+                ?.let {
+                    // Else the main listed place at ipinfo's point (the full app's issue #1195).
+                    runCatching {
+                        (Cities.near(app, it, lat.toDouble(), lon.toDouble(), km = 80.0, ascii = true)
+                            ?: Cities.mainNear(app, lat.toDouble(), lon.toDouble(), km = 20.0))?.name
+                    }.getOrNull()
+                }
             prefs.edit().putFloat("lat", lat).putFloat("lon", lon).putString("place", zh ?: city)
                 .putLong("located_at", System.currentTimeMillis()).apply()
         }
@@ -136,6 +141,30 @@ object Weather {
     }
 
     /** Old Androids do not trust the Let's Encrypt root these hosts use; they answer the same over plain HTTP. */
+    private class Guess(val lat: Float, val lon: Float, val city: String?, val cn: Boolean)
+
+    /**
+     * ipwho.is by the IPv4 address first, ipinfo.io after it, as in the full app (PR #1191: ipinfo
+     * put a China Mobile line in Guangdong in Zhejiang, and over IPv6 the city was another one).
+     */
+    private fun locate(): Guess? {
+        val v4 = runCatching { get("https://ipv4.icanhazip.com").trim() }.getOrNull()
+            ?.takeIf { Regex("""^\d{1,3}(\.\d{1,3}){3}$""").matches(it) }
+        runCatching {
+            val ip = JSONObject(get(if (v4 != null) "https://ipwho.is/$v4" else "https://ipwho.is/"))
+            if (ip.optBoolean("success", true)) {
+                return Guess(ip.getDouble("latitude").toFloat(), ip.getDouble("longitude").toFloat(),
+                    ip.optString("city").ifBlank { null }, ip.optString("country_code").equals("CN", ignoreCase = true))
+            }
+        }.onFailure { Log.w(TAG, "ipwho.is", it) }
+        runCatching {
+            val ip = JSONObject(get("https://ipinfo.io/json"))
+            val loc = ip.getString("loc").split(',')
+            return Guess(loc[0].toFloat(), loc[1].toFloat(), ip.optString("city").ifBlank { null }, ip.optString("country") == "CN")
+        }.onFailure { Log.w(TAG, "ipinfo.io", it) }
+        return null
+    }
+
     private fun get(url: String): String = try {
         Net.text(url)
     } catch (e: SSLException) {

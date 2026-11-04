@@ -154,3 +154,12 @@ APK 已下载、会话已提交，但数分钟内没有确认页或安装结果�
 - 音量走海信中间件（`com.jamdeo.tv.service` 的 `JamdeoVolumePanel` → root 进程 `hstvos`），不经过 AudioService。
 
 main 上（未发版）亮度行先试 `android.settings.IMAGE_SETTINGS`（非标准 action，只在固件声明时用），再退回显示设置。没有海信真机验证。
+
+## 待机唤醒后配置接收器又被停用（Vidda 75E5K，MT9653，安卓 11，#1181）
+
+报告人实测：海信「启动管理」在唤醒后约 2 秒把 `ConfigReceiver`、`BootReceiver` 写进 `disabledComponents`，晚于 SCREEN_ON 和 onStart 时的检查，只有通知监听重绑那一次能清掉，而且不是每次唤醒都有。main 上（未发版，995c0e3）每次恢复后 5 秒、15 秒各再查一次。没有海信真机；小米上 shell 停用不了组件，模拟不出来。
+
+## 网络按钮：海信页和原生页（#1095 #826 #760）
+
+1.71 起「网络」先开海信自己的网络页（#760 H55E9A 安卓 8 上原生 `NetworkActivity` 的子页会崩，#826 也要海信的新界面）。海信页里没有代理；#1095 的 VIDAA_TV（MT9603 / mt5873，安卓 11）上原生页 `com.android.tv.settings/.connectivity.NetworkActivity` 能打开、能设代理、不崩。按机型选哪一页属于偏好，留到功能轮次；变通办法是 `adb shell am start -n com.android.tv.settings/.connectivity.NetworkActivity`。
+

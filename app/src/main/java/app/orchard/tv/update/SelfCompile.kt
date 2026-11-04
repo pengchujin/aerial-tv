@@ -25,14 +25,18 @@ import java.io.File
  * Control Center (docs/PERF-2026-10-30.md).
  *
  * Android 12 and later: by itself, once per version, a while after another app has come in front,
- * so that Aerial's restart is not seen; no confirmation is asked there. Android 9 to 11 ask for a
- * confirmation, so there it is a row in Control Center ([offered]). Android 7 and 8 take no dex
- * metadata at install: only ADB's `cmd package compile` helps there.
+ * so that Aerial's restart is not seen; no confirmation is asked there. Android 7 to 11: first,
+ * at the same moment, the package manager is asked to compile Aerial where it is (PackageCompile):
+ * no confirmation, no reinstall, the compiled code from the next start. Only where that fails do
+ * Android 9 to 11 offer the reinstall as a row in Control Center ([offered]), which asks for a
+ * confirmation; Android 7 and 8 take no dex metadata at install, so there nothing else helps.
  */
 object SelfCompile {
     private const val TAG = "AerialUpdates"
     private const val PREFS = "self_compile"
     private const val KEY_TRIED = "tried_version"
+    private const val KEY_ASKED_SYSTEM = "system_install"
+    private const val KEY_SYSTEM_RESULT = "system_result"
 
     /** Below this the oat file holds no compiled code (only verified: tens of KB). */
     private const val COMPILED_BYTES = 1L shl 20
@@ -59,6 +63,21 @@ object SelfCompile {
 
     private fun triedThisVersion(context: Context) = prefs(context).getLong(KEY_TRIED, 0) == BuildConfig.VERSION_CODE.toLong()
 
+    /**
+     * This install's time: the package manager is asked once per install, not per version, as an
+     * install of the same version again (TCL 多屏互动 takes one) is uncompiled again.
+     */
+    private fun installedAt(context: Context): Long =
+        runCatching { context.packageManager.getPackageInfo(context.packageName, 0).lastUpdateTime }.getOrDefault(0L)
+
+    private fun askedSystemThisInstall(context: Context) = prefs(context).getLong(KEY_ASKED_SYSTEM, -1) == installedAt(context)
+
+    private fun uncompiled(context: Context) = odexBytes(context)?.let { it < COMPILED_BYTES } == true
+
+    /** Whether to ask the package manager (PackageCompile): Android 7 to 11, uncompiled, not asked for this install. */
+    private fun systemWorthIt(context: Context) =
+        Build.VERSION.SDK_INT in 24..30 && !askedSystemThisInstall(context) && uncompiled(context)
+
     /** Whether reinstalling would help: Android 9+, the official package, uncompiled, metadata in the APK, not tried for this version. */
     private fun worthIt(context: Context): Boolean {
         if (Build.VERSION.SDK_INT < 28 || !Updates.canInstall(context) || triedThisVersion(context)) return false
@@ -72,8 +91,10 @@ object SelfCompile {
         checkedThisRun = true
         app = context.applicationContext
         val worth = worthIt(context)
-        if (worth) DiagLog.i("self compile: uncompiled (odex ${odexBytes(context)?.div(1024)} KB)")
-        offered = worth && Build.VERSION.SDK_INT < 31
+        val system = systemWorthIt(context)
+        if (worth || system) DiagLog.i("self compile: uncompiled (odex ${odexBytes(context)?.div(1024)} KB)")
+        // Not while the package manager is still to be asked: it needs nobody.
+        offered = worth && Build.VERSION.SDK_INT < 31 && !system
     }
 
     /**
@@ -91,7 +112,8 @@ object SelfCompile {
     }
 
     fun diagnostics(context: Context): String =
-        "tried for this version=${triedThisVersion(context)}, offered=$offered"
+        "tried for this version=${triedThisVersion(context)}, offered=$offered" +
+            (prefs(context).getString(KEY_SYSTEM_RESULT, null)?.let { ", package manager: $it" } ?: "")
 
     fun onHomeStarted(context: Context) {
         recheck(context)
@@ -99,18 +121,46 @@ object SelfCompile {
         main.removeCallbacks(auto)
     }
 
-    /** Another app, standby or the system's screensaver in front: reinstall behind it, if it stays. */
+    /** Another app, standby or the system's screensaver in front: compile or reinstall behind it, if it stays. */
     fun onHomeStopped() {
         inFront = false
-        if (Build.VERSION.SDK_INT < 31) return
         main.removeCallbacks(auto)
-        main.postDelayed(auto, AUTO_DELAY_MS)
+        if (Build.VERSION.SDK_INT >= 24) main.postDelayed(auto, AUTO_DELAY_MS)
     }
 
     private val auto = Runnable {
         val context = app ?: return@Runnable
-        if (inFront || !worthIt(context)) return@Runnable
-        run(context, auto = true)
+        if (inFront) return@Runnable
+        if (Build.VERSION.SDK_INT < 31) {
+            if (systemWorthIt(context)) Thread({ askSystem(context) }, "self-compile").start()
+            return@Runnable
+        }
+        if (worthIt(context)) run(context, auto = true)
+    }
+
+    /**
+     * Android 7 to 11: the package manager compiles Aerial where it is (PackageCompile), with the
+     * Baseline Profile that ProfileInstaller wrote at the first start; with no profile there,
+     * everything ("speed"). Once per install; if Aerial is still uncompiled after it, Android 9 to
+     * 11 offer the reinstall in Control Center. Off the main thread: it takes tens of seconds.
+     */
+    private fun askSystem(context: Context) {
+        val app = context.applicationContext
+        prefs(app).edit { putLong(KEY_ASKED_SYSTEM, installedAt(app)) }
+        val before = odexBytes(app)
+        val started = android.os.SystemClock.elapsedRealtime()
+        var said = runCatching { PackageCompile.compile(app, "speed-profile") }.getOrElse { "${it.javaClass.simpleName}: ${it.message}" }
+        if (said.contains("Success") && uncompiled(app)) {
+            said = runCatching { PackageCompile.compile(app, "speed") }.getOrElse { "${it.javaClass.simpleName}: ${it.message}" }
+        }
+        val after = odexBytes(app)
+        val done = after != null && after >= COMPILED_BYTES
+        val took = android.os.SystemClock.elapsedRealtime() - started
+        val result = if (done) "compiled, odex ${after!! / 1024} KB in ${took / 1000} s" else "not compiled (${said.take(120)}), odex ${after?.div(1024)} KB"
+        prefs(app).edit { putString(KEY_SYSTEM_RESULT, result) }
+        Log.i(TAG, "self compile: package manager asked, odex $before -> $after bytes in $took ms: $said")
+        DiagLog.i("self compile: package manager: $result")
+        if (!done) main.post { offered = worthIt(app) }
     }
 
     /** From Control Center's row (Android 9 to 11), or by itself on 12+ ([auto]). */
@@ -121,6 +171,12 @@ object SelfCompile {
         Log.i(TAG, "self compile: reinstalling (${if (auto) "auto" else "asked"}), odex ${odexBytes(app)} bytes")
         DiagLog.i("self compile: reinstalling (${if (auto) "auto" else "asked"})")
         if (Build.VERSION.SDK_INT >= 28) Updates.reinstallSelf(app, auto)
+    }
+
+    /** ConfigReceiver's system_compile: ask the package manager now, whether asked or not (for testing on a TV). */
+    fun askSystemNow(context: Context) {
+        prefs(context).edit { remove(KEY_ASKED_SYSTEM) }
+        Thread({ askSystem(context) }, "self-compile").start()
     }
 
     /** ConfigReceiver's self_compile: now, whether tried or not (for testing on a TV). */

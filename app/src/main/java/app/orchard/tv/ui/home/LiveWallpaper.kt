@@ -28,6 +28,7 @@ import androidx.core.graphics.createBitmap
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
@@ -226,6 +227,10 @@ fun LiveWallpaper(
         var failures = 0
         var rendered = false
         return AerialStream.player(context, quality).apply {
+            // Home is drawn over the film: it keeps the display's rate. Left to ask for the film's
+            // (Media3's default, only where the change is seamless), TCL MT5879 went from 60 to
+            // 120 Hz for a 29.97 fps film, and every frame of Home had 8.3 ms instead of 16.7.
+            videoChangeFrameRateStrategy = C.VIDEO_CHANGE_FRAME_RATE_STRATEGY_OFF
             addListener(object : Player.Listener {
                 override fun onRenderedFirstFrame() {
                     rendered = true
@@ -620,6 +625,16 @@ private const val PANEL_IN_MS = 450L
 
 /** Whether PixelCopy read the film in this process; null until it has been tried. */
 private var pixelCopy: Boolean? = null
+
+/**
+ * Whether reading frames from a film's file can jam the media server here: TCL's own MP4 extractor
+ * (see FilmFrames.tclExtractor), whatever PixelCopy did. Reads a library once per firmware: call it
+ * off the main thread.
+ */
+internal fun fileFramesJam(context: android.content.Context): Boolean {
+    FilmFrames.load(context)
+    return FilmFrames.tclExtractor(context)
+}
 
 /**
  * Where the glass over a moving wallpaper gets the film's frames, for the diagnostics. Owners who
@@ -1058,10 +1073,24 @@ private object FileFramesStuck {
      * the call came back, and an update over them kept the plate without frosted glass until the
      * TV restarted (Xiaomi MiTV-MFTR0, 2.8 days up, issue #1140). TCL MT5879, where the call never
      * comes back, has a slow PixelCopy noted as well, which keeps the file out by itself.
+     *
+     * A mark left by an earlier process counts only where the media server parses MP4 with TCL's
+     * extractor (FilmFrames.tclExtractor), the one known to stay jammed until the TV restarts.
+     * Elsewhere a slow call comes back in the end, but the process that waited for it may be gone
+     * first (updated, killed) and its mark then held for the rest of the boot: Xiaomi MiTV-MFTR0,
+     * 2 days up, 1.81 installed that morning, had no frosted plate, top right buttons or panels over
+     * the film (2026-11-03, file_stuck=true with no stuck call in that process).
      */
-    fun now(context: android.content.Context): Boolean =
-        stuck ?: (prefs(context).getLong(KEY, Long.MIN_VALUE) == bootId(context) &&
-            prefs(context).getInt(KEY_VERSION, 0) >= MARKS_CLEARED_SINCE).also { stuck = it }
+    fun now(context: android.content.Context): Boolean = stuck ?: run {
+        val prefs = prefs(context)
+        val marked = prefs.getLong(KEY, Long.MIN_VALUE) == bootId(context) &&
+            prefs.getInt(KEY_VERSION, 0) >= MARKS_CLEARED_SINCE
+        if (marked && !FilmFrames.tclExtractor(context)) {
+            prefs.edit().remove(KEY).apply()
+            DiagLog.i("wallpaper film file: a stuck mark from an earlier process dropped; read again")
+            false
+        } else marked
+    }.also { stuck = it }
 
     fun mark(context: android.content.Context) {
         stuck = true

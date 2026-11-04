@@ -119,19 +119,24 @@ object Weather {
             correctChosenPlace(lat, lon)?.let { lat = it.lat.toFloat(); lon = it.lon.toFloat() }
         }
         if (!prefs.getBoolean("chosen", false) && (lat.isNaN() || guessedLongAgo)) {
-            // ipinfo.io: no key, and its "loc" is "lat,lon".
-            val ip = JSONObject(get("https://ipinfo.io/json"))
-            val loc = ip.getString("loc").split(',')
-            lat = loc[0].toFloat()
-            lon = loc[1].toFloat()
-            // ipinfo names the city in English ("Shangqiu"); in China, say it as the TV's owner would.
-            val city = ip.optString("city").ifBlank { null }
-            val zh = city?.takeIf { ip.optString("country") == "CN" && Locale.getDefault().language == "zh" }
-                ?.let { Cities.near(app, it, lat.toDouble(), lon.toDouble(), km = 80.0, ascii = true)?.name }
-            prefs.edit {
-                putFloat("lat", lat); putFloat("lon", lon)
-                putString("place", zh ?: city)
-                putLong("located_at", System.currentTimeMillis())
+            val guess = locate()
+            if (guess != null) {
+                lat = guess.lat
+                lon = guess.lon
+                val city = guess.city
+                // The services name the city in English ("Foshan"); in China, say it as the owner would.
+                // A name the table spells otherwise, or a district's, stayed in pinyin among Chinese
+                // text (Hisense 43E3G, issue #1195): then the main listed place at that point names it.
+                val zh = city?.takeIf { guess.cn && Locale.getDefault().language == "zh" }
+                    ?.let {
+                        (Cities.near(app, it, lat.toDouble(), lon.toDouble(), km = 80.0, ascii = true)
+                            ?: Cities.mainNear(app, lat.toDouble(), lon.toDouble(), km = 20.0))?.name
+                    }
+                prefs.edit {
+                    putFloat("lat", lat); putFloat("lon", lon)
+                    putString("place", zh ?: city)
+                    putLong("located_at", System.currentTimeMillis())
+                }
             }
         }
         val json = JSONObject(get("https://api.open-meteo.com/v1/forecast?latitude=$lat&longitude=$lon&current=temperature_2m,weather_code,is_day&daily=temperature_2m_max,temperature_2m_min&forecast_days=1&timezone=auto"))
@@ -145,6 +150,43 @@ object Weather {
             high = today("temperature_2m_max"),
             low = today("temperature_2m_min"),
         )
+    }
+
+    /**
+     * Where the connection is: ipwho.is first, ipinfo.io after it. ipinfo.io puts China Mobile's
+     * pooled addresses in the wrong province (a Foshan, Guangdong line came out as Jiaxing,
+     * Zhejiang), where ipwho.is names the city; both are keyless and answer over HTTPS.
+     */
+    private class Guess(val lat: Float, val lon: Float, val city: String?, val cn: Boolean)
+
+    private fun locate(): Guess? {
+        // Over IPv6 the databases place China Mobile's prefixes in another city of the province
+        // (a Foshan line came out as Jiangmen), so the IPv4 address is asked for and looked up.
+        val v4 = runCatching { get("https://ipv4.icanhazip.com").trim() }.getOrNull()
+            ?.takeIf { Regex("""^\d{1,3}(\.\d{1,3}){3}$""").matches(it) }
+        runCatching {
+            val ip = JSONObject(get(if (v4 != null) "https://ipwho.is/$v4" else "https://ipwho.is/"))
+            if (ip.optBoolean("success", true)) {
+                return Guess(
+                    ip.getDouble("latitude").toFloat(),
+                    ip.getDouble("longitude").toFloat(),
+                    ip.optString("city").ifBlank { null },
+                    ip.optString("country_code").equals("CN", ignoreCase = true),
+                )
+            }
+        }.onFailure { Log.w(TAG, "ipwho.is", it) }
+        runCatching {
+            // ipinfo.io: no key, and its "loc" is "lat,lon".
+            val ip = JSONObject(get("https://ipinfo.io/json"))
+            val loc = ip.getString("loc").split(',')
+            return Guess(
+                loc[0].toFloat(),
+                loc[1].toFloat(),
+                ip.optString("city").ifBlank { null },
+                ip.optString("country") == "CN",
+            )
+        }.onFailure { Log.w(TAG, "ipinfo.io", it) }
+        return null
     }
 
     /**
