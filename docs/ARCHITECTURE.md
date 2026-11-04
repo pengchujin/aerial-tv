@@ -238,6 +238,8 @@ NanoHTTPD 监听 8790 端口，路径前缀是 8 位随机令牌（每次打开�
 
 `bootStockMs`（#902，微鲸 WTV43K1J）：开机时守护先让原厂桌面在前台露出来，从它的窗口事件算起这么多毫秒后再接管（没有窗口事件最多等 20 秒），给要靠原厂桌面露脸才结束开机的固件用。
 
+`filterHomeAlways`（#684，红米投影仪 4 mt5873）：守护在屏幕亮着时一直过滤按键、自己处理主页键，不管前台是谁（不受安卓 12+ 只在 Aerial 前台时过滤、小米 `backOnPause` 的限制；手柄、鼠标、海信的例外照旧）。给按主页键会强停前台 App 的固件用，代价是按住音量只走一格，所以不内置进 `devices.json`，只在户主同意时用 ADB 写进这台电视。
+
 `ignoresScreenBrightness`（#895，酷开 5S09_A3）：`screen_brightness` 写得进、`mActualBacklight` 也跟着变，但面板不变；控制中心不画亮度条，改为打开电视的图像设置（`openPictureSettings`，老酷开是 `com.tianci.setting` 的图像与声音）。
 
 小米播放器兜底（框架没列 HDMI 的小米电视）的编号顺序：机型档案里 `labels` 写成「HDMI n」且有 `xiaomiSources` 的，先用它；然后才是 `hdmiN_order`；都没有就 22 + n。小米电视 4 固件 22.8 起 `hdmiN_order` 按 droidlogic 编号，和面板上的是反的（#923）。

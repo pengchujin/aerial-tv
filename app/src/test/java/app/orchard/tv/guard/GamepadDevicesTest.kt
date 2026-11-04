@@ -50,6 +50,13 @@ class GamepadDevicesTest {
         assertTrue(GamepadDevices.isPhysicalGamepad("Hi keyboard", false, true, 0x046d, 0xc21f))
     }
 
+    @Test fun alphabeticKeyboardsAreNotGamepads() {
+        // TCL tcl_m7642's phone-remote stand-ins (issue #1234).
+        assertFalse(GamepadDevices.isPhysicalGamepad("sim-kb", false, true, 0, 0, alphabetic = true))
+        assertFalse(GamepadDevices.isPhysicalGamepad("sim-mouse", false, true, 0, 0, alphabetic = true))
+        assertTrue(GamepadDevices.isPhysicalGamepad("Xbox Wireless Controller", false, true, 0x045e, 0x0b13, alphabetic = false))
+    }
+
     @Test fun rejectsDevicesWithoutGamepadSource() {
         assertFalse(GamepadDevices.isPhysicalGamepad("Keyboard", false, false, 0x1234, 0x5678))
     }

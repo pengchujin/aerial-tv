@@ -45,3 +45,11 @@ firmware force-stops the app in front (`moveActivityTaskToBack: task.isSystemApp
 `Force stopping app.orchard.tv`) unless the filter takes Home first, and that with the filter on a
 held volume key moves one step only: on mt5873 a Home without the flash and a held volume key
 exclude each other.
+
+2026-11-03, official 1.82 guard flavor on the Projector 4 (#684, the reporter): the crash before
+unlock is gone and a reboot comes back to Aerial. Home still flashes: Android 13 filters only while
+Aerial is in front, and on a TV with `com.mitv.tvhome` not even then (`backOnPause`), so Home always
+reaches the firmware's force-stop. The reporter's local build that filtered whenever the screen was
+on took Home in Aerial and in other apps with no flash and the same process, at the cost above
+(held volume one step, held Menu no repeats). That is now the device-profile field
+`"filterHomeAlways": true`, for a TV whose owner accepts it; it is not in `devices.json`.
