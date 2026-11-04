@@ -267,10 +267,15 @@ fun HomeBackground(
             if (a > 0.01f) drawDrawingIn(saverImage, saverPush(), a)
         }
         Box(Modifier.fillMaxSize().diagLayer("plate")) {
-            // Where the film's frames cannot be had (Wallpapers.filmGlassless), the film's plate is
-            // the smoke and the edge alone, see-through, over the film moving or stopped.
-            val glassless = Wallpapers.filmGlassless
-            Plate(frosted ?: backdrop, filmGlass.takeUnless { glassless }, filmGlass != null, glassless, plate, scroll, collapse, cover, filmStopped, toSaver, lift)
+            // Where the film's frames cannot be had (Wallpapers.filmGlassless), the plate is the one
+            // over a still picture, of the picture's glass, over the film moving or stopped: the
+            // picture is the frame decoded where the film was let go, and the film goes on from it
+            // (LiveWallpaper.goOnFromPicture; owner, TCL MT5879, issue #1238).
+            // Its glass follows the film where frames of it are decoded in the app while it moves
+            // ([filmGlass], every 15 s), so it is not the colours of a shot long gone.
+            val still = Wallpapers.filmGlassless && Wallpapers.moves() && (frosted ?: backdrop) != null
+            val film = filmGlass.takeUnless { Wallpapers.filmGlassless }
+            Plate(if (still) filmGlass ?: frosted ?: backdrop else frosted ?: backdrop, film, film != null, Wallpapers.filmGlassless, plate, scroll, collapse, cover, filmStopped, toSaver, lift, still)
         }
     }
 }
@@ -369,13 +374,14 @@ private fun Pictures(
  * moves or a new frame fades in, every [GLASS_EVERY_MS]: the film plays with Compose all but still.
  */
 @Composable
-private fun Plate(glass: ImageBitmap?, film: ImageBitmap?, filmPlate: Boolean, deepSmoke: Boolean, plate: Rect?, scroll: () -> Float, collapse: Float, cover: () -> Float, filmStopped: () -> Float, toSaver: () -> Float, lift: () -> Float) {
+private fun Plate(glass: ImageBitmap?, film: ImageBitmap?, filmPlate: Boolean, deepSmoke: Boolean, plate: Rect?, scroll: () -> Float, collapse: Float, cover: () -> Float, filmStopped: () -> Float, toSaver: () -> Float, lift: () -> Float, stillOverFilm: Boolean = false) {
     var shown by remember { mutableStateOf(glass) }
     var under by remember { mutableStateOf<ImageBitmap?>(null) }
     val swap = remember { Animatable(1f) }
     fun visibility(): Float {
         val rest = 1f - smooth(((scroll() / collapse).coerceIn(0f, 1f) / 0.55f).coerceIn(0f, 1f))
-        return rest * (1f - cover() * (1f - filmStopped())) * (1f - toSaver())
+        // [stillOverFilm]: the still plate over the film too, moving or not.
+        return rest * (if (stillOverFilm) 1f else 1f - cover() * (1f - filmStopped())) * (1f - toSaver())
     }
     LaunchedEffect(glass) {
         if (glass === shown) return@LaunchedEffect
@@ -451,7 +457,7 @@ private fun Plate(glass: ImageBitmap?, film: ImageBitmap?, filmPlate: Boolean, d
         val base = (1f - smooth(((scroll() / collapse).coerceIn(0f, 1f) / 0.55f).coerceIn(0f, 1f))) * (1f - toSaver())
         val frame = filmTop
         val edge = smoke
-        if (edge != null && (filmPlate || cover() > 0.01f) && alpha < 0.99f && base > 0.01f) {
+        if (!stillOverFilm && edge != null && (filmPlate || cover() > 0.01f) && alpha < 0.99f && base > 0.01f) {
             val p = (scroll() / collapse).coerceIn(0f, 1f)
             val r = plate.translate(0f, -scroll() - lift()).inflate(PlateSwell.toPx() * smooth((p / 0.55f).coerceIn(0f, 1f)))
             val t = filmSwap.value

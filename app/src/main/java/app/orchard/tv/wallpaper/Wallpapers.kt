@@ -181,6 +181,7 @@ object Wallpapers {
      */
     var filmGlassless by mutableStateOf(false)
 
+
     /** Goes up when a moving wallpaper's picture changes, so its card in Personalize is made again. */
     var pictureVersion by mutableIntStateOf(0); private set
 
@@ -486,27 +487,70 @@ object Wallpapers {
         backdrop = frame.asImageBitmap()
     }
 
-    suspend fun useLiveFrame(frame: Bitmap, film: String, atMs: Long) {
-        if (!moves()) return
+    /** A frame of the aerial film made ready to be the picture ([prepareLiveFrame]), its glass made. */
+    class PreparedFrame(val frame: Bitmap, val frost: Bitmap)
+
+    /** The slow part of a picture ahead of time, off the main thread: its glass (Images.frost). */
+    suspend fun prepareLiveFrame(frame: Bitmap): PreparedFrame =
+        withContext(Dispatchers.Default) { PreparedFrame(frame, Images.frost(frame)) }
+
+    /**
+     * [prepared] becomes the aerial wallpaper's picture at once, as film [film] at [atMs]; its file
+     * and the baked Home are written after, apart, so Home coming back on it does not wait for them
+     * (the screensaver's pictures, LiveWallpaper.SaverFrames).
+     */
+    fun applyLiveFrame(prepared: PreparedFrame, film: String, atMs: Long): Boolean {
         val id = selectedId
+        if (!moves() || isVideo(id)) return false
         backdropJob?.cancel()
-        val key = if (isVideo(id)) "video" else "live"
-        if (!isVideo(id)) leftHere = null
-        prefs.edit { putString("${key}_film", film).putLong("${key}_at", atMs).remove("${key}_left_film").remove("${key}_left_at") }
-        val (bmp, frost) = withContext(Dispatchers.Default) {
-            runCatching { (if (isVideo(id)) videoFrame else liveFrame).outputStream().use { frame.compress(Bitmap.CompressFormat.JPEG, 90, it) } }
+        leftHere = null
+        prefs.edit { putString("live_film", film).putLong("live_at", atMs).remove("live_left_film").remove("live_left_at") }
+        synchronized(thumbs) { thumbs.remove(id) }
+        backdrop = prepared.frame.asImageBitmap()
+        frosted = prepared.frost.asImageBitmap()
+        pictureVersion++
+        scope.launch(Dispatchers.IO) {
+            val part = File(liveFrame.path + ".part")
+            runCatching { part.outputStream().use { prepared.frame.compress(Bitmap.CompressFormat.JPEG, 90, it) } }
                 .onFailure { Log.w(TAG, "could not keep the film's frame", it) }
-            // The film's own card keeps a picture when another film is chosen.
-            if (isVideo(id)) videoFilms(VIDEOS).firstOrNull { it.id == film }?.let { keepPoster(it, frame) }
+            if (part.exists() && !part.renameTo(liveFrame)) part.delete()
+            if (selectedId == id) resolve(id)?.let { saveBaked(bakedKey(it), prepared.frame, prepared.frost) }
+        }
+        return true
+    }
+
+    suspend fun useLiveFrame(frame: Bitmap, film: String, atMs: Long, wanted: () -> Boolean = { true }): Boolean {
+        if (!moves()) return false
+        val id = selectedId
+        val key = if (isVideo(id)) "video" else "live"
+        val target = if (isVideo(id)) videoFrame else liveFrame
+        val part = File(target.path + ".part")
+        // The slow part first, the spot, the file and the picture after, all at once: written
+        // first, the spot had caught up while Home, back in between, still showed the old
+        // picture (0.5-1.5 s on TCL MT5879). [wanted] no longer, nothing changes.
+        val (bmp, frost) = withContext(Dispatchers.Default) {
+            runCatching { part.outputStream().use { frame.compress(Bitmap.CompressFormat.JPEG, 90, it) } }
+                .onFailure { Log.w(TAG, "could not keep the film's frame", it) }
             // Not shaded, as the film is not (HomeBackground).
             Images.frost(frame).let { frost -> frame to frost }
         }
+        if (!wanted() || selectedId != id) {
+            part.delete()
+            return false
+        }
+        backdropJob?.cancel()
+        if (part.exists() && !part.renameTo(target)) part.delete()
+        if (!isVideo(id)) leftHere = null
+        prefs.edit { putString("${key}_film", film).putLong("${key}_at", atMs).remove("${key}_left_film").remove("${key}_left_at") }
+        // The film's own card keeps a picture when another film is chosen.
+        if (isVideo(id)) withContext(Dispatchers.IO) { videoFilms(VIDEOS).firstOrNull { it.id == film }?.let { keepPoster(it, frame) } }
         // The frame is both the film's own card and the card that plays them all in turn.
         synchronized(thumbs) { thumbs.remove(id); if (isVideo(id)) { thumbs.remove(VIDEOS); thumbs.remove(VIDEO_PREFIX + film) } }
         backdrop = bmp.asImageBitmap()
         frosted = frost.asImageBitmap()
         pictureVersion++
         resolve(id)?.let { saveBaked(bakedKey(it), bmp, frost) }
+        return true
     }
 
     /**
@@ -545,6 +589,12 @@ object Wallpapers {
      * The aerial film was let go at [atMs] into [film] with no frame taken: it goes on from there.
      * Not [persist]ed: kept in memory only, for a screensaver that reports where it is every second.
      */
+    /** Forgets where the film was let go: it goes on from the picture's own moment ([liveSpot]). */
+    fun dropLeftLiveSpot() {
+        leftHere = null
+        prefs.edit { remove("live_left_film").remove("live_left_at") }
+    }
+
     fun leaveLiveFilm(film: String, atMs: Long, persist: Boolean = true) {
         // Kept whatever the wallpaper: a screensaver of aerials over another one leaves its film
         // here too, so the aerial wallpaper chosen later begins on it (AerialSet).

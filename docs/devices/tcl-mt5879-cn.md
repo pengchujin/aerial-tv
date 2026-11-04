@@ -110,7 +110,7 @@ TCL 手机 App 有一个「把手机里的 APK 推到电视」的功能。电视
 - 1.42：遥控器信号源键在有 TCL 信号源面板的固件上交给固件（PR #334），实测只弹 TCL 自己的面板。
 - 屏保里按主页键没反应（2026-10-29 修，未发版）：Android 11 守护一直过滤按键，主页键在系统之前被接住，守护「拉回 Aerial」，可 Aerial 本来就在屏保下面，系统又没收到这次按键，屏保就一直开着。现在守护接住主页键时，Aerial 的屏保（`AerialDream`）开着就直接 `finish()`，回到主页；这次按键不算进「连按两下」，免得红外遥控器一次按键到两次时打开最近任务。uinput 实测：单按关屏保回到主页；屏保里间隔 120ms 按两下只关屏保；没有屏保时按两下照旧打开最近任务。「系统内置」屏保（艺术画报）不是 Aerial 的，关不了，仍然没反应。
 - 主屏幕的航拍壁纸（4K SDR，SurfaceView）PixelCopy 能读到，`screencap` 也截得到（2026-10-23）。
-- 但 PixelCopy 复制一帧 4K 要 0.6–1.7 秒（渲染线程被占住，按键积压）；用 MediaMetadataRetriever 从 Apple 的 1080p 文件解帧，会卡死在 TCL 的 `TclMPEG4Extractor` 里，占住 mediaserver 的取帧锁，后面的请求全部排队。请求一多，`MediaCodecList` 也会卡，任何 App 查解码器都会挂住，只能重启（2026-10-30，bugreport 里 mediaserver 有 17 个 binder 线程卡在 `MetadataRetrieverClient::getFrameAtTime`）。所以这台电视不从文件取影片的帧，玻璃也不用帧（见 ARCHITECTURE「航拍壁纸取不到帧的电视」）。
+- 但 PixelCopy 复制一帧 4K 要 0.6–1.7 秒（渲染线程被占住，按键积压）；用 MediaMetadataRetriever 从 Apple 的 1080p 文件解帧，会卡死在 TCL 的 `TclMPEG4Extractor` 里，占住 mediaserver 的取帧锁，后面的请求全部排队。请求一多，`MediaCodecList` 也会卡，任何 App 查解码器都会挂住，只能重启（2026-10-30，bugreport 里 mediaserver 有 17 个 binder 线程卡在 `MetadataRetrieverClient::getFrameAtTime`）。所以这台电视不让 mediaserver 从文件取影片的帧（见 ARCHITECTURE「航拍壁纸取不到帧的电视」）。2026-11-04 起改在 Aerial 进程里自己解关键帧（`FilmKeyFrame`，`OMX.google.h264.decoder`，这台没有 c2 解码器）：回桌面是离开时的画面，从杜比视界屏保回来也不黑屏，玻璃每 15 秒跟上影片（#1238，见 ARCHITECTURE「进程内解关键帧」）。实测媒体服务一直正常。
 - **截图截不到视频画面**（视频走独立的硬件图层，截出来是黑的），但字幕和时钟能截到。地名字幕出现，说明视频已经在渲染。
 
 ## 视频解码器

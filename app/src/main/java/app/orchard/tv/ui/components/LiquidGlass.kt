@@ -74,8 +74,14 @@ fun Modifier.liquidGlass(corner: Dp, bottomCorners: Boolean = true, seeThroughFi
     // with only the film under it, is see-through as the plate is: solid, it was a grey slab beside
     // a plate the film shows through (seen on Xiaomi MiTV-MFFU1 while a slow copy kept it from
     // the film's frames, 2026-11-01; TCL MT5879 is such a TV for good).
-    val solid = Wallpapers.moves() && Wallpapers.filmGlassless
-    val latest = Wallpapers.frosted.takeIf { Wallpapers.backdrop != null }
+    // Now the picture's glass, as over a still picture, once the picture is there: the frame
+    // decoded in the app where the film was let go, which the film goes on from (owner, TCL
+    // MT5879, issue #1238). Solid only until a picture exists.
+    val solid = Wallpapers.moves() && Wallpapers.filmGlassless && Wallpapers.frosted == null
+    // Where the film's frames cannot be had otherwise, the latest glass of the moving film, decoded
+    // in the app (Wallpapers.filmFrost), over the picture's, which may be another shot.
+    val latest = (if (Wallpapers.moves() && Wallpapers.filmGlassless) Wallpapers.filmFrost ?: Wallpapers.frosted else Wallpapers.frosted)
+        .takeIf { Wallpapers.backdrop != null }
     val held = remember(Wallpapers.selectedId, latest == null) { latest }
     val (frost, under, swap) = rememberFrostSwap(held)
     var at by remember { mutableStateOf(Offset.Zero) }

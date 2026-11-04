@@ -243,6 +243,8 @@ object AerialStart {
             else live?.spot()?.let { (id, at) -> id to at + if (live.moving) leadMs else 0L } ?: Wallpapers.liveSpot() ?: return
         val film = Aerials.all(context).firstOrNull { it.id == id } ?: return
         AerialStream.prepareStart(context, film, quality, aerialsOverHttp, at)
+        // And the frame it starts on, as Home's picture to come back on (issue #1238).
+        if (Wallpapers.selectedId == Wallpapers.LIVE) SaverFrames.prepareAhead(context, id, at)
     }
 
     /** A screensaver of aerials of its own is up (Home's or the dream): it moves the wallpaper's spot on. */
