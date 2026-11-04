@@ -105,11 +105,23 @@ fun Modifier.liquidGlass(corner: Dp, bottomCorners: Boolean = true, seeThroughFi
             var drawnAt: Offset? = null
             var drawnRoot = IntSize.Zero
             var drawnT = -1f
+            var solidRecorded = false
             onDrawBehind {
                 if (solid) {
-                    drawImage(flat, dstSize = IntSize(w, h), colorFilter = ColorFilter.tint(if (seeThroughFilm) FilmGlass else FilmPanel))
-                    if (seeThroughFilm) drawImage(filmSheen, dstSize = IntSize(w, h), filterQuality = FilterQuality.Low)
-                    drawGlassEdge(size, radius, bottomCorners)
+                    // Recorded once into the layer the GPU keeps, as the frosted glass is: drawn
+                    // each frame, the mask, sheen and edge cost Control Center about 2.5 ms of GPU a
+                    // frame over a film paused without its frame (Xiaomi MiTV-MFTR0 with frames made
+                    // to fail, issue #1194: 12.2 ms against 9.6 for the frosted glass).
+                    if (!solidRecorded) {
+                        solidRecorded = true
+                        drawnAt = null
+                        glass.record(this, layoutDirection, IntSize(w, h)) {
+                            drawImage(flat, dstSize = IntSize(w, h), colorFilter = ColorFilter.tint(if (seeThroughFilm) FilmGlass else FilmPanel))
+                            if (seeThroughFilm) drawImage(filmSheen, dstSize = IntSize(w, h), filterQuality = FilterQuality.Low)
+                            drawGlassEdge(size, radius, bottomCorners)
+                        }
+                    }
+                    drawLayer(glass)
                 } else if (shader == null || brush == null || root == IntSize.Zero) {
                     drawImage(flat, dstSize = IntSize(w, h), colorFilter = ColorFilter.tint(Palette.Glass))
                     drawGlassEdge(size, radius, bottomCorners)

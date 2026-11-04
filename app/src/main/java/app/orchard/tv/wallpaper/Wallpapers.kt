@@ -178,8 +178,21 @@ object Wallpapers {
      * the film too slowly to use and its file is not read (TCL MT5879), or the file's frames stuck
      * since the TV started (LiveWallpaper). Then the top row's plate is the smoke alone over the
      * film and panels are one solid colour, rather than the frosted frame of minutes before.
+     * Also while a film stands paused on a shot whose frame could not be had ([filmUnframed]).
      */
-    var filmGlassless by mutableStateOf(false)
+    val filmGlassless: Boolean get() = framesShut || filmUnframed
+
+    /** The film's frames are shut out on this TV for good (LiveWallpaper.FilmFrames). */
+    var framesShut by mutableStateOf(false)
+
+    /**
+     * The film stopped on a shot the picture and its glass are not of, with no frame of it taken:
+     * the paused film stays on screen rather than the picture of another shot (issue #1194, Dangbei
+     * F3, Android 6, where neither PixelCopy nor the film's file gives a frame), and the plate and
+     * panels go without glass, as where frames are shut out, rather than another shot's colours.
+     * Cleared once a frame of it is had, or the film moves or is let go.
+     */
+    var filmUnframed by mutableStateOf(false)
 
     /** Goes up when a moving wallpaper's picture changes, so its card in Personalize is made again. */
     var pictureVersion by mutableIntStateOf(0); private set
@@ -335,7 +348,7 @@ object Wallpapers {
         val film = videoFilms(id).firstOrNull() ?: return null
         val poster = posterOf(film)
         if (w <= POSTER_W && poster.exists()) Images.decodeCover(poster, w, h)?.let { return it }
-        if (filmGlassless || fileFramesJam(app)) return null
+        if (framesShut || fileFramesJam(app)) return null
         val mmr = android.media.MediaMetadataRetriever()
         return try {
             mmr.setDataSource(film.file.path)
@@ -505,6 +518,7 @@ object Wallpapers {
         synchronized(thumbs) { thumbs.remove(id); if (isVideo(id)) { thumbs.remove(VIDEOS); thumbs.remove(VIDEO_PREFIX + film) } }
         backdrop = bmp.asImageBitmap()
         frosted = frost.asImageBitmap()
+        filmUnframed = false
         pictureVersion++
         resolve(id)?.let { saveBaked(bakedKey(it), bmp, frost) }
     }
@@ -596,6 +610,7 @@ object Wallpapers {
     suspend fun useLiveFrost(frame: Bitmap) {
         if (selectedId != LIVE) return
         backdropJob?.cancel()
+        filmUnframed = false
         // The frame the plate's glass was made from while the film moved: that glass, at once.
         frosted = filmFrost?.takeIf { frame === filmFrostOf }
             ?: withContext(Dispatchers.Default) { Images.frost(frame) }.asImageBitmap()
@@ -634,6 +649,7 @@ object Wallpapers {
     fun dropFilmFrost() {
         filmFrost = null
         filmFrostOf = null
+        filmUnframed = false
     }
 
     private val clipGlassDir by lazy { File(app.filesDir, "clip-glass").apply { mkdirs() } }

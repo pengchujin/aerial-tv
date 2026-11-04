@@ -32,6 +32,8 @@ import app.orchard.tv.ui.theme.Motion
 import app.orchard.tv.wallpaper.ScreensaverVideos
 import app.orchard.tv.wallpaper.Wallpapers
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -49,6 +51,8 @@ fun VideoWallpaper(
     moving: Boolean,
     /** False once the screensaver is up or Home is behind an app: the decoder goes at once. */
     keep: Boolean,
+    /** A screensaver is up: its films need the decoder at once, so no frame is waited for. */
+    saver: Boolean,
     lastInputAt: Long,
     cover: Animatable<Float, *>,
 ) {
@@ -65,6 +69,7 @@ fun VideoWallpaper(
     }
     val play = moving && (idle || AerialSettings.wallpaperAlwaysMoves)
     val keepNow by rememberUpdatedState(keep)
+    val saverNow by rememberUpdatedState(saver)
     val scope = rememberCoroutineScope()
 
     fun release() {
@@ -143,6 +148,52 @@ fun VideoWallpaper(
         sampleGlass({ player }, canTake = { copyGlassPossible }) { surface?.let { copyGlass(it) } }
     }
 
+    /**
+     * The frame [film] stopped on at [at]: copied off the video plane where the TV allows it, else
+     * decoded from the file, which is on the TV. Not from the file where reading frames jams the
+     * media server (TCL's extractor): on TCL MT5879 every stop read one, and the decoders failed to
+     * start or failed mid-film after it, each time a stop came before (issue #1188, Aerial's own log).
+     * Decoded apart, so a time limit lets go of it while it still runs.
+     */
+    suspend fun frameOf(film: String, at: Long, w: Int, h: Int): Bitmap? =
+        surface?.let { copyFrame(it) }
+            ?: if (fileFramesJam(context)) null else scope.async(Dispatchers.IO) { fileFrame(context, film, at, w, h) }.await()
+
+    /**
+     * Into an app, Home shows on until the app is drawn (Xiaomi's settings slide in over it): the
+     * frame [p] stopped on becomes the picture first, within LEAVE_FRAME_MS, as the aerial film's
+     * does (LiveWallpaper.leaveOnPicture). Let go at once, the picture of an earlier stop showed
+     * as the app came in, another moment or another of the videos (the owner, 2026-11-04). With no
+     * frame, the video's poster, its opening frame, and it goes on from there next time, as the
+     * picture is; unless the picture is of this video already, where it goes on. Not [read] again
+     * where this stop had none already. Not into a screensaver, which needs the decoder at once.
+     */
+    suspend fun leaveOnFrame(p: ExoPlayer, read: Boolean = true) {
+        p.pause()
+        val film = p.currentMediaItem?.mediaId
+        if (film == null || saverNow) {
+            cover.snapTo(0f)
+            return
+        }
+        val at = p.currentPosition
+        val w = surface?.width?.takeIf { it > 0 } ?: Wallpapers.screenW
+        val h = surface?.height?.takeIf { it > 0 } ?: Wallpapers.screenH
+        val started = android.os.SystemClock.elapsedRealtime()
+        var from = at
+        val frame = (if (read) withTimeoutOrNull(LEAVE_FRAME_MS) { frameOf(film, at, w, h) } else null)
+            ?: if (Wallpapers.videoSpot()?.first == film) null else withContext(Dispatchers.IO) { Wallpapers.videoPoster(film, w, h) }?.also { from = 0L }
+        if (frame == null) {
+            DiagLog.i("video wallpaper: no frame in time to leave on")
+            cover.snapTo(0f)
+            return
+        }
+        Wallpapers.showLiveFrame(frame)
+        cover.snapTo(0f)
+        p.stop()
+        DiagLog.i("video wallpaper left on its frame in ${android.os.SystemClock.elapsedRealtime() - started} ms")
+        Wallpapers.useLiveFrame(frame, film, from)
+    }
+
     // Let go as Aerial stops, not at the next frame, which does not come then (rememberStops).
     val stops = rememberStops {
         if (player == null) return@rememberStops false
@@ -164,7 +215,7 @@ fun VideoWallpaper(
         } else {
             val p = player ?: return@LaunchedEffect
             if (!keepNow) {
-                cover.snapTo(0f)
+                if (cover.value > 0f) leaveOnFrame(p) else cover.snapTo(0f)
                 release()
                 return@LaunchedEffect
             }
@@ -175,19 +226,31 @@ fun VideoWallpaper(
                 val at = p.currentPosition
                 val w = surface?.width?.takeIf { it > 0 } ?: Wallpapers.screenW
                 val h = surface?.height?.takeIf { it > 0 } ?: Wallpapers.screenH
-                // Neither on TCL MT9655 at times: then the film's own poster, so the picture and its
-                // glass are at least the film that played, not the one shown before (issue #1158).
-                // Not from the file where reading frames jams the media server (TCL's extractor): on
-                // TCL MT5879 every stop read one, and the decoders failed to start or failed
-                // mid-film after it, each time a stop came before (issue #1188, Aerial's own log).
-                val frame = surface?.let { copyFrame(it) }
-                    ?: film?.let { id ->
-                        withContext(Dispatchers.IO) {
-                            (if (fileFramesJam(context)) null else fileFrame(context, id, at, w, h)) ?: Wallpapers.videoPoster(id, w, h)
-                        }
-                    }
-                if (frame != null && film != null) Wallpapers.useLiveFrame(frame, film, at)
-                cover.animateTo(0f, tween(if (frame != null) 320 else 600, easing = Motion.EaseOut))
+                // The glass at hand is of this video (its poster, or a frame of an earlier stop)
+                // where the last stop had no frame: else, there, the plate and panels go without
+                // glass from the start, not another video's colours turning plain as a panel opens.
+                val glassOfFilm = film != null && Wallpapers.videoSpot()?.first == film
+                if (!glassOfFilm && videoNoFrameLastStop && !copyLostColour) Wallpapers.filmUnframed = true
+                val frame = film?.let { frameOf(it, at, w, h) }
+                videoNoFrameLastStop = frame == null
+                if (frame == null && film != null && !copyLostColour) {
+                    // Neither (TCL MT9655 at times, Dangbei F3 always): the paused video stays on
+                    // screen until Home is left, rather than its poster, its opening frame, or the
+                    // picture of an earlier stop (the owner, 2026-11-04). Its decoder is held
+                    // meanwhile; nothing else on Home needs one.
+                    if (!glassOfFilm) Wallpapers.filmUnframed = true
+                    DiagLog.i("video wallpaper: no frame; the paused video stays")
+                    snapshotFlow { keepNow }.first { !it }
+                    leaveOnFrame(p, read = false)
+                    release()
+                    return@LaunchedEffect
+                }
+                // Where the paused video turns green once Home redraws over it: the film's own
+                // poster, so the picture and its glass are at least the film that played, not the
+                // one shown before (issue #1158).
+                val shown = frame ?: film?.let { withContext(Dispatchers.IO) { Wallpapers.videoPoster(it, w, h) } }
+                if (shown != null && film != null) Wallpapers.useLiveFrame(shown, film, at)
+                cover.animateTo(0f, tween(if (shown != null) 320 else 600, easing = Motion.EaseOut))
             }
             delay(KEEP_STOPPED_MS)
             release()
@@ -204,6 +267,9 @@ fun VideoWallpaper(
         onRelease = { player?.clearVideoSurfaceView(it.surface); surface = null },
     )
 }
+
+/** The last stop of the owner's video had no frame: the next may well not either. */
+private var videoNoFrameLastStop = false
 
 /** Frame [atMs] of the owner's video [id], screen-sized and drawable on, or null. */
 private fun fileFrame(context: android.content.Context, id: String, atMs: Long, w: Int, h: Int): Bitmap? {

@@ -646,6 +646,7 @@ fun HomeScreen(
                 VideoWallpaper(
                     moving = filmMoves,
                     keep = vm.filmFront && !vm.screensaverVisible,
+                    saver = vm.screensaverVisible,
                     lastInputAt = vm.lastInputAt,
                     cover = filmCover,
                 )
