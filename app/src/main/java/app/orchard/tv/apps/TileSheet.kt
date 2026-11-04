@@ -55,7 +55,10 @@ object TileSheet {
             val r = h * 0.07f
             canvas.drawRoundRect(RectF(x, y, x + w, y + h), r, r, paint.apply {
                 shader = android.graphics.BitmapShader(flat, android.graphics.Shader.TileMode.CLAMP, android.graphics.Shader.TileMode.CLAMP).apply {
-                    setLocalMatrix(android.graphics.Matrix().apply { setTranslate(x, y) })
+                    setLocalMatrix(android.graphics.Matrix().apply {
+                        setScale(w.toFloat() / flat.width, h.toFloat() / flat.height)
+                        postTranslate(x, y)
+                    })
                 }
             })
             paint.shader = null

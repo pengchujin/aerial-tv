@@ -1,3 +1,5 @@
+> **性能与开发验证：** 渲染优化和真机测量见 [PERFORMANCE.md](docs/PERFORMANCE.md)，高清图标见 [图标说明](docs/icons/README.md)。可选的预览版与日用测试版构建见 [DAILY-FORK.md](docs/DAILY-FORK.md)。
+
 <div align="center">
 
 <img src="docs/brand/icon.png" width="96" alt="Aerial 图标">

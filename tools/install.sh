@@ -385,6 +385,9 @@ if [ "$(adb shell settings get secure screensaver_enabled | tr -d '\r')" = 1 ]; 
   adb shell am broadcast -a "$PKG.CONFIG" -n "$PKG/.guard.ConfigReceiver" --ez own_screensaver true >/dev/null
   echo "Aerial's screensaver is now the TV's screensaver."
 fi
+# App-op writes are deferred; an immediate ADB reboot can lose these grants (MiTV-MFTR0).
+# Older firmware may not implement this command.
+adb shell appops write-settings >/dev/null 2>&1 || true
 # TCL's "open at power-on" (system boot_app_mode / boot_app_componentname, read by com.tcl.ttvs at
 # boot): with Aerial there it is the first screen after power-on, before TCL's launcher ever shows.
 # Without it the guard brings Aerial back over the launcher some 10 s later, and once on TCL MT5879

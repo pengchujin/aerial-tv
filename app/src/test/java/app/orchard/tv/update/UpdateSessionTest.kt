@@ -88,7 +88,15 @@ class UpdateSessionTest {
         })
         Updates.testApk = File(app.cacheDir, "update-test.apk").apply { writeBytes(byteArrayOf(1, 2, 3)) }
 
+        val previous = Updates.install
         Updates.install(app)
+        if (BuildConfig.MANAGED_FORK) {
+            // Locally signed flavors must never start an official-package update.
+            assertEquals(previous, Updates.install)
+            assertTrue(installer.mySessions.isEmpty())
+            assertNull(shadowOf(app).nextStartedActivity)
+            return
+        }
         val deadline = System.nanoTime() + 10_000_000_000L
         while (Updates.install is Updates.Install.Downloading && System.nanoTime() < deadline) {
             shadowOf(Looper.getMainLooper()).idle()

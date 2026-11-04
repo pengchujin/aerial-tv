@@ -21,6 +21,9 @@ android {
         targetSdk = 34
         versionCode = 112
         versionName = "1.83"
+        buildConfigField("boolean", "PREVIEW", "false")
+        buildConfigField("boolean", "MANAGED_FORK", "false")
+        resValue("string", "revival_account_type", "app.orchard.tv")
         // `./gradlew -Pdiag ...`: a build for one reporter's TV whose logcat shows no app lines;
         // see system/DiagLog.kt.
         val diag = project.hasProperty("diag")
@@ -41,6 +44,21 @@ android {
     flavorDimensions += "home"
     productFlavors {
         create("standard") { dimension = "home" }
+        create("preview") {
+            dimension = "home"
+            applicationIdSuffix = ".preview"
+            versionNameSuffix = "-preview"
+            buildConfigField("boolean", "PREVIEW", "true")
+            buildConfigField("boolean", "MANAGED_FORK", "true")
+        }
+        // Promotes the locally signed preview in place without losing its data.
+        create("daily") {
+            dimension = "home"
+            applicationIdSuffix = ".preview"
+            versionNameSuffix = "-fork"
+            buildConfigField("boolean", "MANAGED_FORK", "true")
+            resValue("string", "revival_account_type", "app.orchard.tv.preview")
+        }
         create("guard") {
             dimension = "home"
             versionNameSuffix = "-guard"

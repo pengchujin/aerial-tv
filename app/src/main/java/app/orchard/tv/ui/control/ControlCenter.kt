@@ -111,6 +111,7 @@ import app.orchard.tv.ui.home.dateText
 import app.orchard.tv.ui.home.timeText
 import app.orchard.tv.ui.theme.Glyph
 import app.orchard.tv.ui.theme.GlyphIcon
+import app.orchard.tv.ui.theme.LocalReducedMotion
 import app.orchard.tv.ui.theme.Motion
 import app.orchard.tv.ui.theme.Palette
 import app.orchard.tv.ui.theme.Type
@@ -137,6 +138,7 @@ fun ControlCenter(
     /** Home is on its top row: no tiles under the panel, only the wallpaper (see liquidGlass). */
     onShelf: Boolean = false,
 ) {
+    val reduced = LocalReducedMotion.current
     BackHandler(enabled = visible) {
         when (page) {
             CcPage.Main -> onClose()
@@ -160,7 +162,7 @@ fun ControlCenter(
         modifier = Modifier.fillMaxSize(),
     ) {
         // A tap outside the panel closes Control Center.
-        Box(Modifier.fillMaxSize().dismissOnTap(onClose).background(Color.Black.copy(alpha = 0.28f)))
+        Box(Modifier.fillMaxSize().dismissOnTap(onClose))
     }
 
     Box(Modifier.fillMaxSize().padding(top = 24.dp, end = 32.dp), contentAlignment = Alignment.TopEnd) {
@@ -176,8 +178,10 @@ fun ControlCenter(
         AnimatedVisibility(
             visible = visible,
             // Grows out of the corner where the status pill lives; leaves faster than it came.
-            enter = fadeIn(tween(200, easing = Motion.EaseOut)) + scaleIn(tween(280, easing = Motion.Drawer), initialScale = 0.9f, transformOrigin = TransformOrigin(1f, 0f)),
-            exit = fadeOut(tween(160, easing = Motion.EaseOut)) + scaleOut(tween(160, easing = Motion.EaseOut), targetScale = 0.95f, transformOrigin = TransformOrigin(1f, 0f)),
+            enter = fadeIn(tween(if (reduced) 120 else 200, easing = Motion.EaseOut)) + if (reduced) androidx.compose.animation.EnterTransition.None
+                else scaleIn(tween(280, easing = Motion.Drawer), initialScale = 0.9f, transformOrigin = TransformOrigin(1f, 0f)),
+            exit = fadeOut(tween(160, easing = Motion.EaseOut)) + if (reduced) androidx.compose.animation.ExitTransition.None
+                else scaleOut(tween(160, easing = Motion.EaseOut), targetScale = 0.95f, transformOrigin = TransformOrigin(1f, 0f)),
         ) {
             Column(
                 Modifier
