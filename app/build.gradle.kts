@@ -19,8 +19,8 @@ android {
         // Android 5.0. Compose 1.10 and later need 6.0, so the Compose BOM below stays on 1.9.
         minSdk = 21
         targetSdk = 34
-        versionCode = 104
-        versionName = "1.80"
+        versionCode = 112
+        versionName = "1.83"
         buildConfigField("boolean", "PREVIEW", "false")
         buildConfigField("boolean", "MANAGED_FORK", "false")
         resValue("string", "revival_account_type", "app.orchard.tv")

@@ -33,7 +33,6 @@ import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -149,8 +148,8 @@ fun AppTile(
     focusRequester: FocusRequester,
     enabled: Boolean,
     moving: Boolean,
-    /** Delay of the first-appearance stagger; null for no entrance (tiles in a folder that just opened). */
-    appearDelayMs: Int?,
+    /** Extra opacity applied inside each drawing layer, without a layer around the whole tile. */
+    opacity: () -> Float = { 1f },
     onFocused: () -> Unit,
     onClick: (Rect?) -> Unit,
     onLongPress: (Rect?) -> Unit,
@@ -195,28 +194,31 @@ fun AppTile(
         animationSpec = if (pressed) tween(110, easing = Motion.EaseOut) else Motion.focusSpring(),
         label = "tile-scale",
     )
-    val lift by animateFloatAsState(
+    val liftState = animateFloatAsState(
         targetValue = if (focused || moving) 1f else 0f,
         animationSpec = spring(dampingRatio = 1f, stiffness = 380f),
         label = "tile-lift",
     )
-    val ring by animateFloatAsState(
+    val lift by liftState
+    val ringState = animateFloatAsState(
         targetValue = if (AerialSettings.focusStyle == FocusStyle.HighContrast) 1f else 0f,
         animationSpec = tween(200, easing = Motion.EaseOut),
         label = "tile-ring",
     )
+    val ring by ringState
     // The frame comes on quickly with the zoom and goes off faster still, so moving along a row
     // never shows two frames at once. It grows out from the tile's edge to its place.
-    val ringIn by animateFloatAsState(
+    val ringInState = animateFloatAsState(
         targetValue = if (focused || moving) 1f else 0f,
         animationSpec = if (focused || moving) spring(dampingRatio = 1f, stiffness = 700f) else spring(dampingRatio = 1f, stiffness = 2400f),
         label = "tile-ring-in",
     )
-
-    // Observe threshold crossings in composition, not every spring frame. Layer and draw
-    // lambdas below still read the full animation values without rebuilding the tile tree.
-    val shadowVisible by remember { derivedStateOf { lift > 0.01f } }
-    val ringVisible by remember { derivedStateOf { ring > 0.01f && ringIn > 0.01f } }
+    val ringIn by ringInState
+    // Whether the shadow and the frame are there at all changes once per focus move; the values
+    // themselves are read only in the layers and draws below. Read in composition, every frame of
+    // the springs recomposed the whole tile and threw away its drawing cache.
+    val showShadow by remember { derivedStateOf { liftState.value > 0.01f } }
+    val showFrame by remember { derivedStateOf { ringState.value > 0.01f && ringInState.value > 0.01f } }
 
     // tvOS "jiggle" while the app is being moved.
     val wobble = if (moving && !reduced) {
@@ -228,15 +230,7 @@ fun AppTile(
         )
     } else null
 
-    // First appearance: a short stagger, so the grid settles in rather than popping on.
-    val appear = remember { Animatable(if (reduced || appearDelayMs == null) 1f else 0f) }
-    LaunchedEffect(Unit) {
-        if (appear.value < 1f && appearDelayMs != null) {
-            delay(appearDelayMs.toLong())
-            appear.animateTo(1f, tween(420, easing = Motion.EaseOut))
-        }
-    }
-
+    // One small bump back, as tvOS does: at 0.45 damping it swung past rest and rocked once more.
     var nudgeJob by remember { mutableStateOf<Job?>(null) }
     fun nudge(dx: Float, dy: Float) {
         if (reduced) return
@@ -257,15 +251,8 @@ fun AppTile(
         }
     }
 
-    Box(
-        modifier
-            .size(width, height)
-            .graphicsLayer {
-                alpha = appear.value
-                translationY = (1f - appear.value) * 18.dp.toPx()
-            },
-    ) {
-        if (shadowVisible && !AerialSettings.lite && DiagLayers.shows("shadow")) {
+    Box(modifier.size(width, height)) {
+        if (showShadow && !AerialSettings.lite && DiagLayers.shows("shadow")) {
             // A lifted tile casts a soft shadow below it, as cards do on tvOS. The system's
             // elevation shadow is too faint to read on a TV; this one is baked, so it costs one
             // image draw while a tile is lifted.
@@ -280,7 +267,7 @@ fun AppTile(
                         translationX = push.value.x
                         translationY = push.value.y + ShadowDrop.toPx() * lift
                         cameraDistance = 14f * density
-                        alpha = lift
+                        alpha = lift * opacity()
                         compositingStrategy = CompositingStrategy.ModulateAlpha
                     },
             ) {
@@ -293,6 +280,12 @@ fun AppTile(
                 .size(width, height)
                 .onGloballyPositioned { bounds = it.boundsInWindow() }
                 .graphicsLayer {
+                    alpha = opacity()
+                    // Fading into the screensaver, without an offscreen buffer per tile: every tile
+                    // of both rows fades at once (Xiaomi MiTV-MFTR0 over the aerial film, four
+                    // screensaver entries: 49 janky frames with the buffers, 27 without). The logo
+                    // over the plate lets a little of it through meanwhile, unseen in a fade that short.
+                    compositingStrategy = CompositingStrategy.ModulateAlpha
                     zoom(scale)
                     rotationY = leanY.value
                     rotationX = leanX.value
@@ -487,7 +480,7 @@ fun AppTile(
             })
         }
 
-        if (ringVisible) {
+        if (showFrame) {
             // The frame sits outside the tile, so it is drawn on its own unclipped layer that moves
             // exactly as the tile does: same lift, lean, push and jiggle.
             Canvas(
@@ -501,7 +494,7 @@ fun AppTile(
                         translationX = push.value.x
                         translationY = push.value.y
                         cameraDistance = 14f * density
-                        alpha = ring * ringIn
+                        alpha = ring * ringIn * opacity()
                         // No offscreen buffer while fading: it would be only tile-sized and clip the
                         // frame down to the four corner arcs that reach inside the tile's bounds.
                         compositingStrategy = CompositingStrategy.ModulateAlpha
@@ -535,7 +528,7 @@ fun AppTile(
                 .graphicsLayer {
                     // Only the focused app shows its name. With every name shown, the others stay a
                     // little dimmer than the focused one.
-                    alpha = if (AerialSettings.showAllNames) 0.7f + 0.3f * lift else lift
+                    alpha = (if (AerialSettings.showAllNames) 0.7f + 0.3f * lift else lift) * opacity()
                     // Sits just under the lifted tile, and rises into place as it appears.
                     translationY = height.toPx() * (scale - 1f) / 2f - (1f - lift) * 6.dp.toPx() +
                         if (nameOnPlate) 0f else ring * ringIn * (RingGap + RingWidth).toPx() * scale

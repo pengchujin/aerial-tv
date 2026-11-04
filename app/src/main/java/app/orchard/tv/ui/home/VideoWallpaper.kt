@@ -65,6 +65,7 @@ fun VideoWallpaper(
     }
     val play = moving && (idle || AerialSettings.wallpaperAlwaysMoves)
     val keepNow by rememberUpdatedState(keep)
+    val scope = rememberCoroutineScope()
 
     fun release() {
         player?.release()
@@ -86,6 +87,8 @@ fun VideoWallpaper(
             repeatMode = Player.REPEAT_MODE_ALL
             // Filled to the edges whatever its shape: a wallpaper has no bars.
             videoScalingMode = C.VIDEO_SCALING_MODE_SCALE_TO_FIT_WITH_CROPPING
+            // Home is drawn over it: the display keeps its rate (see LiveWallpaper).
+            videoChangeFrameRateStrategy = C.VIDEO_CHANGE_FRAME_RATE_STRATEGY_OFF
             addListener(object : Player.Listener {
                 override fun onRenderedFirstFrame() {
                     rendered = true
@@ -94,6 +97,22 @@ fun VideoWallpaper(
 
                 override fun onIsPlayingChanged(isPlaying: Boolean) {
                     showing = isPlaying && rendered
+                }
+
+                // Playing them in turn where the glass cannot be read off the video: the picture under
+                // it stayed the first film's, and so did the glass of the plate and Control Center
+                // through every film after it (TCL MT9655, issue #1158). Each film's poster now.
+                override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+                    val id = mediaItem?.mediaId ?: return
+                    if (copyGlassPossible || reason == Player.MEDIA_ITEM_TRANSITION_REASON_PLAYLIST_CHANGED) return
+                    scope.launch {
+                        val poster = withContext(Dispatchers.IO) { Wallpapers.videoPoster(id, Wallpapers.screenW, Wallpapers.screenH) } ?: return@launch
+                        Wallpapers.useLiveFrame(poster, id, 0L)
+                        // And the plate's glass while it moves, made once from the first film's picture
+                        // (sampleGlass): it kept that film's colours until Control Center was opened
+                        // (issue #1158 on 1.81, the reporter on MT9655).
+                        Wallpapers.useStillFilmFrost()
+                    }
                 }
 
                 override fun onPlayerError(error: PlaybackException) {
@@ -125,7 +144,6 @@ fun VideoWallpaper(
     }
 
     // Let go as Aerial stops, not at the next frame, which does not come then (rememberStops).
-    val scope = rememberCoroutineScope()
     val stops = rememberStops {
         if (player == null) return@rememberStops false
         DiagLog.i("video wallpaper lets go as Aerial stops")
@@ -157,8 +175,17 @@ fun VideoWallpaper(
                 val at = p.currentPosition
                 val w = surface?.width?.takeIf { it > 0 } ?: Wallpapers.screenW
                 val h = surface?.height?.takeIf { it > 0 } ?: Wallpapers.screenH
+                // Neither on TCL MT9655 at times: then the film's own poster, so the picture and its
+                // glass are at least the film that played, not the one shown before (issue #1158).
+                // Not from the file where reading frames jams the media server (TCL's extractor): on
+                // TCL MT5879 every stop read one, and the decoders failed to start or failed
+                // mid-film after it, each time a stop came before (issue #1188, Aerial's own log).
                 val frame = surface?.let { copyFrame(it) }
-                    ?: film?.let { id -> withContext(Dispatchers.IO) { fileFrame(context, id, at, w, h) } }
+                    ?: film?.let { id ->
+                        withContext(Dispatchers.IO) {
+                            (if (fileFramesJam(context)) null else fileFrame(context, id, at, w, h)) ?: Wallpapers.videoPoster(id, w, h)
+                        }
+                    }
                 if (frame != null && film != null) Wallpapers.useLiveFrame(frame, film, at)
                 cover.animateTo(0f, tween(if (frame != null) 320 else 600, easing = Motion.EaseOut))
             }

@@ -126,6 +126,11 @@ Run these in PowerShell, with the adb from step 1. Everything inside `adb shell 
    Android 6 and 7 have no `cmd` (the `allow_listener` line prints `cmd: not found`): run `adb shell settings get secure enabled_notification_listeners` first. If it prints `null` or nothing, run `adb shell settings put secure enabled_notification_listeners app.orchard.tv/app.orchard.tv.guard.RevivalListener`; otherwise append `:app.orchard.tv/app.orchard.tv.guard.RevivalListener` to the value and `settings put` that, keeping what was there. Firmwares that force-stop apps in the background, LeTV's among them, rely on it to bring Aerial back (issue #1127).
    The last four app ops exist only on TCL and FFALCON (each firmware knows two of them); elsewhere they fail, which is fine.
    `ACCESS_RESTRICTED_SETTINGS` exists from Android 13 only: there an app installed from a file may not switch its accessibility service on, and Home Guard kept going off (#811 #829).
+   TCL and FFALCON (`com.tcl.ttvs` installed, or `adb shell settings get system boot_app_componentname` already has a value): tell the user the current values of `boot_app_mode` and `boot_app_componentname` and note them, then run the two lines below. Aerial is then the first screen after power-on, with no TCL launcher first (#1185). If `boot_app_mode` already has a value, run the second line only:
+   ```
+   adb shell settings put system boot_app_mode boot_launcher
+   adb shell settings put system boot_app_componentname app.orchard.tv/.MainActivity
+   ```
 
    Start Aerial once, wait 5 seconds, then compile it (takes up to a minute and makes Aerial run smoothly on the TV; on some TVs the compile only works after Aerial has started once):
    ```
@@ -274,6 +279,7 @@ adb shell appops set app.orchard.tv ACCESS_RESTRICTED_SETTINGS default
 adb shell am force-stop app.orchard.tv
 adb shell cmd role remove-role-holder --user 0 android.app.role.HOME app.orchard.tv
 ```
+On TCL and FFALCON where the power-on app was changed, put back the values noted (`''` for an empty one): `adb shell settings put system boot_app_componentname <old value>`, and `boot_app_mode` the same way.
 
 On Android 6 and 7 without `cmd`, replace the `disallow_listener` line: `settings get secure enabled_notification_listeners`, take `app.orchard.tv/app.orchard.tv.guard.RevivalListener` (and the `:` before it) out of the value and `settings put` the rest; if it was the only one, `adb shell settings delete secure enabled_notification_listeners`.
 

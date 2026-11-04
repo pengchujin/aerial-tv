@@ -31,8 +31,15 @@ internal object GamepadDevices {
         supportsGamepad: Boolean,
         vendorId: Int,
         productId: Int,
+        alphabetic: Boolean = false,
     ): Boolean {
         if (isVirtual || name.orEmpty().contains("virtual", ignoreCase = true) || !supportsGamepad) return false
+        // A full keyboard is not a gamepad, whatever buttons it also declares. TCL's input stand-ins
+        // for its phone remote, "sim-kb" and "sim-mouse", are alphabetic keyboards with gamepad
+        // buttons, there with nothing plugged in; counted as gamepads, they stopped the filter in
+        // other apps and Home there showed the TCL launcher for Android's 5 s hold (tcl_m7642,
+        // Android 9, issue #1234: the reporter's dumpsys input, 4.9 s in 1.63-1.82, instant in 1.62).
+        if (alphabetic) return false
 
         // MiTV-AZFP0 (Android 9) reports these software eventserver endpoints as gamepads.
         if (name == AZFP0_EVENTSERVER_NAME &&

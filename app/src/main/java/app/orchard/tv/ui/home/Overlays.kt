@@ -114,7 +114,7 @@ fun MenuRow(
         Row(
             Modifier
                 .fillMaxWidth()
-                .smoothBackground(bg, 12.dp)
+                .smoothBackground({ bg }, 12.dp)
                 .height(44.dp)
                 .padding(horizontal = 14.dp),
             verticalAlignment = Alignment.CenterVertically,

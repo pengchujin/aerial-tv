@@ -114,6 +114,11 @@ object SystemIntents {
         if (runCatching { pm.getActivityInfo(letv, 0) }.getOrNull()?.exported == true &&
             runCatching { context.startActivity(Intent(Intent.ACTION_MAIN).setComponent(letv).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }.isSuccess
         ) return true
+        // Sharp's Foxconn-built MStar source panel (CVTM648, Android 6, the full app's issue #1048).
+        val sharp = ComponentName("com.mstar.tvsetting", "com.foxconn.etvg.inputsource.FxcInputSourceActitvity")
+        if (runCatching { pm.getActivityInfo(sharp, 0) }.getOrNull()?.exported == true &&
+            runCatching { context.startActivity(Intent(Intent.ACTION_MAIN).setComponent(sharp).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }.isSuccess
+        ) return true
         return false
     }
 

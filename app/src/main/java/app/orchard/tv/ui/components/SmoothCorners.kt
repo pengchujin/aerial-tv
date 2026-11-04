@@ -96,6 +96,20 @@ fun Modifier.smoothBackground(color: Color, radius: Dp): Modifier = drawWithCach
     onDrawBehind { if (mask != null) drawImage(mask, dstSize = IntSize(w, h), colorFilter = tint) }
 }
 
+/**
+ * [smoothBackground] for a color that animates (a focus fill): the color is read while drawing, so
+ * each frame of its fade only draws again, without recomposing the control or remaking the cache.
+ */
+fun Modifier.smoothBackground(color: () -> Color, radius: Dp): Modifier = drawWithCache {
+    val w = size.width.roundToInt()
+    val h = size.height.roundToInt()
+    val mask = if (w > 0 && h > 0) smoothMask(w, h, radius.toPx()).asImageBitmap() else null
+    onDrawBehind {
+        val c = color()
+        if (mask != null && c.alpha > 0f) drawImage(mask, dstSize = IntSize(w, h), colorFilter = ColorFilter.tint(c))
+    }
+}
+
 /** border with continuous corners: a baked band [width] wide inside the edge, over the content. */
 fun Modifier.smoothBorder(width: Dp, color: Color, radius: Dp): Modifier = drawWithCache {
     val w = size.width.roundToInt()

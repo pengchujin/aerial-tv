@@ -18,6 +18,7 @@ import app.orchard.tv.BuildConfig
 import app.orchard.tv.guard.GuardSetup
 import app.orchard.tv.settings.AerialSettings
 import app.orchard.tv.system.DiagLog
+import app.orchard.tv.ui.home.fileFramesJam
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -310,6 +311,10 @@ object Wallpapers {
     /** A film's own picture for its card, kept beside it, so it goes when the film is deleted. */
     private fun posterOf(film: ScreensaverVideo) = File(film.file.parentFile, "poster.jpg")
 
+    /** The poster kept for the owner's video [film], if one was; never read from the film itself. */
+    fun videoPoster(film: String, w: Int, h: Int): Bitmap? =
+        videoFilms(VIDEOS).firstOrNull { it.id == film }?.let(::posterOf)?.takeIf { it.exists() }?.let { Images.decodeCover(it, w, h) }
+
     private fun keepPoster(film: ScreensaverVideo, frame: Bitmap) {
         val poster = posterOf(film)
         if (poster.exists()) return
@@ -324,13 +329,13 @@ object Wallpapers {
      * The first film's poster, else its opening frame, kept as the poster once read. The read gave
      * nothing at times on TCL MT9655 (issue #1158, 4K films, perhaps while one played behind Home),
      * and the card then showed the first built-in picture until Aerial restarted. Not read where
-     * the media server would jam on the file ([filmGlassless], TCL MT5879).
+     * the media server would jam on the file (TCL's extractor, TCL MT5879; issue #1188).
      */
     private fun firstVideoFrame(id: String, w: Int, h: Int): Bitmap? {
         val film = videoFilms(id).firstOrNull() ?: return null
         val poster = posterOf(film)
         if (w <= POSTER_W && poster.exists()) Images.decodeCover(poster, w, h)?.let { return it }
-        if (filmGlassless) return null
+        if (filmGlassless || fileFramesJam(app)) return null
         val mmr = android.media.MediaMetadataRetriever()
         return try {
             mmr.setDataSource(film.file.path)
