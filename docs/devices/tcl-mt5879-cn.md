@@ -128,3 +128,7 @@ TCL 手机 App 有一个「把手机里的 APK 推到电视」的功能。电视
 ## 按键偶尔卡 1–2 秒再一起到（#1081，2026-11-01 在这台上复现）
 
 雷鸟鹤 6 2025（同为 tcl_mt5879_cn，安卓 11）报告：每 3–5 分钟遥控器卡一下，然后连续触发好几次。在这台上用 `hid` 造的虚拟键盘、在 Aerial 首页每 1.5 秒按一次左右键共 5 分钟（守护开着按键过滤）：100 次按下里中位延迟 4 ms，有一次 1016 ms，按下和抬起一起到。同一时刻 system_server 主线程 `Slow dispatch took 2001ms ... AlarmManager$ListenerWrapper`，是 JobScheduler 的 `*job.delay*` 闹钟，旁边有 TCL 拦 Plex 后台任务的 `forbid bind service`。按键过滤后的按键要经 system_server 主线程重新注入（`AccessibilityInputFilter`，#774 也是这条路），主线程一卡按键就积压。不是 Aerial 的代码；能做的只有不过滤按键（主页键会先显示 TCL 桌面几秒），要户主决定。
+
+## 手机遥控的虚拟输入设备（#1234，雷鸟鹤6 tcl_m7642）
+
+tcl_m7642（安卓 9）上即使什么都没接，也有 `sim-kb`（classes 0x63）和 `sim-mouse`（0x6b）两个设备，带 GAMEPAD 位（0x40）和字母键位（0x2），像是 TCL 手机遥控用的；另有 `sim-TP`（0x115，带 JOYSTICK）和名字里带 virtual 的 `TCL-virtual`。1.63–1.82 把 `sim-kb` / `sim-mouse` 算成手柄，别的 App 里不过滤按键，主页键先到 TCL 桌面、5 秒后才回 Aerial。现在字母键盘不算手柄。MT5879（本机）没有这些设备，只有 MTK 键盘、IR 接收器、`gIrTouch_Mouse` 和蓝牙遥控 `FF_RC902N_C1`（都没有 GAMEPAD 位）。
