@@ -89,6 +89,13 @@ object Brightness {
         // XGIMI: the real brightness is the DLP light-engine level; the system screen_brightness
         // setting does not follow it (issue #241).
         SystemProbe.xgimiBrightnessLevel()?.let { return it }
+        // ChangHong TVOS panel backlight (mt5520_ll, Android 5.1). Only a TV with the TVOS class
+        // enters this block: there a refused write switches the slider off, and a level it cannot
+        // read keeps the existing path below. Every other TV goes straight on as before.
+        if (ChanghongPicture.available(context)) {
+            if (ChanghongPicture.failed) return null
+            ChanghongPicture.backlight(context)?.let { return it / 100f }
+        }
         val r = context.contentResolver
         if (isTcl(context)) TclPicture.backlight(context)?.let { return it / 100f }
         return when {
@@ -151,9 +158,10 @@ object Brightness {
         val percent = Math.round(current * 100)
         val next = stepPercent(percent, direction)
         val r = context.contentResolver
+        val changhong = ChanghongPicture.usable(context)
         // The same order as level(): TCL's SDK and picture_backlight come first, so a Xiaomi that
         // has both never has its panel probed or moved this way.
-        if (!isTcl(context) && !usesXiaomiBacklight(context) && MitvPanel.usable(context)) {
+        if (!changhong && !isTcl(context) && !usesXiaomiBacklight(context) && MitvPanel.usable(context)) {
             runCatching {
                 // Start the relative step from the level Aerial set last: the middleware's getter is
                 // animated, so a panel reading taken mid-step is only the seed of the first step
@@ -169,7 +177,9 @@ object Brightness {
             return next / 100f
         }
         runCatching {
-            if (isTcl(context)) {
+            if (changhong) {
+                ChanghongPicture.setBacklight(context, next)
+            } else if (isTcl(context)) {
                 TclPicture.setBacklight(context, next)
             } else if (usesXiaomiBacklight(context)) {
                 Settings.Global.putInt(r, XIAOMI_BACKLIGHT, next)
