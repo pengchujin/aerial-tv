@@ -1028,6 +1028,9 @@ class HomeGuardService : AccessibilityService() {
      */
     private var gamepadAttached = false
 
+    /** The device counted as a gamepad, for the diagnostics. */
+    private var gamepadName: String? = null
+
     /** Whether an external mouse is connected (Android 10+, where isExternal is public); see updateKeyFilter. */
     private var mouseAttached = false
 
@@ -1053,19 +1056,21 @@ class HomeGuardService : AccessibilityService() {
                 } == true
             }
         }.getOrDefault(false)
-        gamepadAttached = runCatching {
-            InputDevice.getDeviceIds().any { id ->
-                InputDevice.getDevice(id)?.let {
+        gamepadName = runCatching {
+            InputDevice.getDeviceIds().asSequence().mapNotNull { id ->
+                InputDevice.getDevice(id)?.takeIf {
                     GamepadDevices.isPhysicalGamepad(
                         name = it.name,
                         isVirtual = it.isVirtual,
                         supportsGamepad = it.supportsSource(InputDevice.SOURCE_GAMEPAD),
                         vendorId = it.vendorId,
                         productId = it.productId,
+                        alphabetic = it.keyboardType == InputDevice.KEYBOARD_TYPE_ALPHABETIC,
                     )
-                } == true
-            }
-        }.getOrDefault(false)
+                }?.let { it.name.orEmpty().ifEmpty { "(no name)" } }
+            }.firstOrNull()
+        }.getOrNull()
+        gamepadAttached = gamepadName != null
         updateKeyFilter()
         val filtering = ((serviceInfo?.flags ?: 0) and AccessibilityServiceInfo.FLAG_REQUEST_FILTER_KEY_EVENTS) != 0
         if (mouseAttached && !hadMouse && filtering) noteMouseWithFilter(this)
@@ -2081,7 +2086,7 @@ class HomeGuardService : AccessibilityService() {
             val s = instance ?: return "Home Guard bound=false resumed=$aerialResumed"
             val flag = AccessibilityServiceInfo.FLAG_REQUEST_FILTER_KEY_EVENTS
             return "Home Guard bound=true resumed=$aerialResumed filter=${s.serviceInfo?.flags?.and(flag) != 0} " +
-                "screenOff=${s.screenOff} gamepad=${s.gamepadAttached} mouse=${s.mouseAttached} mouseDowned=${mouseDownedSystem(s)} volumeLiftUnseen=${volumeLiftUnseen(s)} stockAllowed=${SystemClock.uptimeMillis() < allowStockUntil} " +
+                "screenOff=${s.screenOff} gamepad=${s.gamepadName?.let { "'$it'" } ?: false} mouse=${s.mouseAttached} mouseDowned=${mouseDownedSystem(s)} volumeLiftUnseen=${volumeLiftUnseen(s)} stockAllowed=${SystemClock.uptimeMillis() < allowStockUntil} " +
                 "front=${s.lastWindow} windowEvents=${s.windowsSeen} resolved=${s.resolvedHome()} homes=${s.stockHomes}"
         }
 
