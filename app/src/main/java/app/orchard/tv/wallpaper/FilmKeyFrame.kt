@@ -15,7 +15,7 @@ import androidx.media3.common.MimeTypes
 import androidx.media3.common.util.ParsableByteArray
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DataSpec
-import androidx.media3.datasource.cache.CacheDataSource
+import androidx.media3.datasource.DataSource
 import androidx.media3.extractor.DefaultExtractorInput
 import androidx.media3.extractor.DiscardingTrackOutput
 import androidx.media3.extractor.Extractor
@@ -42,7 +42,7 @@ internal object FilmKeyFrame {
      * The key frame of [uri] nearest [atMs] at [w]×[h], read through [source] under cache [key].
      * Blocking; throws on failure, and on interrupt between steps.
      */
-    fun decode(source: CacheDataSource.Factory, uri: Uri, key: String, atMs: Long, w: Int, h: Int): Frame {
+    fun decode(source: DataSource.Factory, uri: Uri, key: String, atMs: Long, w: Int, h: Int): Frame {
         val started = SystemClock.elapsedRealtime()
         val kept = index?.takeIf { it.uri == uri && it.key == key }
         val sample = readKeySample(source, uri, key, atMs * 1000)
@@ -119,7 +119,7 @@ internal object FilmKeyFrame {
      * The film's index (at the end of Apple's files), then the key frame nearest [atUs]. The same
      * reads as ExoPlayer's: through the cache, so a film played from disk is read from disk.
      */
-    private fun readKeySample(factory: CacheDataSource.Factory, uri: Uri, key: String, atUs: Long): Sample {
+    private fun readKeySample(factory: DataSource.Factory, uri: Uri, key: String, atUs: Long): Sample {
         index?.takeIf { it.uri == uri && it.key == key }?.let { kept ->
             return runCatching { readFrom(factory, kept, atUs) }.getOrElse { e ->
                 // A kept index that no longer reads (the extractor in an odd state): read afresh.
@@ -172,7 +172,7 @@ internal object FilmKeyFrame {
     }
 
     /** With the index read: the key frame nearest [atUs], which may be anywhere in the file. */
-    private fun readFrom(factory: CacheDataSource.Factory, kept: Index, atUs: Long): Sample {
+    private fun readFrom(factory: DataSource.Factory, kept: Index, atUs: Long): Sample {
         val map = kept.map
         val points = map.getSeekPoints(atUs.coerceIn(0, maxOf(0, map.durationUs - 1)))
         val point = if (atUs - points.first.timeUs <= points.second.timeUs - atUs) points.first else points.second

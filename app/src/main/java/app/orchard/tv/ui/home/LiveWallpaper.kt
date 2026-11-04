@@ -689,7 +689,7 @@ private var copyLostColour = false
  * Waits until no key has come for [KEEP_STOPPED_MS] ([lastInputAt], uptimeMillis), true, or until
  * [showing] turns false first (an app or a frosting panel over Home), false.
  */
-private suspend fun untilQuietOrLeft(showing: () -> Boolean, lastInputAt: () -> Long): Boolean = kotlinx.coroutines.coroutineScope {
+internal suspend fun untilQuietOrLeft(showing: () -> Boolean, lastInputAt: () -> Long): Boolean = kotlinx.coroutines.coroutineScope {
     val left = async { snapshotFlow { showing() }.first { !it }; false }
     val quiet = async {
         while (true) {
@@ -1380,7 +1380,7 @@ private class RangedHttpSource(private val url: String) : android.media.MediaDat
  * except that red comes back in the brightest parts (Y above 180), which a test for red under 12
  * missed on bright films. Leaves and grass stay well short of 60 between green and the others.
  */
-private fun unreadable(b: Bitmap): String? {
+internal fun unreadable(b: Bitmap): String? {
     var lit = 0
     var green = 0
     var lo = 255

@@ -622,6 +622,9 @@ fun HomeScreen(
         val filmMoves = vm.filmFront && overlay == Overlay.None && !vm.screensaverVisible && !pastShelf &&
             !inGrid && moving == null
         val sourceInput = Wallpapers.sourceInput
+        // Nothing over Home blurs it: a paused film stays (why: at LiveWallpaper below).
+        val filmStandsIn = overlay == Overlay.None || overlay is Overlay.ControlCenter || overlay is Overlay.Wallpaper ||
+            (overlay is Overlay.AppMenu && overlay.inFolder == null)
         when {
             Wallpapers.selectedId == Wallpapers.LIVE -> LiveWallpaper(
                 moving = filmMoves,
@@ -633,8 +636,7 @@ fun HomeScreen(
                 // there, the background jumped (another plane and processing; a key frame a second
                 // off where the exact frame did not decode, Xiaomi MiTV-MFTR0 and TCL MT5879); the
                 // menu flashed so as it opened (the owner, MFTR0). In a folder Home is frosted.
-                standIn = overlay == Overlay.None || overlay is Overlay.ControlCenter || overlay is Overlay.Wallpaper ||
-                    (overlay is Overlay.AppMenu && overlay.inFolder == null),
+                standIn = filmStandsIn,
                 panel = overlay != Overlay.None,
                 otherFormatSaver = vm.screensaverVisible && !filmSaver && Wallpapers.screensaver == ScreensaverMode.Aerial &&
                     !AerialFormats.screensaverCarriesWallpaper(appContext),
@@ -646,6 +648,7 @@ fun HomeScreen(
                 VideoWallpaper(
                     moving = filmMoves,
                     keep = vm.filmFront && !vm.screensaverVisible,
+                    standIn = filmStandsIn,
                     lastInputAt = vm.lastInputAt,
                     cover = filmCover,
                 )

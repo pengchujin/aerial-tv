@@ -273,6 +273,23 @@ object AerialStream {
             }
         }
 
+    /**
+     * The key frame of the owner's video [file] nearest [atMs], at [w]×[h], read and decoded in this
+     * process like [keyFrame]: off the hardware decoder the paused wallpaper player still holds,
+     * which the media server's retriever needed too (Hisense VIDAA_TV MTK9652, issue #1251).
+     */
+    internal suspend fun keyFrameOfFile(file: java.io.File, key: String, atMs: Long, w: Int, h: Int): FilmKeyFrame.Frame =
+        runInterruptible(keyFrames) {
+            val tid = android.os.Process.myTid()
+            val before = android.os.Process.getThreadPriority(tid)
+            android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_BACKGROUND)
+            try {
+                FilmKeyFrame.decode(androidx.media3.datasource.FileDataSource.Factory(), android.net.Uri.fromFile(file), "video:$key", atMs, w, h)
+            } finally {
+                android.os.Process.setThreadPriority(before)
+            }
+        }
+
     private val keyFrames = Dispatchers.IO.limitedParallelism(1)
 
     /** The film's index, as the player reads it: the boxes at the start, then the index at the end. */
