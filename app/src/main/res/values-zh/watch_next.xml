@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="watch_next_title">继续观看</string>
+    <string name="watch_next_source">显示继续观看</string>
+    <string name="watch_next_play">继续播放</string>
+    <string name="watch_next_untitled">未命名节目</string>
+    <string name="watch_next_season">第 %1$s 季</string>
+    <string name="watch_next_episode">第 %1$s 集</string>
+    <string name="watch_next_on">开启</string>
+    <string name="watch_next_off">关闭</string>
+    <string name="watch_next_unsupported">此电视不支持继续观看。</string>
+    <string name="watch_next_permission">请在系统权限中允许 Aerial 读取公开电视节目。</string>
+    <string name="watch_next_disabled">继续观看已关闭，来源偏好已保留。</string>
+    <string name="watch_next_loading">正在读取节目…</string>
+    <string name="watch_next_empty">已开启的来源暂无可显示节目。</string>
+    <string name="watch_next_ready">已开启 App 的节目将汇总显示在首页。</string>
+    <string name="watch_next_failed">暂时无法读取节目，返回首页时会重试。</string>
+    <string name="watch_next_remaining">剩余 %1$d 分钟</string>
+    <string name="watch_next_watched">上次观看：%1$s</string>
+    <string name="watch_next_previous">上一集观看：%1$s</string>
+    <string name="watch_next_published">发布时间：%1$s</string>
+    <string name="watch_next_added">加入待看：%1$s</string>
+    <string name="watch_next_related">相关时间：%1$s</string>
+    <string name="watch_next_movie">电影</string>
+    <string name="watch_next_episode_type">剧集</string>
+    <string name="watch_next_rating">评分 %1$s</string>
+    <string-array name="watch_next_genres">
+        <item>自然</item>
+        <item>艺术</item>
+        <item>喜剧</item>
+        <item>剧情</item>
+        <item>教育</item>
+        <item>娱乐</item>
+        <item>亲子</item>
+        <item>游戏</item>
+        <item>生活</item>
+        <item>电影</item>
+        <item>音乐</item>
+        <item>新闻</item>
+        <item>首播</item>
+        <item>购物</item>
+        <item>体育</item>
+        <item>科技</item>
+        <item>旅行</item>
+    </string-array>
+</resources>

@@ -126,6 +126,9 @@ fun WallpaperSheet(
     onSettled: (Boolean) -> Unit = {},
     /** Draw the closed sheet once, nearly clear, so that its first opening is not its first draw (HomeScreen). */
     warm: Boolean = false,
+    watchNextEnabled: Boolean? = null,
+    watchNextStatus: Int? = null,
+    onWatchNext: (Boolean) -> Unit = {},
 ) {
     val context = LocalContext.current
     var phoneUrl by remember { mutableStateOf<String?>(null) }
@@ -193,6 +196,11 @@ fun WallpaperSheet(
                 Spacer(Modifier.height(6.dp))
                 SectionTitle(R.string.st_home_layout)
                 // What is on Home and where; then the clock; then how the remote feels.
+                if (watchNextEnabled != null) Group { note ->
+                    Choices(R.string.watch_next_title, watchNextStatus?.let { stringResource(it) }, note,
+                        listOf(false to R.string.watch_next_off, true to R.string.watch_next_on),
+                        watchNextEnabled, onWatchNext, first = true)
+                }
                 Group { note ->
                     Choices(
                         R.string.st_layout, stringResource(R.string.st_home_layout_hint), note,

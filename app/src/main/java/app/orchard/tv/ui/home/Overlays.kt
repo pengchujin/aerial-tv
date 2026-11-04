@@ -4,6 +4,8 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
@@ -42,6 +44,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.ImageBitmap
@@ -54,6 +58,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.toggleableState
+import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.IntOffset
@@ -76,6 +85,7 @@ import app.orchard.tv.ui.components.smoothCut
 import app.orchard.tv.ui.theme.Glyph
 import app.orchard.tv.ui.theme.GlyphIcon
 import app.orchard.tv.ui.theme.Motion
+import app.orchard.tv.ui.theme.LocalReducedMotion
 import app.orchard.tv.ui.theme.Palette
 import app.orchard.tv.ui.theme.Type
 import kotlinx.coroutines.Dispatchers
@@ -101,8 +111,13 @@ fun MenuRow(
     focusRequester: FocusRequester? = null,
     destructive: Boolean = false,
     trailing: String? = null,
+    checked: Boolean? = null,
 ) {
-    Pressable(onClick = onClick, focusRequester = focusRequester, focusedScale = 1.03f, modifier = modifier.fillMaxWidth()) { state ->
+    val rowModifier = if (checked == null) modifier else modifier.semantics {
+        role = Role.Switch
+        toggleableState = ToggleableState(checked)
+    }
+    Pressable(onClick = onClick, focusRequester = focusRequester, focusedScale = 1.03f, modifier = rowModifier.fillMaxWidth()) { state ->
         val bg by animateColorAsState(
             if (state.focused) Palette.Focus else Color.Transparent, tween(140, easing = Motion.EaseOut), label = "row-bg",
         )
@@ -122,7 +137,26 @@ fun MenuRow(
         ) {
             GlyphIcon(glyph, fg, 18.dp)
             BasicText(text, style = Type.Body.copy(color = fg), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-            if (trailing != null) {
+            if (checked != null) {
+                val reduced = LocalReducedMotion.current
+                val position by animateFloatAsState(
+                    if (checked) 1f else 0f,
+                    if (reduced) tween(0) else spring(dampingRatio = 1f, stiffness = 520f),
+                    label = "menu-switch",
+                )
+                Canvas(Modifier.size(36.dp, 22.dp)) {
+                    val radius = size.height / 2f
+                    drawRoundRect(
+                        color = if (checked) Palette.Green else if (state.focused) Palette.OnFocus.copy(alpha = 0.3f) else Palette.FillStrong,
+                        cornerRadius = CornerRadius(radius, radius),
+                    )
+                    drawCircle(
+                        color = Palette.Label,
+                        radius = radius - 2.dp.toPx(),
+                        center = Offset(radius + (size.width - size.height) * position, radius),
+                    )
+                }
+            } else if (trailing != null) {
                 BasicText(
                     trailing,
                     style = Type.Callout.copy(color = if (state.focused) Palette.OnFocus.copy(alpha = 0.6f) else Palette.SecondaryLabel),
@@ -165,6 +199,8 @@ fun AppMenu(
     onRenameFolder: (String, String) -> Unit,
     onUngroup: (String) -> Unit,
     onDismiss: () -> Unit,
+    watchNextEnabled: Boolean? = null,
+    onWatchNext: (String) -> Unit = {},
 ) {
     val visible = app != null
     val shownApp = rememberLatest(app) ?: return
@@ -173,7 +209,7 @@ fun AppMenu(
     val density = LocalDensity.current
     val screenH = LocalWindowInfo.current.containerSize.height.toFloat()
     // Open below the tile when there is room for the whole menu, otherwise above it.
-    val below = shownAnchor.bottom + with(density) { 296.dp.toPx() } <= screenH
+    val below = shownAnchor.bottom + with(density) { (if (watchNextEnabled != null) 340.dp else 296.dp).toPx() } <= screenH
     // The menu grows out of the tile's middle. A fixed point on the menu missed it once the menu
     // was held inside the screen (the last column) or sat wider than the tile.
     val screenW = LocalWindowInfo.current.containerSize.width.toFloat()
@@ -204,9 +240,12 @@ fun AppMenu(
             // A tap beside the menu closes it, as Back does.
             .then(if (visible) Modifier.dismissOnTap(onDismiss) else Modifier)
             .layout { measurable, constraints ->
-                val p = measurable.measure(Constraints())
+                val p = measurable.measure(Constraints(maxHeight = (constraints.maxHeight - 48.dp.roundToPx()).coerceAtLeast(0)))
                 val gap = 18.dp.roundToPx()
-                val y = if (below) shownAnchor.bottom + gap else shownAnchor.top - gap - p.height
+                val fitsBelow = if (watchNextEnabled != null)
+                    shownAnchor.bottom + gap + p.height <= constraints.maxHeight - 24.dp.toPx() else below
+                val y = (if (fitsBelow) shownAnchor.bottom + gap else shownAnchor.top - gap - p.height)
+                    .coerceAtMost((constraints.maxHeight - p.height - 24.dp.toPx()).coerceAtLeast(24.dp.toPx()))
                 val x = shownAnchor.left.coerceIn(24.dp.toPx(), constraints.maxWidth - p.width - 24.dp.toPx())
                 layout(constraints.maxWidth, constraints.maxHeight) { p.place(x.roundToInt(), y.roundToInt().coerceAtLeast(24.dp.roundToPx())) }
             },
@@ -221,6 +260,7 @@ fun AppMenu(
                     .width(MenuWidth)
                     .consumeTaps()
                     .liquidGlass(20.dp)
+                    .verticalScroll(rememberScrollState())
                     .padding(8.dp),
             ) {
                 val title = when (page) {
@@ -260,6 +300,10 @@ fun AppMenu(
                                 if (customIcon) {
                                     MenuRow(Glyph.Photo, stringResource(R.string.menu_reset_icon), { onResetIcon(shownApp.key) })
                                 }
+                                if (watchNextEnabled != null && shownApp.shortcut == null) MenuRow(
+                                    Glyph.Play, stringResource(R.string.watch_next_source), { onWatchNext(shownApp.packageName) },
+                                    checked = watchNextEnabled,
+                                )
                                 if (shownApp.shortcut == null) MenuRow(Glyph.Info, stringResource(R.string.menu_info), { onInfo(shownApp.key) })
                             }
                             // What the TV starts on, for homes that switch it on to watch television.

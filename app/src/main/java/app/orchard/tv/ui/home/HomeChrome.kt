@@ -249,6 +249,9 @@ fun HomeBackground(
     glassAwaitsStop: Boolean = false,
     /** The grid's own glass, where it is not the picture's ([frosted]): the aerial film's (Wallpapers.clipGlass). */
     gridGlass: ImageBitmap? = null,
+    /** Optional host transition; the default keeps the original wallpaper dissolve. */
+    pictureTransition: (@Composable (ImageBitmap?, @Composable (ImageBitmap?) -> Unit) -> Unit)? = null,
+    glassless: Boolean = Wallpapers.filmGlassless,
 ) {
     val shade = remember { Images.homeShade.asImageBitmap() }
     Box(Modifier.fillMaxSize()) {
@@ -260,7 +263,7 @@ fun HomeBackground(
             drawImage(shade, dstSize = IntSize(size.width.roundToInt(), size.height.roundToInt()), filterQuality = FilterQuality.Low, alpha = stopped)
         }
         Box(Modifier.fillMaxSize().diagLayer("picture")) {
-            Pictures(backdrop, gridGlass ?: frosted, filmGlass.takeIf { glassAwaitsStop }, wallpaper, scroll, collapse, cover, filmStopped, toSaver)
+            Pictures(backdrop, gridGlass ?: frosted, filmGlass.takeIf { glassAwaitsStop }, wallpaper, scroll, collapse, cover, filmStopped, toSaver, pictureTransition)
         }
         if (saverImage != null) Canvas(Modifier.fillMaxSize()) {
             val a = saverReveal()
@@ -269,7 +272,6 @@ fun HomeBackground(
         Box(Modifier.fillMaxSize().diagLayer("plate")) {
             // Where the film's frames cannot be had (Wallpapers.filmGlassless), the film's plate is
             // the smoke and the edge alone, see-through, over the film moving or stopped.
-            val glassless = Wallpapers.filmGlassless
             Plate(frosted ?: backdrop, filmGlass.takeUnless { glassless }, filmGlass != null, glassless, plate, scroll, collapse, cover, filmStopped, toSaver, lift)
         }
     }
@@ -297,6 +299,7 @@ private fun Pictures(
     cover: () -> Float,
     filmStopped: () -> Float,
     toSaver: () -> Float,
+    pictureTransition: (@Composable (ImageBitmap?, @Composable (ImageBitmap?) -> Unit) -> Unit)?,
 ) {
     // The grid's glass goes as the film carries on into the screensaver, as the apps do: the
     // screensaver over it is see-through, and the film showed frosted under it.
@@ -307,13 +310,7 @@ private fun Pictures(
         if (wallpaper == held.second) snapshotFlow { gridGlass() < 0.01f || moving() }.first { it }
         held = frosted to wallpaper
     }
-    Dissolve(
-        targetState = backdrop,
-        durationMs = 450,
-        easing = Motion.EaseOut,
-        modifier = Modifier.fillMaxSize(),
-        label = "ambient",
-    ) { bmp ->
+    val drawPicture: @Composable (ImageBitmap?) -> Unit = { bmp ->
         // In "Follow App" mode there is no frosted copy: the app's light is small and soft
         // already, so it makes the glass itself, changing with it.
         val own = remember(bmp, frosted == null) { bmp?.takeIf { frosted == null }?.let(::plateTinted) }
@@ -333,17 +330,11 @@ private fun Pictures(
             if (own != null && g > 0.01f) drawImage(own, dstSize = full, filterQuality = FilterQuality.Low, alpha = g)
         }
     }
+    if (pictureTransition != null) pictureTransition(backdrop, drawPicture)
+    else Dissolve(backdrop, 450, Motion.EaseOut, Modifier.fillMaxSize(), "ambient", drawPicture)
     // The glass of the chosen wallpaper: a new wallpaper fades in, a new glass of the same one is
     // put in only where it does not show.
-    AnimatedContent(
-        targetState = held,
-        contentKey = { it.second },
-        transitionSpec = {
-            (fadeIn(tween(450, easing = Motion.EaseOut)) togetherWith ExitTransition.KeepUntilTransitionsFinished).using(null)
-        },
-        modifier = Modifier.fillMaxSize(),
-        label = "glass",
-    ) { (frost, _) ->
+    val drawGlass: @Composable (ImageBitmap?) -> Unit = { frost ->
         val glass = remember(frost) { frost?.let(::plateTinted) }
         val moved = remember(filmGlass) { filmGlass?.let(::plateTinted) }
         Canvas(Modifier.fillMaxSize()) {
@@ -353,6 +344,16 @@ private fun Pictures(
             drawImage(src, dstSize = IntSize(size.width.roundToInt(), size.height.roundToInt()), filterQuality = FilterQuality.Low, alpha = g)
         }
     }
+    if (pictureTransition != null) pictureTransition(held.first, drawGlass)
+    else AnimatedContent(
+        targetState = held,
+        contentKey = { it.second },
+        transitionSpec = {
+            (fadeIn(tween(450, easing = Motion.EaseOut)) togetherWith ExitTransition.KeepUntilTransitionsFinished).using(null)
+        },
+        modifier = Modifier.fillMaxSize(),
+        label = "glass",
+    ) { (frost, _) -> drawGlass(frost) }
 }
 
 /**
