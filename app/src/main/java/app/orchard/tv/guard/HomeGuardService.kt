@@ -1529,8 +1529,10 @@ class HomeGuardService : AccessibilityService() {
             return
         }
         updateKeyFilter()
-        // Leaving the stock launcher for a real app ends the visit: Home goes to Aerial again.
-        if (allowed && pkg != packageName && isApp(pkg)) endStockVisit("$pkg in front")
+        // Leaving the stock launcher for a real app ends the visit: Home goes to Aerial again. Not
+        // while the stock launcher's own start is still on screen, where the firmware's SystemUI
+        // comes to the front for a moment and would end the visit before it began.
+        if (allowed && pkg != packageName && isApp(pkg) && !visitStillOpening()) endStockVisit("$pkg in front")
     }
 
     private var bannerView: android.view.View? = null
@@ -1812,6 +1814,8 @@ class HomeGuardService : AccessibilityService() {
         private const val HOME_LEFT_MS = 5_000L
         private const val SETTLE_MS = 1500L
         private const val BOOT_STOCK_CAP_MS = 20_000L
+        /** How long the stock launcher's own start may show the firmware's SystemUI; see visitStillOpening. */
+        private const val STOCK_OPENING_MS = 2_000L
         private const val WAKE_WINDOW_MS = 15_000L
         private val BOOT_RECHECKS_MS = listOf(30_000L, 45_000L)
         private const val COVERED_UNSEEN_MS = 3_000L
@@ -2217,6 +2221,17 @@ class HomeGuardService : AccessibilityService() {
         @Volatile
         private var allowStockUntil = 0L
 
+        /**
+         * When that allowance was set. Starting the stock launcher shows the firmware's own
+         * SystemUI over Aerial for a moment — Xiaomi's com.xiaomi.mitv.systemui has a launch intent
+         * too, so it counts as an app — and ending the visit there left PatchWall in front with no
+         * allowance, taken away at once (MiTV-ANSP0, Android 9, issue #971, the reporter's log:
+         * "opened on purpose" 19:41:54.321, "visit over (com.xiaomi.mitv.systemui in front)"
+         * .563, "bringing Aerial back" .644).
+         */
+        @Volatile
+        private var allowStockFrom = 0L
+
         private fun endStockVisit(why: String) {
             if (allowStockUntil == 0L) return
             if (SystemClock.uptimeMillis() < allowStockUntil) DiagLog.i("guard: stock launcher visit over ($why)")
@@ -2225,9 +2240,15 @@ class HomeGuardService : AccessibilityService() {
 
         /** Lets the stock launcher stay in front until Aerial is back: the viewer opened it on purpose. */
         fun allowStockLauncher() {
-            allowStockUntil = SystemClock.uptimeMillis() + 60 * 60 * 1000L
+            val now = SystemClock.uptimeMillis()
+            allowStockUntil = now + 60 * 60 * 1000L
+            allowStockFrom = now
             DiagLog.i("guard: the stock launcher opened on purpose; leaving it in front")
         }
+
+        /** The visit has not begun yet while the stock launcher's own start is still on screen. */
+        private fun visitStillOpening(): Boolean =
+            SystemClock.uptimeMillis() - allowStockFrom < STOCK_OPENING_MS
 
         /** Whether Aerial's Home is resumed; set by MainActivity, in this same process. */
         @Volatile
