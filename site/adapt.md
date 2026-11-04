@@ -61,6 +61,7 @@ adb shell am broadcast -a app.orchard.tv.CONFIG -n app.orchard.tv/.guard.ConfigR
 | `"xiaomiSources": {"6": 23}` | 小米电视：HW6 用播放器的信号源编号 23 打开（HDMI 一般在 19–32 之间） |
 | `"ignoresPictureBacklight": true` | 电视有 `picture_backlight` 设置但不跟着变（亮度条没反应的小米），改用电视自己的亮度条 |
 | `"ignoresScreenBrightness": true` | 电视没有 `picture_backlight`，系统的 `screen_brightness` 写得进去但画面不变（海信 VIDAA 等），亮度一行改为打开电视自己的图像设置 |
+| `"filterHomeAlways": true` | 固件的主页键会强停前台的 App（每按一次闪一下黑或原桌面，红米投影仪 mt5873 #684）：守护在屏幕亮着时一直拦主页键。代价：按住音量只走一格。只在户主同意这个取舍时加 |
 
 步骤：
 

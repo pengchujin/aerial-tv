@@ -63,6 +63,9 @@ class DeviceProfileTest {
         assertEquals(1500, back.bootStockMs)
         assertTrue(DeviceProfile().isEmpty)
         assertFalse(DeviceProfile(bootStockMs = 1000).isEmpty)
+        assertFalse(DeviceProfile(filterHomeAlways = true).isEmpty)
+        assertTrue(DeviceProfile.parse(JSONObject(DeviceProfile(filterHomeAlways = true).toJson().toString())).filterHomeAlways)
+        assertFalse(back.filterHomeAlways)
         assertEquals("{}", DeviceProfile().toJson().toString())
     }
 

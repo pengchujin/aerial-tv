@@ -42,10 +42,18 @@ class DeviceProfile(
      * instead of a slider that changes nothing. Nothing on the TV tells this apart.
      */
     val ignoresScreenBrightness: Boolean = false,
+    /**
+     * Home Guard filters keys whenever the screen is on, whatever is in front, and answers Home
+     * itself. For firmwares whose own Home force-stops the app in front: Redmi Projector 4
+     * (mt5873, Android 13) did so to Aerial and to any app, a 1-2 s flash each press, and with
+     * the filter on it never did, but a held volume key then moved one step only (issue #684, the
+     * reporter's local build). Which of the two is worse is the owner's call, so only by profile.
+     */
+    val filterHomeAlways: Boolean = false,
 ) {
     val isEmpty get() = hiddenHardware.isEmpty() && labels.isEmpty() && xiaomiSourceIds.isEmpty() &&
         xiaomiFallbackSourceIds.isEmpty() && !ignoresPictureBacklight && bootStockMs <= 0 &&
-        !ignoresScreenBrightness
+        !ignoresScreenBrightness && !filterHomeAlways
 
     /** The same fields `devices.json` uses, without the matching ones (models, buildMajorBelow, buildAtLeast). */
     fun toJson(): JSONObject = JSONObject().apply {
@@ -56,6 +64,7 @@ class DeviceProfile(
         if (ignoresPictureBacklight) put("ignoresPictureBacklight", true)
         if (bootStockMs > 0) put("bootStockMs", bootStockMs)
         if (ignoresScreenBrightness) put("ignoresScreenBrightness", true)
+        if (filterHomeAlways) put("filterHomeAlways", true)
     }
 
     /** Where the profile in use came from, for the diagnostics. */
@@ -137,6 +146,7 @@ class DeviceProfile(
                 ignoresPictureBacklight = o.optBoolean("ignoresPictureBacklight", false),
                 bootStockMs = o.optInt("bootStockMs", 0).coerceIn(0, 10_000),
                 ignoresScreenBrightness = o.optBoolean("ignoresScreenBrightness", false),
+                filterHomeAlways = o.optBoolean("filterHomeAlways", false),
             )
         }
 

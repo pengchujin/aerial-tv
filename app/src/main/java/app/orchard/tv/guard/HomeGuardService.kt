@@ -1021,6 +1021,8 @@ class HomeGuardService : AccessibilityService() {
         // places a press again (云视听极光 on MiTV-MFTR0, Android 14; issue #475).
         // Not on Xiaomi, which answers Home in Aerial another way: see backOnPause.
         val aerialInFront = aerialResumed && !backOnPause
+        // Asked for by this TV's profile (issue #684): on with the screen, Aerial in front or not.
+        val always = filterHomeAlways()
         // A game played with a gamepad: with the filter on, every event of the pad goes through
         // system_server's main thread and is injected again. On Xiaomi MiTV-MFTR0 (Android 11)
         // streaming with Moonlight and a pad, that thread hung in AccessibilityInputFilter's
@@ -1039,7 +1041,7 @@ class HomeGuardService : AccessibilityService() {
         // reporter's crash log; 1.75, which stopped filtering for any mouse, never did).
         val mouseHang = mouseAttached && (xiaomiInput || mouseDownedSystem(this))
         val wanted = !keysPassThrough && !screenOff && !padGame && !mouseHang &&
-            (Build.VERSION.SDK_INT <= Build.VERSION_CODES.R || aerialInFront)
+            (Build.VERSION.SDK_INT <= Build.VERSION_CODES.R || aerialInFront || always)
         val homeWanted = wanted && (!isDefaultHome() || defaultHomeNeedsHomeFilter)
         val cecWanted = !screenOff && !mouseHang && CecHome.active(this, lastWindow?.first)
         filteringForCecOnly = cecWanted && !homeWanted
@@ -1156,6 +1158,10 @@ class HomeGuardService : AccessibilityService() {
      * 1.76, which left a default Home's keys alone there, stepped once a press (issue #1113, the
      * reporter's system_server log). Known by Coocaa's system app; not tested on a C10.
      */
+    /** [DeviceProfile.filterHomeAlways]; the profile is in credential storage, so false while locked. */
+    private fun filterHomeAlways(): Boolean =
+        GuardSetup.isUserUnlocked(this) && DeviceProfile.current(this).filterHomeAlways
+
     private val defaultHomeNeedsHomeFilter by lazy {
         fun installed(name: String) = runCatching { packageManager.getPackageInfo(name, 0) }.isSuccess
         (installed("com.cvte.factory.at") && !installed("com.tianci.system")) || installed("com.yunos.tv.homeshell")
