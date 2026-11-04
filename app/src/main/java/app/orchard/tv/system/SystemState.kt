@@ -459,7 +459,10 @@ object SystemProbe {
             if (shown) return true
         }
         if (isInstalled(context, "com.tcl.settings")) {
-            // Prioritize PictureActivity directly to avoid WindowService crash on models like G06 (mt5867)
+            // TCL's picture page first where it has one: on G06 (mt5867, Android 11) SHOW_WINDOW without
+            // an EXTRA_TYPE threw in TCL's ShowWindowService, yet startService returned as if it had
+            // opened, so the page was never tried (PR #1231, checked by its author on that TV). TCL
+            // MT5879 (Android 11) has no PictureActivity and goes on to SHOW_WINDOW as before.
             val activityShown = runCatching {
                 val intent = Intent().setComponent(ComponentName("com.tcl.settings", "com.tcl.settings.PictureActivity"))
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -467,7 +470,6 @@ object SystemProbe {
             }.isSuccess
             if (activityShown) return true
 
-            // Fallback to SHOW_WINDOW service for other TCL firmwares
             val shown = runCatching {
                 context.startService(Intent("com.tcl.settings.SHOW_WINDOW").setPackage("com.tcl.settings"))
             }.getOrNull() != null
