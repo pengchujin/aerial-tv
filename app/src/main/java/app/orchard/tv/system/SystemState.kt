@@ -464,7 +464,8 @@ object SystemProbe {
             // opened, so the page was never tried (PR #1231, checked by its author on that TV). TCL
             // MT5879 (Android 11) has no PictureActivity and goes on to SHOW_WINDOW as before.
             val activityShown = runCatching {
-                val intent = Intent().setComponent(ComponentName("com.tcl.settings", "com.tcl.settings.PictureActivity"))
+                val intent = Intent(Settings.ACTION_DISPLAY_SETTINGS)
+                    .setComponent(ComponentName("com.tcl.settings", "com.tcl.settings.PictureActivity"))
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 context.startActivity(intent)
             }.isSuccess
