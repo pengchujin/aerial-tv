@@ -419,7 +419,14 @@ class HomeView(context: Context, private val host: Host) : FrameLayout(context) 
     private fun step(dir: Int) {
         if (apps.isEmpty()) return
         if (focus == PILL) {
-            if (dir == COLS) { focus = minOf(COLS - 1, apps.size - 1); showFocus(animate = true) }
+            val to = when (dir) {
+                -1 -> pillTile(apps.size, COLS, right = false) ?: return
+                1 -> pillTile(apps.size, COLS, right = true) ?: return
+                COLS -> minOf(COLS - 1, apps.size - 1)
+                else -> return
+            }
+            focus = to
+            showFocus(animate = true)
             return
         }
         // Left and right stay in the row, as on tvOS.

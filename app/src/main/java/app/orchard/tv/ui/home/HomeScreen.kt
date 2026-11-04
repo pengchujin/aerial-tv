@@ -897,6 +897,8 @@ fun HomeScreen(
                     .focusProperties {
                         val key = focusedKey
                         if (key != null && apps.indexOfFirst { it.key == key } in 0 until columns) down = requester(key)
+                        pillTile(apps.size, columns, right = false)?.let { left = requester(apps[it].key) }
+                        pillTile(apps.size, columns, right = true)?.let { right = requester(apps[it].key) }
                     }
                     .graphicsLayer {
                         alpha = 1f - (toSaver.value * 2f).coerceIn(0f, 1f)
