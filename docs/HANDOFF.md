@@ -4,6 +4,8 @@
 
 ## 现状（2026-11-05）
 
+- **未发布（1.85 之后）：合 PR #1259**（#1251 海信「我的视频」壁纸在控制中心下变黑；另一会话写的，作者账号 pengchujin，在 worktree 里 cherry-pick 为 a774586，`docs/devices/hisense-vidaa.md` 末尾和 #1274 那节的冲突两节都留）。430 个单元测试通过。小米 MFTR0 上传一段 1080p H.264 测试视频（id `083d9b71…`，户主原来没有视频；测完按 id 删掉，壁纸改回 aerial:live，画质 auto 没动），录屏逐帧量背景亮度：控制中心里上下移动，0 帧黑，日志只有 stops / starts，没有取帧；控制中心 → 电视设置 → 返回，App 内解关键帧 0.8 秒、从那一帧接着放，3 次里 1 次有 1 帧（约 66 ms）黑；同样操作装回 1.85 正式包，2 次里 1 次黑 24 帧（约 1.6 秒）。视频壁纸下进航拍屏保黑约 6 秒、唤醒黑 0.1–0.2 秒，1.85 正式包一模一样（屏保等航拍片源，不是这个 PR 的事）。小米最后装回 1.85 正式包（install-multiple + .dm）。**没在海信上验证**；解码出错重试那条路在小米上没走到。
+
 - **1.85（versionCode 116）+ Aerial Lite 1.20（22），2026-11-05 上午发布**（[v1.85](https://github.com/pengchujin/aerial-tv/releases/tag/v1.85)，tag 在 dde34b9）：下面上午巡检的全部内容。versionCode 跳过 115（TCL 上装过测试包）。三个包签名 e089…。小米 MFTR0 `install-multiple` standard + 31.dm（`speed-profile` / `install-dm`）；TCL MT5879 `APK_FILE=… KEEP_ADB=1 tools/install.sh guard`（多屏互动，截图确认焦点在「同意」再按确定），compile speed，两个 walleve 服务、屏保 AerialDream 保留。两台 `selftest.sh`：守护、主页键（小米从设置 0.4 秒，TCL 从酷控 0.2 秒）、`INPUTS=1` 信号源（8 / 7 个）通过；`hid -` 造的 USB 遥控器按主页键两台都回 Aerial（TCL `Home key taken before the system saw it`；小米在别的 App 里本来就不拦，PatchWall 一出来就被拉回）。官网已部署（先复制了 `ATV/site/diag/`）：version.txt = v1.85，notes.json 有 1.85，三个 APK md5 与 Release 一致，`/diag/aerial-710.apk` 还在。9 个 issue、3 个 PR 贴了发布链接（`local/triage/release-1.85-posts.py`）。下次发版 versionCode ≥ 117，Lite ≥ 23。
 
 - **2026-11-05 上午巡检（已随 1.85 发布）**，记录见 `local/triage/2026-11-05-full.md`（原始 `raw-2026-11-05/`，拉取脚本 `local/triage/fetch.py`、`view.py`），回复 `replies-2026-11-05.py`。357 issue / 62 PR，用户最后发言 76，定了不回的 13 个不动，逐个读了 63 个。在 worktree `.claude/worktrees/zealous-jemison-3a7183` 上做。#1251（海信视频壁纸控制中心下变黑）另有会话在 `claude/issue-1251-review-8fad63` 上改，本轮没碰。
