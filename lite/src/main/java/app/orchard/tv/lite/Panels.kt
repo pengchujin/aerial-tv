@@ -188,12 +188,21 @@ class ControlCenter(
         val inputs = RoundButton(context, Glyph.Input, context.getString(R.string.cc_inputs)).apply {
             action = {
                 if (SystemIntents.xiaomiInputs(context).isNotEmpty()) goTo(CcPage.Inputs)
+                // The TV's own input list where its remote's key shows one (SystemIntents): the
+                // panel goes away then, as it does for an app; another make's picker keeps it.
+                else if (SystemIntents.openInputsPanel(context)) close()
                 else if (!SystemIntents.openInputPicker(context)) noInputs()
             }
         }
         val netButton = RoundButton(context, netGlyph, context.getString(R.string.cc_network)).apply {
             level = netLevel
-            action = { locked { open(SystemIntents.network(context, netGlyph == Glyph.Ethernet)) } }
+            action = {
+                locked {
+                    // The TV's own network page where its remote's key shows one (SystemIntents).
+                    if (SystemIntents.openNetworkPanel(context)) close()
+                    else open(SystemIntents.network(context, netGlyph == Glyph.Ethernet))
+                }
+            }
         }
         val settings = RoundButton(context, Glyph.Gear, context.getString(R.string.cc_settings)).apply {
             action = {
