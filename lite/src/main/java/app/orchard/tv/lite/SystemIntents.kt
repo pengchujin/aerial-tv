@@ -3,6 +3,7 @@ package app.orchard.tv.lite
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.view.KeyEvent
 import android.net.Uri
 import android.os.Build
 import android.os.SystemClock
@@ -119,6 +120,17 @@ object SystemIntents {
         if (runCatching { pm.getActivityInfo(sharp, 0) }.getOrNull()?.exported == true &&
             runCatching { context.startActivity(Intent(Intent.ACTION_MAIN).setComponent(sharp).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }.isSuccess
         ) return true
+        // Older Coocaa (Skyworth 8S61, MStar, Android 4.4.2) has none of the above: on the remote's
+        // input key the system starts its launcher's HomeService with the key, which shows the
+        // input page ("HomeService onStartCommand ##, keyCode=178"; issue #1272, the reporter's
+        // logcat). The extra is read from that log and the dex, not tried from an app; last, so
+        // TVs that switch some other way are not touched.
+        val coocaaHome = ComponentName("com.tianci.movieplatform", "com.coocaa.homepage.vast.service.HomeService")
+        if (runCatching { pm.getServiceInfo(coocaaHome, 0) }.getOrNull()?.exported == true) {
+            val key = Intent("coocaa.intent.action.SOURCE_SERVICE").setComponent(coocaaHome)
+                .putExtra(Intent.EXTRA_KEY_EVENT, KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_TV_INPUT))
+            if (runCatching { context.startService(key) }.getOrNull() != null) return true
+        }
         return false
     }
 
