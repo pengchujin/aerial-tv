@@ -162,7 +162,23 @@ fun AppTile(
     nameOnPlate: Boolean = false,
 ) {
     if (app.emptySlot) {
-        Spacer(modifier.requiredSize(width, height))
+        var emptyFocused by remember { mutableStateOf(false) }
+        Canvas(
+            modifier.requiredSize(width, height)
+                .focusRequester(focusRequester)
+                .onFocusChanged {
+                    emptyFocused = it.isFocused
+                    if (it.isFocused) onFocused()
+                }
+                .focusProperties { if (rowEnd) right = FocusRequester.Cancel }
+                .focusable(enabled),
+        ) {
+            if (emptyFocused) drawRoundRect(
+                color = Color.White,
+                cornerRadius = androidx.compose.ui.geometry.CornerRadius(12.dp.toPx()),
+                style = androidx.compose.ui.graphics.drawscope.Stroke(width = 3.dp.toPx()),
+            )
+        }
         return
     }
 
