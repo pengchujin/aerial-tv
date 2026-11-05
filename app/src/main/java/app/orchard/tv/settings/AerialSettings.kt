@@ -130,6 +130,9 @@ object AerialSettings {
     /** The weather beside the clock; off for those who want the time alone (issue #472). */
     var showWeather by mutableStateOf(true); private set
 
+    /** Allows the brightness slider's extra 100+ step on supported light engines. */
+    var brightnessBoostAllowed by mutableStateOf(false); private set
+
     /**
      * The time over Aerial's aerial and photo screensavers (issue #240: TCL's firmware puts its own
      * clock over the system screensaver). The clock screensaver is the clock and keeps it.
@@ -208,6 +211,7 @@ object AerialSettings {
         chosenAllNames = prefs.getBoolean("show_all_names", false)
         wallpaperAlwaysMoves = prefs.getBoolean("wallpaper_always_moves", false)
         showWeather = prefs.getBoolean("show_weather", true)
+        brightnessBoostAllowed = prefs.getBoolean("brightness_boost_allowed", false)
         screensaverClock = prefs.getBoolean("screensaver_clock", true)
         // Before 1.28 this was on or off; on meant whichever sounds Aerial played.
         uiSounds = UiSounds.of(prefs.getString("ui_sounds_kind", null)) ?: when {
@@ -313,6 +317,11 @@ object AerialSettings {
     fun chooseShowWeather(on: Boolean) {
         showWeather = on
         app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit { putBoolean("show_weather", on) }
+    }
+
+    fun chooseBrightnessBoostAllowed(on: Boolean) {
+        brightnessBoostAllowed = on
+        app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit { putBoolean("brightness_boost_allowed", on) }
     }
 
     fun chooseScreensaverClock(on: Boolean) {
