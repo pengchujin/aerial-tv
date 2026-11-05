@@ -1065,6 +1065,13 @@ class MainActivity : ComponentActivity() {
         }
         // Xiaomi's settings tile can close at once like Control Center's button (issue #834).
         LaunchFallback.arm(if (app.packageName == "com.xiaomi.mitv.settings") SystemProbe.settingsFallbacks(this) else emptyList())
+        // Older Konka: an input tile switches like Control Center's list, the input first and then
+        // its page; started directly it showed the input last used (Konka 828, Android 5.0.1, 1.83:
+        // the list switched, the tiles did not; issue #710, the reporter's local build).
+        if (app.source != null && KonkaSources.needsSwitch(app.launchIntent())) {
+            open(app.launchIntent())
+            return
+        }
         try {
             FilmAfterInput.noteOpened(this, app.launchIntent())
             if (HisenseSources.open(this, app.launchIntent())) return
