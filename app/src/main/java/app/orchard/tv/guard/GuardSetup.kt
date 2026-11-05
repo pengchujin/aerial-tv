@@ -175,6 +175,15 @@ object GuardSetup {
         return at >= prefs.getLong(KEY_HOME_IN_FRONT_AT, -1L)
     }
 
+    /** Whether the guard saw a stock launcher's home come to the front in this boot within the last [ms]. */
+    fun stockHomeSeenWithin(context: Context, ms: Long): Boolean {
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val at = prefs.getLong(KEY_STOCK_HOME_AT, -1L)
+        val bootNow = System.currentTimeMillis() - SystemClock.elapsedRealtime()
+        if (at !in 0..SystemClock.elapsedRealtime() || kotlin.math.abs(prefs.getLong(KEY_STOCK_HOME_BOOT, 0L) - bootNow) > 2 * 60 * 1000L) return false
+        return SystemClock.elapsedRealtime() - at < ms
+    }
+
     fun wasHomeInFront(context: Context): Boolean =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_HOME_IN_FRONT, false)
 

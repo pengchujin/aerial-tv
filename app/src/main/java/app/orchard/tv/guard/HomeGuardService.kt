@@ -817,23 +817,33 @@ class HomeGuardService : AccessibilityService() {
             DiagLog.i("guard: re-enabled after being switched off, with an app in front when Aerial died; leaving it")
             return
         }
+        // Stopped right after the stock launcher came up, and started again by the system's own
+        // rebind rather than revived: Dangbei H3S (RK3566, Android 11) force-stops Aerial a second
+        // after every Home press, after the guard had already started it again from Dangbei's
+        // launcher, and binds the guard again 23 s later; nothing was taken over then, so Home
+        // stayed on Dangbei's launcher for good (1.84, issue #1276, the reporter's log and exit
+        // info). The take-over still looks at the front first.
+        val stoppedOverStock = Build.VERSION.SDK_INT >= 24 && SystemClock.elapsedRealtime() >= BOOT_WINDOW_MS &&
+            SystemClock.elapsedRealtime() - Process.getStartElapsedRealtime() < 60_000 &&
+            GuardSetup.stockHomeSinceHomeLeft(this) && GuardSetup.stockHomeSeenWithin(this, STOPPED_OVER_STOCK_MS)
         // Revived with the screen off (standby): the screen-on check takes over at wake.
         // Not gated on being the default Home: Skyworth/Coolita (8R145, Android 11) starts its own
         // launcher at boot whatever Home resolves to (issue #43). The take-over looks first, and
         // bringing Aerial back over itself changes nothing.
         if (!fastBootTakeOver && !appLeftInFront &&
-            (SystemClock.elapsedRealtime() < BOOT_WINDOW_MS || revived || diedInFront) &&
+            (SystemClock.elapsedRealtime() < BOOT_WINDOW_MS || revived || diedInFront || stoppedOverStock) &&
             getSystemService<PowerManager>()?.isInteractive == true
         ) {
             takeOverOnceSettled(
                 when {
                     revived -> "re-enabled after being switched off"
                     diedInFront -> "back after Aerial died in front"
+                    stoppedOverStock -> "back after Aerial was stopped over the stock launcher"
                     else -> "bound shortly after boot"
                 },
                 // Back from standby or a boot, not from a crash: the moment to open the input
                 // the owner wants the TV to start on.
-                woke = !diedInFront || revived,
+                woke = (!diedInFront && !stoppedOverStock) || revived,
             )
             if (SystemClock.elapsedRealtime() < BOOT_WINDOW_MS) scheduleBootRechecks()
         }
@@ -1812,6 +1822,9 @@ class HomeGuardService : AccessibilityService() {
         private const val TAG = "AerialGuard"
         private const val BRING_BACK_REQUEST = 933
         private const val BOOT_WINDOW_MS = 3 * 60 * 1000L
+
+        /** How recently the stock launcher must have come up for a new process to count as stopped over it (issue #1276). */
+        private const val STOPPED_OVER_STOCK_MS = 2 * 60 * 1000L
         private const val UNLOCK_POLL_MS = 2_000L
         private const val UNLOCK_POLL_FOR_MS = 10 * 60 * 1000L
         private const val HOME_KEY_CHECK_MS = 1500L
