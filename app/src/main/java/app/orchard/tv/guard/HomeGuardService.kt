@@ -505,7 +505,7 @@ class HomeGuardService : AccessibilityService() {
         }
         if (windowsSeen != windowsAtHome) return@Runnable
         val front = frontByUsage()
-        if (front == null || front.first !in stockHomes) {
+        if (front == null || (front.first !in stockHomes && !isFallbackHomeScreen(front.first, front.second))) {
             // Usage stats may not have the stock launcher yet: look again until the usual wait is up.
             val quiet = deafAfterHome || homeFrom in quietHomeApps(this)
             if (quiet && SystemClock.uptimeMillis() - homePressedAt < FRONT_AFTER_HOME_MS) {
@@ -1484,6 +1484,17 @@ class HomeGuardService : AccessibilityService() {
             goHome()
             return
         }
+        // A FallbackHome in front once the user is unlocked: Home went nowhere. On Formovie spiderman
+        // (Android 9, unlock heard only by polling) Home pressed in Aerial left Settings'
+        // FallbackHome on screen, and the guard, which keeps fallbacks out of stockHomes, did
+        // nothing; switching accessibility off and on brought Aerial back (issue #1213, the
+        // reporter's 1.83 log). The setup wizard's fallbacks are left alone.
+        if (isFallbackHomeScreen(pkg, cls) && !screenOff) {
+            if (SystemClock.uptimeMillis() - broughtBackAt < 1_000) return
+            DiagLog.i("guard: $pkg/$cls in front after the unlock; bringing Aerial back")
+            goHome()
+            return
+        }
         val allowed = SystemClock.uptimeMillis() < allowStockUntil
         if (pkg in stockHomes) {
             // Any of its screens, uncovered once the installer of an update from Control Center closed.
@@ -1579,6 +1590,10 @@ class HomeGuardService : AccessibilityService() {
     /** True for packages with a launcher entry, i.e. apps rather than system overlays and dialogs. */
     private fun isApp(pkg: String): Boolean =
         packageManager.getLeanbackLaunchIntentForPackage(pkg) != null || packageManager.getLaunchIntentForPackage(pkg) != null
+
+    /** Settings' FallbackHome (one of fallbackHomes, named so), not the setup wizard's; see onAccessibilityEvent. */
+    private fun isFallbackHomeScreen(pkg: String, cls: String): Boolean =
+        cls.endsWith(".FallbackHome") && (pkg to cls) in fallbackHomes && GuardSetup.isUserUnlocked(this)
 
     private fun isDefaultHome(): Boolean = resolvedHome() == packageName
 
