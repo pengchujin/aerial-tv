@@ -51,7 +51,6 @@ import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -170,19 +169,8 @@ fun AppMenu(
     val shownApp = rememberLatest(app) ?: return
     val shownAnchor = rememberLatest(anchor) ?: Rect.Zero
     val first = remember { FocusRequester() }
-    val density = LocalDensity.current
-    val screenH = LocalWindowInfo.current.containerSize.height.toFloat()
-    // Open below the tile when there is room for the whole menu, otherwise above it.
-    val below = shownAnchor.bottom + with(density) { 296.dp.toPx() } <= screenH
-    // The menu grows out of the tile's middle. A fixed point on the menu missed it once the menu
-    // was held inside the screen (the last column) or sat wider than the tile.
-    val screenW = LocalWindowInfo.current.containerSize.width.toFloat()
-    val originX = with(density) {
-        val menuW = MenuWidth.toPx()
-        val x = shownAnchor.left.coerceIn(24.dp.toPx(), (screenW - menuW - 24.dp.toPx()).coerceAtLeast(24.dp.toPx()))
-        ((shownAnchor.center.x - x) / menuW).coerceIn(0f, 1f)
-    }
-    val origin = TransformOrigin(originX, if (below) 0f else 1f)
+    var origin by remember { mutableStateOf(TransformOrigin.Center) }
+    val scroll = rememberScrollState()
     var page by remember(shownApp.key, visible) { mutableStateOf(MenuPage.Main) }
     val folder = shownApp.folder
     val holder = folders.firstOrNull { shownApp.key in it.apps }
@@ -193,6 +181,7 @@ fun AppMenu(
     BackHandler(enabled = visible) { if (page != MenuPage.Main) page = MenuPage.Main else onDismiss() }
     LaunchedEffect(visible, page) {
         if (visible) {
+            scroll.scrollTo(0)
             withFrameNanos { }
             runCatching { first.requestFocus() }
         }
@@ -204,11 +193,20 @@ fun AppMenu(
             // A tap beside the menu closes it, as Back does.
             .then(if (visible) Modifier.dismissOnTap(onDismiss) else Modifier)
             .layout { measurable, constraints ->
-                val p = measurable.measure(Constraints())
+                val margin = 24.dp.roundToPx()
+                val p = measurable.measure(Constraints(
+                    maxWidth = (constraints.maxWidth - margin * 2).coerceAtLeast(0),
+                    maxHeight = (constraints.maxHeight - margin * 2).coerceAtLeast(0),
+                ))
                 val gap = 18.dp.roundToPx()
-                val y = if (below) shownAnchor.bottom + gap else shownAnchor.top - gap - p.height
-                val x = shownAnchor.left.coerceIn(24.dp.toPx(), constraints.maxWidth - p.width - 24.dp.toPx())
-                layout(constraints.maxWidth, constraints.maxHeight) { p.place(x.roundToInt(), y.roundToInt().coerceAtLeast(24.dp.roundToPx())) }
+                // Submenus have different heights; place the measured menu inside the canvas (#1097).
+                val below = shownAnchor.bottom + gap + p.height <= constraints.maxHeight - margin
+                val y = (if (below) shownAnchor.bottom + gap else shownAnchor.top - gap - p.height)
+                    .roundToInt().coerceIn(margin, (constraints.maxHeight - margin - p.height).coerceAtLeast(margin))
+                val x = shownAnchor.left.roundToInt()
+                    .coerceIn(margin, (constraints.maxWidth - margin - p.width).coerceAtLeast(margin))
+                origin = TransformOrigin(((shownAnchor.center.x - x) / p.width.coerceAtLeast(1)).coerceIn(0f, 1f), if (below) 0f else 1f)
+                layout(constraints.maxWidth, constraints.maxHeight) { p.place(x, y) }
             },
     ) {
         AnimatedVisibility(
@@ -221,6 +219,7 @@ fun AppMenu(
                     .width(MenuWidth)
                     .consumeTaps()
                     .liquidGlass(20.dp)
+                    .verticalScroll(scroll)
                     .padding(8.dp),
             ) {
                 val title = when (page) {
@@ -288,16 +287,14 @@ fun AppMenu(
                         val source = shownApp.source
                         val current = source?.let { SourceLooks.of(it.id)?.device }
                         val choices = listOfNotNull(current) + listOf(null) + SourceDevice.entries.filter { it != current }
-                        Column(Modifier.heightIn(max = 300.dp).verticalScroll(rememberScrollState())) {
-                            choices.forEachIndexed { i, device ->
-                                MenuRow(
-                                    if (device == current) Glyph.Check else Glyph.Input,
-                                    device?.let { stringResource(it.label) } ?: (source?.label ?: ""),
-                                    { source?.let { onSourceDevice(it.id, device) } },
-                                    focusRequester = if (i == 0) first else null,
-                                    trailing = if (device == null) stringResource(R.string.menu_source_plain) else null,
-                                )
-                            }
+                        choices.forEachIndexed { i, device ->
+                            MenuRow(
+                                if (device == current) Glyph.Check else Glyph.Input,
+                                device?.let { stringResource(it.label) } ?: (source?.label ?: ""),
+                                { source?.let { onSourceDevice(it.id, device) } },
+                                focusRequester = if (i == 0) first else null,
+                                trailing = if (device == null) stringResource(R.string.menu_source_plain) else null,
+                            )
                         }
                     }
                     MenuPage.Rename -> {
