@@ -163,3 +163,7 @@ main 上（未发版）亮度行先试 `android.settings.IMAGE_SETTINGS`（非�
 
 1.71 起「网络」先开海信自己的网络页（#760 H55E9A 安卓 8 上原生 `NetworkActivity` 的子页会崩，#826 也要海信的新界面）。海信页里没有代理；#1095 的 VIDAA_TV（MT9603 / mt5873，安卓 11）上原生页 `com.android.tv.settings/.connectivity.NetworkActivity` 能打开、能设代理、不崩。按机型选哪一页属于偏好，留到功能轮次；变通办法是 `adb shell am start -n com.android.tv.settings/.connectivity.NetworkActivity`。
 
+
+## 开机直达：`persist.sys.boot.source_pkg`（#1274 #1227，未进安装脚本）
+
+VIDAA_TV（MT9655，Android 14，固件 07.02.70.202605110330）上，报告人反编译 `TileTransition` 发现 `AppSwitchManager.switchToAppForSTR` 读 `persist.sys.boot.source_pkg`，按包名启动固定应用。只设它：待机唤醒进 Aerial，冷启动仍回聚好看；和 `persist.vt.use_home_pkg` 一起设（两项原值都是空）：完整重启后 `sys.boot_completed=1` 时前台已是 Aerial，60 秒无操作后是 VIDAA 自带氛围屏保 `com.vt.ambiencelife`，按键回 Aerial。两项都只能由 ADB（shell）写，Aerial 自己写不了，固件改回后 App 补不回来（#1227 在 E7Q 上见过 `use_home_pkg` 被改回）。目前只有这一台的实测，要不要进安装脚本、限定在哪些固件上，等更多 VIDAA / MT9655 机器确认。
