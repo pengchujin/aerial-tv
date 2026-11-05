@@ -9,7 +9,7 @@
 A home screen modeled on Apple TV, with no ads and no recommendation feeds: just your apps, your wallpaper and aerial screensavers.<br>
 Made for Xiaomi, TCL, Skyworth, Sony and other TVs sold in China, and runs on boxes and projectors too. It starts at boot and survives standby.
 
-[中文](README.md) · **English**
+[中文](README.md) · **English** · [日本語](README.ja.md)
 
 <a href="https://aerial.qust.me/en/"><img alt="Website" src="https://img.shields.io/badge/Website-1f6feb?style=for-the-badge&logo=safari&logoColor=white"></a>
 <a href="https://github.com/pengchujin/aerial-tv/releases/latest"><img alt="Download APK" src="https://img.shields.io/badge/Download%20APK-34a853?style=for-the-badge&logo=android&logoColor=white"></a>
