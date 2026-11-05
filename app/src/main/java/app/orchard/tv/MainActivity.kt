@@ -187,7 +187,10 @@ class MainActivity : ComponentActivity() {
             startActivity(home.setClassName(fallback.packageName, fallback.name).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         }.isSuccess
         DiagLog.i("onCreate before the user is unlocked; ${if (started) "left to" else "could not start"} ${fallback.packageName}/${fallback.name}")
-        if (started) finish()
+        if (started) {
+            finish()
+            watchHandOver(applicationContext)
+        }
         return started
     }
 
@@ -1249,6 +1252,31 @@ class MainActivity : ComponentActivity() {
 
         /** See handOverToFirmwareFallbackHome; for this process. */
         private var handedOverAtBoot = false
+
+        /**
+         * The firmware's FallbackHome Aerial left the locked boot to may never show: on XGIMI Z6X
+         * (dragon_healthy, mt5889, Android 11, low RAM; com.android.newsettings' FallbackHome) the
+         * boot sat 23 minutes with no window at all and sys.boot_completed unset, until Aerial was
+         * started by hand; then the boot finished at once (issue #1126, the reporter's 1.82 log).
+         * If the boot has not finished [HAND_OVER_WATCH_MS] after the hand-over, Aerial shows its
+         * own locked screen after all (the hand-over is once per process). Long enough not to undo
+         * the hand-over where the boot is slow but going (Redmi Projector, issues #684 #688).
+         */
+        private fun watchHandOver(context: Context) {
+            Handler(Looper.getMainLooper()).postDelayed({
+                val booted = runCatching {
+                    Class.forName("android.os.SystemProperties").getMethod("get", String::class.java)
+                        .invoke(null, "sys.boot_completed") as String
+                }.getOrNull()
+                if (booted == "1") return@postDelayed
+                DiagLog.i("boot not finished ${HAND_OVER_WATCH_MS / 1000} s after leaving it to the firmware's FallbackHome; showing Aerial")
+                runCatching {
+                    context.startActivity(Intent(context, MainActivity::class.java).setAction(Intent.ACTION_MAIN).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                }
+            }, HAND_OVER_WATCH_MS)
+        }
+
+        private const val HAND_OVER_WATCH_MS = 90_000L
         private val AOSP_FALLBACK_HOMES = setOf("com.android.settings.FallbackHome", "com.android.tv.settings.system.FallbackHome", "com.android.tv.settings.ui.activity.FallbackHome")
 
         /**
