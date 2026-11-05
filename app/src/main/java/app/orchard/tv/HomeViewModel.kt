@@ -62,6 +62,7 @@ sealed interface Overlay {
     data class Folder(val id: String) : Overlay
     data object HiddenApps : Overlay
     data object Wallpaper : Overlay
+    data object SleepTimer : Overlay
     data class Pin(val mode: PinMode, val onDone: () -> Unit) : Overlay
     /** Setting up Kids and Elders mode (Restricted), from Personalize. */
     data object Kids : Overlay
@@ -102,6 +103,29 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
 
     var overlay by mutableStateOf<Overlay>(Overlay.None)
     var movingKey by mutableStateOf<String?>(null); private set
+    var sleepTimerMinutes by mutableStateOf<Int?>(null); private set
+    private var sleepTimerJob: Job? = null
+
+    fun setSleepTimer(minutes: Int?) {
+        sleepTimerJob?.cancel()
+        sleepTimerMinutes = minutes
+        if (minutes == null || minutes <= 0) return
+
+        sleepTimerJob = viewModelScope.launch {
+            var left = minutes
+            while (left > 0) {
+                sleepTimerMinutes = left
+                delay(60_000L)
+                left--
+            }
+            sleepTimerMinutes = null
+            val locked = app.orchard.tv.guard.HomeGuardService.lockOrSleep()
+            if (!locked) {
+                runCatching { Runtime.getRuntime().exec("input keyevent 26") }
+                runCatching { Runtime.getRuntime().exec("input keyevent 223") }
+            }
+        }
+    }
 
     var network by mutableStateOf(NetworkStatus()); private set
     var volume by mutableStateOf(VolumeStatus()); private set

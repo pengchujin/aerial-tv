@@ -307,4 +307,12 @@
     <string name="kids_blocked">「%s」不在这个模式里</string>
     <string name="kids_warn">还能看 %d 分钟</string>
     <string name="kids_warn_break">%d 分钟后休息一下</string>
+    <string name="sleep_timer_title">睡眠定时</string>
+    <string name="sleep_timer_off">关闭</string>
+    <string name="sleep_timer_15">15 分钟</string>
+    <string name="sleep_timer_30">30 分钟</string>
+    <string name="sleep_timer_60">1 小时</string>
+    <string name="sleep_timer_90">1.5 小时</string>
+    <string name="sleep_timer_120">2 小时</string>
+    <string name="sleep_timer_remaining">%1$d 分钟后关机</string>
 </resources>
