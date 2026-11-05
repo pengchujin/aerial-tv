@@ -108,6 +108,9 @@ object AerialSettings {
     /** In one-row mode, the top of the second row peeking under the first; off hides it until you go down. */
     var peekNextRow by mutableStateOf(true); private set
 
+    /** Keep hidden apps in the first row as empty slots instead of pulling later apps forward. */
+    var noFillFirstRow by mutableStateOf(false); private set
+
     /** Interface sounds (system/Sounds), as tvOS plays them on every press. */
     var uiSounds by mutableStateOf(UiSounds.Tv); private set
 
@@ -201,6 +204,7 @@ object AerialSettings {
         pinArrows = prefs.getBoolean("pin_arrows", false)
         oneRowHome = prefs.getBoolean("one_row_home", true)
         peekNextRow = prefs.getBoolean("peek_next_row", true)
+        noFillFirstRow = prefs.getBoolean("no_fill_first_row", prefs.getBoolean("hidden_slots", false))
         chosenColumns = prefs.getInt("home_columns", DEFAULT_HOME_COLUMNS).takeIf { it in HOME_COLUMNS } ?: DEFAULT_HOME_COLUMNS
         clockRight = prefs.getBoolean("clock_right", false)
         largeClock = prefs.getBoolean("large_clock", false)
@@ -278,6 +282,11 @@ object AerialSettings {
     fun choosePeekNextRow(on: Boolean) {
         peekNextRow = on
         app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit { putBoolean("peek_next_row", on) }
+    }
+
+    fun chooseNoFillFirstRow(on: Boolean) {
+        noFillFirstRow = on
+        app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit { putBoolean("no_fill_first_row", on) }
     }
 
     fun chooseUiSounds(kind: UiSounds) {

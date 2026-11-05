@@ -161,6 +161,11 @@ fun AppTile(
     /** The name sits on the glass plate, which ends just under it: it does not step down past the focus frame. */
     nameOnPlate: Boolean = false,
 ) {
+    if (app.emptySlot) {
+        Spacer(modifier.requiredSize(width, height))
+        return
+    }
+
     val reduced = LocalReducedMotion.current
     val scope = rememberCoroutineScope()
     val focusManager = LocalFocusManager.current

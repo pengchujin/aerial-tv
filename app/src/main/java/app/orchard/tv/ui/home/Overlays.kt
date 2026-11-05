@@ -150,6 +150,10 @@ fun AppMenu(
     /** The folders on Home, for Move to Folder. */
     folders: List<Folder>,
     onMove: (String) -> Unit,
+    canMoveOutOfFirstRow: Boolean,
+    onMoveOutOfFirstRow: (String) -> Unit,
+    canMoveToFirstRow: Boolean,
+    onMoveToFirstRow: (String) -> Unit,
     onHide: (String) -> Unit,
     onInfo: (String) -> Unit,
     onUninstall: (String) -> Unit,
@@ -237,6 +241,8 @@ fun AppMenu(
                     MenuPage.Main -> when {
                         folder != null -> {
                             MenuRow(Glyph.Move, stringResource(R.string.menu_move), { onMove(shownApp.key) }, focusRequester = first)
+                            if (canMoveOutOfFirstRow) MenuRow(Glyph.Move, stringResource(R.string.menu_move_out_first_row), { onMoveOutOfFirstRow(shownApp.key) })
+                            if (canMoveToFirstRow) MenuRow(Glyph.Move, stringResource(R.string.menu_move_to_first_row), { onMoveToFirstRow(shownApp.key) })
                             MenuRow(Glyph.Pencil, stringResource(R.string.menu_rename_folder), { page = MenuPage.Rename }, trailing = "›")
                             MenuRow(Glyph.Folder, stringResource(R.string.menu_ungroup), { onUngroup(folder.id) })
                         }
@@ -246,6 +252,8 @@ fun AppMenu(
                             } else {
                                 MenuRow(Glyph.Move, stringResource(R.string.menu_move), { onMove(shownApp.key) }, focusRequester = first)
                             }
+                            if (!inFolder && canMoveOutOfFirstRow) MenuRow(Glyph.Move, stringResource(R.string.menu_move_out_first_row), { onMoveOutOfFirstRow(shownApp.key) })
+                            if (!inFolder && canMoveToFirstRow) MenuRow(Glyph.Move, stringResource(R.string.menu_move_to_first_row), { onMoveToFirstRow(shownApp.key) })
                             MenuRow(Glyph.Folder, stringResource(R.string.menu_to_folder), { page = MenuPage.Folders }, trailing = "›")
                             if (shownApp.source != null) {
                                 // A pinned TV input: no app info or uninstall, and "remove" unpins it.

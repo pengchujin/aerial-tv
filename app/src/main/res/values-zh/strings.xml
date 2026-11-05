@@ -40,6 +40,8 @@
     <string name="input_av">AV</string>
 
     <string name="menu_move">移动</string>
+    <string name="menu_move_out_first_row">移出第一行</string>
+    <string name="menu_move_to_first_row">移动到第一行</string>
     <string name="menu_to_folder">移到文件夹</string>
     <string name="menu_new_folder">新建文件夹</string>
     <string name="menu_out_of_folder">移出文件夹</string>
@@ -225,6 +227,8 @@
     <string name="weather_high_low">最高 %1$d°  最低 %2$d°</string>
     <string name="st_columns">每排 App</string>
     <string name="st_columns_hint">主屏幕和文件夹里每排放几个 App。6 个一眼看到更多；4 个图标更大，离得远也看得清。</string>
+    <string name="st_hidden_slots">移出不补位</string>
+    <string name="st_hidden_slots_hint">隐藏第一排 App 或将其移出第一排后，原位置留空，后面的 App 不会顶上来。</string>
     <string name="st_peek">第二排</string>
     <string name="st_peek_show">露出一点</string>
     <string name="st_peek_hide">不露出</string>

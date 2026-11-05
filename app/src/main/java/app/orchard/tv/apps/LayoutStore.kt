@@ -11,9 +11,16 @@ data class Folder(val id: String, val name: String, val apps: List<String>) {
 }
 
 const val FOLDER_KEY_PREFIX = "folder:"
+private const val FIRST_ROW_GAP_PREFIX = "first-row-gap:"
 
 /** What Home shows: its tiles in order (apps and folders), each folder's apps, and the hidden apps. */
-class Arrangement(val home: List<AppEntry>, val folders: Map<String, List<AppEntry>>, val hidden: List<AppEntry>)
+class Arrangement(
+    val home: List<AppEntry>,
+    val folders: Map<String, List<AppEntry>>,
+    val hidden: List<AppEntry>,
+    /** Home order with optional empty slots retained in the first row. */
+    val homeSlots: List<AppEntry> = home,
+)
 
 /**
  * The user's arrangement, keyed by package name: tile order, folders and hidden apps. A folder
@@ -33,7 +40,11 @@ class LayoutStore(context: Context) {
      * for a folder from the apps in it that are installed and not hidden. A folder with none of
      * those shows no tile, but keeps its apps for when they come back.
      */
-    fun arrange(all: List<AppEntry>, folderTile: (Folder, List<AppEntry>) -> AppEntry): Arrangement {
+    fun arrange(
+        all: List<AppEntry>,
+        preserveHiddenSlots: Int = 0,
+        folderTile: (Folder, List<AppEntry>) -> AppEntry,
+    ): Arrangement {
         val byKey = all.associateBy { it.key }
         if (!initialized) {
             order = all.sortedWith(Defaults.comparator).map { it.key }
@@ -46,14 +57,53 @@ class LayoutStore(context: Context) {
         order = order + fresh
         save()
         val contents = folders.mapValues { (_, f) -> f.apps.mapNotNull(byKey::get).filter { it.key !in hidden } }
-        val home = order.mapNotNull { key ->
+        val home = mutableListOf<AppEntry>()
+        val homeSlots = mutableListOf<AppEntry>()
+        for (key in order) {
+            if (key.startsWith(FIRST_ROW_GAP_PREFIX)) {
+                if (homeSlots.size < preserveHiddenSlots) {
+                    val originalKey = key.removePrefix(FIRST_ROW_GAP_PREFIX)
+                    val movedApp = byKey[originalKey] ?: folderOf(originalKey)?.let { folder ->
+                        contents[folder.id]?.takeIf { it.isNotEmpty() }?.let { folderTile(folder, it) }
+                    }
+                    movedApp?.let { app ->
+                        homeSlots += app.copy(
+                            packageName = "hidden-slot:${homeSlots.size}",
+                            label = "",
+                            emptySlot = true,
+                        )
+                    }
+                }
+                continue
+            }
             val folder = folderOf(key)
-            if (folder != null) contents[folder.id]?.takeIf { it.isNotEmpty() }?.let { folderTile(folder, it) }
-            else byKey[key]?.takeIf { key !in hidden }
+            val tile = if (folder != null) {
+                contents[folder.id]?.takeIf { it.isNotEmpty() }?.let { folderTile(folder, it) }
+            } else {
+                byKey[key]?.takeIf { key !in hidden }
+            }
+            if (tile != null) {
+                home += tile
+                homeSlots += tile
+            } else if (homeSlots.size < preserveHiddenSlots && key in hidden) {
+                // Keep only hidden apps that originally occupied a first-row position. Later
+                // rows continue to compact normally; the blank tile has no focus or click target.
+                byKey[key]?.let { hiddenApp ->
+                    homeSlots += hiddenApp.copy(
+                        packageName = "hidden-slot:${homeSlots.size}",
+                        label = "",
+                        emptySlot = true,
+                    )
+                }
+            }
         }
         val inAnyOrder = order + folders.values.flatMap { it.apps }
-        return Arrangement(home, contents, inAnyOrder.mapNotNull(byKey::get).filter { it.key in hidden })
+        return Arrangement(home, contents, inAnyOrder.mapNotNull(byKey::get).filter { it.key in hidden }, homeSlots)
     }
+
+    /** Backwards-compatible overload for callers that do not preserve first-row gaps. */
+    fun arrange(all: List<AppEntry>, folderTile: (Folder, List<AppEntry>) -> AppEntry): Arrangement =
+        arrange(all, 0, folderTile)
 
     fun folders(): List<Folder> = order.mapNotNull(::folderOf)
 
@@ -172,15 +222,50 @@ class LayoutStore(context: Context) {
      * Moves [key] onto the slot of [target] among the visible tiles, shifting the ones in between,
      * the way tvOS reflows its grid while an app is being moved.
      */
+    /** Moves a tile to the first available first-row gap, or inserts it at the row end. */
+    fun moveToFirstRow(key: String, columns: Int, preserveGaps: Boolean) {
+        if (columns <= 0) return
+        val list = order.toMutableList()
+        val from = list.indexOf(key)
+        if (from < 0 || from < columns) return
+        list.removeAt(from)
+        val gap = if (preserveGaps) list.indices.firstOrNull {
+            it < columns && (list[it].startsWith(FIRST_ROW_GAP_PREFIX) || list[it] in hidden)
+        } else null
+        if (gap != null) {
+            val oldSlot = list[gap]
+            val hiddenKey = oldSlot.removePrefix(FIRST_ROW_GAP_PREFIX)
+            list[gap] = key
+            if (hiddenKey != key && hiddenKey !in list) list.add(hiddenKey)
+        } else list.add((columns - 1).coerceAtMost(list.size), key)
+        order = list
+        save()
+    }
+
     fun move(key: String, target: String) {
         if (key == target) return
         val list = order.toMutableList()
+        list.remove(FIRST_ROW_GAP_PREFIX + key)
         val from = list.indexOf(key)
         val to = list.indexOf(target)
         if (from < 0 || to < 0) return
         list.removeAt(from)
         val insertAt = list.indexOf(target).let { if (from < to) it + 1 else it }
         list.add(insertAt, key)
+        order = list
+        save()
+    }
+
+    /** Moves an app below the first row while retaining its old slot as a non-interactive gap. */
+    fun moveOutOfFirstRow(key: String, target: String) {
+        if (key == target) return
+        val list = order.toMutableList()
+        val from = list.indexOf(key)
+        val to = list.indexOf(target)
+        if (from < 0 || to < 0 || from >= to) return
+        list[from] = FIRST_ROW_GAP_PREFIX + key
+        val targetIndex = list.indexOf(target)
+        list.add(targetIndex + 1, key)
         order = list
         save()
     }

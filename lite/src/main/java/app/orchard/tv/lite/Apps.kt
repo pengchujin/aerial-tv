@@ -30,7 +30,15 @@ class AppEntry(
     val placeholder: Boolean = false,
     /** Set for a folder's tile; [key] is then the folder's key. */
     val folder: Folder? = null,
+    val emptySlot: Boolean = false,
 ) {
+    val packageName: String get() = key
+
+    fun copy(
+        packageName: String = this.packageName,
+        label: String = this.label,
+        emptySlot: Boolean = this.emptySlot,
+    ) = AppEntry(packageName, label, component, leanback, removable, tile, placeholder, folder, emptySlot)
     /** The same app under another name (a name typed on the phone page, AppNames). */
     fun named(name: String) = AppEntry(key, name, component, leanback, removable, tile, placeholder, folder)
 
