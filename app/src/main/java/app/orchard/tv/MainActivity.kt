@@ -88,6 +88,7 @@ import app.orchard.tv.system.NetKind
 import app.orchard.tv.system.SystemProbe
 import app.orchard.tv.system.HisenseSources
 import app.orchard.tv.system.KonkaSources
+import app.orchard.tv.system.HomeReopen
 import app.orchard.tv.system.LaunchFallback
 import app.orchard.tv.system.settingsLaunchIntent
 import app.orchard.tv.update.SelfCompile
@@ -210,6 +211,11 @@ class MainActivity : ComponentActivity() {
      * launcher opens the default Home's launcher entry at boot (Skyworth 8R734_A7HP, Android 13),
      * which made a standard task, and on that firmware a standard task kept its surface hidden: no
      * keys, an ANR, a kill, until the guard brought Aerial back as Home.
+     *
+     * Once in [HomeReopen.WINDOW_MS]: where the firmware answers every Home intent itself and starts
+     * the Home it was told by component, the reopened Aerial again has no Home category, and it
+     * reopened over and over, 606 times in 3 minutes, never showing a window (Skyworth 100K6,
+     * 100P6E, Android 13, with persist.service.model.* set to Aerial; issue #1278, the reporter's log).
      */
     private fun reopenAsHome(): Boolean {
         val started = intent ?: return false
@@ -217,6 +223,10 @@ class MainActivity : ComponentActivity() {
         if (started.hasCategory(Intent.CATEGORY_HOME) || !isTaskRoot) return false
         val again = bringBackIntent(this)
         if (!again.hasCategory(Intent.CATEGORY_HOME)) return false
+        if (!HomeReopen.mayReopen(SystemClock.elapsedRealtime())) {
+            DiagLog.i("started as ${started.categories} again right after reopening as Home; staying")
+            return false
+        }
         DiagLog.i("started as ${started.categories} in task $taskId; reopening as Home")
         return runCatching {
             startActivity(again)
