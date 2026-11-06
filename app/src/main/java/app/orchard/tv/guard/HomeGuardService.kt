@@ -913,6 +913,17 @@ class HomeGuardService : AccessibilityService() {
             !BootOpen.homeKeyWithin(this, HOME_LEFT_MS) &&
             BootOpen.openedWithin(this, BOOT_TARGET_COVER_MS)
 
+    /**
+     * A preinstalled app the firmware starts by itself after a boot, over Aerial: 蓝光影院 on Haier
+     * HRA920L (YunOS 5.1, Android 5.1) about a minute in; it declares no boot receiver and cannot be
+     * disabled (issue #1301, the reporter's agent). Only in the boot window and before any key:
+     * opened from Aerial's tile, a key comes first (filtered everywhere up to Android 11).
+     */
+    private fun firmwarePushedAtBoot(pkg: String): Boolean =
+        pkg in FIRMWARE_BOOT_APPS && SystemClock.elapsedRealtime() < BOOT_WINDOW_MS && !keySeen
+
+    private var keySeen = false
+
     private fun justUpdated(): Boolean = runCatching {
         System.currentTimeMillis() - packageManager.getPackageInfo(packageName, 0).lastUpdateTime < 2 * 60_000
     }.getOrDefault(false)
@@ -967,6 +978,7 @@ class HomeGuardService : AccessibilityService() {
         // boot and was already accepted there.
         val stockInFront = last == null || last.first in stockHomes ||
             (last.first == XGIMI_FRAMEWORK && last.second.endsWith(".resolver.ResolverActivity")) ||
+            firmwarePushedAtBoot(last.first) ||
             (coveredSilently && aerialCoveredUnseen(last))
         // Aerial is in front after a wake because the guard already brought it back when the stock
         // launcher showed, or because it survived standby; either way the input the TV starts on
@@ -1204,6 +1216,7 @@ class HomeGuardService : AccessibilityService() {
     }
 
     override fun onKeyEvent(event: KeyEvent): Boolean {
+        keySeen = true
         if (!GuardSetup.isUserUnlocked(this)) return false
         if (event.keyCode in VOLUME_KEYS) {
             return if (filteringForCecOnly || (isDefaultHome() && defaultHomeNeedsHomeFilter)) {
@@ -1527,6 +1540,11 @@ class HomeGuardService : AccessibilityService() {
         if (isFallbackHomeScreen(pkg, cls) && !screenOff) {
             if (SystemClock.uptimeMillis() - broughtBackAt < 1_000) return
             DiagLog.i("guard: $pkg/$cls in front after the unlock; bringing Aerial back")
+            goHome()
+            return
+        }
+        if (firmwarePushedAtBoot(pkg) && isActivity(pkg, cls) && !screenOff) {
+            DiagLog.i("guard: $pkg/$cls came up at boot with no key pressed; bringing Aerial back")
             goHome()
             return
         }
@@ -2106,6 +2124,8 @@ class HomeGuardService : AccessibilityService() {
                     !category.endsWith("_AT_HOME"))
 
         /** Launcher package to the screens its Home trampoline opens; see refreshStockHomes. */
+        private val FIRMWARE_BOOT_APPS = setOf("com.yunos.tv.bluray")
+
         private val HOME_SCREENS_BEHIND_TRAMPOLINES = mapOf(
             "com.stv.deskplatform" to listOf("com.stv.deskplatform.ui.activity.Launcher"),
             // Tencent 极光 boxes: Home is LauncherMainActivity, the screen shown is this one
