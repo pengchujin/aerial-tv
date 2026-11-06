@@ -31,6 +31,9 @@ jobs:
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          # Override the default "tools platform-tools": "tools" is obsolete.
+          packages: platform-tools
 
       - name: Restore release signing
         env:
