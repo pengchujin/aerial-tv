@@ -1,0 +1,138 @@
+name: Build APKs and draft release
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out the triggering commit
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Restore release signing
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        shell: python
+        run: |
+          import base64
+          import os
+          from pathlib import Path
+
+          names = (
+              'ANDROID_KEYSTORE_BASE64', 'ANDROID_STORE_PASSWORD',
+              'ANDROID_KEY_ALIAS', 'ANDROID_KEY_PASSWORD',
+          )
+          missing = [name for name in names if not os.environ.get(name)]
+          if missing:
+              raise SystemExit('Missing signing secrets: ' + ', '.join(missing))
+
+          # Escape every UTF-16 code unit for java.util.Properties.load(InputStream).
+          def property_value(value):
+              encoded = value.encode('utf-16-be')
+              return ''.join(
+                  '\\u' + encoded[i:i + 2].hex()
+                  for i in range(0, len(encoded), 2)
+              )
+
+          local = Path('local')
+          local.mkdir(exist_ok=True)
+          encoded_key = ''.join(os.environ['ANDROID_KEYSTORE_BASE64'].split())
+          (local / 'signing.keystore').write_bytes(base64.b64decode(encoded_key, validate=True))
+          properties = {'storeFile': 'signing.keystore'}
+          properties.update({
+              'storePassword': os.environ['ANDROID_STORE_PASSWORD'],
+              'keyAlias': os.environ['ANDROID_KEY_ALIAS'],
+              'keyPassword': os.environ['ANDROID_KEY_PASSWORD'],
+          })
+          (local / 'signing.properties').write_text(
+              ''.join(f'{key}={property_value(value)}\n' for key, value in properties.items()),
+              encoding='ascii',
+          )
+
+      - name: Verify and build release APKs
+        run: >-
+          bash ./gradlew --no-daemon --no-configuration-cache
+          :app:testStandardReleaseUnitTest :app:testGuardReleaseUnitTest
+          :lite:testReleaseUnitTest :lite:lintRelease
+          :app:assembleStandardRelease :app:assembleGuardRelease :lite:assembleRelease
+
+      - name: Collect APKs
+        run: |
+          mkdir -p dist
+          cp app/build/outputs/apk/standard/release/app-standard-release.apk dist/aerial-standard.apk
+          cp app/build/outputs/apk/guard/release/app-guard-release.apk dist/aerial-guard.apk
+          cp lite/build/outputs/apk/release/lite-release.apk dist/aerial-lite.apk
+
+      - name: Upload APKs
+        uses: actions/upload-artifact@v4
+        with:
+          name: aerial-apks-${{ github.run_id }}
+          overwrite: true
+          path: dist/*.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Remove signing files
+        if: always()
+        shell: python
+        run: |
+          from pathlib import Path
+          for name in ('signing.keystore', 'signing.properties'):
+              Path('local', name).unlink(missing_ok=True)
+
+  release:
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Download APKs
+        uses: actions/download-artifact@v4
+        with:
+          name: aerial-apks-${{ github.run_id }}
+          path: dist
+
+      - name: Create or update release draft
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          if gh release view "$RELEASE_TAG" --json isDraft > release.json; then
+            if ! jq -e '.isDraft == true' release.json > /dev/null; then
+              echo 'Refusing to replace APKs in a published release.' >&2
+              exit 1
+            fi
+            gh release upload "$RELEASE_TAG" dist/*.apk --clobber
+          else
+            gh release create "$RELEASE_TAG" dist/*.apk \
+              --verify-tag --draft --title "Aerial $RELEASE_TAG" --generate-notes
+          fi
