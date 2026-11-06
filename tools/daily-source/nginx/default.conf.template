@@ -1,0 +1,30 @@
+server {
+    listen 80;
+    server_name _;
+    root /usr/share/nginx/html;
+
+    location = /health {
+        # Aerial's discovery checks this body and the optional X-Aerial-Token header, so the
+        # health check must enforce the token as well; otherwise a wrong token would look valid
+        # until the daily.json request failed.
+        if ($http_x_aerial_token != "${AERIAL_TOKEN}") { return 403; }
+        default_type application/json;
+        return 200 '{"service":"aerial-daily","v":1}';
+    }
+
+    location = /daily.json {
+        if ($http_x_aerial_token != "${AERIAL_TOKEN}") { return 403; }
+        default_type application/json;
+        add_header Cache-Control "no-store";
+        try_files /daily.json =404;
+    }
+
+    location /img/ {
+        add_header Cache-Control "no-store";
+        try_files $uri =404;
+    }
+
+    location / {
+        return 404;
+    }
+}

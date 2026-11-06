@@ -1,0 +1,35 @@
+services:
+  web:
+    image: nginx:alpine
+    ports:
+      - "${AERIAL_PORT:-8899}:80"
+    volumes:
+      - ./data/web:/usr/share/nginx/html:ro
+      - ./nginx:/etc/nginx/templates:ro
+    environment:
+      AERIAL_TOKEN: ${AERIAL_TOKEN:-}
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+
+  gen:
+    build: ./gen
+    volumes:
+      - "${PHOTOS_PATH:?Set PHOTOS_PATH in .env}:/photos:ro"
+      - ./data/web:/data
+      - ./data/state:/state
+    environment:
+      TZ: ${TZ:-Asia/Shanghai}
+      GEN_HOUR: ${GEN_HOUR:-4}
+      DAYS: ${DAYS:-8}
+      UHD: ${UHD:-1}
+      PHOTOS_DIR: /photos
+      DATA_DIR: /data
+      STATE_DIR: /state
+      ALBUM_TITLE: ${ALBUM_TITLE:-Local album}
+      ALBUM_COPYRIGHT: ${ALBUM_COPYRIGHT:-From local album}
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
