@@ -1,7 +1,7 @@
 server {
     listen 80;
     server_name _;
-    root /usr/share/nginx/html;
+    root /data;
 
     location = /health {
         # Aerial's discovery checks this body and the optional X-Aerial-Token header, so the
@@ -9,6 +9,7 @@ server {
         # until the daily.json request failed.
         if ($http_x_aerial_token != "${AERIAL_TOKEN}") { return 403; }
         default_type application/json;
+        add_header Cache-Control "no-store";
         return 200 '{"service":"aerial-daily","v":1}';
     }
 

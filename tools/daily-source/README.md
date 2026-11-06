@@ -4,10 +4,12 @@
 `daily.json` 和图片，通过局域网 HTTP 提供。Aerial 默认仍用 Bing；在电视或手机设置里填上
 这个服务的地址、端口和可选 Token 后才会切换过来。
 
-服务只做两件事：
+**一个容器**同时运行：
 
 - `nginx`：提供 `/health`、`/daily.json`、`/img/*.jpg`
 - `gen`：每天 `GEN_HOUR` 点从相册选一张图，裁成 1920×1080（可选 4K），保留最近 `DAYS` 天
+
+两个进程由 supervisor 管理；HTTP API、Token 和 `daily.json` 格式与旧的双容器版本一致。
 
 ## 前置
 
@@ -25,11 +27,21 @@ mkdir -p data/web data/state
 docker compose up -d --build
 ```
 
+NAS 上如果数据已经在 `web/` 和 `state/`，在 `.env` 里写：
+
+```dotenv
+PHOTOS_PATH=/vol2/1000/Photos/Mac
+WEB_DATA_PATH=./web
+STATE_PATH=./state
+```
+
 `.env` 常用项：
 
 | 变量 | 说明 |
 |---|---|
 | `PHOTOS_PATH` | 宿主机相册目录的**绝对路径**，必填 |
+| `WEB_DATA_PATH` | 宿主机上 `daily.json` 和 `img/` 所在目录，容器内挂到 `/data` |
+| `STATE_PATH` | 宿主机上 `history.json` 所在目录，容器内挂到 `/state` |
 | `AERIAL_PORT` | 对电视提供服务的端口，默认 8899，可改 |
 | `AERIAL_TOKEN` | 可选共享密钥；留空则不校验。生成：`openssl rand -hex 16` |
 | `TZ` | 时区，默认 `Asia/Shanghai` |
@@ -42,27 +54,56 @@ docker compose up -d --build
 启动日志：
 
 ```bash
-docker compose logs -f gen
-docker compose logs -f web
+docker compose logs -f daily
 ```
 
 首次启动会回填最近 `DAYS` 天；之后每天 `GEN_HOUR` 追加当天的一张，并清理窗口外的旧图。
 
+## 从旧的双容器部署迁移
+
+旧版本有 `web` / `gen` 两个容器：
+
+```bash
+# 先备份
+cp docker-compose.yml docker-compose.yml.before-single-container
+cp .env .env.before-single-container
+
+# 更新代码和 .env 后，先构建新镜像（旧容器仍在运行）
+docker compose -p aerial-daily build
+
+# 停掉旧的两个容器，启动单容器
+docker compose -p aerial-daily down --remove-orphans
+docker compose -p aerial-daily up -d
+
+# 确认只剩一个
+docker ps --filter name=aerial
+```
+
+原来的 `web/`、`state/` 是 bind mount，迁移和重建容器都不会丢数据。
+
+回滚：
+
+```bash
+docker compose -p aerial-daily down
+cp docker-compose.yml.before-single-container docker-compose.yml
+cp .env.before-single-container .env
+docker compose -p aerial-daily up -d
+```
+
+旧镜像 `aerial-daily-gen`、`nginx:alpine` 不需要删除，回滚会重新使用。
+
 ## 验证
 
 ```bash
-# 下面以默认端口 8899 为例；改过 AERIAL_PORT 时换成对应端口
-# 有 token 时：
+# 以默认端口 8899 为例
 TOKEN=$(grep '^AERIAL_TOKEN=' .env | cut -d= -f2-)
 curl -H "X-Aerial-Token: $TOKEN" http://<主机IP>:8899/health
 curl -H "X-Aerial-Token: $TOKEN" http://<主机IP>:8899/daily.json
 curl -o /tmp/photo.jpg http://<主机IP>:8899/img/$(date +%Y%m%d).jpg
-
-# token 留空时去掉 -H 参数
 ```
 
 `/health` 应返回 `{"service":"aerial-daily","v":1}`，`daily.json` 里应有最多 `DAYS` 条
-`startdate/url/urlbase/title/copyright`。
+`startdate/url/urlbase/title/copyright`。无 Token 时应返回 403。
 
 ## 在 Aerial 里设置
 
@@ -81,18 +122,18 @@ Token 要和 `AERIAL_TOKEN` 一致；服务端留空时 App 里也留空。
 
 ## 排错
 
-- `gen` 日志出现 `no photo available`：检查 `PHOTOS_PATH`、扩展名（JPEG）和横图宽度
+- `docker compose logs -f daily` 里出现 `no photo available`：检查 `PHOTOS_PATH`、扩展名（JPEG）和横图宽度
 - App 保存失败：确认端口一致、Token 一致、电视能访问 `http://<主机IP>:<端口>/health`
 - `.local` 解析不了：改用 IP，或在路由器配置本地 DNS
 - nginx 403：Token 不一致；先用 `curl` 带 header 验证
 - 换相册/天数：改 `.env` 后 `docker compose up -d`（改生成器代码才需要 `--build`）
-- 备份：备份 `data/`、`.env`；更新镜像后 `docker compose up -d --build`
+- 备份：备份 `WEB_DATA_PATH`、`STATE_PATH` 和 `.env`
 
 ## 更新/卸载
 
 ```bash
-docker compose pull          # 更新 nginx
-docker compose up -d --build # 重建生成器
-docker compose down          # 停止（保留 data/）
-# 彻底删除：docker compose down -v --rmi local 后删 data/ 和 .env
+docker compose pull          # 更新基础镜像
+docker compose up -d --build # 重建单容器
+docker compose down          # 停止（保留数据）
+# 彻底删除：docker compose down -v --rmi local 后删数据目录和 .env
 ```
