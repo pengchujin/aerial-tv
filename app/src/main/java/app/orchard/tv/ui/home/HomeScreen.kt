@@ -705,6 +705,9 @@ fun HomeScreen(
         val sourceInput = Wallpapers.sourceInput
         val homeBackdrop = programBackground?.backdrop ?: Wallpapers.backdrop ?: ambientApp?.art?.backdrop
         val homeFrost = programBackground?.frosted ?: Wallpapers.frosted.takeIf { Wallpapers.backdrop != null }
+        // Nothing over Home blurs it: a paused film stays (why: at LiveWallpaper below).
+        val filmStandsIn = overlay == Overlay.None || overlay is Overlay.ControlCenter || overlay is Overlay.Wallpaper ||
+            (overlay is Overlay.AppMenu && overlay.inFolder == null)
         CompositionLocalProvider(LocalGlassSource provides programBackground?.let { GlassSource(it.sourceKey, it.frosted) }) {
         when {
             Wallpapers.selectedId == Wallpapers.LIVE -> LiveWallpaper(
@@ -717,8 +720,7 @@ fun HomeScreen(
                 // there, the background jumped (another plane and processing; a key frame a second
                 // off where the exact frame did not decode, Xiaomi MiTV-MFTR0 and TCL MT5879); the
                 // menu flashed so as it opened (the owner, MFTR0). In a folder Home is frosted.
-                standIn = overlay == Overlay.None || overlay is Overlay.ControlCenter || overlay is Overlay.Wallpaper ||
-                    (overlay is Overlay.AppMenu && overlay.inFolder == null),
+                standIn = filmStandsIn,
                 panel = overlay != Overlay.None,
                 otherFormatSaver = vm.screensaverVisible && !filmSaver && Wallpapers.screensaver == ScreensaverMode.Aerial &&
                     !AerialFormats.screensaverCarriesWallpaper(appContext),
@@ -730,6 +732,7 @@ fun HomeScreen(
                 VideoWallpaper(
                     moving = filmMoves,
                     keep = vm.filmFront && !vm.screensaverVisible,
+                    standIn = filmStandsIn,
                     lastInputAt = vm.lastInputAt,
                     cover = filmCover,
                 )

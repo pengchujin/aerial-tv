@@ -129,3 +129,9 @@ Aerial 1.69 standard 版，固件 `TQ1A.230205.002 / eng.www-da.20260205.170347`
 - 唤醒后固件把非 `com.coocaa.*` 的包置成停止态（`stopped=true`，报告人用两个空壳包对照），并把 Aerial 从 `enabled_accessibility_services` 里拿掉；被停止的包收不到广播、不会被绑定，Aerial 自己回不来。
 - `system boot_app_mode` 取 0 / 1 / 2 加 `boot_app_componentname` 都没让固件在唤醒后打开 Aerial；`/data/ccos/customStart` 要 root。
 - 报告人自编了改包名（`com.coocaa.aerial`）的版本：重启能进 Aerial，假待机唤醒后仍不会被打开。改包名进名单和项目原则冲突，不做。这台只能唤醒后手动打开一次 Aerial，或用 guard 版、别把 Aerial 设成默认桌面。
+
+## 7S72_G25（m7221，安卓 8，预装当贝桌面，#1297）
+
+Tianci 的 `HotKeyHandler` 按 `persist.service.homepage.*`（`com.cos.launcher/cos.launcher.Mac`）按组件开桌面，Mac 再开 `com.dangbei.tvlauncher.IndexActivity`，所以守护只认 Mac 时主页键回不来：现在 IndexActivity 也算原桌面（`HOME_SCREENS_BEHIND_TRAMPOLINES`）。报告人试过 ADB 写这组属性，当场好，但重启和待机后 root 进程 `coocaa_guard` 改回来，不是长久办法，也不进安装脚本。**没有真机验证**。
+
+8S38_Q30 / 同款（#1235）：`SkyLowMem` 只在可用内存低（level ≤ 2）且 Aerial 不在前台时强停；复活时的 `startActivity` 被固件 `sky_dialog` 判后台启动拦下，放行看调用者 uid（shell 2000 放行，App 不放行，报告人 A/B 对照）。App 这边过不了这一关。

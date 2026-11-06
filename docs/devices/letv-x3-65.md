@@ -70,3 +70,11 @@ standard/guard 版、改不改包名都一样；强杀还会清空无障碍绑�
 ## X50 Air（安卓 4.3 EUI 6.0，MStar Napoli，#1172）
 
 固件 `framework-letv.jar` 的 `DesktopManagerService.startDockOrHome` 在主页键时显式启动 `com.stv.launcher/.activity.Launcher`，不经过系统的默认桌面；停用这个包或组件后主页键直接 NPE、没有回退。报告人用 root 换掉系统桌面、装同包名的转发壳才让 Lite 接管，这和 Aerial 只装自己的原则冲突，不推荐。不改系统时，Lite 只能当普通 App 用。
+
+## 信号源直达（S50 Air，安卓 4.3，#1302）
+
+`com.stv.signalsourcemanager/.MainActivity`（导出）收 extra `extraPort`：`"HDMI 1"` / `"HDMI 2"` / `"HDMI 3"`、`"Analog TV"`、`"Digital TV"`、`"Composite"`、`"YPBPR"`、`"VGA"` 直接切；`"HDMI"`、`"Super TV"` 是切回上次用的 HDMI。报告人反编译 + 实测。Lite 的信号源磁贴留到功能轮次。
+
+## 方向键一次跳几格（X4-40，安卓 6，#115）
+
+过滤按键开着时，一次方向键跳 2–5 格，连工厂菜单和系统设置的列表也跳；`getevent` 只有一次按下，`input keyevent` 不跳。去掉过滤后主页键 0.2–0.5 秒回 Aerial，先露约 1 秒原桌面。开关：device profile `neverFilterKeys`。

@@ -123,3 +123,7 @@ TCL Q10L（MT9655，1.67-guard，2026-10-28 报告人实测）：Aerial 的 4K �
 - 屏保：`--ez own_screensaver true` 有效，否则 TCL 每次开机把屏保改回自带的。
 - 应用内更新原来被拒：`W/verifier: fetch signature info from :app.orchard.tv`，接着 `metaData is null,so return false`，`INSTALL_FAILED_VERIFICATION_FAILURE`。签名比的是当前默认桌面（Aerial 自己），能过，只差 `com.tcl.app.type = com.tcl.ui`（逻辑见 [tcl-mt5879-cn.md](tcl-mt5879-cn.md)「安装限制」）。下一版 standard 带上了它，待报告人确认更新能走通。
 
+
+## 网络调试回 `STLS`（75Q9L Pro，#1293）
+
+`STLS` 不是 TCL 私有协议，是标准 ADB 的 TLS 握手（A_STLS）：无线调试的端口要先配对才接受。这类固件没有配对码入口、USB 口只出摄像头时，电脑连不上，只能走多屏互动推 guard 版，装完没有 ADB 就开不了守护。

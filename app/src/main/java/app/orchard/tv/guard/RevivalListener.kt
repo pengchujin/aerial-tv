@@ -65,6 +65,7 @@ class RevivalListener : NotificationListenerService() {
                 prepareDiagnostics()
                 noteRevival()
                 GuardSetup.ensureEnabled(this)
+                if (GuardSetup.startAfterStopOverStock(this)) trace("stopped over the stock launcher; Aerial started before the guard binds")
             }.onFailure {
                 trace("initial recovery failed: ${it.javaClass.simpleName}: ${it.message}")
             }

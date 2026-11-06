@@ -17,6 +17,7 @@ import android.provider.Settings
 import androidx.core.content.ContextCompat
 import androidx.core.content.getSystemService
 import android.util.Log
+import app.orchard.tv.MainActivity
 import app.orchard.tv.dream.AerialDream
 import app.orchard.tv.system.DiagLog
 import app.orchard.tv.system.SystemScreensaver
@@ -43,6 +44,7 @@ object GuardSetup {
 
     private const val REVIVAL_WINDOW_MS = 10 * 60 * 1000L
     private const val KEY_KEEP_ADB = "keep_adb"
+    private const val ENABLED_LISTENERS = "enabled_notification_listeners"
 
     /** When [ensureAdbListening] may still act: only boot shows the lying setting (issue #454). */
     private const val ADB_BOOT_WINDOW_MS = 3 * 60_000L
@@ -173,6 +175,31 @@ object GuardSetup {
         val bootNow = System.currentTimeMillis() - SystemClock.elapsedRealtime()
         if (at !in 0..SystemClock.elapsedRealtime() || kotlin.math.abs(prefs.getLong(KEY_STOCK_HOME_BOOT, 0L) - bootNow) > 2 * 60 * 1000L) return false
         return at >= prefs.getLong(KEY_HOME_IN_FRONT_AT, -1L)
+    }
+
+    /** Whether the guard saw a stock launcher's home come to the front in this boot within the last [ms]. */
+    fun stockHomeSeenWithin(context: Context, ms: Long): Boolean {
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val at = prefs.getLong(KEY_STOCK_HOME_AT, -1L)
+        val bootNow = System.currentTimeMillis() - SystemClock.elapsedRealtime()
+        if (at !in 0..SystemClock.elapsedRealtime() || kotlin.math.abs(prefs.getLong(KEY_STOCK_HOME_BOOT, 0L) - bootNow) > 2 * 60 * 1000L) return false
+        return SystemClock.elapsedRealtime() - at < ms
+    }
+
+    /**
+     * The listener's process came back within seconds of the guard seeing the stock launcher: the
+     * firmware force-stopped Aerial on a Home press. Dangbei Max1 (RK3568, Android 11) does so about
+     * a second after every press; the process is back in 0.4 s, but Android often takes 8 s more to
+     * bind the guard, 11 s to Aerial in all (issue #1245, the reporter's measurements). The screen
+     * has nothing else to show, so start Aerial now and let the guard bind behind it. Costs a stock
+     * launcher visit that Aerial's process does not outlast, as #1276's take-over already does.
+     */
+    fun startAfterStopOverStock(context: Context): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N || HomeGuardService.isRunning) return false
+        if (SystemClock.elapsedRealtime() < 3 * 60_000L) return false
+        if (context.getSystemService<PowerManager>()?.isInteractive != true) return false
+        if (!stockHomeSinceHomeLeft(context) || !stockHomeSeenWithin(context, 5_000L)) return false
+        return runCatching { context.startActivity(MainActivity.bringBackIntent(context)) }.isSuccess
     }
 
     fun wasHomeInFront(context: Context): Boolean =
@@ -544,12 +571,30 @@ object GuardSetup {
     }
 
     /** Returns whether Home Guard had been switched off and was put back. */
+    /**
+     * Before `cmd notification` (Android 7) the install writes the listener with `settings put`,
+     * which Haier HRA920L (YunOS 5.1, Android 5.1) refuses to the shell even with the guard on; its
+     * list also starts with a stray literal "null" (issue #1301, the reporter's agent). Aerial holds
+     * WRITE_SECURE_SETTINGS there, so add itself after what is there, which stays as it is.
+     */
+    private fun ensureListenerBeforeNougat(context: Context) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) return
+        val me = ComponentName(context, RevivalListener::class.java).flattenToString()
+        val current = Settings.Secure.getString(context.contentResolver, ENABLED_LISTENERS).orEmpty()
+        if (current.split(':').any { it == me }) return
+        runCatching {
+            Settings.Secure.putString(context.contentResolver, ENABLED_LISTENERS, if (current.isEmpty()) me else "$current:$me")
+            Log.i(TAG, "notification listener was not allowed; added it")
+        }.onFailure { Log.w(TAG, "could not allow the notification listener", it) }
+    }
+
     fun ensureEnabled(context: Context): Boolean {
         ensureAdb(context)
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_SECURE_SETTINGS) != PackageManager.PERMISSION_GRANTED) return false
         restoreReceivers(context)
         keepScreensaver(context)
         RevivalSync.ensure(context)
+        ensureListenerBeforeNougat(context)
         if (standingOut(context)) { watchScreenOn(context); return false }
         val me = ComponentName(context, HomeGuardService::class.java).flattenToString()
         val resolver = context.contentResolver
