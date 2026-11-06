@@ -1543,6 +1543,15 @@ class HomeGuardService : AccessibilityService() {
                 handler.postDelayed(stockHomeRecheck, 1_000 - since + 300)
                 return
             }
+            // What the TV starts on opened, then the stock launcher came up over it: 16 s later on
+            // MiTV-MFTR0 (Android 14, 1.85, issue #1229's log), and Aerial's Home then took "already
+            // opened" for done, so the target was lost. This path missed the check the two others have.
+            if (bootTargetCovered()) {
+                Log.i(TAG, "stock home $pkg came to the front over what the TV starts on; opening that again")
+                DiagLog.i("guard: stock home $pkg/$cls over what the TV starts on; opening that again")
+                goHome(reopenBoot = true)
+                return
+            }
             Log.i(TAG, "stock home $pkg came to the front; bringing Aerial back")
             DiagLog.i("guard: stock home $pkg/$cls in front, not opened on purpose${if (allowStockUntil != 0L) " (allowance ran out)" else ""}; bringing Aerial back")
             // Shortly after the screen lit, this is the wake itself (issue #111).
