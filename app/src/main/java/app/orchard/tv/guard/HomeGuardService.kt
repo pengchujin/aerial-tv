@@ -185,7 +185,22 @@ class HomeGuardService : AccessibilityService() {
             // and on the Home key whatever Home resolves to.
             if (screenOff || !GuardSetup.isUserUnlocked(this@HomeGuardService)) return
             if (SystemClock.uptimeMillis() < allowStockUntil) return
-            val (window, at) = foreground() ?: return
+            // Off the main thread: Binder to usage stats took over 5 s in the first minutes after a
+            // cold boot on MiTV-ANSM0 (Android 6, 1 GB), the remote went dead on the ANR and the
+            // guard died with the process (five times, one stack, issue #1284).
+            if (foregroundQueried) return
+            foregroundQueried = true
+            usageWorker.post {
+                val front = foreground()
+                handler.post {
+                    foregroundQueried = false
+                    if (front != null && isRunning) answerForeground(front.first, front.second)
+                }
+            }
+        }
+
+        private fun answerForeground(window: Pair<String, String>, at: Long) {
+            if (screenOff || SystemClock.uptimeMillis() < allowStockUntil) return
             if (at <= foregroundTakenAt) return
             if (stockHomes.isEmpty()) refreshStockHomes()
             // Its home screen only, as for window changes: PatchWall's children's mode, opened
@@ -216,6 +231,10 @@ class HomeGuardService : AccessibilityService() {
             goHome(woke)
         }
     }
+
+    private var foregroundQueried = false
+    private val usageThread = lazy { android.os.HandlerThread("AerialGuardUsage").apply { start() } }
+    private val usageWorker by lazy { Handler(usageThread.value.looper) }
 
     /**
      * Where Aerial is the default Home, the guard answers the stock launcher with a Home press of
@@ -973,6 +992,7 @@ class HomeGuardService : AccessibilityService() {
     }
 
     override fun onDestroy() {
+        if (usageThread.isInitialized()) usageThread.value.quitSafely()
         handler.removeCallbacks(refreshHomesAfterPackageChange)
         handler.removeCallbacks(removeBanner)
         removeBanner.run()
