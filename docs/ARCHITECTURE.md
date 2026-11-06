@@ -238,9 +238,11 @@ NanoHTTPD 监听 8790 端口，路径前缀是 8 位随机令牌（每次打开�
 - ADB：`ConfigReceiver --es device_profile '<json>'`（`default` 回到内置），`--ez list_sources true` 以 JSON 列出信号源（含隐藏的、硬件编号、固件名、小米编号），`--es open_source <id>` 按磁贴的方式打开一个信号源。通过 `adb shell` 传带空格的 JSON 时，整条命令要放进一对引号里（`adb shell "am broadcast … --es device_profile '{\"6\":…}'"`），否则远端 shell 会吃掉引号。
 - 诊断报告末尾的 **Device profile** 一节输出当前生效的 JSON 和来源（`BuiltIn` / `ThisTv` / `None`）；手机页「去 GitHub 反馈」预填型号、版本，来源是 `ThisTv` 时把那段 JSON 填进 issue 表单的 `profile` 字段（GitHub 表单支持按字段 id 用 URL 参数预填），诊断全文复制到剪贴板。
 
-`bootStockMs`（#902，微鲸 WTV43K1J）：开机时守护先让原厂桌面在前台露出来，从它的窗口事件算起这么多毫秒后再接管（没有窗口事件最多等 20 秒），给要靠原厂桌面露脸才结束开机的固件用。
+`bootStockMs`（#902，微鲸 WTV43K1J）：开机时守护先让原厂桌面在前台露出来，从它的窗口事件算起这么多毫秒后再接管（没有窗口事件时等 20 秒和这个值里较大的，上限 45 秒，#1071），给要靠原厂桌面露脸才结束开机的固件用。
 
 `filterHomeAlways`（#684，红米投影仪 4 mt5873）：守护在屏幕亮着时一直过滤按键、自己处理主页键，不管前台是谁（不受安卓 12+ 只在 Aerial 前台时过滤、小米 `backOnPause` 的限制；手柄、鼠标、海信的例外照旧）。给按主页键会强停前台 App 的固件用，代价是按住音量只走一格，所以不内置进 `devices.json`，只在户主同意时用 ADB 写进这台电视。
+
+`neverFilterKeys`（#115，乐视 X4-40 安卓 6）：守护完全不过滤按键（报告人对比：一次方向键跳 2–5 格，连系统设置的列表也跳，去掉过滤后正常），默认关、不进 devices.json，要户主同意后用 ADB 写。代价：主页键交给系统，先露一下原桌面，部分电视回 Aerial 要 5 秒。
 
 `ignoresScreenBrightness`（#895，酷开 5S09_A3）：`screen_brightness` 写得进、`mActualBacklight` 也跟着变，但面板不变；控制中心不画亮度条，改为打开电视的图像设置（`openPictureSettings`，老酷开是 `com.tianci.setting` 的图像与声音）。
 

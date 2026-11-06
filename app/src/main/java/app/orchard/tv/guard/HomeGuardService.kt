@@ -1081,6 +1081,7 @@ class HomeGuardService : AccessibilityService() {
         val cecWanted = !screenOff && !mouseHang && CecHome.active(this, lastWindow?.first)
         filteringForCecOnly = cecWanted && !homeWanted
         var want = if (homeWanted || cecWanted) info.flags or flag else info.flags and flag.inv()
+        if (GuardSetup.isUserUnlocked(this) && DeviceProfile.current(this).neverFilterKeys) want = want and flag.inv()
         if (keyFilterRival) want = want and AccessibilityServiceInfo.DEFAULT.inv()
         if (want == info.flags) return
         info.flags = want
