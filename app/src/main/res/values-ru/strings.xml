@@ -300,4 +300,12 @@
     <string name="kids_blocked">«%s» здесь недоступно</string>
     <string name="kids_warn">Осталось %d мин</string>
     <string name="kids_warn_break">Перерыв через %d мин</string>
+    <string name="sleep_timer_title">Таймер сна</string>
+    <string name="sleep_timer_off">Выключен</string>
+    <string name="sleep_timer_15">15 минут</string>
+    <string name="sleep_timer_30">30 минут</string>
+    <string name="sleep_timer_60">1 час</string>
+    <string name="sleep_timer_90">1.5 часа</string>
+    <string name="sleep_timer_120">2 часа</string>
+    <string name="sleep_timer_remaining">Выключение через %1$d мин.</string>
 </resources>

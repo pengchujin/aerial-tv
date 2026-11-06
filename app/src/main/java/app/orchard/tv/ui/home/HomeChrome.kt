@@ -630,6 +630,8 @@ fun ShelfClock(
     saving: Boolean = false,
     /** The screensaver is carrying Home's wallpaper on: the date and weather go before the time moves. */
     away: Boolean = false,
+    enabled: Boolean = true,
+    onClockClick: (() -> Unit)? = null,
 ) {
     val drift = heldDrift(saving, now)
     val shadow = Shadow(Color.Black.copy(alpha = 0.28f), Offset(0f, 2f), blurRadius = 18f)
@@ -664,13 +666,36 @@ fun ShelfClock(
             style = Type.ClockDate.copy(shadow = shadow),
             modifier = aside.capBox(Type.ClockDate.fontSize),
         )
-        BasicText(
-            timeText(now),
-            style = Type.Clock.copy(shadow = shadow),
-            modifier = Modifier.padding(top = 16.dp)
-                .toSaverClock(toSaver, Type.Clock.fontSize, 0.dp, drift)
-                .capBox(Type.Clock.fontSize),
-        )
+        val timeMod = Modifier.padding(top = 16.dp)
+            .toSaverClock(toSaver, Type.Clock.fontSize, 0.dp, drift)
+            .capBox(Type.Clock.fontSize)
+
+        if (onClockClick != null && enabled && !saving && !away) {
+            Pressable(
+                onClick = onClockClick,
+                enabled = enabled,
+                focusedScale = 1.04f,
+                modifier = timeMod,
+            ) { state ->
+                val bg by animateColorAsState(if (state.focused) Palette.Focus else Color.Transparent, tween(140), label = "shelf-clock-bg")
+                val fg = if (state.focused) Palette.OnFocus else Color.White
+                BasicText(
+                    timeText(now),
+                    modifier = Modifier.smoothBackground(bg, 12.dp).padding(horizontal = 8.dp),
+                    style = Type.Clock.copy(
+                        fontWeight = FontWeight.W700,
+                        color = fg,
+                        shadow = if (state.focused) null else shadow
+                    )
+                )
+            }
+        } else {
+            BasicText(
+                timeText(now),
+                style = Type.Clock.copy(shadow = shadow),
+                modifier = timeMod,
+            )
+        }
         Weather.now?.takeIf { AerialSettings.showWeather }?.let { w ->
             val place = Weather.place?.takeIf { it.length <= 12 }
             val range = if (w.high != null && w.low != null) stringResource(R.string.weather_high_low, w.high, w.low) else null
@@ -764,15 +789,42 @@ private fun conditionName(kind: WeatherKind): Int = when (kind) {
  * pill, so the wallpaper keeps the rest of the screen. A soft shadow keeps it readable on photos.
  */
 @Composable
-fun CornerClock(now: LocalDateTime, modifier: Modifier = Modifier, toSaver: () -> Float = { 0f }, saving: Boolean = false) {
+fun CornerClock(
+    now: LocalDateTime,
+    modifier: Modifier = Modifier,
+    toSaver: () -> Float = { 0f },
+    saving: Boolean = false,
+    away: Boolean = false,
+    enabled: Boolean = true,
+    onClockClick: (() -> Unit)? = null,
+) {
     val drift = heldDrift(saving, now)
     val dim = Color.White.copy(alpha = 0.92f)
     val shadow = Shadow(Color.Black.copy(alpha = 0.5f), blurRadius = 8f)
     Row(modifier.height(34.dp), verticalAlignment = Alignment.CenterVertically) {
-        BasicText(
-            timeText(now), style = Type.SmallClock.copy(fontSize = Type.Title.fontSize, color = dim, shadow = shadow),
-            modifier = Modifier.toSaverClock(toSaver, Type.Title.fontSize, Type.Title.fontSize.value.dp * CAP_TOP, drift),
-        )
+        val clockMod = Modifier.toSaverClock(toSaver, Type.Title.fontSize, Type.Title.fontSize.value.dp * CAP_TOP, drift)
+        if (onClockClick != null && enabled && !saving && !away) {
+            Pressable(
+                onClick = onClockClick,
+                enabled = enabled,
+                focusedScale = 1.08f,
+                modifier = clockMod,
+            ) { state ->
+                val bg by animateColorAsState(if (state.focused) Palette.Focus else Color.Transparent, tween(140), label = "corner-clock-bg")
+                val fg = if (state.focused) Palette.OnFocus else dim
+                BasicText(
+                    timeText(now),
+                    style = Type.SmallClock.copy(fontSize = Type.Title.fontSize, color = fg, shadow = if (state.focused) null else shadow),
+                    modifier = Modifier.smoothBackground(bg, 8.dp).padding(horizontal = 6.dp, vertical = 2.dp)
+                )
+            }
+        } else {
+            BasicText(
+                timeText(now),
+                style = Type.SmallClock.copy(fontSize = Type.Title.fontSize, color = dim, shadow = shadow),
+                modifier = clockMod,
+            )
+        }
         Weather.now?.takeIf { AerialSettings.showWeather }?.let { w ->
             val aside = Modifier.graphicsLayer {
                 alpha = 1f - (toSaver() * 2.5f).coerceIn(0f, 1f)

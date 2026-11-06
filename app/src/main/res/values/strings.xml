@@ -308,4 +308,12 @@
     <string name="kids_blocked">%s is not allowed here</string>
     <string name="kids_warn">%d min of TV left</string>
     <string name="kids_warn_break">A break in %d min</string>
+    <string name="sleep_timer_title">Sleep Timer</string>
+    <string name="sleep_timer_off">Off</string>
+    <string name="sleep_timer_15">15 minutes</string>
+    <string name="sleep_timer_30">30 minutes</string>
+    <string name="sleep_timer_60">1 hour</string>
+    <string name="sleep_timer_90">1.5 hours</string>
+    <string name="sleep_timer_120">2 hours</string>
+    <string name="sleep_timer_remaining">Turns off in %1$d min.</string>
 </resources>
