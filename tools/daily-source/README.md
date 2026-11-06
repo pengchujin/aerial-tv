@@ -87,6 +87,8 @@ docker ps --filter name=aerial
 docker compose -p aerial-daily down
 cp docker-compose.yml.before-single-container docker-compose.yml
 cp .env.before-single-container .env
+cp gen/gen.py.before-single gen/gen.py      # 生产迁移时保留的旧生成器
+chmod 600 .env
 docker compose -p aerial-daily up -d
 ```
 
