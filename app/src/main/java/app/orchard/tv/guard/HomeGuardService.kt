@@ -727,8 +727,12 @@ class HomeGuardService : AccessibilityService() {
             DeviceProfile.current(this).bootStockMs > 0
         ) {
             bootStockHolding = true
-            allowStockUntil = SystemClock.uptimeMillis() + BOOT_STOCK_CAP_MS
-            handler.postDelayed(endBootStockHold, BOOT_STOCK_CAP_MS)
+            // An invisible PatchWall never says it showed, so the cap is the hold there: the 20 s
+            // cap cut a longer profile short (MiTV4-ANSM0, Android 6: MiIO binds about 29 s after
+            // PatchWall comes up, the reporter's measurement in issue #1071).
+            val hold = maxOf(BOOT_STOCK_CAP_MS, DeviceProfile.current(this).bootStockMs.toLong())
+            allowStockUntil = SystemClock.uptimeMillis() + hold + DeviceProfile.current(this).bootStockMs
+            handler.postDelayed(endBootStockHold, hold)
             DiagLog.i("guard: bound at boot; leaving the stock launcher on screen first (device profile)")
         }
         // Register before querying homes or checking the state so an unlock cannot be missed.

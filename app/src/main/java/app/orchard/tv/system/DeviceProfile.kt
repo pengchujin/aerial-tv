@@ -144,7 +144,7 @@ class DeviceProfile(
                 xiaomiSourceIds = ints("xiaomiSources"),
                 xiaomiFallbackSourceIds = ints("xiaomiFallbackSources"),
                 ignoresPictureBacklight = o.optBoolean("ignoresPictureBacklight", false),
-                bootStockMs = o.optInt("bootStockMs", 0).coerceIn(0, 10_000),
+                bootStockMs = o.optInt("bootStockMs", 0).coerceIn(0, 45_000),
                 ignoresScreenBrightness = o.optBoolean("ignoresScreenBrightness", false),
                 filterHomeAlways = o.optBoolean("filterHomeAlways", false),
             )
