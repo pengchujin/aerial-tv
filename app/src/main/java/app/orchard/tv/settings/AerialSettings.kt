@@ -114,6 +114,9 @@ object AerialSettings {
     /** The Liquid Glass plate under the top row; some prefer the apps straight on the wallpaper (#151). */
     var homePlate by mutableStateOf(true); private set
 
+    /** Opacity of the first-row glass plate, in percent. */
+    var homePlateOpacity by mutableIntStateOf(100); private set
+
     /** The clock, with the date and weather, in the top right instead of the top left. */
     var clockRight by mutableStateOf(false); private set
 
@@ -205,6 +208,7 @@ object AerialSettings {
         clockRight = prefs.getBoolean("clock_right", false)
         largeClock = prefs.getBoolean("large_clock", false)
         homePlate = prefs.getBoolean("home_plate", true)
+        homePlateOpacity = prefs.getInt("home_plate_opacity", 100).coerceIn(0, 100)
         chosenAllNames = prefs.getBoolean("show_all_names", false)
         wallpaperAlwaysMoves = prefs.getBoolean("wallpaper_always_moves", false)
         showWeather = prefs.getBoolean("show_weather", true)
@@ -288,6 +292,16 @@ object AerialSettings {
     fun chooseHomePlate(on: Boolean) {
         homePlate = on
         app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit { putBoolean("home_plate", on) }
+    }
+
+    /** Live preview while adjusting; persistence is deliberately deferred until Back. */
+    fun previewHomePlateOpacity(value: Int) {
+        homePlateOpacity = value.coerceIn(0, 100)
+    }
+
+    fun chooseHomePlateOpacity(value: Int) {
+        previewHomePlateOpacity(value)
+        app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit { putInt("home_plate_opacity", homePlateOpacity) }
     }
 
     fun chooseClockRight(on: Boolean) {
