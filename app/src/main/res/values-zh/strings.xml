@@ -10,6 +10,7 @@
     <string name="cc_title">控制中心</string>
     <string name="cc_inputs">信号源</string>
     <string name="cc_network">网络</string>
+    <string name="cc_bluetooth">蓝牙</string>
     <string name="cc_settings">设置</string>
     <string name="cc_volume">音量</string>
     <string name="cc_muted">已静音</string>
