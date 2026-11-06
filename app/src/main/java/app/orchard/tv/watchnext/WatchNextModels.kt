@@ -75,7 +75,7 @@ internal object WatchNextDefaults {
     const val SourceIconHeightDp = 38f
     const val DotStepDp = 18f
     const val DotPaddingDp = 12f
-    const val DotSelectedWidthDp = 25f
+    const val DotDiameterDp = 8f
     const val DotMaxStretchDp = 12f
     const val RemoteMaxBytes = 8 * 1024 * 1024
     const val RemoteTimeoutMs = 5_000

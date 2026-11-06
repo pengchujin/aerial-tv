@@ -1139,7 +1139,7 @@ fun HomeScreen(
             inFolder = menu?.inFolder != null,
             folders = vm.folders(),
             watchNextEnabled = menu?.let { vm.entry(it.key) }?.takeIf {
-                watch.state.capability.supported && it.isWatchNextSource()
+                watch.state.capability.supported && watch.state.capability.granted && watch.state.master && it.isWatchNextSource()
             }?.let { watch.state.sourceOn(it.packageName) },
             onWatchNext = { pkg -> watch.source(pkg) },
             onMove = { vm.startMove(it) },

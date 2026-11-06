@@ -20,7 +20,6 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.focus.FocusRequester
@@ -235,7 +234,8 @@ fun WatchNextPreview(
         val step = WatchNextDefaults.DotStepDp
         val padding = WatchNextDefaults.DotPaddingDp
         val bandWidth = minOf(288f, records.size * step + padding * 2)
-        // One persistent highlight moves between fixed dots, including interrupted transitions.
+        // One highlight stretches while moving, then settles to the same circle as the fixed dots.
+        // Both springs retain their velocity when a transition is interrupted.
         val selectedPosition = animateFloatAsState(index.toFloat(),
             if (reduced) snap() else spring(dampingRatio = 1f, stiffness = 280f), label = "watch-next-indicator-position")
         val trailingPosition = animateFloatAsState(index.toFloat(),
@@ -256,17 +256,17 @@ fun WatchNextPreview(
                         val position = selectedPosition.value
                         val center = padding.dp.toPx() + anchor.offset + (position - anchor.index + 0.5f) * step.dp.toPx()
                         val stretch = (kotlin.math.abs(position - trailingPosition.value) * step).coerceAtMost(WatchNextDefaults.DotMaxStretchDp)
-                        val width = (WatchNextDefaults.DotSelectedWidthDp + stretch).dp.toPx()
-                        val height = 8.dp.toPx()
-                        drawRoundRect(Palette.Focus, Offset(center - width / 2, (size.height - height) / 2),
-                            Size(width, height), CornerRadius(height / 2, height / 2))
+                        val width = (WatchNextDefaults.DotDiameterDp + stretch).dp.toPx()
+                        val height = WatchNextDefaults.DotDiameterDp.dp.toPx()
+                        drawOval(Palette.Focus, Offset(center - width / 2, (size.height - height) / 2),
+                            Size(width, height))
                     }
                 },
                 state = dots, userScrollEnabled = false, contentPadding = PaddingValues(horizontal = padding.dp),
                 verticalAlignment = Alignment.CenterVertically) {
                 itemsIndexed(records, key = { _, item -> "${item.key.source}:${item.key.id}" }) { _, _ ->
                     Box(Modifier.size(step.dp, 24.dp), contentAlignment = Alignment.Center) {
-                        Box(Modifier.size(8.dp).background(Color.White.copy(alpha = 0.35f), CircleShape))
+                        Box(Modifier.size(WatchNextDefaults.DotDiameterDp.dp).background(Color.White.copy(alpha = 0.35f), CircleShape))
                     }
                 }
             }
