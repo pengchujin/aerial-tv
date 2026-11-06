@@ -1,0 +1,25 @@
+services:
+  daily:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: aerial-daily:latest
+    container_name: aerial-daily
+    ports:
+      - "${AERIAL_PORT:-8899}:80"
+    volumes:
+      - "${WEB_DATA_PATH:-./data/web}:/data"
+      - "${STATE_PATH:-./data/state}:/state"
+      - "${PHOTOS_PATH:?Set PHOTOS_PATH in .env}:/photos:ro"
+    environment:
+      AERIAL_TOKEN: ${AERIAL_TOKEN:-}
+      TZ: ${TZ:-Asia/Shanghai}
+      GEN_HOUR: ${GEN_HOUR:-4}
+      DAYS: ${DAYS:-8}
+      UHD: ${UHD:-1}
+      ALBUM_TITLE: ${ALBUM_TITLE:-Local album}
+      ALBUM_COPYRIGHT: ${ALBUM_COPYRIGHT:-From local album}
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
