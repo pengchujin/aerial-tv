@@ -264,7 +264,7 @@ Most TVs sold in China only accept their own home screen and clear third-party a
 | XGIMI | Z7X, m7642 | Android 9 | ✅ Z7X needs a third-party tool to open ADB ([notes](docs/devices/xgimi-z7x.md)) |
 | XGIMI | Z9X 4K Bright (goat_elegant) | Android 13 | ⚠️ Limited test on 1.76: first launch, UID app-op and the front after reboot; boot screen and standby not yet ([notes](docs/devices/xgimi-z9x-4k.md)) |
 | XGIMI | Lamp L1 (m7642, pig_chivalrous) | Android 9 | ✅ The default Home is lost at boot; the reporter's two-rule fix is in the [notes](docs/devices/xgimi-z7x.md) ([#767](https://github.com/pengchujin/aerial-tv/issues/767)) |
-| XGIMI | Z6X Gen 4 (XK03U / ironman / m7221) | Android 8 | ⚠️ HDMI 1 listing and switching verified; video output not tested ([notes](docs/devices/xgimi-xk03u-android8.md)) |
+| XGIMI | Z6X Gen 4 (XK03U / ironman / m7221) | Android 8 | ⚠️ HDMI 1 listing and switching verified, video output not tested; on 2 GB units Aerial is killed in about 15–45 s in the background and the stock Home returns at boot ([notes](docs/devices/xgimi-xk03u-android8.md)) |
 | XGIMI | H3, m7221 | Android 8 | ✅ Needs a third-party tool to open ADB; boot handover and screensaver match Z7X ([notes](docs/devices/xgimi-h3.md)) |
 | OBE | X7, X7D projectors | Android 9 / 5.1 | ✅ Home inside HDMI can go to the Apple TV's home screen ([notes](docs/devices/obe-x7.md)) |
 | OBE | OBE_R3Ultra high-brightness projector (MT5879) | Android 11 | ✅ Developer options show only "USB debugging", and turning it on opens ADB on port 5555; Home first goes to the firmware's Youku launcher, the guard brings Aerial back about 13 s later ([notes](docs/devices/obe-r3-ultra.md)) |
