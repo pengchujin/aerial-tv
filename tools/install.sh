@@ -194,6 +194,14 @@ download_apk() (
 # but nothing stops Lite (minSdk 14) on a newer TV, where it would add a second HOME candidate next
 # to Aerial and the stock launcher. FORCE_LITE=1 is for trying Lite on a new TV (docs/LITE.md).
 SDK=$(adb shell getprop ro.build.version.sdk 2>/dev/null | tr -d '\r')
+# Redmi Projector 4 / 5 Pro (model mt5873, Android 13): with Aerial as a default Home the TV hangs on
+# the boot animation, with no network and no ADB, until a factory reset (issue #684: 1.47 on, and
+# again on 1.85 in two boots of three). The guard build declares no Home and boots (#688; 1.82-guard
+# by a reporter on a Projector 4).
+if [ "$FLAVOR" = standard ] && [ "$(adb shell getprop ro.product.model 2>/dev/null | tr -d '\r')" = mt5873 ]; then
+  echo "This projector hangs at boot with a launcher build (issue #684): installing the guard build instead."
+  FLAVOR=guard
+fi
 OLD_ANDROID=0
 [ -n "$SDK" ] && [ "$SDK" -lt 21 ] 2>/dev/null && OLD_ANDROID=1
 if [ "$FLAVOR" = lite ] && [ "$OLD_ANDROID" = 0 ] && [ "${FORCE_LITE:-0}" != 1 ]; then

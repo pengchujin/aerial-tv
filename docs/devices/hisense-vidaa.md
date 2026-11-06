@@ -177,3 +177,7 @@ VIDAA_TV（MT9655，Android 14，固件 07.02.70.202605110330）上，报告人�
 - 诊断：`film glass copy=false copy_slow=true`，这台 PixelCopy 读得到但太慢，停用后每次暂停都走 `MediaMetadataRetriever`；日志里 4 次都是 `stops` 后 0.6–1 秒 `starts`，50–100 ms 内 `video wallpaper failed (ERROR_CODE_DECODING_FAILED)`。推测是读帧还占着硬件解码器时暂停的播放器恢复，解码失败；当时出错就删掉这部片子、换下一部，下一部出画面前一直黑。
 - 改法（`VideoWallpaper`）：不模糊首页的面板下只暂停不取帧；取帧优先在 App 里软件解码关键帧，MediaMetadataRetriever 只在播放器放开后用；出错先重试同一部、遮罩收起露出图片。
 - **没在海信上验证**：维护者手上没有这台。小米 MFTR0 上回归过：控制中心里暂停、恢复从原位置接着放；从控制中心进设置再回来，App 内解关键帧 0.5–0.7 秒，视频从那一帧的时间接着放；屏保来回不黑。
+
+## 海信 E8H（m7642，安卓 9，#1227）
+
+只读信息：`wm size` 1920x1080，唯一显示模式 1920x1080@60，面板和输出时序是 3840x2160（显示引擎在 SurfaceFlinger 之后放大 2 倍），`ro.his.tv.osd_video_separated=0`；4K 只走视频平面（侧带）。App 层改不了，不开 4K 画布。
