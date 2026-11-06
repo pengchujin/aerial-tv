@@ -223,7 +223,8 @@
     <string name="weather_rain">Rain</string>
     <string name="weather_snow">Snow</string>
     <string name="weather_thunder">Thunderstorms</string>
-    <string name="weather_high_low">H:%1$d°  L:%2$d°</string>
+    <string name="weather_temperature">%1$d℃</string>
+    <string name="weather_high_low">H:%1$d℃  L:%2$d℃</string>
     <string name="st_columns">Apps per Row</string>
     <string name="st_columns_hint">How many apps fit across Home, and in folders. Six shows more at a glance; four makes them larger, easier to see from across the room.</string>
     <string name="st_peek">Second Row</string>

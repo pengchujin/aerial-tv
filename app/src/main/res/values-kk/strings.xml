@@ -215,7 +215,8 @@
     <string name="weather_rain">Жаңбыр</string>
     <string name="weather_snow">Қар</string>
     <string name="weather_thunder">Найзағай</string>
-    <string name="weather_high_low">Макс.: %1$d°  Мин.: %2$d°</string>
+    <string name="weather_temperature">%1$d℃</string>
+    <string name="weather_high_low">Макс.: %1$d℃  Мин.: %2$d℃</string>
     <string name="st_columns">Қатардағы қолданбалар</string>
     <string name="st_columns_hint">Басты экранда және қалталарда бір қатарға қанша қолданба сыяды. Алты — бірден көбірек көрінеді; төрт — үлкенірек, алыстан жақсы көрінеді.</string>
     <string name="st_peek">Екінші қатар</string>

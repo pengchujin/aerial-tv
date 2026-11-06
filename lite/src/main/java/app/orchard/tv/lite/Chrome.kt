@@ -74,7 +74,7 @@ class ClockView(context: Context) : View(context) {
         setMeasuredDimension(w, Ui.pxi(if (large) 200f else 34f))
     }
 
-    private fun smallWeatherText(w: WeatherLine) = listOfNotNull(w.place?.takeIf { it.length <= 12 }, "${w.celsius}°").joinToString(" ")
+    private fun smallWeatherText(w: WeatherLine) = listOfNotNull(w.place?.takeIf { it.length <= 12 }, context.getString(R.string.weather_temperature, w.celsius)).joinToString(" ")
 
     private fun smallWidth(): Float {
         var x = Ui.width(time, smallPaint, 0.05f)
@@ -123,7 +123,7 @@ class ClockView(context: Context) : View(context) {
         // The weather, 18 under the time.
         y += Ui.px(18f + 16f * Ui.CAP_HEIGHT)
         val g = Ui.pxi(18f)
-        val temp = "${w.celsius}°"
+        val temp = context.getString(R.string.weather_temperature, w.celsius)
         val rest = listOfNotNull(w.place?.takeIf { it.length <= 12 }, w.detail.ifEmpty { null }).joinToString(" · ")
         val restText = if (rest.isNotEmpty()) "  $rest" else ""
         val x0 = start(g + Ui.px(7f) + detailPaint.measureText(temp) + detailDim.measureText(restText))
