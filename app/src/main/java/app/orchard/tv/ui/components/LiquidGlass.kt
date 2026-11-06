@@ -13,6 +13,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
@@ -61,7 +62,10 @@ import kotlin.math.roundToInt
  * rounded rect, which holds it. [seeThroughFilm]: nothing but the film lies under the panel, which
  * over a film without frames (Wallpapers.filmGlassless) is then see-through like the plate.
  */
-fun Modifier.liquidGlass(corner: Dp, bottomCorners: Boolean = true, seeThroughFilm: Boolean = false): Modifier = composed {
+data class GlassSource(val key: Any, val frosted: ImageBitmap?)
+val LocalGlassSource = staticCompositionLocalOf<GlassSource?> { null }
+
+fun Modifier.liquidGlass(corner: Dp, bottomCorners: Boolean = true, seeThroughFilm: Boolean = false, surfaceAlpha: Float = 1f): Modifier = composed {
     // The glass a panel opened with stays while it is open, unless the wallpaper itself changes
     // (chosen in Personalize). A moving film that stops as a panel opens gets its glass made again
     // twice within the next second or so, from a frame near where it stopped and then from that
@@ -74,15 +78,18 @@ fun Modifier.liquidGlass(corner: Dp, bottomCorners: Boolean = true, seeThroughFi
     // with only the film under it, is see-through as the plate is: solid, it was a grey slab beside
     // a plate the film shows through (seen on Xiaomi MiTV-MFFU1 while a slow copy kept it from
     // the film's frames, 2026-11-01; TCL MT5879 is such a TV for good).
+    val source = LocalGlassSource.current
     // Now the picture's glass, as over a still picture, once the picture is there: the frame
     // decoded in the app where the film was let go, which the film goes on from (owner, TCL
     // MT5879, issue #1238). Solid only until a picture exists.
-    val solid = Wallpapers.moves() && Wallpapers.filmGlassless && Wallpapers.frosted == null
+    val solid = source == null && Wallpapers.moves() && Wallpapers.filmGlassless && Wallpapers.frosted == null
     // Where the film's frames cannot be had otherwise, the latest glass of the moving film, decoded
     // in the app (Wallpapers.filmFrost), over the picture's, which may be another shot.
-    val latest = (if (Wallpapers.moves() && Wallpapers.filmGlassless) Wallpapers.filmFrost ?: Wallpapers.frosted else Wallpapers.frosted)
-        .takeIf { Wallpapers.backdrop != null }
-    val held = remember(Wallpapers.selectedId, latest == null) { latest }
+    val latest = if (source != null) source.frosted else {
+        (if (Wallpapers.moves() && Wallpapers.filmGlassless) Wallpapers.filmFrost ?: Wallpapers.frosted else Wallpapers.frosted)
+            .takeIf { Wallpapers.backdrop != null }
+    }
+    val held = remember(source?.key ?: Wallpapers.selectedId, latest == null) { latest }
     val (frost, under, swap) = rememberFrostSwap(held)
     var at by remember { mutableStateOf(Offset.Zero) }
     var root by remember { mutableStateOf(IntSize.Zero) }
@@ -113,18 +120,18 @@ fun Modifier.liquidGlass(corner: Dp, bottomCorners: Boolean = true, seeThroughFi
             var drawnT = -1f
             onDrawBehind {
                 if (solid) {
-                    drawImage(flat, dstSize = IntSize(w, h), colorFilter = ColorFilter.tint(if (seeThroughFilm) FilmGlass else FilmPanel))
-                    if (seeThroughFilm) drawImage(filmSheen, dstSize = IntSize(w, h), filterQuality = FilterQuality.Low)
+                    drawImage(flat, dstSize = IntSize(w, h), alpha = surfaceAlpha.coerceIn(0f, 1f), colorFilter = ColorFilter.tint(if (seeThroughFilm) FilmGlass else FilmPanel))
+                    if (seeThroughFilm) drawImage(filmSheen, dstSize = IntSize(w, h), alpha = surfaceAlpha.coerceIn(0f, 1f), filterQuality = FilterQuality.Low)
                     drawGlassEdge(size, radius, bottomCorners)
                 } else if (shader == null || brush == null || root == IntSize.Zero) {
-                    drawImage(flat, dstSize = IntSize(w, h), colorFilter = ColorFilter.tint(Palette.Glass))
+                    drawImage(flat, dstSize = IntSize(w, h), alpha = surfaceAlpha.coerceIn(0f, 1f), colorFilter = ColorFilter.tint(Palette.Glass))
                     drawGlassEdge(size, radius, bottomCorners)
                 } else if (AerialSettings.lite) {
                     // Lite (AerialSettings.lite): one solid color, the frosted wallpaper's average as
                     // the glass would dim it, without the layer the glass needs every frame, which
                     // weak GPUs feel most while a panel slides in. Solid: the plain glass color is
                     // see-through and showed the tiles under the Personalize sheet.
-                    drawImage(flat, dstSize = IntSize(w, h), colorFilter = ColorFilter.tint(liteGlass(frost)))
+                    drawImage(flat, dstSize = IntSize(w, h), alpha = surfaceAlpha.coerceIn(0f, 1f), colorFilter = ColorFilter.tint(liteGlass(frost)))
                     drawGlassEdge(size, radius, bottomCorners)
                 } else {
                     val t = swap()
@@ -154,6 +161,7 @@ fun Modifier.liquidGlass(corner: Dp, bottomCorners: Boolean = true, seeThroughFi
                             drawGlassEdge(size, radius, bottomCorners)
                         }
                     }
+                    glass.alpha = surfaceAlpha.coerceIn(0f, 1f)
                     drawLayer(glass)
                 }
             }

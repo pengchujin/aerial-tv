@@ -13,6 +13,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import app.orchard.tv.MainActivity
 import app.orchard.tv.apps.AppEntry
 import app.orchard.tv.apps.TileArt
+import app.orchard.tv.watchnext.WatchNextProgram
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -179,13 +180,15 @@ class ChanghongSettingsTest {
         val activity = Robolectric.buildActivity(MainActivity::class.java).get()
         val bitmap = Bitmap.createBitmap(2, 2, Bitmap.Config.ARGB_8888).asImageBitmap()
         val art = TileArt(bitmap, null, Rect.Zero, Color.Black, bitmap)
-        val launch = MainActivity::class.java.getDeclaredMethod("launch", AppEntry::class.java, Rect::class.java)
+        val launch = MainActivity::class.java.getDeclaredMethod(
+            "launch", AppEntry::class.java, Rect::class.java, WatchNextProgram::class.java, Function1::class.java,
+        )
             .apply { isAccessible = true }
         for (available in listOf(false, true)) {
             if (available) installService()
             for (pkg in settingsPackages + "unrelated.player") {
                 val app = AppEntry(pkg, "Settings", ComponentName(pkg, "$pkg.SettingsActivity"), true, false, art)
-                launch.invoke(activity, app, null)
+                launch.invoke(activity, app, null, null, null)
                 if (available && pkg in settingsPackages) {
                     assertEquals(ChanghongSettings.component, shadowOf(activity).nextStartedService.component)
                     assertNull(shadowOf(activity).nextStartedActivity)

@@ -62,6 +62,7 @@ fun Modifier.dismissOnTap(onDismiss: () -> Unit): Modifier = pointerInput(Unit) 
  * A tap (touch screen or mouse, issue #60) does the same: it focuses the control and fires when the
  * finger lifts. Touches already go only to the control they began on, and a drag that turns into a
  * scroll cancels the tap.
+ * [onPress] captures any action context at the initial pointer or select-key down, before [onClick].
  */
 @Composable
 fun Pressable(
@@ -71,12 +72,14 @@ fun Pressable(
     focusRequester: FocusRequester? = null,
     focusedScale: Float = 1.06f,
     onKey: ((KeyEvent) -> Boolean)? = null,
+    onPress: (() -> Unit)? = null,
     content: @Composable BoxScope.(PressState) -> Unit,
 ) {
     val state = remember { PressState() }
     val ownRequester = remember { FocusRequester() }
     val requester = focusRequester ?: ownRequester
     val click by rememberUpdatedState(onClick)
+    val press by rememberUpdatedState(onPress)
     val reduced = LocalReducedMotion.current
     val scale by animateFloatAsState(
         targetValue = when {
@@ -103,9 +106,13 @@ fun Pressable(
                 if (!enabled) return@pointerInput
                 detectTapGestures(
                     onPress = {
+                        press?.invoke()
                         state.pressed = true
-                        tryAwaitRelease()
-                        if (!state.byKey) state.pressed = false
+                        try {
+                            tryAwaitRelease()
+                        } finally {
+                            if (!state.byKey) state.pressed = false
+                        }
                     },
                     onTap = {
                         runCatching { requester.requestFocus() }
@@ -120,6 +127,7 @@ fun Pressable(
                 when (e.type) {
                     KeyEventType.KeyDown -> {
                         if (e.nativeKeyEvent.repeatCount == 0) {
+                            press?.invoke()
                             state.pressed = true
                             state.byKey = true
                         }

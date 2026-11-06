@@ -1,5 +1,8 @@
 package app.orchard.tv
 
+import app.orchard.tv.watchnext.WatchNextLaunchResult
+import app.orchard.tv.watchnext.WatchNextProgram
+import app.orchard.tv.watchnext.watchNextIntent
 import android.app.ActivityOptions
 import android.content.BroadcastReceiver
 import android.content.ComponentName
@@ -308,7 +311,8 @@ class MainActivity : ComponentActivity() {
             CompositionLocalProvider(LocalReducedMotion provides reducedMotion, LocalDensity provides canvas) {
                 HomeScreen(
                     vm = vm,
-                    onLaunch = ::launch,
+                    onLaunch = { app, bounds -> launch(app, bounds) },
+                    onWatchNext = { app, program, result -> launch(app, null, program, result) },
                     onOpen = ::open,
                     onAppInfo = { open(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", it, null)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) },
                     onUninstall = { open(Intent(Intent.ACTION_DELETE, Uri.fromParts("package", it, null)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) },
@@ -1035,17 +1039,22 @@ class MainActivity : ComponentActivity() {
     }
 
     /** Opens an app, growing it out of its tile. */
-    private fun launch(app: AppEntry, bounds: Rect?) {
+    private fun launch(app: AppEntry, bounds: Rect?, program: WatchNextProgram? = null,
+        onProgramResult: ((WatchNextLaunchResult) -> Unit)? = null,
+    ) {
         // Kids and Elders mode shows only its own tiles, and none while locked; this is the last word.
         if (Restricted.active && (app.key !in Restricted.allowed || Restricted.lock != null)) {
             DiagLog.i("kids: ${app.key} not opened")
+            onProgramResult?.invoke(WatchNextLaunchResult.Blocked)
             return
         }
         // The TV's settings app behind the parental PIN as well, not only Control Center's button.
         if (AerialSettings.locked && SystemProbe.isSettingsApp(this, app.packageName)) {
-            vm.whenUnlocked { launch(app, bounds) }
+            vm.whenUnlocked { launch(app, bounds, program, onProgramResult) }
             return
         }
+        // Resolve after the host checks (including a deferred PIN), against the current package.
+        val deepLink = program?.takeIf { it.key.source == app.packageName }?.let { watchNextIntent(this, it) }
         openedAppSinceHome = true
         SystemProbe.settingsTileIntent(this, app.packageName)?.let {
             open(it)
@@ -1053,9 +1062,10 @@ class MainActivity : ComponentActivity() {
         }
         // The stock launcher (Xiaomi's PatchWall, with the maker's own iQIYI / Mango content) opens
         // through the system Home action where it can; see HomeGuardService.openStockLauncher.
-        if (HomeGuardService.isStockHome(app.packageName) &&
+        if (deepLink == null && HomeGuardService.isStockHome(app.packageName) &&
             HomeGuardService.openStockLauncher(app.packageName) { startStockLauncher(app) }
-        ) return
+        ) { onProgramResult?.invoke(WatchNextLaunchResult.Opened); return }
+        if (deepLink != null && HomeGuardService.isStockHome(app.packageName)) HomeGuardService.allowStockLauncher()
         val options = bounds?.asFocusedTile()?.let {
             ActivityOptions.makeScaleUpAnimation(
                 window.decorView, it.left.toInt(), it.top.toInt(), it.width.toInt(), it.height.toInt(),
@@ -1077,10 +1087,13 @@ class MainActivity : ComponentActivity() {
             return
         }
         try {
-            FilmAfterInput.noteOpened(this, app.launchIntent())
-            if (HisenseSources.open(this, app.launchIntent())) return
-            startActivity(settingsLaunchIntent(this, app.launchIntent()), options)
+            val target = deepLink ?: app.launchIntent()
+            FilmAfterInput.noteOpened(this, target)
+            if (HisenseSources.open(this, target)) { onProgramResult?.invoke(WatchNextLaunchResult.Opened); return }
+            startActivity(settingsLaunchIntent(this, target), options)
+            onProgramResult?.invoke(WatchNextLaunchResult.Opened)
         } catch (e: Exception) {
+            if (deepLink != null) { launch(app, bounds, onProgramResult = onProgramResult); return }
             // XGIMI (GMUI): nothing answers the passthrough intent a source tile carries, so the tile
             // opens the source page of its settings service instead (issue #241).
             if (app.source != null && SystemProbe.openInputPicker(this)) return
@@ -1091,9 +1104,11 @@ class MainActivity : ComponentActivity() {
                 // guard had not bound yet, so isStockHome said no above, and once bound it took
                 // PatchWall for one the TV raised (MiTV-ANSP0, Android 9, issue #971, PR #1216).
                 if (isHomeApp(app.packageName)) HomeGuardService.allowStockLauncher()
+                onProgramResult?.invoke(WatchNextLaunchResult.Opened)
                 return
             }
             Toast.makeText(this, getString(R.string.launch_failed, app.label), Toast.LENGTH_SHORT).show()
+            onProgramResult?.invoke(WatchNextLaunchResult.Unavailable)
         }
     }
 
