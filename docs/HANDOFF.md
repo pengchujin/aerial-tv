@@ -2,6 +2,16 @@
 
 写给接手 Aerial 的人或 AI。先读这份，再读 [ARCHITECTURE.md](ARCHITECTURE.md) 和 [devices/](devices/)。
 
+## 现状（2026-11-06）
+
+- **2026-11-06 巡检（main，未发版）**，记录 `local/triage/2026-11-06-full.md`（原始 `raw-2026-11-06/`、`raw-2026-11-06b/`），回复 `replies-2026-11-06.py`，发出 `posted-2026-11-06.txt`。360 issue / 62 PR，用户最后发言 67，定了不回的 13 个不动。**#901 户主 11-05 重新打开过（「Claude 怎么把这个 issue 关了」），不要再关**。在 worktree `.claude/worktrees/triage-1106` 上做。
+  - 修：**#1229** 开机目标被原桌面盖住时，窗口事件这条路也重新打开目标（`bootTargetCovered`）。**#1284** 安卓 6 每秒一次的 `queryEvents` 放后台线程（`usageWorker`），开机和接管时的单次查询还在主线程。**#1297** 创维 7S72 的 `com.cos.launcher/com.dangbei.tvlauncher.IndexActivity` 算原桌面。**#1245** 通知监听带回进程时，守护 5 秒内见过原桌面就马上开 Aerial（`GuardSetup.startAfterStopOverStock`，代价同 #1276）。**#1301** 开机 3 分钟内未按键时 `com.yunos.tv.bluray` 出现就拉回（`FIRMWARE_BOOT_APPS`）；安卓 7 以下 Aerial 自己把通知监听加进名单、原值不动。**#1071** `bootStockMs` 上限 45 秒，等不到事件时按 20 秒和它里较大的算。**#115** device profile `neverFilterKeys`（默认关，见 ARCHITECTURE）。**#684** `install.sh` 在 `ro.product.model=mt5873` 上把 standard 换成 guard（卡死本身没修，没机器）。合 PR **#1282**（菜单越界 #1097，oiltea94）、**#1294**（长虹 mt5520_ll，justmiho，#1265 重做，作者实测）。README 加海信 HZ55E3D-J、Vidda 65V1R-Pro、小米 MTTP0；机型笔记见 `git log`。
+  - 验证：standard 249 个单元测试、`tools/test_install.py` 通过，两个包编译通过（签名 e089…）。**小米 MFTR0** `install-multiple` standard + 31.dm（versionCode 116，`speed-profile` / `install-dm`）：`selftest.sh` 守护、主页键、`INPUTS=1` 8 个信号源通过；Dock 磁贴菜单往上展开完整（截图）；进屏保、唤醒录屏 2 帧/秒量亮度无黑帧。**TCL MT5879** guard 测试包 **versionCode 117（没提交）**，多屏互动（截图确认焦点在「同意」再按确定），两个 walleve 服务、屏保 AerialDream 保留，compile speed：`selftest.sh` 守护、`INPUTS=1` 7 个信号源通过（shell 主页键 5.3 秒，和之前一样）；临时写 `neverFilterKeys` 日志 `stopped filtering keys`，`device_profile default` 还原后 `filtering keys`；屏保录屏无黑帧。**下次发版 versionCode ≥ 118，Lite 没改（仍 22）**。安卓 5 模拟器：名单 `null…` 开头时追加 Aerial 成功，守护绑定、不崩。
+  - **没有真机验证的**：#1229（模拟器上 launcherx 不给窗口事件，没造出来；没重启户主的电视）、#1284 轮询接管那一步、#1297、#1245（MFTR0 模拟强停没走到这条路）、#1301 第 1 点、#1071、#115 在乐视、PR #1282 在华为、PR #1294 在长虹。
+  - 不合：功能类 PR #1303 #1291 #1292 #1290 #1273；PR #1289 CI 要户主定；#1144 已拆分关闭。
+  - 要信息：#1304 Redmi A55 航拍壁纸 HDMI 黑、#1305 海信 U8E 紫屏（请试 guard）、#1306 MFTR0 待机一晚停原桌面（`usage=false`，有第三方 `com.ts.launcher`）、#1286 NSOP0 4K 黑、#1267 m7642 杜比视界屏保、#1234 m7642 开机 5 秒（给 TCL 开机组件命令）、#1283、#561、#1287、#1235、#883、#1225、#1126。
+  - Lite：这轮的修复都在守护里，Lite 没有守护，没有可移植的。
+
 ## 现状（2026-11-05）
 
 - **未发布（1.85 之后）：合 PR #1259**（#1251 海信「我的视频」壁纸在控制中心下变黑；另一会话写的，作者账号 pengchujin，在 worktree 里 cherry-pick 为 a774586，`docs/devices/hisense-vidaa.md` 末尾和 #1274 那节的冲突两节都留）。430 个单元测试通过。小米 MFTR0 上传一段 1080p H.264 测试视频（id `083d9b71…`，户主原来没有视频；测完按 id 删掉，壁纸改回 aerial:live，画质 auto 没动），录屏逐帧量背景亮度：控制中心里上下移动，0 帧黑，日志只有 stops / starts，没有取帧；控制中心 → 电视设置 → 返回，App 内解关键帧 0.8 秒、从那一帧接着放，3 次里 1 次有 1 帧（约 66 ms）黑；同样操作装回 1.85 正式包，2 次里 1 次黑 24 帧（约 1.6 秒）。视频壁纸下进航拍屏保黑约 6 秒、唤醒黑 0.1–0.2 秒，1.85 正式包一模一样（屏保等航拍片源，不是这个 PR 的事）。小米最后装回 1.85 正式包（install-multiple + .dm）。**没在海信上验证**；解码出错重试那条路在小米上没走到。
