@@ -2086,6 +2086,9 @@ class HomeGuardService : AccessibilityService() {
             // Tencent 极光 boxes: Home is LauncherMainActivity, the screen shown is this one
             // (极光盒子 6SE Q0102, Android 10, issue #270; 7S, Android 14, #269).
             "com.ktcp.launcher" to listOf("com.ktcp.launcher.activity.LauncherHomeSingleTaskActivity"),
+            // Dangbei launcher preinstalled by Skyworth: Tianci's Home starts cos.launcher.Mac, the
+            // screen shown is this one (7S72_G25, m7221, Android 8, issue #1297, the reporter's log).
+            "com.cos.launcher" to listOf("com.dangbei.tvlauncher.IndexActivity"),
         )
 
         /**
