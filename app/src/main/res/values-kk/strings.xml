@@ -134,6 +134,8 @@
     <string name="st_home_layout_hint">«Бір қатар» экранда тек жоғарғы қатарды төменірек көрсетеді, сонда түсқағаздың, мысалы отбасылық фотоның, көбірек бөлігі көрінеді. «Екі қатар» екінші қатардың жоғарғы жағын да көрсетеді. Қалғанын көру үшін төмен басыңыз.</string>
     <string name="st_plate">Жоғарғы қатар</string>
     <string name="st_plate_hint">Жоғарғы қатардың астындағы күңгірт шыны тақта, Apple TV сияқты, немесе қолданбалар тікелей түсқағазда.</string>
+    <string name="st_plate_strength">Тақта реңкі</string>
+    <string name="st_plate_strength_hint">Басты экран тақтасының реңк күшін реттеу.</string>
     <string name="st_plate_glass">Шыны</string>
     <string name="st_plate_none">Жоқ</string>
     <string name="st_sounds">Дыбыстар</string>

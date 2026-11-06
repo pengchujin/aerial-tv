@@ -201,7 +201,7 @@ class HomeView(context: Context, private val host: Host) : FrameLayout(context) 
         }
         plate.visibility = if (hasPlate) VISIBLE else INVISIBLE
         plate.translationY = Ui.px(topRowY - PLATE_PAD_V)
-        plate.place(topRowY - PLATE_PAD_V, plateH)
+        plate.place(topRowY - PLATE_PAD_V, plateH, LiteSettings.homePlateStrength)
         place(animate = false)
         showFocus(animate = false, force = true)
     }
@@ -499,12 +499,14 @@ class HomeView(context: Context, private val host: Host) : FrameLayout(context) 
         private val left = Ui.px(MARGIN - PLATE_PAD_H)
         private var top = 0f
         private var h = 0f
+        private var strength = 100
 
         /** Where the plate rests on screen, in canvas units: its glass comes from there. */
-        fun place(top: Float, height: Float) {
-            if (top == this.top && height == h) return
+        fun place(top: Float, height: Float, strength: Int) {
+            if (top == this.top && height == h && strength == this.strength) return
             this.top = top
             h = height
+            this.strength = strength
             rebake()
         }
 
@@ -512,7 +514,7 @@ class HomeView(context: Context, private val host: Host) : FrameLayout(context) 
             val g = glass ?: run { baked = null; invalidate(); return }
             if (h <= 0f) return
             val at = RectF(left, Ui.px(top), Ui.px(MARGIN + (COLS - 1) * (TILE_W + GAP) + TILE_W + PLATE_PAD_H), Ui.px(top + h))
-            baked = Shapes.glass(g, Ui.screenW, Ui.screenH, at, Ui.px(32f), Ui.px(1.2f), PLATE_TINT)
+            baked = Shapes.glass(g, Ui.screenW, Ui.screenH, at, Ui.px(32f), Ui.px(1.2f), plateTint(strength))
             invalidate()
         }
 
@@ -611,3 +613,8 @@ internal val PLATE_TINT = android.graphics.ColorMatrixColorFilter(floatArrayOf(
     0f, 0f, 0.8f, 0f, 30f,
     0f, 0f, 0f, 1f, 0f,
 ))
+
+private fun plateTint(strength: Int): android.graphics.ColorMatrixColorFilter {
+    if (strength == 100) return PLATE_TINT
+    return android.graphics.ColorMatrixColorFilter(plateTintMatrix(strength))
+}
