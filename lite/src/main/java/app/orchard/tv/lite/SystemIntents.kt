@@ -142,6 +142,13 @@ object SystemIntents {
                 .putExtra(Intent.EXTRA_KEY_EVENT, KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_TV_INPUT))
             if (runCatching { context.startService(key) }.getOrNull() != null) return true
         }
+        // MStar's own TV player keeps a source panel behind a custom action (Sharp
+        // LCD_xxSFFOC470A, MStar mooney, Android 6, the full app's issue #1342, opened with adb);
+        // not verified on MStar's Android 4.x. Last, so no TV that opened one above changes.
+        val mstar = Intent("com.mstar.tv.tvplayer.ui.intent.action.SOURCE_INFO").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        if (runCatching { pm.resolveActivity(mstar, 0)?.activityInfo }.getOrNull()?.exported == true &&
+            runCatching { context.startActivity(mstar) }.isSuccess
+        ) return true
         return false
     }
 
