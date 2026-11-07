@@ -229,6 +229,7 @@ curl -fsSL https://aerial.qust.me/install.sh | TV=192.168.1.20 bash -s restore
 | 雷鸟 | 55S595C Ultra、鹤 6 2025 Ultra | Android 11+ | ❌ 能装，接管不了主页键（[笔记](docs/devices/tcl-mt9655-cn.md)） |
 | 索尼 | A80J 国行、BRAVIA VH1 | Android 10 / 12 | ✅ |
 | 索尼 | BRAVIA 4K VH2 | 未说 | ✅（[#1193](https://github.com/pengchujin/aerial-tv/issues/1193)） |
+| 索尼 | KD-55X8000E 国行（BRAVIA 4K GB） | Android 9 | ✅ 固件锁死主页键，Agent 在这台电视上写 `filterHomeAlways` 后主页键回 Aerial；开机先露原桌面（[#1351](https://github.com/pengchujin/aerial-tv/issues/1351)） |
 | 索尼 | KD55X7000D 国行 | Android 8 | ✅ 亮度要在电视设置里调（[#757](https://github.com/pengchujin/aerial-tv/issues/757)） |
 | 创维 / 酷开 | K3 Pro、75A7D | Android 11 | ✅ 75A7D 的信号源 1.45 起能用；开机先出酷开桌面 3–6 秒，报告人改固件属性后开机直达（[#894](https://github.com/pengchujin/aerial-tv/issues/894)） |
 | 创维 / 酷开 | 65G60、8R134 / 8R145、aigc 系（C10 投影、P60、7T863） | Android 8–11 | ⚠️ 开机先进酷开桌面，或被系统清理后要等 20–30 秒（[笔记](docs/devices/skyworth-coocaa.md)） |
@@ -237,7 +238,8 @@ curl -fsSL https://aerial.qust.me/install.sh | TV=192.168.1.20 bash -s restore
 | 创维 / 酷开 | 8H57_H5 | Android 5.1 | ⚠️ 开机先转圈十几秒才进 Aerial（[#785](https://github.com/pengchujin/aerial-tv/issues/785)） |
 | 创维 | 1AA46_D4（T963） | Android 9 | ✅（[#796](https://github.com/pengchujin/aerial-tv/issues/796)） |
 | 创维 | 43H30（1MC02，MT5862） | Android 9 | ✅ 冷开机先出原厂桌面 1–2 秒；背光只能在电视自己的图像设置里调（[#1192](https://github.com/pengchujin/aerial-tv/issues/1192)） |
-| 创维 | 7T641、7T634_P3H、75A6E、55A5F Pro（8R702）、8R721_A6FP | Android 13 | ❌ 黑屏，或拿不到焦点被系统结束（[#864](https://github.com/pengchujin/aerial-tv/issues/864)、[#839](https://github.com/pengchujin/aerial-tv/issues/839)） |
+| 创维 | 55A5F Pro（8R702_A5FP） | Android 13 | ✅ 要用 standard 版、按主页键的方式打开（guard 版在这台黑屏）（[#1349](https://github.com/pengchujin/aerial-tv/issues/1349)） |
+| 创维 | 7T641、7T634_P3H、75A6E、8R721_A6FP | Android 13 | ❌ 黑屏，或拿不到焦点被系统结束（[#864](https://github.com/pengchujin/aerial-tv/issues/864)、[#839](https://github.com/pengchujin/aerial-tv/issues/839)） |
 | 创维 | 小湃 P3（Q5001 / cupid-p2）盒子 | Android 10 | ⚠️ 要改包名才能接管 HOME；开机广播全被拦（[笔记](docs/devices/skyworth-p3-box.md)） |
 | 松下 | TH-55HX560C（创维代工） | Android 8 | ⚠️ 信号源列不出来 |
 | 康佳 | KKTV U86V9、2861 | Android 9 | ✅ U86V9 亮度调不了（[笔记](docs/devices/konka-kktv-u86v9.md)） |
@@ -262,6 +264,7 @@ curl -fsSL https://aerial.qust.me/install.sh | TV=192.168.1.20 bash -s restore
 | 极米 | Z9X 4K 高亮版（goat_elegant） | Android 13 | ⚠️ 1.76 有限实测：初次显示、UID app-op 与重启前台恢复；启动画面和待机仍待验（[笔记](docs/devices/xgimi-z9x-4k.md)） |
 | 极米 | Z7X、m7642 | Android 9 | ✅ Z7X 要用第三方工具打开 ADB（[笔记](docs/devices/xgimi-z7x.md)） |
 | 极米 | 神灯 L1（m7642，pig_chivalrous） | Android 9 | ✅ 默认桌面开机后会丢，报告人的双规则办法见[笔记](docs/devices/xgimi-z7x.md)（[#767](https://github.com/pengchujin/aerial-tv/issues/767)） |
+| 极米 | H3S、AG111（Product_ym01，m7642，pig_chivalrous） | Android 9 | ✅ standard 版用[笔记](docs/devices/xgimi-z7x.md)里的双规则办法开机直接进；guard 版重启约 1 分钟后进 Aerial（[#1336](https://github.com/pengchujin/aerial-tv/issues/1336)） |
 | 极米 | Z6X 第四代（XK03U / ironman / m7221） | Android 8 | ⚠️ HDMI1 列表与切换已实测，未测视频输出；2GB 机型后台约 15–45 秒被杀、开机默认桌面被改回极米（[笔记](docs/devices/xgimi-xk03u-android8.md)） |
 | 极米 | H3、m7221 | Android 8 | ✅ 要用第三方工具打开 ADB；开机和屏保与 Z7X 一致（[笔记](docs/devices/xgimi-h3.md)） |
 | 大眼橙 | X7、X7D 投影仪 | Android 9 / 5.1 | ✅ HDMI 里按主页键可以回到 Apple TV 主屏幕（[笔记](docs/devices/obe-x7.md)） |

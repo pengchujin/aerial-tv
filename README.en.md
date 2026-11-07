@@ -231,6 +231,7 @@ Most TVs sold in China only accept their own home screen and clear third-party a
 | FFALCON | 55S595C Ultra, Crane 6 2025 Ultra | Android 11+ | ❌ Installs, can't take over Home ([notes](docs/devices/tcl-mt9655-cn.md)) |
 | Sony | A80J (China), BRAVIA VH1 | Android 10 / 12 | ✅ |
 | Sony | BRAVIA 4K VH2 | not given | ✅ ([#1193](https://github.com/pengchujin/aerial-tv/issues/1193)) |
+| Sony | KD-55X8000E (China, BRAVIA 4K GB) | Android 9 | ✅ The firmware locks Home; with `filterHomeAlways` written on that TV by an agent, Home goes to Aerial; the stock launcher shows first at boot ([#1351](https://github.com/pengchujin/aerial-tv/issues/1351)) |
 | Sony | KD55X7000D (China) | Android 8 | ✅ Brightness only in the TV's own settings ([#757](https://github.com/pengchujin/aerial-tv/issues/757)) |
 | Skyworth / Coocaa | K3 Pro, 75A7D | Android 11 | ✅ 75A7D inputs work from 1.45; at power-on Coocaa's launcher shows for 3–6 s, which the reporter removed by changing firmware properties ([#894](https://github.com/pengchujin/aerial-tv/issues/894)) |
 | Skyworth / Coocaa | 65G60, 8R134 / 8R145, aigc models (C10 projector, P60, 7T863) | Android 8–11 | ⚠️ Boots into Coocaa's home first, or takes 20–30 s to come back after the system clears it ([notes](docs/devices/skyworth-coocaa.md)) |
@@ -239,7 +240,8 @@ Most TVs sold in China only accept their own home screen and clear third-party a
 | Skyworth / Coocaa | 8H57_H5 | Android 5.1 | ⚠️ Spins for a dozen seconds at boot before Aerial ([#785](https://github.com/pengchujin/aerial-tv/issues/785)) |
 | Skyworth | 1AA46_D4 (T963) | Android 9 | ✅ ([#796](https://github.com/pengchujin/aerial-tv/issues/796)) |
 | Skyworth | 43H30 (1MC02, MT5862) | Android 9 | ✅ On a cold boot the stock launcher shows for 1–2 s; the backlight is set only in the TV's own picture settings ([#1192](https://github.com/pengchujin/aerial-tv/issues/1192)) |
-| Skyworth | 7T641, 7T634_P3H, 75A6E, 55A5F Pro (8R702), 8R721_A6FP | Android 13 | ❌ Black screen, or no window focus and stopped by the system ([#864](https://github.com/pengchujin/aerial-tv/issues/864), [#839](https://github.com/pengchujin/aerial-tv/issues/839)) |
+| Skyworth | 55A5F Pro (8R702_A5FP) | Android 13 | ✅ Use the standard build, opened the way Home opens it (the guard build is black there) ([#1349](https://github.com/pengchujin/aerial-tv/issues/1349)) |
+| Skyworth | 7T641, 7T634_P3H, 75A6E, 8R721_A6FP | Android 13 | ❌ Black screen, or no window focus and stopped by the system ([#864](https://github.com/pengchujin/aerial-tv/issues/864), [#839](https://github.com/pengchujin/aerial-tv/issues/839)) |
 | Skyworth | Xiaopai P3 (Q5001 / cupid-p2) box | Android 10 | ⚠️ Needs a renamed package to take over Home; boot broadcasts are all blocked ([notes](docs/devices/skyworth-p3-box.md)) |
 | Panasonic | TH-55HX560C (built by Skyworth) | Android 8 | ⚠️ No inputs listed |
 | Konka | KKTV U86V9, 2861 | Android 9 | ✅ U86V9 brightness does not work ([notes](docs/devices/konka-kktv-u86v9.md)) |
@@ -264,6 +266,7 @@ Most TVs sold in China only accept their own home screen and clear third-party a
 | XGIMI | Z7X, m7642 | Android 9 | ✅ Z7X needs a third-party tool to open ADB ([notes](docs/devices/xgimi-z7x.md)) |
 | XGIMI | Z9X 4K Bright (goat_elegant) | Android 13 | ⚠️ Limited test on 1.76: first launch, UID app-op and the front after reboot; boot screen and standby not yet ([notes](docs/devices/xgimi-z9x-4k.md)) |
 | XGIMI | Lamp L1 (m7642, pig_chivalrous) | Android 9 | ✅ The default Home is lost at boot; the reporter's two-rule fix is in the [notes](docs/devices/xgimi-z7x.md) ([#767](https://github.com/pengchujin/aerial-tv/issues/767)) |
+| XGIMI | H3S, AG111 (Product_ym01, m7642, pig_chivalrous) | Android 9 | ✅ Standard build with the two-rule fix in the [notes](docs/devices/xgimi-z7x.md) boots straight in; the guard build reaches Aerial about a minute after a restart ([#1336](https://github.com/pengchujin/aerial-tv/issues/1336)) |
 | XGIMI | Z6X Gen 4 (XK03U / ironman / m7221) | Android 8 | ⚠️ HDMI 1 listing and switching verified, video output not tested; on 2 GB units Aerial is killed in about 15–45 s in the background and the stock Home returns at boot ([notes](docs/devices/xgimi-xk03u-android8.md)) |
 | XGIMI | H3, m7221 | Android 8 | ✅ Needs a third-party tool to open ADB; boot handover and screensaver match Z7X ([notes](docs/devices/xgimi-h3.md)) |
 | OBE | X7, X7D projectors | Android 9 / 5.1 | ✅ Home inside HDMI can go to the Apple TV's home screen ([notes](docs/devices/obe-x7.md)) |
