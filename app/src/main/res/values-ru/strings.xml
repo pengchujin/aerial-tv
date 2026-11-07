@@ -152,6 +152,7 @@
     <string name="st_sounds_aerial">Aerial</string>
     <string name="st_on">Вкл.</string>
     <string name="st_off">Выкл.</string>
+    <string name="st_temperature">Температура</string>
     <string name="st_hidden_apps">Скрытые приложения</string>
     <string name="st_hidden_apps_hint">Приложения, скрытые с главного экрана, хранятся здесь, чтобы их можно было вернуть. Если задан родительский PIN-код, сначала он будет запрошен.</string>
     <string name="st_home_lock">Закрепить экран</string>
@@ -233,6 +234,8 @@
     <string name="weather_thunder">Грозы</string>
     <string name="weather_temperature">%1$d°</string>
     <string name="weather_high_low">Макс.: %1$d°  Мин.: %2$d°</string>
+    <string name="weather_temperature_f">%1$d°</string>
+    <string name="weather_high_low_f">Макс.: %1$d°  Мин.: %2$d°</string>
     <string name="st_columns">Приложений в ряду</string>
     <string name="st_columns_hint">Сколько приложений помещается в ряд на главном экране и в папках. Шесть — больше видно сразу; четыре — крупнее, их лучше видно издалека.</string>
     <string name="st_peek">Второй ряд</string>

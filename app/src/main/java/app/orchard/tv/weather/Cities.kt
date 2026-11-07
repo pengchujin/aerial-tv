@@ -28,17 +28,21 @@ object Cities {
      * The place typed on the phone page: "商丘", "商丘市", or with its province, "河南商丘" or "北京朝阳"
      * for one of several of that name. Of several, a city before a county; the table is in that order.
      */
-    fun find(context: Context, typed: String): City? {
+    fun find(context: Context, typed: String): City? = findAll(context, typed).firstOrNull()
+
+    /**
+     * Every listed place [typed] can mean, the one [find] picks first: for the phone page to offer
+     * them all. Places that only have it as an alias count only when none is called by it.
+     */
+    fun findAll(context: Context, typed: String): List<City> {
         val q = typed.filterNot { it.isWhitespace() }.removePrefix("中国")
-        if (q.isEmpty() || q.any { it.code < 0x4e00 || it.code > 0x9fff }) return null
+        if (q.isEmpty() || q.any { it.code < 0x4e00 || it.code > 0x9fff }) return emptyList()
         val cities = load(context)
         fun inProvince(city: City) = city.province.isNotEmpty() && q.startsWith(city.province)
         fun rest(city: City) = short(q.removePrefix(city.province).trimStart('省', '市').removePrefix("自治区").removePrefix("壮族自治区"))
         // Names before aliases: some places have another place's name as an alias (北京朝阳 is one of 朝外's).
-        return cities.firstOrNull { it.name == short(q) }
-            ?: cities.firstOrNull { inProvince(it) && it.name == rest(it) }
-            ?: cities.firstOrNull { short(q) in it.aliases }
-            ?: cities.firstOrNull { inProvince(it) && rest(it) in it.aliases }
+        val named = cities.filter { it.name == short(q) } + cities.filter { inProvince(it) && it.name == rest(it) }
+        return named.ifEmpty { cities.filter { short(q) in it.aliases } + cities.filter { inProvince(it) && rest(it) in it.aliases } }.distinct()
     }
 
     /** The listed place called [name] nearest to a point, if one is within [km]. */
