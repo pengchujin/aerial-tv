@@ -1496,6 +1496,18 @@ class HomeGuardService : AccessibilityService() {
                 ContextCompat.checkSelfPermission(this, service.permission) == PackageManager.PERMISSION_GRANTED)) {
             if (runCatching { startService(Intent().setComponent(xiaomi).putExtra("recent_control", 2)) }.getOrNull() != null) return
         }
+        // TCL's task manager (TaskManagerActivity) is not exported. Held, Home makes the firmware
+        // send this broadcast to TCL's launcher, which opens it; the receiver is exported without a
+        // permission. Verified on TCL 65Q9K (tcl_mt5879_cn, Android 11), issue #1354.
+        val tcl = ComponentName("com.tcl.cyberui", "com.tcl.global.history.receiver.GlobalHistoryReceiver")
+        val receiver = runCatching { packageManager.getReceiverInfo(tcl, 0) }.getOrNull()
+        if (receiver?.enabled == true && receiver.applicationInfo.enabled && receiver.exported &&
+            receiver.permission.isNullOrEmpty()) {
+            val sent = runCatching {
+                sendBroadcast(Intent(TCL_TASK_CENTRE).setComponent(tcl).addFlags(Intent.FLAG_INCLUDE_STOPPED_PACKAGES))
+            }.isSuccess
+            if (sent) return
+        }
         for (action in TASK_CENTRE_ACTIONS) {
             val intent = Intent(action)
                 .addCategory(Intent.CATEGORY_DEFAULT)
@@ -1935,6 +1947,7 @@ class HomeGuardService : AccessibilityService() {
         /** Stock launchers that come to the front with no window change; see foregroundCheck. */
         private val INVISIBLE_LAUNCHERS = setOf(VIDAA_LAUNCHER, "com.ktcp.launcher")
         /** Actions the firmware's own task centre answers, tried in order before SystemUI's recents. */
+        private const val TCL_TASK_CENTRE ="com.tcl.action.OPEN_GLOBAL_HISTORY"
         private val TASK_CENTRE_ACTIONS = listOf("com.dangbei.recentstask.action.SHOW_RECENTS_FOR_USER")
         private const val VOLUME_REPEAT_MAX_MS = 8_000L
         private const val HOME_PAUSE_MS = 400L
