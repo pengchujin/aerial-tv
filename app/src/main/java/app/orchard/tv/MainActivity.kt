@@ -471,7 +471,31 @@ class MainActivity : ComponentActivity() {
             BootOpen.noteOpened(this@MainActivity)
             openedAppSinceHome = true
             open(intent.second)
+            if (again && id != null) nudgeVolumeAfterReopen()
         }
+    }
+
+    /**
+     * Opening an input again right after the firmware did can leave Amlogic's tvserver with its
+     * pre-mute on: the picture came, but HDMI had no sound until a volume key was pressed
+     * (MiTV4-ANSM0, Android 6: 2 of 5 cold boots, the pre-mute landing after the "still stable"
+     * that would have lifted it; the reporter's logcat, issue #1337). Any volume change lifts it.
+     * A step down and back, without the volume panel, leaves the volume where it was. Only after
+     * that reopen, and never on a stream the viewer muted.
+     */
+    private fun nudgeVolumeAfterReopen() {
+        Handler(Looper.getMainLooper()).postDelayed({
+            val am = getSystemService<AudioManager>() ?: return@postDelayed
+            runCatching {
+                if (Build.VERSION.SDK_INT >= 23 && am.isStreamMute(AudioManager.STREAM_MUSIC)) return@runCatching
+                val level = am.getStreamVolume(AudioManager.STREAM_MUSIC)
+                val other = if (level > 0) level - 1 else 1
+                if (other > am.getStreamMaxVolume(AudioManager.STREAM_MUSIC)) return@runCatching
+                am.setStreamVolume(AudioManager.STREAM_MUSIC, other, 0)
+                am.setStreamVolume(AudioManager.STREAM_MUSIC, level, 0)
+                DiagLog.i("boot input opened again; volume set again at $level")
+            }
+        }, REOPEN_VOLUME_NUDGE_MS)
     }
 
     /**
@@ -1342,6 +1366,8 @@ class MainActivity : ComponentActivity() {
 
         /** How long the app the TV starts on waits for a network at most. */
         private const val BOOT_APP_NETWORK_WAIT_MS = 20_000L
+        /** The pre-mute came 2.4–2.8 s after the reopen on MiTV4-ANSM0 (issue #1337). */
+        private const val REOPEN_VOLUME_NUDGE_MS = 4_000L
 
         /** `adb shell am start -a app.orchard.tv.PREVIEW_SCREENSAVER -n app.orchard.tv/.MainActivity` */
         const val ACTION_PREVIEW_SCREENSAVER = "app.orchard.tv.PREVIEW_SCREENSAVER"
