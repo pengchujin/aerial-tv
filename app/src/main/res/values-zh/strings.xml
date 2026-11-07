@@ -150,6 +150,7 @@
     <string name="st_sounds_aerial">Aerial</string>
     <string name="st_on">开</string>
     <string name="st_off">关</string>
+    <string name="st_temperature">温度单位</string>
     <string name="st_hidden_apps">隐藏的 App</string>
     <string name="st_hidden_apps_hint">从主屏幕隐藏的 App 在这里，可以放回主屏幕。设了家长密码时要先输入密码。</string>
     <string name="st_hidden_none">没有</string>
