@@ -246,6 +246,11 @@ fun WallpaperSheet(
                         listOf(true to R.string.st_on, false to R.string.st_off),
                         AerialSettings.showWeather, AerialSettings::chooseShowWeather,
                     )
+                    if (AerialSettings.showWeather) Choices(
+                        R.string.st_temperature, null, note,
+                        listOf(false to "°C", true to "°F"),
+                        AerialSettings.fahrenheit, AerialSettings::chooseFahrenheit,
+                    )
                 }
                 Spacer(Modifier.height(10.dp))
                 Group { note ->
@@ -647,7 +652,7 @@ private fun WeatherValue() {
         )
     }
     BasicText(
-        if (w != null) listOfNotNull(place, "${w.celsius}° $kind").joinToString(" · ") else stringResource(R.string.wp_weather_none),
+        if (w != null) listOfNotNull(place, "${Weather.degrees(w.celsius)}° $kind").joinToString(" · ") else stringResource(R.string.wp_weather_none),
         style = Type.Body.copy(color = Palette.SecondaryLabel),
         modifier = Modifier.padding(end = 8.dp),
     )

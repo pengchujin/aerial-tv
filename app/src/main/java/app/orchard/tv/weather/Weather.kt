@@ -7,6 +7,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.core.content.edit
+import app.orchard.tv.settings.AerialSettings
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -23,8 +24,18 @@ import kotlin.math.roundToInt
 
 enum class WeatherKind { Clear, PartlyCloudy, Cloudy, Fog, Rain, Snow, Thunder }
 
-/** [high] and [low] are today's, shown under the large clock; null in a reading saved by an older version. */
-data class WeatherNow(val celsius: Int, val kind: WeatherKind, val day: Boolean, val high: Int? = null, val low: Int? = null)
+/**
+ * Temperatures in Celsius, unrounded so that Fahrenheit comes out right; show them through
+ * [Weather.degrees]. [high] and [low] are today's, shown under the large clock; null in a reading
+ * saved by an older version.
+ */
+data class WeatherNow(val celsius: Double, val kind: WeatherKind, val day: Boolean, val high: Double? = null, val low: Double? = null)
+
+/**
+ * A place the owner can pick when several share the name they typed: [region] is its province or
+ * state and country. [seat] marks a capital or an administrative seat, which a bare name is taken for.
+ */
+data class WeatherPlace(val name: String, val region: String, val lat: Double, val lon: Double, val seat: Boolean = false)
 
 /**
  * The weather beside the home clock, from Open-Meteo: no key, reachable from China. The place is
@@ -45,6 +56,8 @@ object Weather {
     private const val STALE_MS = 3 * 60 * 60 * 1000L
     /** Stands for "no high or low" in the prefs. */
     private const val NONE = Int.MIN_VALUE
+    /** The most places offered for one name. */
+    private const val MAX_PLACES = 10
 
     var now by mutableStateOf<WeatherNow?>(null); private set
 
@@ -71,12 +84,22 @@ object Weather {
         if (System.currentTimeMillis() - prefs.getLong("fetched_at", 0) < STALE_MS) {
             val kind = runCatching { WeatherKind.valueOf(prefs.getString("kind", null) ?: "") }.getOrNull()
             if (kind != null) now = WeatherNow(
-                prefs.getInt("celsius", 0), kind, prefs.getBoolean("day", true),
-                high = prefs.getInt("high", NONE).takeIf { it != NONE },
-                low = prefs.getInt("low", NONE).takeIf { it != NONE },
+                saved("temp", "celsius") ?: 0.0, kind, prefs.getBoolean("day", true),
+                high = saved("high_c", "high"),
+                low = saved("low_c", "low"),
             )
         }
     }
+
+    /** A temperature as saved since Fahrenheit came (a float), or as before it (whole degrees); null if neither. */
+    private fun saved(key: String, oldKey: String): Double? = when {
+        prefs.contains(key) -> prefs.getFloat(key, 0f).toDouble().takeIf { !it.isNaN() }
+        else -> prefs.getInt(oldKey, NONE).takeIf { it != NONE }?.toDouble()
+    }
+
+    /** A temperature in whole degrees of the unit the owner reads: Celsius, or Fahrenheit (AerialSettings.fahrenheit). */
+    fun degrees(celsius: Double): Int =
+        (if (AerialSettings.fahrenheit) celsius * 9 / 5 + 32 else celsius).roundToInt()
 
     private var failed = false
 
@@ -100,11 +123,11 @@ object Weather {
                 now = reading
                 prefs.edit {
                     putLong("fetched_at", System.currentTimeMillis())
-                    putInt("celsius", reading.celsius)
+                    putFloat("temp", reading.celsius.toFloat())
                     putString("kind", reading.kind.name)
                     putBoolean("day", reading.day)
-                    putInt("high", reading.high ?: NONE)
-                    putInt("low", reading.low ?: NONE)
+                    putFloat("high_c", reading.high?.toFloat() ?: Float.NaN)
+                    putFloat("low_c", reading.low?.toFloat() ?: Float.NaN)
                 }
             }
         }
@@ -142,9 +165,9 @@ object Weather {
         val json = JSONObject(get("https://api.open-meteo.com/v1/forecast?latitude=$lat&longitude=$lon&current=temperature_2m,weather_code,is_day&daily=temperature_2m_max,temperature_2m_min&forecast_days=1&timezone=auto"))
         val current = json.getJSONObject("current")
         val daily = json.optJSONObject("daily")
-        fun today(key: String) = daily?.optJSONArray(key)?.optDouble(0)?.takeIf { !it.isNaN() }?.roundToInt()
+        fun today(key: String) = daily?.optJSONArray(key)?.optDouble(0)?.takeIf { !it.isNaN() }
         return WeatherNow(
-            celsius = current.getDouble("temperature_2m").roundToInt(),
+            celsius = current.getDouble("temperature_2m"),
             kind = kindOf(current.getInt("weather_code")),
             day = current.optInt("is_day", 1) == 1,
             high = today("temperature_2m_max"),
@@ -209,35 +232,66 @@ object Weather {
     }
 
     /**
-     * Names the place (from the phone page) and fetches its weather at once. Chinese names are
-     * looked up in Aerial's own list first, others (pinyin, places abroad) in Open-Meteo's geocoder.
-     * False when there is no such place.
+     * Places called [name], for the owner to pick from on the phone page, since many share a name
+     * (Portland, Springfield, 朝阳): Aerial's own list of China's cities first, all of that name
+     * with their provinces, then Open-Meteo's geocoder, named in the TV's language. Empty when there
+     * is no such place; an exception when the geocoder could not be reached and the list had none.
+     */
+    suspend fun search(name: String): List<WeatherPlace> = withContext(Dispatchers.IO) {
+        val typed = name.trim()
+        val china = Locale("", "CN").displayCountry
+        val listed = runCatching { Cities.findAll(app, typed) }.onFailure { Log.w(TAG, "could not read the city list", it) }
+            .getOrDefault(emptyList())
+            .map { WeatherPlace(it.name, listOf(it.province, china).filter { p -> p.isNotEmpty() && p != it.name }.joinToString(", "), it.lat, it.lon, seat = true) }
+        val found = runCatching { geocode(typed) }.onFailure { Log.w(TAG, "could not look up $typed", it) }
+        if (listed.isEmpty() && found.isFailure) throw found.exceptionOrNull()!!
+        // The geocoder knows some Chinese places too: one already listed is not offered twice.
+        val abroad = found.getOrDefault(emptyList())
+            .filter { g -> listed.none { Cities.distanceKm(it.lat, it.lon, g.lat, g.lon) < 15 } }
+        (listed + abroad).distinctBy { listOf(it.name, it.region) }.take(MAX_PLACES)
+    }
+
+    /** Open-Meteo's geocoder, off the main thread, in its order: the most populous first. */
+    private fun geocode(name: String): List<WeatherPlace> {
+        if (name.isEmpty()) return emptyList()
+        val q = URLEncoder.encode(name, "UTF-8")
+        val language = Locale.getDefault().language.ifEmpty { "en" }
+        val results = JSONObject(get("https://geocoding-api.open-meteo.com/v1/search?name=$q&count=$MAX_PLACES&language=$language&format=json"))
+            .optJSONArray("results") ?: return emptyList()
+        return (0 until results.length()).map { results.getJSONObject(it) }
+            .map {
+                val placeName = it.optString("name").ifBlank { name }
+                val region = listOf("admin1", "country").map { k -> it.optString(k) }
+                    .filter { r -> r.isNotBlank() && r != placeName }.distinct().joinToString(", ")
+                val code = it.optString("feature_code")
+                WeatherPlace(placeName, region, it.getDouble("latitude"), it.getDouble("longitude"), seat = code == "PPLC" || code.startsWith("PPLA"))
+            }
+    }
+
+    /**
+     * Names the place (from the phone page) and fetches its weather at once, for a caller that
+     * sends only a name: of [search]'s places, a town before a village of the same name (the
+     * geocoder took 安庆 for a village in Jiangsu). False when there is no such place.
      */
     suspend fun choose(name: String): Boolean {
-        val hit = withContext(Dispatchers.IO) {
-            runCatching { Cities.find(app, name) }.onFailure { Log.w(TAG, "could not read the city list", it) }.getOrNull()
-                ?.let { Triple(it.lat, it.lon, it.name) }
-                ?: runCatching {
-                    val q = URLEncoder.encode(name.trim(), "UTF-8")
-                    val results = JSONObject(get("https://geocoding-api.open-meteo.com/v1/search?name=$q&count=10&language=zh&format=json"))
-                        .optJSONArray("results")
-                    val all = (0 until (results?.length() ?: 0)).map { results!!.getJSONObject(it) }
-                    // Towns before villages of the same name.
-                    val best = all.firstOrNull { it.optString("feature_code").startsWith("PPLA") || it.optString("feature_code") == "PPLC" } ?: all.firstOrNull()
-                    best?.let { Triple(it.getDouble("latitude"), it.getDouble("longitude"), it.optString("name").ifBlank { name.trim() }) }
-                }.onFailure { Log.w(TAG, "could not look up $name", it) }.getOrNull()
-        } ?: return false
+        val places = runCatching { search(name) }.getOrNull().orEmpty()
+        val best = places.firstOrNull { it.seat } ?: places.firstOrNull() ?: return false
+        choose(best)
+        return true
+    }
+
+    /** The place the owner picked from [search]'s list on the phone page; fetches its weather at once. */
+    fun choose(place: WeatherPlace) {
         prefs.edit {
-            putFloat("lat", hit.first.toFloat())
-            putFloat("lon", hit.second.toFloat())
-            putString("place", hit.third)
+            putFloat("lat", place.lat.toFloat())
+            putFloat("lon", place.lon.toFloat())
+            putString("place", place.name)
             putBoolean("chosen", true)
             putBoolean("checked_against_cities", true)
         }
         chosen = true
-        place = prefs.getString("place", null)
+        this.place = place.name
         refresh()
-        return true
     }
 
     /** Back to guessing the place from the network. */

@@ -29,6 +29,7 @@ import app.orchard.tv.system.Diagnostics
 import app.orchard.tv.system.currentNetwork
 import app.orchard.tv.settings.FocusStyle
 import app.orchard.tv.weather.Weather
+import app.orchard.tv.weather.WeatherPlace
 import androidx.core.graphics.createBitmap
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.EncodeHintType
@@ -109,6 +110,7 @@ class PhoneServer private constructor(private val context: Context, private val 
                     val known = when (f["key"]) {
                         "wallpaperAlwaysMoves" -> { onMain { AerialSettings.chooseWallpaperAlwaysMoves(on) }; true }
                         "showWeather" -> { onMain { AerialSettings.chooseShowWeather(on) }; true }
+                        "fahrenheit" -> { onMain { AerialSettings.chooseFahrenheit(on) }; true }
                         "screensaverClock" -> { onMain { AerialSettings.chooseScreensaverClock(on) }; true }
                         else -> false
                     }
@@ -203,9 +205,28 @@ class PhoneServer private constructor(private val context: Context, private val 
                     if (installed(pkg)) { CustomIcons.clear(pkg); onMain { CustomIcons.changed() } }
                     json(state())
                 }
+                session.method == Method.POST && path == "/api/weather/search" -> {
+                    // Every place of that name, for the owner to pick the right one.
+                    val name = form(session)["name"].orEmpty().trim()
+                    val places = runCatching { if (name.isEmpty()) emptyList() else runBlocking { Weather.search(name) } }
+                    json(JSONObject().put("ok", places.isSuccess).put("places", JSONArray().apply {
+                        places.getOrDefault(emptyList()).forEach {
+                            put(JSONObject().put("name", it.name).put("region", it.region).put("lat", it.lat).put("lon", it.lon))
+                        }
+                    }))
+                }
                 session.method == Method.POST && path == "/api/weather/city" -> {
-                    val name = form(session)["name"].orEmpty()
-                    val found = name.isNotBlank() && runBlocking(Dispatchers.Main) { Weather.choose(name) }
+                    // A place picked from /api/weather/search comes with its point; a bare name is
+                    // looked up, and the first place of that name taken.
+                    val f = form(session)
+                    val name = f["name"].orEmpty().trim()
+                    val lat = f["lat"]?.toDoubleOrNull()?.takeIf { it in -90.0..90.0 }
+                    val lon = f["lon"]?.toDoubleOrNull()?.takeIf { it in -180.0..180.0 }
+                    val found = when {
+                        name.isEmpty() -> false
+                        lat != null && lon != null -> { runBlocking(Dispatchers.Main) { Weather.choose(WeatherPlace(name, "", lat, lon)) }; true }
+                        else -> runBlocking(Dispatchers.Main) { Weather.choose(name) }
+                    }
                     json(state().put("found", found))
                 }
                 session.method == Method.POST && path == "/api/weather/auto" -> {
@@ -243,6 +264,7 @@ class PhoneServer private constructor(private val context: Context, private val 
             .put("kids", kidsState())
             .put("wallpaperAlwaysMoves", AerialSettings.wallpaperAlwaysMoves)
             .put("showWeather", AerialSettings.showWeather)
+            .put("fahrenheit", AerialSettings.fahrenheit)
             .put("screensaverClock", AerialSettings.screensaverClock)
             .put("wallpapers", list)
             .put("apps", JSONArray().apply {
@@ -291,7 +313,7 @@ class PhoneServer private constructor(private val context: Context, private val 
             .put("weather", JSONObject().apply {
                 put("place", Weather.place ?: "")
                 put("chosen", Weather.chosen)
-                Weather.now?.let { put("celsius", it.celsius); put("kind", it.kind.name.lowercase()); put("day", it.day) }
+                Weather.now?.let { put("degrees", Weather.degrees(it.celsius)); put("kind", it.kind.name.lowercase()); put("day", it.day) }
             })
     }
 

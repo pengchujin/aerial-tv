@@ -151,6 +151,7 @@
     <string name="st_sounds_aerial">Aerial</string>
     <string name="st_on">On</string>
     <string name="st_off">Off</string>
+    <string name="st_temperature">Temperature</string>
     <string name="st_hidden_apps">Hidden Apps</string>
     <string name="st_hidden_apps_hint">Apps hidden from Home are kept here, to put back. With a parental PIN set, it asks for the PIN first.</string>
     <string name="st_hidden_none">None</string>

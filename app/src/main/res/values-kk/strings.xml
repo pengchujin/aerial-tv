@@ -143,6 +143,7 @@
     <string name="st_sounds_aerial">Aerial</string>
     <string name="st_on">Қосулы</string>
     <string name="st_off">Өшірулі</string>
+    <string name="st_temperature">Температура</string>
     <string name="st_hidden_apps">Жасырын қолданбалар</string>
     <string name="st_hidden_apps_hint">Басты экраннан жасырылған қолданбалар қайтару үшін осында сақталады. Ата-аналық PIN-код орнатылған болса, алдымен сол сұралады.</string>
     <string name="st_hidden_none">Жоқ</string>
