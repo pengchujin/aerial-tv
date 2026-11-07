@@ -40,7 +40,9 @@ object Brightness {
             MitvPanel.usable(context) -> (mitvLevel ?: MitvPanel.level(context) ?: storedLevel(context) ?: 50) / 100f
             // A Xiaomi TV where neither works: the TV's own slider rather than one that changes nothing.
             installed(context, "com.xiaomi.mitv.settings") -> null
-            installed(context, "com.tcl.settings") || installed(context, "com.sony.dtv.configsettings") -> null
+            installed(context, "com.tcl.settings") || installed(context, "com.sony.dtv.configsettings") ||
+                // Sony's name on Dangbei's China firmware (BRAVIA BF1, the full app's issue #1355).
+                Build.MANUFACTURER.equals("Sony", ignoreCase = true) -> null
             DeviceProfile.current(context).ignoresScreenBrightness -> null
             Build.VERSION.SDK_INT >= 23 && !Settings.System.canWrite(context) -> null
             else -> runCatching { Settings.System.getInt(r, Settings.System.SCREEN_BRIGHTNESS, 128) / 255f }.getOrNull()

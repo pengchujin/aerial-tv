@@ -49,8 +49,11 @@ object Brightness {
     private fun isXiaomi(context: Context) =
         runCatching { context.packageManager.getPackageInfo("com.xiaomi.mitv.settings", 0) }.isSuccess
 
+    // Sony's own settings app, or Sony's name on a set with Dangbei's China firmware instead of it:
+    // BRAVIA BF1 (mt5896, Android 12) drew the slider and the panel did not follow (issue #1355).
     private fun isSony(context: Context) =
-        runCatching { context.packageManager.getPackageInfo("com.sony.dtv.configsettings", 0) }.isSuccess
+        runCatching { context.packageManager.getPackageInfo("com.sony.dtv.configsettings", 0) }.isSuccess ||
+            Build.MANUFACTURER.equals("Sony", ignoreCase = true)
 
     /**
      * Hisense VIDAA: screen_brightness takes Aerial's writes and the panel stays as it was; the

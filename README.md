@@ -228,6 +228,7 @@ curl -fsSL https://aerial.qust.me/install.sh | TV=192.168.1.20 bash -s restore
 | 雷鸟 | FF55S515D-E674（tcl_m7642） | Android 9 | ✅ 多屏互动安装 guard，主页键可接管；重启亮屏后先出原桌面再切入 Aerial，待机唤醒偶尔同样短暂切换（[实测与限制](docs/devices/ffalcon-55s515d.md)） |
 | 雷鸟 | 55S595C Ultra、鹤 6 2025 Ultra | Android 11+ | ❌ 能装，接管不了主页键（[笔记](docs/devices/tcl-mt9655-cn.md)） |
 | 索尼 | A80J 国行、BRAVIA VH1 | Android 10 / 12 | ✅ |
+| 索尼 | BRAVIA BF1 国行（BRAVIA 3，当贝系统） | Android 12 | ✅ 亮度要在电视设置里调（[#1355](https://github.com/pengchujin/aerial-tv/issues/1355)） |
 | 索尼 | BRAVIA 4K VH2 | 未说 | ✅（[#1193](https://github.com/pengchujin/aerial-tv/issues/1193)） |
 | 索尼 | KD-55X8000E 国行（BRAVIA 4K GB） | Android 9 | ✅ 固件锁死主页键，Agent 在这台电视上写 `filterHomeAlways` 后主页键回 Aerial；开机先露原桌面（[#1351](https://github.com/pengchujin/aerial-tv/issues/1351)） |
 | 索尼 | KD55X7000D 国行 | Android 8 | ✅ 亮度要在电视设置里调（[#757](https://github.com/pengchujin/aerial-tv/issues/757)） |

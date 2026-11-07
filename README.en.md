@@ -230,6 +230,7 @@ Most TVs sold in China only accept their own home screen and clear third-party a
 | FFALCON | FF55S515D-E674 (tcl_m7642) | Android 9 | ✅ guard installed through Multi-screen Interaction; Home works. After reboot and screen-on, stock Home appears before Aerial; wake sometimes briefly shows stock Home too ([observations and limits](docs/devices/ffalcon-55s515d.md)) |
 | FFALCON | 55S595C Ultra, Crane 6 2025 Ultra | Android 11+ | ❌ Installs, can't take over Home ([notes](docs/devices/tcl-mt9655-cn.md)) |
 | Sony | A80J (China), BRAVIA VH1 | Android 10 / 12 | ✅ |
+| Sony | BRAVIA BF1 (China, BRAVIA 3, Dangbei firmware) | Android 12 | ✅ Brightness only in the TV's own settings ([#1355](https://github.com/pengchujin/aerial-tv/issues/1355)) |
 | Sony | BRAVIA 4K VH2 | not given | ✅ ([#1193](https://github.com/pengchujin/aerial-tv/issues/1193)) |
 | Sony | KD-55X8000E (China, BRAVIA 4K GB) | Android 9 | ✅ The firmware locks Home; with `filterHomeAlways` written on that TV by an agent, Home goes to Aerial; the stock launcher shows first at boot ([#1351](https://github.com/pengchujin/aerial-tv/issues/1351)) |
 | Sony | KD55X7000D (China) | Android 8 | ✅ Brightness only in the TV's own settings ([#757](https://github.com/pengchujin/aerial-tv/issues/757)) |
