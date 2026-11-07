@@ -606,9 +606,18 @@ object SystemProbe {
                 .putExtra(Intent.EXTRA_KEY_EVENT, android.view.KeyEvent(android.view.KeyEvent.ACTION_DOWN, android.view.KeyEvent.KEYCODE_TV_INPUT))
             if (runCatching { context.startService(key) }.getOrNull() != null) return true
         }
+        // MStar's own TV player keeps a source panel behind a custom action, on firmware that
+        // registers no inputs with Android (Sharp LCD_xxSFFOC470A, MStar mooney, Android 6: the
+        // reporter opened it with adb, issue #1342). Only an exported one, as `am start` was, and
+        // after every other panel, so no TV that opened one of those changes.
+        val mstar = Intent(MSTAR_SOURCE_INFO).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        if (runCatching { pm.resolveActivity(mstar, 0)?.activityInfo }.getOrNull()?.exported == true &&
+            runCatching { context.startActivity(mstar) }.isSuccess
+        ) return true
         return false
     }
 
+    private const val MSTAR_SOURCE_INFO = "com.mstar.tv.tvplayer.ui.intent.action.SOURCE_INFO"
     private val LETV_SOURCES = ComponentName("com.stv.signalsourcemanager", "com.stv.signalsourcemanager.MainActivity")
     private val FOXCONN_SOURCES = ComponentName("com.mstar.tvsetting", "com.foxconn.etvg.inputsource.FxcInputSourceActitvity")
 
