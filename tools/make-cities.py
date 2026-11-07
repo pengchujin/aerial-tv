@@ -24,6 +24,9 @@ from collections import Counter
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, "app/src/main/assets/cities-cn.tsv")
 RANK = {"PPLC": 0, "PPLA": 0, "PPLA2": 1, "PPLA3": 2, "ADM3": 3}
+# Places GeoNames still lists most often under a former name: 襄樊 became 襄阳 in 2010, and the
+# weather showed the old name even after the viewer picked 襄阳 (issue #1328).
+CURRENT = {"襄樊": "襄阳"}
 CJK = re.compile(r"^[一-鿿]+$")
 SUFFIX = re.compile(r"(壮族自治区|回族自治区|维吾尔自治区|特别行政区|自治区|自治州|自治县|地区|新区|省|市|县|区|盟|旗)$")
 
@@ -69,6 +72,11 @@ out = []
 for rank, _, names, admin1, lat, lon, ascii_name in rows:
     forms = Counter(short(n) for n in names)
     name = max(forms, key=lambda n: (forms[n], len(n) >= 2, -len(n)))
+    if CURRENT.get(name) in forms:
+        name = CURRENT[name]
+    elif name in CURRENT:
+        forms[CURRENT[name]] += 1
+        name = CURRENT[name]
     # A county-level division named like a seat already listed is that seat's area.
     if rank == 3 and (name, admin1) in seen:
         continue
