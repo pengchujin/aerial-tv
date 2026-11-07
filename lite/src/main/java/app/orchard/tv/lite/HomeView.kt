@@ -44,6 +44,7 @@ class HomeView(context: Context, private val host: Host) : FrameLayout(context) 
     }
 
     private val layer = FrameLayout(context)
+    private val tileFade = HomeTileFade()
     private val plate = PlateView(context)
     private val tiles = ArrayList<TileView>()
     private val names = ArrayList<TextView>()
@@ -74,6 +75,15 @@ class HomeView(context: Context, private val host: Host) : FrameLayout(context) 
         canvas.restoreToCount(saved)
     }
 
+    override fun drawChild(canvas: Canvas, child: View, drawingTime: Long): Boolean {
+        if (child !== layer) return super.drawChild(canvas, child, drawingTime)
+        // Keep the status area clear, but let departing rows fade into the wallpaper instead
+        // of cutting a hard horizontal line at 72dp (PR #1066). Only the tile layer is masked.
+        return tileFade.draw(canvas, width.toFloat(), height.toFloat(), Ui.px(GRID_TOP), Ui.px(24f)) {
+            super.drawChild(canvas, child, drawingTime)
+        }
+    }
+
     /** The focused tile; [PILL] for the status pill. */
     private var focus = 0
     private var row = 0
@@ -98,7 +108,7 @@ class HomeView(context: Context, private val host: Host) : FrameLayout(context) 
     /** The large clock's top: up beside the pill when two rows would not fit under it. */
     private var clockY = CLOCK_Y
     /** As the full app's: the row above clears the status pill, which four a row would reach at 37%. */
-    private val restY get() = maxOf(canvasH * 0.37f, 72f + PITCH)
+    private val restY get() = maxOf(canvasH * 0.37f, GRID_TOP + PITCH)
 
     var apps: List<AppEntry> = emptyList()
         private set
@@ -566,6 +576,7 @@ class HomeView(context: Context, private val host: Host) : FrameLayout(context) 
         /** Apps a row, from Personalize; the sizes below follow it, as the full app's GridMetrics. */
         val COLS get() = LiteSettings.homeColumns
         const val MARGIN = 56f
+        private const val GRID_TOP = 72f
         val GAP get() = when (COLS) { 4 -> 34f; 6 -> 24f; else -> 28f }
         val TILE_W get() = (960f - 2 * MARGIN - (COLS - 1) * GAP) / COLS
         val TILE_H get() = TILE_W * 9 / 16

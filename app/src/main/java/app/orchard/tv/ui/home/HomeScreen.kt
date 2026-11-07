@@ -148,7 +148,7 @@ private const val CC_WARM_AFTER_MS = 3_000L
 private val GridMargin = 56.dp
 
 /** The highest the row above may sit once Home has scrolled into the grid: clear of the status pill. */
-private val RowAboveTop = 72.dp
+internal val RowAboveTop = 72.dp
 
 /**
  * The gap between tiles for [columns] a row (AerialSettings.homeColumns): about a fifth of a tile,
@@ -775,14 +775,18 @@ fun HomeScreen(
                         saving = vm.screensaverVisible,
                     )
                 }
+            }
 
-                // The rows below the shelf stay out of sight until Home scrolls to them: in one row
-                // unless set to peek; in two rows always, as the second row already shows there are more.
-                val hiddenFrom = when {
-                    !oneRow -> columns * 2
-                    !peek -> columns
-                    else -> Int.MAX_VALUE
-                }
+            // The rows below the shelf stay out of sight until Home scrolls to them: in one row
+            // unless set to peek; in two rows always, as the second row already shows there are more.
+            val hiddenFrom = when {
+                !oneRow -> columns * 2
+                !peek -> columns
+                else -> Int.MAX_VALUE
+            }
+            // The pill is fixed, but transparent: older rows must not pass behind it.
+            // Clip only tiles, not the shelf clock, in screen coordinates (issue #1050).
+            HomeTileViewport(scroll = { scroll.value }) {
                 apps.forEachIndexed { index, app ->
                     key(app.key) {
                         val (x, y) = metrics.slot(index, onTop = !inGrid)
