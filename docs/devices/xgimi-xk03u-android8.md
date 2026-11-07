@@ -37,7 +37,7 @@
 ### 后台清理与守护
 
 - 切到别的 App 后，Aerial 进程约 **15–45 秒**被整进程杀掉（`dumpsys activity services` 里的 `HomeGuardService` ServiceRecord 消失）。此时守护仍是无障碍服务、进程 `adj=100`；Doze 白名单、`am set-inactive app.orchard.tv false`、`appops set app.orchard.tv 63 allow`（`RUN_IN_BACKGROUND`）都加上也一样。
-- 杀进程后 `settings get secure enabled_accessibility_services` 里**仍然有守护**，但系统不会重新绑定；`RevivalSync` 只调用 `GuardSetup.ensureEnabled()`，它看到设置里已有此项就返回 `false`，于是不会走到 `rebindIfStalled()`。结果：设置里有、`dumpsys activity services` 里没有 `ServiceRecord`，`pidof app.orchard.tv` 只剩一个空的缓存进程。这是本项目可以改进的一处：守护被固件停掉、设置仍在时不会重绑。
+- 杀进程后 `settings get secure enabled_accessibility_services` 里**仍然有守护**，但系统不会重新绑定；`RevivalSync` 只调用 `GuardSetup.ensureEnabled()`，它看到设置里已有此项就返回 `false`，于是不会走到 `rebindIfStalled()`。结果：设置里有、`dumpsys activity services` 里没有 `ServiceRecord`，`pidof app.orchard.tv` 只剩一个空的缓存进程。这是本项目可以改进的一处：守护被固件停掉、设置仍在时不会重绑。**main 上已改（#1326，下个版本）**：同步框架那条路看到「设置里有、没绑定」也会重绑，每分钟最多一次；没在这台上验证。
 - `ro.config.low_ram=true` 上第三方通知监听不会真正绑定（`dumpsys notification` 的 `Live notification listeners (0)`）；同步复活只在系统设置被写入时触发，极米的清理不写设置，也指望不上。
 - 结果：只有 Aerial 刚被打开、守护还活着的那段时间 Home 键有效。
 
