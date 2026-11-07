@@ -135,3 +135,8 @@ Aerial 1.69 standard 版，固件 `TQ1A.230205.002 / eng.www-da.20260205.170347`
 Tianci 的 `HotKeyHandler` 按 `persist.service.homepage.*`（`com.cos.launcher/cos.launcher.Mac`）按组件开桌面，Mac 再开 `com.dangbei.tvlauncher.IndexActivity`，所以守护只认 Mac 时主页键回不来：现在 IndexActivity 也算原桌面（`HOME_SCREENS_BEHIND_TRAMPOLINES`）。报告人试过 ADB 写这组属性，当场好，但重启和待机后 root 进程 `coocaa_guard` 改回来，不是长久办法，也不进安装脚本。**没有真机验证**。
 
 8S38_Q30 / 同款（#1235）：`SkyLowMem` 只在可用内存低（level ≤ 2）且 Aerial 不在前台时强停；复活时的 `startActivity` 被固件 `sky_dialog` 判后台启动拦下，放行看调用者 uid（shell 2000 放行，App 不放行，报告人 A/B 对照）。App 这边过不了这一关。
+
+## m7221 安卓 8 的开机首页属性（#1235 #1297，报告人实测）
+
+创维 7S77_A20、7S72_G25（m7221，安卓 8）：`persist.service.homepage.pkg` / `.cls`（原值 `com.tianci.movieplatform` / `com.coocaa.homepage.vast.HomePageActivity`，`persist.service.starthomepage=1`）shell 能写，写成 Aerial 后按主页键由 `ccSystem` 以 uid 1000 打开 Aerial（`< SLauncher >, startHomePage`），绕过 `sky_dialog` 对 App uid 的拦截；重启或待机后被改回原值。8S38_Q30 上有 root 进程 `/vendor/bin/coocaa_guard`，但二进制里没有这两个属性名，不能确定是它改回的。App 写不了 `persist.*`，安装脚本也不写；做实验要先记原值，卸载 Aerial 前改回去（#992 的 8R734 没改回就卸载，主页键黑屏到重启）。
+1.86 起守护认 `com.cos.launcher/com.dangbei.tvlauncher.IndexActivity` 为原桌面（7S72_G25 开机 0.5 秒拉回）；低内存（`ro.config.low_ram=true`）时 Aerial 一到后台就被回收，从 App 按返回会落到固件开机时拉起的当贝任务，等复活后才回来。App 不能强停别的 App（要 `FORCE_STOP_PACKAGES`），这一步做不了。
