@@ -262,7 +262,7 @@ curl -fsSL https://aerial.qust.me/install.sh | TV=192.168.1.20 bash -s restore
 | 极米 | Z9X 4K 高亮版（goat_elegant） | Android 13 | ⚠️ 1.76 有限实测：初次显示、UID app-op 与重启前台恢复；启动画面和待机仍待验（[笔记](docs/devices/xgimi-z9x-4k.md)） |
 | 极米 | Z7X、m7642 | Android 9 | ✅ Z7X 要用第三方工具打开 ADB（[笔记](docs/devices/xgimi-z7x.md)） |
 | 极米 | 神灯 L1（m7642，pig_chivalrous） | Android 9 | ✅ 默认桌面开机后会丢，报告人的双规则办法见[笔记](docs/devices/xgimi-z7x.md)（[#767](https://github.com/pengchujin/aerial-tv/issues/767)） |
-| 极米 | Z6X 第四代（XK03U / ironman / m7221） | Android 8 | ⚠️ HDMI1 列表与切换已实测；未测视频输出（[笔记](docs/devices/xgimi-xk03u-android8.md)） |
+| 极米 | Z6X 第四代（XK03U / ironman / m7221） | Android 8 | ⚠️ HDMI1 列表与切换已实测，未测视频输出；2GB 机型后台约 15–45 秒被杀、开机默认桌面被改回极米（[笔记](docs/devices/xgimi-xk03u-android8.md)） |
 | 极米 | H3、m7221 | Android 8 | ✅ 要用第三方工具打开 ADB；开机和屏保与 Z7X 一致（[笔记](docs/devices/xgimi-h3.md)） |
 | 大眼橙 | X7、X7D 投影仪 | Android 9 / 5.1 | ✅ HDMI 里按主页键可以回到 Apple TV 主屏幕（[笔记](docs/devices/obe-x7.md)） |
 | 大眼橙 | OBE_R3Ultra 高亮版（投影仪，MT5879） | Android 11 | ✅ 开发者选项里只有「USB 调试」，打开后 adbd 直接监听 5555；按主页键先落固件的优酷桌面，约 13 秒后由守护切回（[笔记](docs/devices/obe-r3-ultra.md)） |
