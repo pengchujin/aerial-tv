@@ -66,6 +66,7 @@ The menus on Chinese firmware are in Chinese; their names are in brackets.
 | **Xiaomi / Redmi** | Settings (设置) → About (关于) → press Model (产品型号) until developer mode is on, then Settings → Account & Security (账号与安全): turn on ADB debugging (ADB 调试) and Install unknown apps (安装未知来源的应用) |
 | **TCL / FFALCON** | Settings (设置) → About (关于) → Device info (本机信息), quickly press Up Down Left Right, then turn on ADB under More (更多) |
 | **Haier / MOOKA** | Press Source on the TV itself, then Left Left Up Right on the remote; in the factory menu turn on ADB 调试开关 and change nothing else |
+| **Hisense / Vidda** | Settings (设置) → Sound (声音): turn off Dolby Atmos (杜比全景声). In Pro audio settings (专业音响设置) → Balance (声音平衡), quickly alternate OK and Menu until an M shows at the top left, then press Menu for the factory menu. Under Options (选项) change To Fac from U to M, change nothing else, and restart. Then Settings → All settings (全部设置): press Menu repeatedly for the stock Android settings, press Build 7 times, and turn on USB debugging and Wireless debugging in Developer options |
 | **OPPO (S1 included)** | Settings (设置) → System (系统) → About (关于本机) → Model (设备型号), press Up Up Right Right, then OK. Then Settings → System → Developer options (开发者选项): turn on USB debugging (USB 调试). The IP address is at the bottom of Settings → Network → the connected network |
 | **Other Android TVs** | Settings → Device Preferences → About → press Build 7 times, then turn on USB debugging in Developer options |
 
