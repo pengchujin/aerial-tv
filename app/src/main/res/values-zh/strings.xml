@@ -159,6 +159,7 @@
     <string name="st_sounds_aerial">Aerial</string>
     <string name="st_on">开</string>
     <string name="st_off">关</string>
+    <string name="st_temperature">温度单位</string>
     <string name="st_hidden_apps">隐藏的 App</string>
     <string name="st_hidden_apps_hint">从主屏幕隐藏的 App 在这里，可以放回主屏幕。设了家长密码时要先输入密码。</string>
     <string name="st_home_lock">锁定主屏幕</string>
@@ -240,6 +241,8 @@
     <string name="weather_thunder">雷雨</string>
     <string name="weather_temperature">%1$d℃</string>
     <string name="weather_high_low">最高 %1$d℃  最低 %2$d℃</string>
+    <string name="weather_temperature_f">%1$d℉</string>
+    <string name="weather_high_low_f">最高 %1$d℉  最低 %2$d℉</string>
     <string name="st_columns">每排 App</string>
     <string name="st_columns_hint">主屏幕和文件夹里每排放几个 App。6 个一眼看到更多；4 个图标更大，离得远也看得清。</string>
     <string name="st_peek">第二排</string>

@@ -682,13 +682,13 @@ fun ShelfClock(
         )
         Weather.now?.takeIf { AerialSettings.showWeather }?.let { w ->
             val place = Weather.place?.takeIf { it.length <= 12 }
-            val range = if (w.high != null && w.low != null) stringResource(R.string.weather_high_low, w.high, w.low) else null
+            val range = if (w.high != null && w.low != null) stringResource(Weather.highLowText, Weather.degrees(w.high), Weather.degrees(w.low)) else null
             val detail = listOfNotNull(place, stringResource(conditionName(w.kind)), range).joinToString(" · ")
             Row(aside.padding(top = 18.dp).capBox(Type.ClockDetail.fontSize), verticalAlignment = Alignment.CenterVertically) {
                 GlyphIcon(glyphFor(w), Color.White, 18.dp, Modifier.padding(end = 7.dp))
                 BasicText(
                     buildAnnotatedString {
-                        append(stringResource(R.string.weather_temperature, w.celsius))
+                        append(stringResource(Weather.temperatureText, Weather.degrees(w.celsius)))
                         withStyle(second) { append("  $detail") }
                     },
                     style = Type.ClockDetail.copy(shadow = shadow),
@@ -791,7 +791,7 @@ fun CornerClock(now: LocalDateTime, modifier: Modifier = Modifier, toSaver: () -
         Weather.now?.takeIf { AerialSettings.showWeather }?.let { w ->
             GlyphIcon(glyphFor(w), dim, 18.dp, aside.padding(start = 16.dp, end = 6.dp))
             val place = Weather.place?.takeIf { it.length <= 12 }
-            BasicText(listOfNotNull(place, stringResource(R.string.weather_temperature, w.celsius)).joinToString(" "), style = Type.Headline.copy(color = dim, shadow = shadow), modifier = aside)
+            BasicText(listOfNotNull(place, stringResource(Weather.temperatureText, Weather.degrees(w.celsius))).joinToString(" "), style = Type.Headline.copy(color = dim, shadow = shadow), modifier = aside)
         }
     }
 }

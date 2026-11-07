@@ -72,6 +72,9 @@ enum class ClockHours(val key: String) {
 /** Aerial's own preferences. Compose state, written on the main thread only. */
 object AerialSettings {
     private const val PREFS = "settings"
+
+    /** Where Fahrenheit is the everyday unit, as ISO regions: the United States and its associated states, Belize, the Bahamas, the Cayman Islands, Liberia. */
+    private val FAHRENHEIT_REGIONS = setOf("US", "PR", "GU", "VI", "AS", "MP", "UM", "FM", "MH", "PW", "BZ", "BS", "KY", "LR")
     private var started = false
     private lateinit var app: Context
 
@@ -176,6 +179,12 @@ object AerialSettings {
     var showWeather by mutableStateOf(true); private set
 
     /**
+     * Temperatures in Fahrenheit rather than Celsius. Until the owner picks, it follows the TV's
+     * region: Fahrenheit only where that is what people use (the United States and a few others).
+     */
+    var fahrenheit by mutableStateOf(false); private set
+
+    /**
      * The time over Aerial's aerial and photo screensavers (issue #240: TCL's firmware puts its own
      * clock over the system screensaver). The clock screensaver is the clock and keeps it.
      */
@@ -261,6 +270,7 @@ object AerialSettings {
         chosenAllNames = prefs.getBoolean("show_all_names", false)
         wallpaperAlwaysMoves = prefs.getBoolean("wallpaper_always_moves", false)
         showWeather = prefs.getBoolean("show_weather", true)
+        fahrenheit = prefs.getBoolean("fahrenheit", java.util.Locale.getDefault().country in FAHRENHEIT_REGIONS)
         screensaverClock = prefs.getBoolean("screensaver_clock", true)
         screensaverCaption = prefs.getBoolean("screensaver_caption", true)
         // Before 1.28 this was on or off; on meant whichever sounds Aerial played.
@@ -383,6 +393,11 @@ object AerialSettings {
     fun chooseShowWeather(on: Boolean) {
         showWeather = on
         app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit { putBoolean("show_weather", on) }
+    }
+
+    fun chooseFahrenheit(on: Boolean) {
+        fahrenheit = on
+        app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit { putBoolean("fahrenheit", on) }
     }
 
     fun chooseScreensaverClock(on: Boolean) {
