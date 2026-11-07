@@ -1555,6 +1555,19 @@ class HomeGuardService : AccessibilityService() {
             goHome()
             return
         }
+        // Old VIDAA (Android 5.1.1, Hi3751v620): the remote has no Home key, and its smart key (F12)
+        // is taken in system_server to show Jamdeo's GlobalPanel, a system overlay whose only window
+        // event names a RelativeLayout. The reporters asked for the key to be Home everywhere
+        // (issue #808, events from the reporter's logcat): close the panel and bring Aerial back.
+        // Not tried on that TV.
+        if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.LOLLIPOP_MR1 && pkg == JAMDEO_LAUNCHER &&
+            cls == "android.widget.RelativeLayout" && pkg in stockHomes && !screenOff
+        ) {
+            DiagLog.i("guard: Jamdeo's panel over ${before ?: "?"}; closing it and bringing Aerial back")
+            performGlobalAction(GLOBAL_ACTION_BACK)
+            goHome()
+            return
+        }
         if (firmwarePushedAtBoot(pkg) && isActivity(pkg, cls) && !screenOff) {
             DiagLog.i("guard: $pkg/$cls came up at boot with no key pressed; bringing Aerial back")
             goHome()
@@ -1947,6 +1960,7 @@ class HomeGuardService : AccessibilityService() {
         /** Stock launchers that come to the front with no window change; see foregroundCheck. */
         private val INVISIBLE_LAUNCHERS = setOf(VIDAA_LAUNCHER, "com.ktcp.launcher")
         /** Actions the firmware's own task centre answers, tried in order before SystemUI's recents. */
+        private const val JAMDEO_LAUNCHER = "com.jamdeo.launcher"
         private const val TCL_TASK_CENTRE ="com.tcl.action.OPEN_GLOBAL_HISTORY"
         private val TASK_CENTRE_ACTIONS = listOf("com.dangbei.recentstask.action.SHOW_RECENTS_FOR_USER")
         private const val VOLUME_REPEAT_MAX_MS = 8_000L
