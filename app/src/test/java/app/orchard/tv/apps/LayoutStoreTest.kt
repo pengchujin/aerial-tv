@@ -40,6 +40,49 @@ class LayoutStoreTest {
     /** A store whose first arrangement is [installed] in label order (a, b, c, d). */
     private fun store() = LayoutStore(context).also { it.home() }
 
+    @Test fun hiddenFirstRowAppKeepsItsSlotWhenEnabled() {
+        val s = store()
+        s.hide("test.b")
+        val arrangement = s.arrange(
+            installed,
+            preserveHiddenSlots = 2,
+            folderTile = ::folderTile,
+        )
+        assertEquals(listOf("test.a", "test.c", "test.d"), arrangement.home.map { it.key })
+        assertEquals(listOf("test.a", "hidden-slot:1", "test.c", "test.d"), arrangement.homeSlots.map { it.key })
+        assertEquals(true, arrangement.homeSlots[1].emptySlot)
+    }
+
+    @Test fun hiddenAppsOutsideTheFirstRowStillCompact() {
+        val s = store()
+        s.hide("test.c")
+        val arrangement = s.arrange(
+            installed,
+            preserveHiddenSlots = 2,
+            folderTile = ::folderTile,
+        )
+        assertEquals(listOf("test.a", "test.b", "test.d"), arrangement.homeSlots.map { it.key })
+    }
+
+    @Test fun movingAnAppToTheFirstRowUsesTheLeftmostSavedGap() {
+        val s = store()
+        s.hide("test.b")
+        s.moveToFirstRow("test.d", columns = 2, preserveGaps = true)
+        assertEquals(listOf("test.a", "test.d", "test.c"), s.home())
+    }
+
+    @Test fun movingOutOfTheFirstRowCanLeaveAReservedSlot() {
+        val s = store()
+        s.moveOutOfFirstRow("test.b", "test.c")
+        val arrangement = s.arrange(
+            installed,
+            preserveHiddenSlots = 2,
+            folderTile = ::folderTile,
+        )
+        assertEquals(listOf("test.a", "test.c", "test.b", "test.d"), arrangement.home.map { it.key })
+        assertEquals(true, arrangement.homeSlots[1].emptySlot)
+    }
+
     @Test fun moveForwardTakesTheTargetsSlot() {
         val s = store()
         s.move("test.a", "test.c")

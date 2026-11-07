@@ -195,6 +195,7 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
         // An app renamed on the phone page.
         viewModelScope.launch { snapshotFlow { AppNames.all }.drop(1).collect { if (loaded) arrange() } }
         viewModelScope.launch { snapshotFlow { AerialSettings.previewApps }.drop(1).collect { if (loaded) arrange() } }
+        viewModelScope.launch { snapshotFlow { AerialSettings.noFillFirstRow }.drop(1).collect { if (loaded) arrange() } }
         // Into or out of Kids and Elders mode, or its tiles chosen: another Home.
         viewModelScope.launch {
             snapshotFlow { listOf(Restricted.active, Restricted.enabled, Restricted.allowed, overlay == Overlay.Kids, AerialSettings.pinSet) }.drop(1).collect {
@@ -352,6 +353,21 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /** Puts a first-row app or folder at the start of the second row in one step. */
+    fun moveOutOfFirstRow(key: String) {
+        val from = apps.indexOfFirst { it.key == key }
+        val columns = AerialSettings.homeColumns
+        if (from !in 0 until columns || apps.size <= columns) return
+        store.moveOutOfFirstRow(key, apps[columns].key)
+        arrange()
+    }
+
+    /** Places a lower-row tile in the first row, filling the leftmost saved gap first. */
+    fun moveToFirstRow(key: String) {
+        store.moveToFirstRow(key, AerialSettings.homeColumns, AerialSettings.noFillFirstRow)
+        arrange()
+    }
+
     private fun arrange() {
         // Pinned TV inputs share the grid, order and hiding with the apps.
         val pinned = sources.filter { it.id in AerialSettings.pinnedSources }.map { sourceEntry(context, it) }
@@ -365,7 +381,10 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
         )
         // Names typed on the phone page stand in for the apps' own, everywhere Home shows one.
         val named = all.map { e -> AppNames.of(e.key)?.let { e.copy(label = it) } ?: e }
-        val arrangement = store.arrange(named + pinned) { folder, inside ->
+        val arrangement = store.arrange(
+            named + pinned,
+            preserveHiddenSlots = if (AerialSettings.noFillFirstRow) AerialSettings.homeColumns else 0,
+        ) { folder, inside ->
             val shown = inside.take(9).map { it.art }
             val art = folderArt[folder.id]?.takeIf { (made, _) -> made.size == shown.size && made.indices.all { made[it] === shown[it] } }?.second
                 ?: TileArtFactory.forFolder(shown).also { folderArt[folder.id] = shown to it }
@@ -382,7 +401,7 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
         if (kids) noteKidsPackages()
         apps = when {
             Restricted.active -> Restricted.allowed.mapNotNull { key -> kidsCandidates.firstOrNull { it.key == key } }
-            else -> AerialSettings.previewApps.takeIf { it > 0 }?.let { arrangement.home.take(it) } ?: arrangement.home
+            else -> AerialSettings.previewApps.takeIf { it > 0 }?.let { arrangement.homeSlots.take(it) } ?: arrangement.homeSlots
         }
         AppCatalog.home = arrangement.home
         AppCatalog.folderApps = arrangement.folders

@@ -206,6 +206,11 @@ fun WallpaperSheet(
                         AerialSettings.peekNextRow, AerialSettings::choosePeekNextRow,
                     )
                     Choices(
+                        R.string.st_hidden_slots, stringResource(R.string.st_hidden_slots_hint), note,
+                        listOf(false to R.string.st_off, true to R.string.st_on),
+                        AerialSettings.noFillFirstRow, AerialSettings::chooseNoFillFirstRow,
+                    )
+                    Choices(
                         R.string.st_columns, stringResource(R.string.st_columns_hint), note,
                         AerialSettings.HOME_COLUMNS.map { it to it.toString() },
                         AerialSettings.homeColumns, AerialSettings::chooseHomeColumns,

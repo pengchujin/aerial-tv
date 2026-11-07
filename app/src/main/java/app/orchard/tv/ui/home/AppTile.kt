@@ -161,6 +161,27 @@ fun AppTile(
     /** The name sits on the glass plate, which ends just under it: it does not step down past the focus frame. */
     nameOnPlate: Boolean = false,
 ) {
+    if (app.emptySlot) {
+        var emptyFocused by remember { mutableStateOf(false) }
+        Canvas(
+            modifier.requiredSize(width, height)
+                .focusRequester(focusRequester)
+                .onFocusChanged {
+                    emptyFocused = it.isFocused
+                    if (it.isFocused) onFocused()
+                }
+                .focusProperties { if (rowEnd) right = FocusRequester.Cancel }
+                .focusable(enabled),
+        ) {
+            if (emptyFocused) drawRoundRect(
+                color = Color.White,
+                cornerRadius = androidx.compose.ui.geometry.CornerRadius(12.dp.toPx()),
+                style = androidx.compose.ui.graphics.drawscope.Stroke(width = 3.dp.toPx()),
+            )
+        }
+        return
+    }
+
     val reduced = LocalReducedMotion.current
     val scope = rememberCoroutineScope()
     val focusManager = LocalFocusManager.current

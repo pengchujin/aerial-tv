@@ -48,6 +48,8 @@ data class AppEntry(
     val folder: Folder? = null,
     /** Set for a place inside a firmware app (AppCatalog.shortcuts); [packageName] is then its key. */
     val shortcut: Intent? = null,
+    /** An intentionally empty Home slot left by hiding a first-row app. */
+    val emptySlot: Boolean = false,
 ) {
     val key: String get() = packageName
 
