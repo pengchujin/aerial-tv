@@ -766,6 +766,7 @@ object SystemProbe {
                     ?: tclPlayer?.takeIf { info.id.startsWith(TCL_INPUTS) }?.let { tclRoute(it, kind, label, hw(info.id)) }
                     ?: generic.takeIf { resolves(context, it) }
                     ?: droidLogicRoute(context, info)
+                    ?: jmgoRoute(context, info)
                     ?: tclPlayer?.let { tclRoute(it, kind, label, hw(info.id)) }
                     ?: generic
                 val device = cec
@@ -833,6 +834,27 @@ object SystemProbe {
                 (activity.permission == null || ContextCompat.checkSelfPermission(context, activity.permission) == PackageManager.PERMISSION_GRANTED)
         }
     }
+
+    /**
+     * JMGO's TV app, for its projectors where nothing answers the passthrough VIEW intent: it tunes
+     * the port named in the "inputSrc" extra (HDMI2, HDMI3), which DroidLogic's service is named
+     * after. JMGO S60 (Amlogic T968, Android 5.1.1): HDMI3 opened, the reporter's patched build and
+     * `am start` (issue #1347).
+     */
+    private fun jmgoRoute(context: Context, info: TvInputInfo): Intent? {
+        if (info.type != TvInputInfo.TYPE_HDMI) return null
+        val port = JMGO_PORT.find(info.id)?.groupValues?.get(1) ?: return null
+        val intent = Intent().setComponent(ComponentName(JMGO_TV, "$JMGO_TV.AmlogicTvActivity"))
+            .putExtra("inputSrc", "HDMI$port")
+        val activity = runCatching { context.packageManager.getActivityInfo(intent.component!!, 0) }.getOrNull() ?: return null
+        return intent.takeIf {
+            activity.exported && activity.enabled && activity.applicationInfo.enabled &&
+                (activity.permission == null || ContextCompat.checkSelfPermission(context, activity.permission) == PackageManager.PERMISSION_GRANTED)
+        }
+    }
+
+    private const val JMGO_TV = "com.jmgo.tv"
+    private val JMGO_PORT = Regex("""\.Hdmi(\d)InputService/""")
 
     private fun resolves(context: Context, intent: Intent) =
         runCatching { context.packageManager.resolveActivity(intent, 0) != null }.getOrDefault(false)
