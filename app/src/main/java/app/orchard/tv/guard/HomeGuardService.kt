@@ -1615,14 +1615,6 @@ class HomeGuardService : AccessibilityService() {
             return
         }
         val allowed = SystemClock.uptimeMillis() < allowStockUntil
-        // JMGO S60: the remote's custom key is taken by the firmware, which opens the launcher's
-        // quick menu (search, history, apps, files, kids mode) over Aerial. That menu is not the
-        // launcher's home activity, so the checks below would leave it in front.
-        if (!allowed && pkg == JMGO_LAUNCHER && cls == JMGO_QUICK_CENTER) {
-            DiagLog.i("guard: stock launcher quick menu $pkg/$cls in front; bringing Aerial back")
-            goHome()
-            return
-        }
         if (pkg in stockHomes) {
             // Any of its screens, uncovered once the installer of an update from Control Center closed.
             if (!allowed && isActivity(pkg, cls) && GuardSetup.installerJustClosed(this)) {
@@ -1987,10 +1979,7 @@ class HomeGuardService : AccessibilityService() {
         /** Xiaomi's UI boost; see uiBoostChanged. */
         private const val UI_BOOST = "mitv_fast_cur_anim_scale"
         private const val XGIMI_FRAMEWORK = "com.xgimi.xgimiframeworkui"
-        private const val JMGO_LAUNCHER = "com.jmgo.launcher"
         private const val JMGO_TV = "com.jmgo.tv"
-        /** The screen JMGO's custom remote key opens on the stock launcher. */
-        private const val JMGO_QUICK_CENTER = "com.jmgo.launcher.view.quickcenter.JGQuickCenterActivity"
         private const val FOREGROUND_POLL_MS = 1_000L
         private const val FOREGROUND_LOOKBACK_MS = 10_000L
         /** How far back to look for the front when no window has been seen; see frontByUsage. */
