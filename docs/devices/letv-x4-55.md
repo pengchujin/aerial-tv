@@ -6,19 +6,20 @@
 
 ## 安装与授权
 
-- 本机验证的装法是 **guard 版**，并把 `applicationId` 改成 `com.stv.tvhome`（Java namespace
-  仍是 `app.orchard.tv`），改包名沿用 [letv-x3-65.md](letv-x3-65.md) 的做法。guard 版不声明 HOME，
-  不会遇到「不允许安装桌面类 App」；没有在这台上对比过不改包名的效果。
-- 改包名后是另一个包、另一把钥匙签的包，官方 Release 不能覆盖升级；要换官方包得先
-  `pm uninstall com.stv.tvhome`，会丢壁纸、照片和排序。能直接装官方包的机器不用改包名。
-- 网络 ADB 已开（`persist.adb.tcp.port=5555`）。这台**待机后整个网络会断**，连不上时先用
-  遥控器唤醒并保持亮屏。
+- 这台**只测过改包名的版本**：`applicationId` 改成 `com.stv.tvhome`（Java namespace 仍是
+  `app.orchard.tv`），官方包没有在这台上装过。改包名是为了进 EUI 的白名单，**不推荐**：
+  它是另一个包、另一把钥匙签的，官方 Release 不能覆盖升级，换官方包得先
+  `pm uninstall com.stv.tvhome`，会丢壁纸、照片和排序；这和项目「只装 Aerial 自己、官方包
+  能直接覆盖升级」的原则也冲突。
+- 本节的实测结果都来自这个改包名版。guard 版不声明 HOME，理论上不会遇到「不允许安装桌面类
+  App」，但没有在官方包上验证过。网络 ADB 已开（`persist.adb.tcp.port=5555`）。这台
+  **待机后整个网络会断**，连不上时先用遥控器唤醒并保持亮屏。
 - 安装后需要这几项授权（`tools/install.sh` 也是做这些）：
-  - `enabled_accessibility_services=com.stv.tvhome/app.orchard.tv.guard.HomeGuardService`
+  - `enabled_accessibility_services=app.orchard.tv/app.orchard.tv.guard.HomeGuardService`
   - `accessibility_enabled=1`
-  - `enabled_notification_listeners=com.stv.tvhome/app.orchard.tv.guard.RevivalListener`
+  - `enabled_notification_listeners=app.orchard.tv/app.orchard.tv.guard.RevivalListener`
   - `WRITE_SECURE_SETTINGS`、`GET_USAGE_STATS` 等 appops 也由脚本加上。
-- 重启后约 30–45 秒（含开机广告）自动进 Aerial，无障碍仍绑定。
+- 改包名版重启后约 30–45 秒（含开机广告）自动进 Aerial，无障碍仍绑定。
 
 ## 主页键与守护
 
@@ -69,6 +70,8 @@
 - 这台没有 root：`su` 不存在，`adb root` 报 `adbd cannot run as root in production builds`。
 
 ## 还原
+
+本机装的是改包名版（`com.stv.tvhome`），卸载时按这个包名来；官方包对应 `app.orchard.tv`。
 
     adb shell pm uninstall com.stv.tvhome
     adb shell settings put secure enabled_accessibility_services ''
