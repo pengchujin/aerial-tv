@@ -125,6 +125,11 @@ object Brightness {
                 Build.VERSION.SDK_INT >= 23 && !Settings.System.canWrite(context) -> null
             else -> {
                 // Only extend the standard path; existing native controls and picture panels win.
+                if (probeSkyworth) {
+                    TianciBacklight.backlight(context)?.let { return it / 100f }
+                    // A previously matched native backend must not turn into an Android slider.
+                    if (TianciBacklight.supported) return null
+                }
                 val skyworth = if (probeSkyworth) SkyworthPicture.backlight(context) else null
                 skyworth?.let { it / 100f } ?: Settings.System.getInt(r, Settings.System.SCREEN_BRIGHTNESS, 128) / 255f
             }
@@ -202,6 +207,12 @@ object Brightness {
                 Settings.Global.putInt(r, XIAOMI_BACKLIGHT, next)
             } else {
                 // Reached only after the original native and picture-settings paths were ruled out.
+                val tianci = TianciBacklight.backlight(context)
+                if (tianci != null) {
+                    TianciBacklight.setBacklight(context, stepPercent(tianci, direction))
+                    return TianciBacklight.backlight(context)?.let { it / 100f }
+                }
+                if (TianciBacklight.supported) return null
                 val skyworth = SkyworthPicture.backlight(context)
                 if (skyworth != null) {
                     SkyworthPicture.setBacklight(context, stepPercent(skyworth, direction))
@@ -301,10 +312,8 @@ private object TclPq {
 }
 
 /**
- * Skyworth / Coocaa picture interface.
- * The panel backlight (SKY_CFG_TV_MANUAL_BACKLIGHT_ADJUST, 1-100) is managed by SkySetting / SkySystemService
- * via com.tianci.system.api.TCHotelApi, loaded dynamically from /system/app/SkySetting/SkySetting.apk
- * or /system/app/SkySystemService/SkySystemService.apk via PathClassLoader.
+ * Legacy Skyworth / Coocaa picture interface, retained for firmware without the Binder backend.
+ * TCHotelApi lives in the firmware APKs; only this fallback loads vendor code.
  */
 private object SkyworthPicture {
     private class Api(val api: Any, val get: java.lang.reflect.Method, val set: java.lang.reflect.Method)
