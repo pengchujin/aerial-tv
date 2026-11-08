@@ -46,10 +46,10 @@ standard/guard 版、改不改包名都一样；强杀还会清空无障碍绑�
 
 ## 和超4 X55 的对照
 
-同品牌较新的超4 X55（Android 6.0，[issue #510](https://github.com/pengchujin/aerial-tv/issues/510) 第一条评论）
-改包名后完全稳定——两代 EUI 的内存管理器放行规则不同。
-
-卸载还原：`pm uninstall com.stv.tvhome`
+同品牌较新的超4 X55（Android 6.0）。[issue #510](https://github.com/pengchujin/aerial-tv/issues/510)
+第一条评论说改包名后完全稳定；2026-11-07 在改包名版上实测并不是：主页键和开机自启可用，但 EUI
+仍会在切到别的应用后强停 Aerial，返回也会先回原桌面。安装、守护、返回键和开机广告的完整记录见
+[letv-x4-55.md](letv-x4-55.md)。
 
 ## 超3 X55（X3-55）的信号源（#818 #998）
 

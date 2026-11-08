@@ -248,7 +248,7 @@ Most TVs sold in China only accept their own home screen and clear third-party a
 | Konka | KKTV U86V9, 2861 | Android 9 | ✅ U86V9 brightness does not work ([notes](docs/devices/konka-kktv-u86v9.md)) |
 | Haier | L55F5 (LRM9633, AliOS) | Android 13 | ✅ Guard build: Home and waking from standby ([#1131](https://github.com/pengchujin/aerial-tv/issues/1131)) |
 | Konka | Android TV 551 (Hi3751V551) | Android 5.1.1 | ✅ Boots straight into Aerial once it is chosen under Konka's Settings → General → Shortcuts → Boot to; Home Guard takes Home; the firmware has no `cmd` ([#1089](https://github.com/pengchujin/aerial-tv/issues/1089)) |
-| LeTV | Super4 X55 (f608) | Android 6 | ✅ Installs, starts at boot, takes over Home ([#510](https://github.com/pengchujin/aerial-tv/issues/510)) |
+| LeTV | Super4 X55 (f608) | Android 6 | ✅ Installs, starts at boot, takes over Home; force-stopped ~4 s after switching apps, Back shows the stock launcher for ~4 s; the native boot ad remains ([notes](docs/devices/letv-x4-55.md), [#510](https://github.com/pengchujin/aerial-tv/issues/510)) |
 | LeTV | Super3 X65 (X65-168CQ) | Android 5.0.1 | ⚠️ Installs and draws; the firmware kills third-party launchers on Home, so takeover is unreliable ([notes](docs/devices/letv-x3-65.md)) |
 | Hisense / Vidda | VIDAA models | Android 5–14 | ⚠️ Home works, most boot into Hisense's home first; VIDAA C1 projector can't be taken over ([notes](docs/devices/hisense-vidaa.md)) |
 | Hisense | 65E52D | Android 8 | ✅ Boots straight into Aerial ([#672](https://github.com/pengchujin/aerial-tv/issues/672)) |
