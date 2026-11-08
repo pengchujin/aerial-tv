@@ -81,6 +81,7 @@ import app.orchard.tv.apps.AppEntry
 import app.orchard.tv.ui.control.ControlCenter
 import app.orchard.tv.ui.wallpaper.SheetCovers
 import app.orchard.tv.ui.wallpaper.WallpaperSheet
+import app.orchard.tv.ui.weather.WeatherSheet
 import app.orchard.tv.wallpaper.AerialFormats
 import app.orchard.tv.wallpaper.ScreensaverMode
 import app.orchard.tv.wallpaper.Wallpapers
@@ -629,6 +630,7 @@ fun HomeScreen(
         val sourceInput = Wallpapers.sourceInput
         // Nothing over Home blurs it: a paused film stays (why: at LiveWallpaper below).
         val filmStandsIn = overlay == Overlay.None || overlay is Overlay.ControlCenter || overlay is Overlay.Wallpaper ||
+            overlay is Overlay.Weather ||
             (overlay is Overlay.AppMenu && overlay.inFolder == null)
         when {
             Wallpapers.selectedId == Wallpapers.LIVE -> LiveWallpaper(
@@ -767,6 +769,8 @@ fun HomeScreen(
                         toSaver = { clockToSaver.value },
                         saving = vm.screensaverVisible,
                         away = carrying,
+                        enabled = gridEnabled && moving == null,
+                        onWeatherClick = { vm.overlay = Overlay.Weather },
                     )
                 } else if (!clockRight) {
                     CornerClock(
@@ -780,6 +784,9 @@ fun HomeScreen(
                             },
                         toSaver = { toSaver.value },
                         saving = vm.screensaverVisible,
+                        away = carrying,
+                        enabled = gridEnabled && moving == null,
+                        onWeatherClick = { vm.overlay = Overlay.Weather },
                     )
                 }
 
@@ -892,6 +899,9 @@ fun HomeScreen(
                         },
                     toSaver = { toSaver.value },
                     saving = vm.screensaverVisible,
+                    away = carrying,
+                    enabled = gridEnabled && moving == null,
+                    onWeatherClick = { vm.overlay = Overlay.Weather },
                 )
             }
             StatusPill(
@@ -1106,6 +1116,11 @@ fun HomeScreen(
                 // Kids mode cannot be left without a PIN: it goes with it.
                 else vm.whenUnlocked { AerialSettings.choosePin(null); Restricted.chooseEnabled(false); vm.overlay = Overlay.Wallpaper }
             },
+        )
+
+        WeatherSheet(
+            visible = overlay is Overlay.Weather,
+            onDismiss = { vm.overlay = Overlay.None },
         )
 
         val pin = overlay as? Overlay.Pin

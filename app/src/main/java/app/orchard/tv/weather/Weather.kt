@@ -14,6 +14,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
+import org.json.JSONArray
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
@@ -25,6 +26,28 @@ enum class WeatherKind { Clear, PartlyCloudy, Cloudy, Fog, Rain, Snow, Thunder }
 
 /** [high] and [low] are today's, shown under the large clock; null in a reading saved by an older version. */
 data class WeatherNow(val celsius: Int, val kind: WeatherKind, val day: Boolean, val high: Int? = null, val low: Int? = null)
+
+data class WeatherHourly(
+    val time: String,
+    val isNow: Boolean,
+    val celsius: Int,
+    val kind: WeatherKind,
+    val day: Boolean,
+)
+
+data class WeatherDaily(
+    val date: String,
+    val dayIndex: Int,
+    val high: Int,
+    val low: Int,
+    val kind: WeatherKind,
+)
+
+data class WeatherForecast(
+    val now: WeatherNow,
+    val hourly: List<WeatherHourly>,
+    val daily: List<WeatherDaily>,
+)
 
 /**
  * The weather beside the home clock, from Open-Meteo: no key, reachable from China. The place is
@@ -47,9 +70,14 @@ object Weather {
     private const val NONE = Int.MIN_VALUE
 
     var now by mutableStateOf<WeatherNow?>(null); private set
+    var hourly by mutableStateOf<List<WeatherHourly>>(emptyList()); private set
+    var daily by mutableStateOf<List<WeatherDaily>>(emptyList()); private set
+
+    private var rawPlace by mutableStateOf<String?>(null)
 
     /** Where the weather is for, as a name to show; null until known. */
-    var place by mutableStateOf<String?>(null); private set
+    val place: String?
+        get() = rawPlace?.let { if (Locale.getDefault().language == "ru") RussianCities.translate(it) else it }
 
     /** True when the owner named the place; false while it is guessed from the network. */
     var chosen by mutableStateOf(false); private set
@@ -66,7 +94,7 @@ object Weather {
         started = true
         app = context.applicationContext
         prefs = app.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        place = prefs.getString("place", null)
+        rawPlace = prefs.getString("place", null)
         chosen = prefs.getBoolean("chosen", false)
         if (System.currentTimeMillis() - prefs.getLong("fetched_at", 0) < STALE_MS) {
             val kind = runCatching { WeatherKind.valueOf(prefs.getString("kind", null) ?: "") }.getOrNull()
@@ -75,6 +103,38 @@ object Weather {
                 high = prefs.getInt("high", NONE).takeIf { it != NONE },
                 low = prefs.getInt("low", NONE).takeIf { it != NONE },
             )
+        }
+        val hJson = prefs.getString("hourly_json", null)
+        if (!hJson.isNullOrBlank()) {
+            hourly = runCatching {
+                val arr = JSONArray(hJson)
+                (0 until arr.length()).map { i ->
+                    val o = arr.getJSONObject(i)
+                    WeatherHourly(
+                        time = o.getString("time"),
+                        isNow = o.optBoolean("isNow", false),
+                        celsius = o.getInt("celsius"),
+                        kind = WeatherKind.valueOf(o.getString("kind")),
+                        day = o.getBoolean("day"),
+                    )
+                }
+            }.getOrDefault(emptyList())
+        }
+        val dJson = prefs.getString("daily_json", null)
+        if (!dJson.isNullOrBlank()) {
+            daily = runCatching {
+                val arr = JSONArray(dJson)
+                (0 until arr.length()).map { i ->
+                    val o = arr.getJSONObject(i)
+                    WeatherDaily(
+                        date = o.getString("date"),
+                        dayIndex = o.getInt("dayIndex"),
+                        high = o.getInt("high"),
+                        low = o.getInt("low"),
+                        kind = WeatherKind.valueOf(o.getString("kind")),
+                    )
+                }
+            }.getOrDefault(emptyList())
         }
     }
 
@@ -94,24 +154,48 @@ object Weather {
             val reading = withContext(Dispatchers.IO) {
                 runCatching { fetch() }.onFailure { Log.w(TAG, "weather unavailable", it) }.getOrNull()
             }
-            prefs.getString("place", null)?.let { place = it }
+            prefs.getString("place", null)?.let { rawPlace = it }
             failed = reading == null
             if (reading != null) {
-                now = reading
+                now = reading.now
+                hourly = reading.hourly
+                daily = reading.daily
                 prefs.edit {
                     putLong("fetched_at", System.currentTimeMillis())
-                    putInt("celsius", reading.celsius)
-                    putString("kind", reading.kind.name)
-                    putBoolean("day", reading.day)
-                    putInt("high", reading.high ?: NONE)
-                    putInt("low", reading.low ?: NONE)
+                    putInt("celsius", reading.now.celsius)
+                    putString("kind", reading.now.kind.name)
+                    putBoolean("day", reading.now.day)
+                    putInt("high", reading.now.high ?: NONE)
+                    putInt("low", reading.now.low ?: NONE)
+                    val hArr = JSONArray()
+                    reading.hourly.forEach { h ->
+                        val o = JSONObject()
+                        o.put("time", h.time)
+                        o.put("isNow", h.isNow)
+                        o.put("celsius", h.celsius)
+                        o.put("kind", h.kind.name)
+                        o.put("day", h.day)
+                        hArr.put(o)
+                    }
+                    putString("hourly_json", hArr.toString())
+                    val dArr = JSONArray()
+                    reading.daily.forEach { d ->
+                        val o = JSONObject()
+                        o.put("date", d.date)
+                        o.put("dayIndex", d.dayIndex)
+                        o.put("high", d.high)
+                        o.put("low", d.low)
+                        o.put("kind", d.kind.name)
+                        dArr.put(o)
+                    }
+                    putString("daily_json", dArr.toString())
                 }
             }
         }
     }
 
     /** Off the main thread. */
-    private fun fetch(): WeatherNow {
+    private fun fetch(): WeatherForecast {
         var lat = prefs.getFloat("lat", Float.NaN)
         var lon = prefs.getFloat("lon", Float.NaN)
         val guessedLongAgo = System.currentTimeMillis() - prefs.getLong("located_at", 0) > RELOCATE_MS
@@ -132,24 +216,78 @@ object Weather {
                         (Cities.near(app, it, lat.toDouble(), lon.toDouble(), km = 80.0, ascii = true)
                             ?: Cities.mainNear(app, lat.toDouble(), lon.toDouble(), km = 20.0))?.name
                     }
+                val ru = city?.takeIf { Locale.getDefault().language == "ru" }
+                    ?.let { RussianCities.findCity(lat, lon, it) }
+                val resolvedPlace = ru ?: zh ?: city
                 prefs.edit {
                     putFloat("lat", lat); putFloat("lon", lon)
-                    putString("place", zh ?: city)
+                    putString("place", resolvedPlace)
                     putLong("located_at", System.currentTimeMillis())
                 }
             }
         }
-        val json = JSONObject(get("https://api.open-meteo.com/v1/forecast?latitude=$lat&longitude=$lon&current=temperature_2m,weather_code,is_day&daily=temperature_2m_max,temperature_2m_min&forecast_days=1&timezone=auto"))
+        val json = JSONObject(get("https://api.open-meteo.com/v1/forecast?latitude=$lat&longitude=$lon&current=temperature_2m,weather_code,is_day&hourly=temperature_2m,weather_code,is_day&daily=weather_code,temperature_2m_max,temperature_2m_min&forecast_days=7&timezone=auto"))
         val current = json.getJSONObject("current")
-        val daily = json.optJSONObject("daily")
-        fun today(key: String) = daily?.optJSONArray(key)?.optDouble(0)?.takeIf { !it.isNaN() }?.roundToInt()
-        return WeatherNow(
+        val dailyObj = json.optJSONObject("daily")
+        fun today(key: String) = dailyObj?.optJSONArray(key)?.optDouble(0)?.takeIf { !it.isNaN() }?.roundToInt()
+        val now = WeatherNow(
             celsius = current.getDouble("temperature_2m").roundToInt(),
             kind = kindOf(current.getInt("weather_code")),
             day = current.optInt("is_day", 1) == 1,
             high = today("temperature_2m_max"),
             low = today("temperature_2m_min"),
         )
+
+        val hourlyList = mutableListOf<WeatherHourly>()
+        val hourlyObj = json.optJSONObject("hourly")
+        if (hourlyObj != null) {
+            val hTimes = hourlyObj.optJSONArray("time")
+            val hTemps = hourlyObj.optJSONArray("temperature_2m")
+            val hCodes = hourlyObj.optJSONArray("weather_code")
+            val hDays = hourlyObj.optJSONArray("is_day")
+            if (hTimes != null && hTemps != null && hCodes != null) {
+                val curTime = current.optString("time", "")
+                val curHourPrefix = if (curTime.length >= 13) curTime.take(13) else ""
+                var startIdx = 0
+                if (curHourPrefix.isNotEmpty()) {
+                    for (i in 0 until hTimes.length()) {
+                        if (hTimes.getString(i).startsWith(curHourPrefix)) {
+                            startIdx = i
+                            break
+                        }
+                    }
+                }
+                val endIdx = minOf(hTimes.length(), startIdx + 24)
+                for (k in startIdx until endIdx) {
+                    val tStr = hTimes.getString(k)
+                    val hour = runCatching { tStr.substring(11, 16) }.getOrDefault(tStr)
+                    val isNow = (k == startIdx)
+                    val celsius = hTemps.getDouble(k).roundToInt()
+                    val code = hCodes.getInt(k)
+                    val isDay = hDays?.optInt(k, 1) == 1
+                    hourlyList.add(WeatherHourly(time = hour, isNow = isNow, celsius = celsius, kind = kindOf(code), day = isDay))
+                }
+            }
+        }
+
+        val dailyList = mutableListOf<WeatherDaily>()
+        if (dailyObj != null) {
+            val dTimes = dailyObj.optJSONArray("time")
+            val dCodes = dailyObj.optJSONArray("weather_code")
+            val dMaxs = dailyObj.optJSONArray("temperature_2m_max")
+            val dMins = dailyObj.optJSONArray("temperature_2m_min")
+            if (dTimes != null && dCodes != null && dMaxs != null && dMins != null) {
+                for (i in 0 until dTimes.length()) {
+                    val dateStr = dTimes.getString(i)
+                    val max = dMaxs.optDouble(i).roundToInt()
+                    val min = dMins.optDouble(i).roundToInt()
+                    val code = dCodes.optInt(i, 0)
+                    dailyList.add(WeatherDaily(date = dateStr, dayIndex = i, high = max, low = min, kind = kindOf(code)))
+                }
+            }
+        }
+
+        return WeatherForecast(now = now, hourly = hourlyList, daily = dailyList)
     }
 
     /**
@@ -238,7 +376,7 @@ object Weather {
             putBoolean("checked_against_cities", true)
         }
         chosen = true
-        place = prefs.getString("place", null)
+        rawPlace = prefs.getString("place", null)
         refresh()
         return true
     }

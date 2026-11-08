@@ -630,6 +630,8 @@ fun ShelfClock(
     saving: Boolean = false,
     /** The screensaver is carrying Home's wallpaper on: the date and weather go before the time moves. */
     away: Boolean = false,
+    enabled: Boolean = true,
+    onWeatherClick: (() -> Unit)? = null,
 ) {
     val drift = heldDrift(saving, now)
     val shadow = Shadow(Color.Black.copy(alpha = 0.28f), Offset(0f, 2f), blurRadius = 18f)
@@ -675,15 +677,40 @@ fun ShelfClock(
             val place = Weather.place?.takeIf { it.length <= 12 }
             val range = if (w.high != null && w.low != null) stringResource(R.string.weather_high_low, w.high, w.low) else null
             val detail = listOfNotNull(place, stringResource(conditionName(w.kind)), range).joinToString(" · ")
-            Row(aside.padding(top = 18.dp).capBox(Type.ClockDetail.fontSize), verticalAlignment = Alignment.CenterVertically) {
-                GlyphIcon(glyphFor(w), Color.White, 18.dp, Modifier.padding(end = 7.dp))
-                BasicText(
-                    buildAnnotatedString {
-                        append("${w.celsius}°")
-                        withStyle(second) { append("  $detail") }
-                    },
-                    style = Type.ClockDetail.copy(shadow = shadow),
-                )
+            if (onWeatherClick != null && enabled && !saving && !away) {
+                Pressable(
+                    onClick = onWeatherClick,
+                    enabled = enabled,
+                    focusedScale = 1.05f,
+                    modifier = aside.padding(top = 16.dp),
+                ) { state ->
+                    val bg by animateColorAsState(if (state.focused) Palette.Focus else Color.Transparent, tween(140), label = "shelf-weather-bg")
+                    val fg = if (state.focused) Palette.OnFocus else Color.White
+                    Row(
+                        Modifier.smoothBackground(bg, 8.dp).padding(horizontal = 6.dp, vertical = 2.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        GlyphIcon(glyphFor(w), if (state.focused) Palette.OnFocus else Color.White, 18.dp, Modifier.padding(end = 7.dp))
+                        BasicText(
+                            buildAnnotatedString {
+                                append("${w.celsius}°")
+                                withStyle(second) { append("  $detail") }
+                            },
+                            style = Type.ClockDetail.copy(color = fg, shadow = if (state.focused) null else shadow),
+                        )
+                    }
+                }
+            } else {
+                Row(aside.padding(top = 18.dp).capBox(Type.ClockDetail.fontSize), verticalAlignment = Alignment.CenterVertically) {
+                    GlyphIcon(glyphFor(w), Color.White, 18.dp, Modifier.padding(end = 7.dp))
+                    BasicText(
+                        buildAnnotatedString {
+                            append("${w.celsius}°")
+                            withStyle(second) { append("  $detail") }
+                        },
+                        style = Type.ClockDetail.copy(shadow = shadow),
+                    )
+                }
             }
         }
     }
@@ -764,7 +791,15 @@ private fun conditionName(kind: WeatherKind): Int = when (kind) {
  * pill, so the wallpaper keeps the rest of the screen. A soft shadow keeps it readable on photos.
  */
 @Composable
-fun CornerClock(now: LocalDateTime, modifier: Modifier = Modifier, toSaver: () -> Float = { 0f }, saving: Boolean = false) {
+fun CornerClock(
+    now: LocalDateTime,
+    modifier: Modifier = Modifier,
+    toSaver: () -> Float = { 0f },
+    saving: Boolean = false,
+    away: Boolean = false,
+    enabled: Boolean = true,
+    onWeatherClick: (() -> Unit)? = null,
+) {
     val drift = heldDrift(saving, now)
     val dim = Color.White.copy(alpha = 0.92f)
     val shadow = Shadow(Color.Black.copy(alpha = 0.5f), blurRadius = 8f)
@@ -778,22 +813,46 @@ fun CornerClock(now: LocalDateTime, modifier: Modifier = Modifier, toSaver: () -
                 alpha = 1f - (toSaver() * 2.5f).coerceIn(0f, 1f)
                 compositingStrategy = CompositingStrategy.ModulateAlpha
             }
-            GlyphIcon(glyphFor(w), dim, 18.dp, aside.padding(start = 16.dp, end = 6.dp))
             val place = Weather.place?.takeIf { it.length <= 12 }
-            BasicText(listOfNotNull(place, "${w.celsius}°").joinToString(" "), style = Type.Headline.copy(color = dim, shadow = shadow), modifier = aside)
+            if (onWeatherClick != null && enabled && !saving && !away) {
+                Pressable(
+                    onClick = onWeatherClick,
+                    enabled = enabled,
+                    focusedScale = 1.08f,
+                    modifier = aside.padding(start = 6.dp),
+                ) { state ->
+                    val bg by animateColorAsState(if (state.focused) Palette.Focus else Color.Transparent, tween(140), label = "corner-weather-bg")
+                    val fg = if (state.focused) Palette.OnFocus else dim
+                    Row(
+                        Modifier.smoothBackground(bg, 8.dp).padding(horizontal = 6.dp, vertical = 2.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        GlyphIcon(glyphFor(w), if (state.focused) Palette.OnFocus else dim, 18.dp, Modifier.padding(end = 6.dp))
+                        BasicText(
+                            listOfNotNull(place, "${w.celsius}°").joinToString(" "),
+                            style = Type.Headline.copy(color = fg, shadow = if (state.focused) null else shadow),
+                        )
+                    }
+                }
+            } else {
+                GlyphIcon(glyphFor(w), dim, 18.dp, aside.padding(start = 16.dp, end = 6.dp))
+                BasicText(listOfNotNull(place, "${w.celsius}°").joinToString(" "), style = Type.Headline.copy(color = dim, shadow = shadow), modifier = aside)
+            }
         }
     }
 }
 
-private fun glyphFor(w: WeatherNow): Glyph = when (w.kind) {
-    WeatherKind.Clear -> if (w.day) Glyph.Sun else Glyph.Moon
-    WeatherKind.PartlyCloudy -> if (w.day) Glyph.CloudSun else Glyph.Cloud
+internal fun glyphFor(kind: WeatherKind, day: Boolean = true): Glyph = when (kind) {
+    WeatherKind.Clear -> if (day) Glyph.Sun else Glyph.Moon
+    WeatherKind.PartlyCloudy -> if (day) Glyph.CloudSun else Glyph.Cloud
     WeatherKind.Cloudy -> Glyph.Cloud
     WeatherKind.Fog -> Glyph.CloudFog
     WeatherKind.Rain -> Glyph.CloudRain
     WeatherKind.Snow -> Glyph.CloudSnow
     WeatherKind.Thunder -> Glyph.CloudBolt
 }
+
+internal fun glyphFor(w: WeatherNow): Glyph = glyphFor(w.kind, w.day)
 
 /** "VPN" in a thin frame beside the network glyph while a VPN is up, as iOS's status bar has it (issue #809). */
 @Composable
