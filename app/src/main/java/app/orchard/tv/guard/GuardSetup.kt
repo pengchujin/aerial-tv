@@ -40,6 +40,11 @@ object GuardSetup {
 
     private const val PREFS = "system"
 
+    /** JMGO's own accessibility service, which filters keys too; see rebindForJmgoKeys. */
+    private const val JMGO_KEY_SERVICE_PACKAGE = "com.jmgo.systemapi"
+    private const val JMGO_TV_PACKAGE = "com.jmgo.tv"
+    private const val KEY_JMGO_KEY_REBIND_BOOT = "jmgo_key_rebind_boot"
+
     private const val KEY_REVIVALS = "revivals"
 
     private const val REVIVAL_WINDOW_MS = 10 * 60 * 1000L
@@ -445,6 +450,51 @@ object GuardSetup {
                     .onFailure { Log.w(TAG, "could not switch accessibility back on", it) }
             }, 1500)
         }.onFailure { Log.w(TAG, "could not switch accessibility off", it) }
+    }
+
+    /**
+     * Whether the firmware is set to open a signal source by itself at power-on: JMGO's Settings
+     * keeps "Startup Source" in persist.sys.boot.source, 0 being its own Home. The TV then starts
+     * its input player seconds before BOOT_COMPLETED, and Aerial must not come over it.
+     */
+    fun startsOnSignalSource(context: Context): Boolean =
+        runCatching { context.packageManager.getPackageInfo(JMGO_TV_PACKAGE, 0) }.isSuccess &&
+            runCatching {
+                val getInt = Class.forName("android.os.SystemProperties")
+                    .getMethod("getInt", String::class.java, Int::class.javaPrimitiveType)
+                getInt.invoke(null, "persist.sys.boot.source", 0) as Int
+            }.getOrDefault(0) != 0
+
+    /**
+     * JMGO S60 (Amlogic T968, Android 5.1): its SystemApi accessibility service asks for key
+     * filtering at runtime, and up to Android 6 a key goes to one filtering service only, the last
+     * bound first and those not marked default before the default one. Bound at boot, Aerial's
+     * service was the first filtered one, so the system handled Home itself and the stock launcher
+     * flashed before the guard's key broadcast brought Aerial back. Switching accessibility off and
+     * on once made the guard take every Home instead (verified there with a real key event).
+     * Done once per boot, named by the kernel's boot id: this device starts at 1970, so its wall
+     * clock cannot tell one boot from the next. Called from the guard when it sees the input
+     * player, since the firmware opens that without Aerial's activity ever running.
+     */
+    fun rebindForJmgoKeys(context: Context) {
+        if (Build.VERSION.SDK_INT > Build.VERSION_CODES.M) return
+        if (runCatching { context.packageManager.getPackageInfo(JMGO_KEY_SERVICE_PACKAGE, 0) }.isFailure) return
+        val resolved = runCatching {
+            context.packageManager.resolveActivity(
+                Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME),
+                PackageManager.MATCH_DEFAULT_ONLY,
+            )
+        }.getOrNull()
+        if (resolved?.activityInfo?.packageName == context.packageName) return
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_SECURE_SETTINGS) != PackageManager.PERMISSION_GRANTED) return
+        val bootId = runCatching { java.io.File("/proc/sys/kernel/random/boot_id").readText().trim() }
+            .getOrNull()?.takeIf { it.isNotEmpty() } ?: return
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        if (prefs.getString(KEY_JMGO_KEY_REBIND_BOOT, null) == bootId) return
+        // Marked first: the switch below unbinds the guard, and the next one must not repeat it.
+        prefs.edit().putString(KEY_JMGO_KEY_REBIND_BOOT, bootId).commit()
+        DiagLog.i("jmgo keys: rebinding accessibility so the remote's keys reach the guard")
+        restartAccessibility(context)
     }
 
     /**
