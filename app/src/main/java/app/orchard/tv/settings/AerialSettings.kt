@@ -170,7 +170,7 @@ object AerialSettings {
 
     const val NEVER = 0
 
-    val screensaverChoices = listOf(2, 5, 10, 20, NEVER)
+    val screensaverChoices = listOf(1, 2, 5, 10, 20, NEVER)
 
     /** Which of Apple's files the aerial screensaver plays; Auto is the best this TV decodes (issues #198, #217). */
     var aerialQuality by mutableStateOf(AerialQuality.Auto); private set

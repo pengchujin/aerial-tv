@@ -193,6 +193,11 @@ class ConfigReceiver : BroadcastReceiver() {
             AerialSettings.init(context)
             Effects.entries.firstOrNull { it.key == key }?.let(AerialSettings::chooseEffects)
         }
+        // ... --ei screensaver_minutes 1|2|5|10|20|0   (when the screensaver starts, as in Personalize; 0 is never)
+        if (intent.hasExtra("screensaver_minutes")) {
+            AerialSettings.init(context)
+            intent.getIntExtra("screensaver_minutes", -1).takeIf { it in AerialSettings.screensaverChoices }?.let(AerialSettings::chooseScreensaverMinutes)
+        }
         // ... --es language auto|zh|en   (the interface language, as in Personalize; Aerial restarts to apply it)
         intent.getStringExtra("language")?.let { key ->
             AerialSettings.init(context)
