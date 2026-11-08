@@ -821,7 +821,15 @@ class HomeGuardService : AccessibilityService() {
         // a bounded window after boot and wake (restartForegroundCheck). A process revived after
         // standby may have missed SCREEN_ON before binding, so its window is not left open.
         patchwallBootCover = isActivity(PATCHWALL, PATCHWALL_BOOT)
-        if (patchwallBootCover && !screenOff && !recoveryWindow()) boundAwakeAt = SystemClock.elapsedRealtime()
+        // Not only with PatchWall: MiTV-MFTR0 (Android 14) keeps Aerial's process through standby,
+        // so the guard is created after the screen lights, SCREEN_ON is already gone, and nothing
+        // below counts as a wake — no boot window, no revival, nothing died in front. What the TV
+        // starts on then stayed shut on every wake (issue #1229, the reporter's log).
+        if (!screenOff && !recoveryWindow() &&
+            (patchwallBootCover || BootOpen.dueAfterMissedWake(this))
+        ) {
+            boundAwakeAt = SystemClock.elapsedRealtime()
+        }
         restartForegroundCheck()
         // Unlocked while binding: what was skipped above at once, whether or not the broadcast follows.
         if (unlockPending && GuardSetup.isUserUnlocked(this)) onUserUnlocked("user unlocked while binding")
@@ -873,8 +881,10 @@ class HomeGuardService : AccessibilityService() {
         // Not gated on being the default Home: Skyworth/Coolita (8R145, Android 11) starts its own
         // launcher at boot whatever Home resolves to (issue #43). The take-over looks first, and
         // bringing Aerial back over itself changes nothing.
+        // Bound with the screen already lit and SCREEN_ON missed: this binding is the wake itself.
+        val wokeUnseen = boundAwakeAt > 0 && SystemClock.elapsedRealtime() >= BOOT_WINDOW_MS && recoveryWindow()
         if (!fastBootTakeOver && !appLeftInFront &&
-            (SystemClock.elapsedRealtime() < BOOT_WINDOW_MS || revived || diedInFront || stoppedOverStock) &&
+            (SystemClock.elapsedRealtime() < BOOT_WINDOW_MS || revived || diedInFront || stoppedOverStock || wokeUnseen) &&
             getSystemService<PowerManager>()?.isInteractive == true
         ) {
             takeOverOnceSettled(
@@ -882,6 +892,7 @@ class HomeGuardService : AccessibilityService() {
                     revived -> "re-enabled after being switched off"
                     diedInFront -> "back after Aerial died in front"
                     stoppedOverStock -> "back after Aerial was stopped over the stock launcher"
+                    wokeUnseen -> "bound after the screen lit"
                     else -> "bound shortly after boot"
                 },
                 // Back from standby or a boot, not from a crash: the moment to open the input

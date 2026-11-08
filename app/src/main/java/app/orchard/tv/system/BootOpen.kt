@@ -154,6 +154,16 @@ object BootOpen {
         return sleptSince(prefs.getLong(OPENED_ASLEEP, -1L), asleep()) || offSinceOpened(prefs)
     }
 
+    /**
+     * Whether the screen went off in this boot after the target was last opened, for a guard bound
+     * with the screen already lit: MiTV-MFTR0 (Android 14) keeps Aerial's process through standby,
+     * so the guard is created after the screen lights and its SCREEN_ON is already gone, while the
+     * process age rules out every other wake test there (issue #1229). Cleared by the target being
+     * opened again, which [noteOpened] does, so it cannot open it twice in one wake.
+     */
+    fun dueAfterMissedWake(context: Context): Boolean =
+        offSinceOpened(context.getSharedPreferences(PREFS, Context.MODE_PRIVATE))
+
     private const val SAME_BOOT_SLACK_MS = 2 * 60 * 1000L
     private const val SLEPT_MS = 30_000L
 
