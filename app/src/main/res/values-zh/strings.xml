@@ -222,7 +222,8 @@
     <string name="weather_rain">雨</string>
     <string name="weather_snow">雪</string>
     <string name="weather_thunder">雷雨</string>
-    <string name="weather_high_low">最高 %1$d°  最低 %2$d°</string>
+    <string name="weather_temperature">%1$d℃</string>
+    <string name="weather_high_low">最高 %1$d℃  最低 %2$d℃</string>
     <string name="st_columns">每排 App</string>
     <string name="st_columns_hint">主屏幕和文件夹里每排放几个 App。6 个一眼看到更多；4 个图标更大，离得远也看得清。</string>
     <string name="st_peek">第二排</string>
