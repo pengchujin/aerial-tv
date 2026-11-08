@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import app.orchard.tv.apps.TileSheet
 import app.orchard.tv.settings.AerialSettings
+import app.orchard.tv.settings.AppLanguage
 import app.orchard.tv.settings.Restricted
 import app.orchard.tv.settings.Effects
 import app.orchard.tv.system.DeviceProfile
@@ -191,6 +192,16 @@ class ConfigReceiver : BroadcastReceiver() {
         intent.getStringExtra("effects")?.let { key ->
             AerialSettings.init(context)
             Effects.entries.firstOrNull { it.key == key }?.let(AerialSettings::chooseEffects)
+        }
+        // ... --ei screensaver_minutes 1|2|5|10|20|0   (when the screensaver starts, as in Personalize; 0 is never)
+        if (intent.hasExtra("screensaver_minutes")) {
+            AerialSettings.init(context)
+            intent.getIntExtra("screensaver_minutes", -1).takeIf { it in AerialSettings.screensaverChoices }?.let(AerialSettings::chooseScreensaverMinutes)
+        }
+        // ... --es language auto|zh|en   (the interface language, as in Personalize; Aerial restarts to apply it)
+        intent.getStringExtra("language")?.let { key ->
+            AerialSettings.init(context)
+            AppLanguage.entries.firstOrNull { it.key == key }?.let(AerialSettings::chooseLanguage)
         }
         intent.getStringExtra("aerial_quality")?.let { key ->
             AerialSettings.init(context)

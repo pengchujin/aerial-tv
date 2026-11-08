@@ -10,6 +10,11 @@
      The weather and location services use Let's Encrypt, whose root older TVs do not trust; they
      serve the same over HTTP, and Weather falls back to that. -->
 <network-security-config>
+    <!-- The cloud photo folder (CloudPhotos) is an address the owner types: a NAS or an Alist on the
+         LAN is usually plain http, and a rule per host cannot name them. This opens http for every host
+         this app talks to, which is the cost of that feature; everything Aerial itself fetches is https
+         or listed below. -->
+    <base-config cleartextTrafficPermitted="true" />
     <domain-config cleartextTrafficPermitted="true">
         <domain includeSubdomains="false">sylvan.apple.com</domain>
         <trust-anchors>

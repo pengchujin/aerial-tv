@@ -48,6 +48,10 @@ class AerialDream : DreamService(), LifecycleOwner, SavedStateRegistryOwner {
     override fun getSystemService(name: String): Any? =
         super.getSystemService(name) ?: if (name == CLIPBOARD_SERVICE) MissingClipboard.standIn else null
 
+    override fun attachBaseContext(newBase: android.content.Context) {
+        super.attachBaseContext(app.orchard.tv.settings.AppLanguage.wrap(newBase))
+    }
+
     override fun onCreate() {
         super.onCreate()
         savedState.performRestore(null)
