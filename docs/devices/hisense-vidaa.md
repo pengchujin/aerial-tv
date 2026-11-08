@@ -164,7 +164,6 @@ main 上（未发版）亮度行先试 `android.settings.IMAGE_SETTINGS`（非�
 
 1.71 起「网络」先开海信自己的网络页（#760 H55E9A 安卓 8 上原生 `NetworkActivity` 的子页会崩，#826 也要海信的新界面）。海信页里没有代理；#1095 的 VIDAA_TV（MT9603 / mt5873，安卓 11）上原生页 `com.android.tv.settings/.connectivity.NetworkActivity` 能打开、能设代理、不崩。按机型选哪一页属于偏好，留到功能轮次；变通办法是 `adb shell am start -n com.android.tv.settings/.connectivity.NetworkActivity`。
 
-
 ## 开机直达：`persist.sys.boot.source_pkg`（#1274 #1227，未进安装脚本）
 
 VIDAA_TV（MT9655，Android 14，固件 07.02.70.202605110330）上，报告人反编译 `TileTransition` 发现 `AppSwitchManager.switchToAppForSTR` 读 `persist.sys.boot.source_pkg`，按包名启动固定应用。只设它：待机唤醒进 Aerial，冷启动仍回聚好看；和 `persist.vt.use_home_pkg` 一起设（两项原值都是空）：完整重启后 `sys.boot_completed=1` 时前台已是 Aerial，60 秒无操作后是 VIDAA 自带氛围屏保 `com.vt.ambiencelife`，按键回 Aerial。两项都只能由 ADB（shell）写，Aerial 自己写不了，固件改回后 App 补不回来（#1227 在 E7Q 上见过 `use_home_pkg` 被改回）。目前只有这一台的实测，要不要进安装脚本、限定在哪些固件上，等更多 VIDAA / MT9655 机器确认。
@@ -185,3 +184,51 @@ VIDAA_TV（MT9655，Android 14，固件 07.02.70.202605110330）上，报告人�
 ## U8E（HISIV810，安卓 8）冷启动紫屏（#1305，报告人实测，没有修）
 
 2019 款 ULED U8E：standard 版设成默认桌面、接着机顶盒 HDMI 时，冷启动后整屏紫色，显示驱动卡住；只有拔掉机顶盒 HDMI 并卸载 Aerial 才恢复（缺一不可），恢复出厂后再接管、冷启动又出现。共同因素是「第三方桌面参与开机时的显示初始化」+ HDMI 信号，具体原因不明，维护者没有这台。报告人之后只把 Aerial 当普通 App 用（不开无障碍、不给通知使用权、主页键不选 Aerial）。这台不要设默认桌面；guard 版有没有同样的问题没人试过。
+
+## 激光机型的亮度（Vidda M2 Pro 高亮版，MT9653，Android 11）
+
+2026-11-01，在 Vidda M2 Pro 高亮版（型号代码 `VL5R-PRO`；`ro.product.model` 报 `VIDAA_TV`，
+MT9653，Android 11，Aerial 1.76）上实测。这台是激光超短焦投影，
+此前控制中心的亮度行对它不起作用：`screen_brightness` 写得进去，画面完全不变（216 → 30 与前一张截图
+逐像素无差别），和 #1025 在 75E8H 上报的现象一致。
+
+- **真实控光在固件的 `PictureManager` 里**，不在 Android 的设置里。`com.jamdeo.tv.*` 位于
+  `/system/framework/com.jamdeo.flow.jar`（boot class path），任何 App 都能直接反射调用，
+  不需要权限、root 或系统签名：`TvManager.getInstance().getPictureManager(context)` 之后，
+  `setCustomBacklight(0..10)` / `getCustomBacklight()` 就是原生设置「图像 → 亮度」的那 0–10 档。
+  验证方式：让户主在原生设置里反复拖亮度，同时由探针每 400 ms 采样全部画质字段，只有
+  `getCustomBacklight` 跟随变化、其余全程不动；写入侧同一字段同一量程，闭环成立。
+- **判定激光机型用 `getLaserOverLapOrCL0Mode`**（CL0 是激光光源），普通海信没有这个方法。
+  没有按 `VIDAA_TV` 判断（所有海信都报这个名字），也没有写进 `devices.json`。
+- **亮度模式共 7 个，与 `getBacklightMode` 的对照**（逐个提交后回读）：
+
+  | 模式 | `getBacklightMode` | `getCustomBacklight` | `getLaserOverLapOrCL0Mode` |
+  |---|---|---|---|
+  | 明亮 | 16384 | 10 | 0 |
+  | 标准 | 8192 | 8 | 0 |
+  | 柔和 | 2 | 4 | 0 |
+  | 动态 | 4096 | 不固定（随画面，实测 7 / 3 / 5） | 0 |
+  | 超新 | 131072 | 10 | 2 |
+  | 超频 | 65536 | 10 | 1 |
+  | 自定义 | 0 | 用户上次档位 | 0 |
+
+- **只有「自定义」的档位归用户管**：明亮 / 标准 / 柔和 / 超新 / 超频 都写死自己的档位（动态不写死，
+  它自己会动，见下一节），并且**丢弃**对 `setCustomBacklight` 的写入（回读纹丝不动，但值会记进
+  自定义槽位）。所以 Aerial 写入前先 `setBacklightMode(0)`，这正是原生设置在户主拖动亮度滑杆时
+  自己做的事——效果就是「一拖亮度，模式变成自定义」。切回「自定义」时系统自动恢复上次档位，
+  Aerial 不需要自己记。
+- 切模式只要一条 `setBacklightMode(...)`，预设档位和 `getLaserOverLapOrCL0Mode` 由系统联动写入，
+  不用再单独调 `setLaserOverLapOrCL0Mode`。
+- 「超新 / 超频」偏黄来自激光叠加（CL0Mode 2/1）改变合成白点，不是亮度也不是色温
+  （`getColorTemperature` 七个模式恒为 4）。
+- 无用的通道（勿再试）：`screen_brightness`（激光机不控光源）、`setBrightness`（只改画质黑位，
+  肉眼无感）、`setLightModeStatus`（第三方关不掉，恒为 true）、`setLightModeValue` /
+  `setMinBackLight` / `setLaserCL0Index`（空操作）、`setBacklightMode(8192 | v)`（被归一化，
+  BacklightMode 是离散枚举而不是标志位）。
+
+Aerial 的处理：`system/HisenseLaserPanel.kt`；`Brightness.level` / `adjust` 最前面分派，
+控制中心 `steps = 10`（11 档，其余电视仍是 20 步 5%），行里显示档位而不是百分比
+（`4`，不是 `40`；原生设置那一栏也是 0–10），亮度行在屏幕上时每 700 ms 轮询一次
+（系统改亮度不发广播，和极米同一个理由）。面板关着时一次都不读：控制中心为首次打开
+做的那个 1% 透明预热副本会把这一页也组合一遍，它的轮询被 `poll` 参数挡掉。
+验证范围见 HANDOFF 里 2026-11-01 那一条。

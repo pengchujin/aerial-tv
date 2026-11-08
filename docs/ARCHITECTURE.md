@@ -47,7 +47,7 @@ app/src/main/java/app/orchard/tv/
 │   └── Weather.kt           时钟旁的天气：Open-Meteo 实时天气，城市来自手机页或 IP 定位
 ├── system/
 │   ├── SystemState.kt       SystemProbe：网络、音量、桌面状态、设置入口、信号源（TvInputManager + 小米路由 + 机型修正）
-│   ├── Brightness.kt        亮度：小米 picture_backlight / 标准 screen_brightness / TCL 走面板
+│   ├── Brightness.kt        亮度：小米 picture_backlight / 海信激光 HisenseLaserPanel / 标准 screen_brightness / TCL 走面板
 │   ├── DeviceProfile.kt     按机型的修正（数据在 assets/devices.json），这台电视自己的修正可以覆盖它
 │   └── Diagnostics.kt       给 GitHub issue 用的诊断报告（手机页「反馈问题」、`dumpsys activity …MainActivity report`、tools/report.sh）
 ├── guard/
@@ -341,7 +341,11 @@ NanoHTTPD 监听 8790 端口，路径前缀是 8 位随机令牌（每次打开�
   （#760，H55E9A / Android 8 上普通应用权限实测）。其他电视的原有候选顺序和完整版的失败回退不变，
   Lite 同步这个入口；验证边界见 `docs/devices/hisense-vidaa.md`。
 - **音量**：`AudioManager` 的 STREAM_MUSIC；TCL 必须加 `FLAG_SHOW_UI`（否则不会写入功放）。
-- **亮度**：见 `Brightness.kt` 的注释（小米 / 标准 / TCL 面板三种）。海信 VIDAA（装有 `com.jamdeo.tv.vod` 或 `com.hisense.vidaaassistant`）和 TCL、索尼一样不显示滑块、打开电视自己的设置：`screen_brightness` 写进去面板不变（#1025 #1130 #1133 #1141）。
+- **亮度**：见 `Brightness.kt` 的注释（小米 / 海信激光 / 标准 / TCL 面板几种）。海信激光
+  （`HisenseLaserPanel`）走固件 `PictureManager` 的 0–10 档，只在 `getLaserOverLapOrCL0Mode`
+  存在时接管；写入前先切「自定义」画质模式，否则预设模式会把档位盖回去。其余海信 VIDAA
+  （装有 `com.jamdeo.tv.vod` 或 `com.hisense.vidaaassistant`）和 TCL、索尼一样不显示滑块、
+  打开电视自己的设置：`screen_brightness` 写进去面板不变（#1025 #1130 #1133 #1141）。
 - **设置入口**：优先厂商自己的设置（小米 `com.xiaomi.mitv.settings`）。有的厂商的完整设置是服务弹出的面板，先按服务启动：极米 `SettingService`、康佳 `com.konka.service.SettingService` + `SETTING_MAIN_VIEW`（#771，只在服务导出时用，失败退回 Activity）。
 - **没有信号源时**：`TvInputManager` 一个都不列，先试厂商自己的列表（极米 MStar、小米播放器编号：MiTV4C 和 MiTV3 的 HDMI 1/2 = 23/24、海信、康佳、TCL），还是空的，控制中心「信号源」就打开固件自己的信号源面板（`openInputPicker`：极米设置服务、海信 InputsUIService、TCL 面板、酷开 `SOURCE_DIALOG`、酷开 C10 的 `coocaa.intent.aigc.home.tvsource` 和 SkyMovie 的 `LaunchSourceReceiver` 广播，#779）。最后是乐视 EUI 的 `com.stv.signalsourcemanager/.MainActivity`（X3-55，安卓 5.0.1，没有 tv_input 服务；只能回到上次用的口，不认端口参数，#818 #998，未真机验证）。Lite 的 `SystemIntents` 同样两条。
 

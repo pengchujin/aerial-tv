@@ -30,6 +30,9 @@ import androidx.core.content.ContextCompat
  *   (com.xgimi.gmpf.api.DisplayManager, see SystemProbe.xgimiBrightnessLevel); the system setting
  *   does not follow it. Issue #241 took the level for read-only on a Z7X, but a `pig_chivalrous` on
  *   GMUI 9 takes a write from a plain app, so Control Center steps the light engine's own levels.
+ * - Hisense VIDAA laser sets: the light source's own 0..10 level, through PictureManager in the
+ *   firmware's framework (see HisenseLaserPanel); screen_brightness changes there without moving
+ *   the light source, so the row would otherwise open the picture settings (#1025 on a 75E8H).
  * - Others: the standard Settings.System screen brightness, 0–255. Writing it needs the "modify
  *   system settings" app-op. Both are granted by tools/install.sh; without them Control Center
  *   opens the TV's own picture settings instead.
@@ -89,6 +92,8 @@ object Brightness {
     fun level(context: Context): Float? = level(context, probeSkyworth = true)
 
     private fun level(context: Context, probeSkyworth: Boolean): Float? {
+        // Hisense laser: the light source's own level, which screen_brightness does not touch.
+        HisenseLaserPanel.level(context)?.let { return it }
         // XGIMI: the real brightness is the DLP light-engine level; the system screen_brightness
         // setting does not follow it (issue #241).
         SystemProbe.xgimiBrightnessLevel()?.let { return it }
@@ -150,6 +155,15 @@ object Brightness {
      * the HAL class (see [SystemProbe.setXgimiBrightnessLevel]).
      */
     fun adjust(context: Context, direction: Int): Float? {
+        // Hisense laser: 11 notches of the TV's own level, not the 5% steps below — 5% would land
+        // on the same notch twice and the row would seem to stick. The notch asked for is reported
+        // rather than read back: the write goes through the picture service, so the row moves with
+        // the picture instead of a poll later.
+        HisenseLaserPanel.level(context)?.let { current ->
+            val next = HisenseLaserPanel.step(current, direction)
+            HisenseLaserPanel.setLevel(context, next)
+            return next
+        }
         SystemProbe.xgimiBrightnessLevel()?.let { current ->
             val next = xgimiStep(current, direction) ?: return current
             val level = Math.round(next * SystemProbe.xgimiBrightnessMax)

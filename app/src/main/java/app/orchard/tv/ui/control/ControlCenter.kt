@@ -95,6 +95,7 @@ import app.orchard.tv.settings.AerialSettings
 import app.orchard.tv.settings.Restricted
 import app.orchard.tv.settings.RestrictedKind
 import app.orchard.tv.ui.home.kidsTimeLine
+import app.orchard.tv.system.HisenseLaserPanel
 import app.orchard.tv.system.HomeStatus
 import app.orchard.tv.system.LaunchFallback
 import app.orchard.tv.system.NetKind
@@ -170,7 +171,7 @@ fun ControlCenter(
         // at 1% while Home is idle, without focus, the first opening is like the second.
         if (warm && !visible) {
             Column(Modifier.graphicsLayer { alpha = 0.01f }.width(300.dp).liquidGlass(24.dp).padding(16.dp)) {
-                MainPage(vm, now, false, onOpen)
+                MainPage(vm, now, takeFocus = false, poll = false, onOpen = onOpen)
             }
         }
         AnimatedVisibility(
@@ -202,7 +203,11 @@ fun ControlCenter(
                         // Closing sets the page back to Main while the panel fades out; that page must
                         // not take focus from the tile Home has just put it back on.
                         when (p) {
-                            CcPage.Main -> if (Restricted.active) KidsPage(vm, now, visible) else MainPage(vm, now, visible, onOpen)
+                            CcPage.Main -> if (Restricted.active) {
+                                KidsPage(vm, now, visible)
+                            } else {
+                                MainPage(vm, now, takeFocus = visible, poll = visible, onOpen = onOpen)
+                            }
                             CcPage.Inputs -> InputsPage(vm, visible, onOpen)
                             CcPage.InputSettings -> InputSettingsPage(vm, visible)
                             CcPage.Update -> UpdatePage(vm, visible)
@@ -222,6 +227,9 @@ fun ControlCenter(
 @Composable
 private fun KidsPage(vm: HomeViewModel, now: LocalDateTime, takeFocus: Boolean) {
     val first = remember { FocusRequester() }
+    val context = LocalContext.current
+    val laser = remember { HisenseLaserPanel.usable(context) }
+    PollBrightness(vm, laser, enabled = takeFocus)
     LaunchedEffect(Unit) {
         if (!takeFocus) return@LaunchedEffect
         withFrameNanos { }
@@ -237,7 +245,7 @@ private fun KidsPage(vm: HomeViewModel, now: LocalDateTime, takeFocus: Boolean) 
         Spacer(Modifier.height(12.dp))
         VolumeRow(vm, first)
         Spacer(Modifier.height(6.dp))
-        BrightnessRow(vm)
+        BrightnessRow(vm, laser)
         Spacer(Modifier.height(6.dp))
         MenuRow(
             Glyph.Shield,
@@ -249,8 +257,19 @@ private fun KidsPage(vm: HomeViewModel, now: LocalDateTime, takeFocus: Boolean) 
 }
 
 @Composable
-private fun MainPage(vm: HomeViewModel, now: LocalDateTime, takeFocus: Boolean, onOpen: (android.content.Intent) -> Unit) {
+private fun MainPage(
+    vm: HomeViewModel,
+    now: LocalDateTime,
+    takeFocus: Boolean,
+    /** The row polls the picture service, so only the copy that is on screen may do it. */
+    poll: Boolean,
+    onOpen: (android.content.Intent) -> Unit,
+) {
     val context = LocalContext.current
+    // The laser level belongs to the laser sets only (HisenseLaserPanel); every other TV keeps
+    // the brightness row it had.
+    val laser = remember { HisenseLaserPanel.usable(context) }
+    PollBrightness(vm, laser, poll)
     val first = remember { FocusRequester() }
     val networkFocus = remember { FocusRequester() }
     val settingsFocus = remember { FocusRequester() }
@@ -335,7 +354,7 @@ private fun MainPage(vm: HomeViewModel, now: LocalDateTime, takeFocus: Boolean, 
         Spacer(Modifier.height(12.dp))
         VolumeRow(vm, cameFrom)
         Spacer(Modifier.height(6.dp))
-        BrightnessRow(vm)
+        BrightnessRow(vm, laser)
 
         Spacer(Modifier.height(6.dp))
         // A parent left Kids and Elders mode: one press back into it, no PIN.
@@ -702,28 +721,42 @@ private fun VolumeRow(vm: HomeViewModel, returnTo: FocusRequester) {
     )
 }
 
-/**
- * Brightness where Aerial may change it; otherwise a row that opens the TV's picture settings, and
- * says so: a bare "Brightness" with no slider read as broken (Vidda 85V1F-S, FFalcon, issue #130).
+/** Reads the level every 700 ms while the brightness row is on screen. Neither the DLP light
+ * engine nor the picture service announces a change, and the TV's own slider can be moved with the
+ * panel still up, so nothing else would refresh either.
+ *
+ * Only the on-screen copy polls: the closed panel draws this page once at 1 %, so that its first
+ * opening is not its first draw (ControlCenter's warm path), and a LaunchedEffect runs from there
+ * too — that copy would read the picture service for a panel nobody can see.
  */
 @Composable
-private fun BrightnessRow(vm: HomeViewModel) {
+private fun PollBrightness(vm: HomeViewModel, laser: Boolean, enabled: Boolean) {
     val context = LocalContext.current
-    // XGIMI (GMUI): the real brightness is the DLP light-engine level. It reads through the HAL
-    // class (SystemProbe.xgimiBrightnessLevel) and, on this firmware, writes through it too, so the
-    // row is a slider of the light engine's own levels (1..10) rather than a percentage of the
-    // system setting that moves nothing. Poll the HAL while the row is on screen: the level can be
-    // changed from the TV's own overlay, which does not pause Aerial, so no onResume or
-    // screen_brightness observer ever fires for it.
     val xgimi = remember { SystemProbe.xgimiBrightnessLevel() != null }
-    LaunchedEffect(xgimi) {
-        if (!xgimi) return@LaunchedEffect
-        vm.discoverBrightnessBoost()
+    LaunchedEffect(xgimi, laser, enabled) {
+        if (!enabled || (!xgimi && !laser)) return@LaunchedEffect
+        // XGIMI's Boost is discovered once, before the first poll; it has no saying on a laser set.
+        if (xgimi) vm.discoverBrightnessBoost()
         while (isActive) {
             delay(700)
             vm.refreshBrightness()
         }
     }
+}
+
+/**
+ * Brightness where Aerial may change it; otherwise a row that opens the TV's picture settings, and
+ * says so: a bare "Brightness" with no slider read as broken (Vidda 85V1F-S, FFalcon, issue #130).
+ */
+@Composable
+private fun BrightnessRow(vm: HomeViewModel, laser: Boolean) {
+    val context = LocalContext.current
+    // XGIMI (GMUI): the real brightness is the DLP light-engine level. It reads through the HAL
+    // class (SystemProbe.xgimiBrightnessLevel) and, on this firmware, writes through it too, so the
+    // row is a slider of the light engine's own levels (1..10) rather than a percentage of the
+    // system setting that moves nothing. [laser] comes from the page: it is the light source's own
+    // 0..10 level, which the system setting does not move either.
+    val xgimi = remember { SystemProbe.xgimiBrightnessLevel() != null }
     val level = vm.brightness
     if (level == null) {
         MenuRow(Glyph.Sun, stringResource(R.string.cc_brightness), onClick = {
@@ -734,9 +767,21 @@ private fun BrightnessRow(vm: HomeViewModel) {
         SliderRow(
             glyph = Glyph.Sun,
             level = level,
-            value = if (vm.brightnessBoost == true) "10+" else Math.round(level * 100).toString(),
-            // Brightness.adjust moves 5% a step, and stops at 1%; XGIMI steps its own levels.
-            steps = if (xgimi) SystemProbe.xgimiBrightnessMax else 20,
+            // A laser set's level is 11 notches of its own, not a percentage of anything: show the
+            // notch, the number the TV's own slider shows (4, not 40).
+            value = when {
+                vm.brightnessBoost == true -> "10+"
+                laser -> Math.round(level * HisenseLaserPanel.LEVEL_MAX).toString()
+                else -> Math.round(level * 100).toString()
+            },
+            // Brightness.adjust moves 5% a step, and stops at 1%; XGIMI steps its own levels and a
+            // Hisense laser set its own 11 notches. Only the drag pitch follows this; a key is one
+            // step either way.
+            steps = when {
+                laser -> HisenseLaserPanel.LEVEL_MAX
+                xgimi -> SystemProbe.xgimiBrightnessMax
+                else -> 20
+            },
             onStep = vm::adjustBrightness,
             onClick = {},
         )

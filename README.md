@@ -252,6 +252,7 @@ curl -fsSL https://aerial.qust.me/install.sh | TV=192.168.1.20 bash -s restore
 | 海信 | 65E52D | Android 8 | ✅ 开机直接进 Aerial（[#672](https://github.com/pengchujin/aerial-tv/issues/672)） |
 | 海信 | 75E3F（VIDAA_TV，n62016） | Android 9 | ✅ 开机直接进 Aerial（[#847](https://github.com/pengchujin/aerial-tv/issues/847)） |
 | 海信 | E5Q Pro | Android 11 | ✅（[#790](https://github.com/pengchujin/aerial-tv/issues/790)） |
+| 海信 / Vidda | M2 Pro 高亮版（VIDAA_TV，VL5R-PRO，MT9653） | Android 11 | ✅ 开机直接进 Aerial；激光光源的亮度走 0–10 档，控制中心这一行能真调（[笔记](docs/devices/hisense-vidaa.md)） |
 | 海信 | 85U7G-PRO（MT9652） | Android 9 | ✅ APK 装完第一次按主页键选 Aerial、「始终」，开机直接进 Aerial，不用 ADB（[#886](https://github.com/pengchujin/aerial-tv/issues/886)） |
 | 海信 | VIDAA_TV（MSD6A348） | Android 4.4 | ✅ Aerial Lite，U 盘安装，主页键选「始终」即可；亮度调不了（[#769](https://github.com/pengchujin/aerial-tv/issues/769)） |
 | 海信 | LED47K600X3D（VIDAA_TV，MT5880） | Android 4.0.4 | ⚠️ Aerial Lite 能装能用，开机直接进；遥控器的主页、APP、VOD 键被固件走私有通道拉起自家界面，Aerial 接不到（[#913](https://github.com/pengchujin/aerial-tv/issues/913)） |

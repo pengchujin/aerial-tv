@@ -38,7 +38,7 @@
 | 小时钟 / 大时钟（日期、农历、天气） | ✅ | 个性化里切换 |
 | 天气 | ✅ | 地点只能按 IP 猜（Lite 没有手机页），家里走代理时会猜错（小米上显示 Singapore） |
 | 右上角状态按钮（网络、控制中心，进网格后加时间） | ✅ | |
-| 控制中心：信号源、网络、设置、音量、亮度、个性化、开机打开的 App、桌面状态 | ✅ | 信号源：4.x 没有 `TvInputManager`，小米电视（有 `com.xiaomi.mitv.tvplayer/.ExternalSourceActivity`、不是盒子）列出 HDMI 1–3（`input` 23–25，和完整版的小米兜底相同，#1094），其他只能打开海信/TCL/酷开自己的信号源面板，没有就提示；亮度：`Brightness`（小米 `picture_backlight`、MiTV 中间件、TCL `TTvPictureManager`、系统亮度），都不行时打开电视自己的图像设置，和完整版一样；网络、设置受家长密码保护 |
+| 控制中心：信号源、网络、设置、音量、亮度、个性化、开机打开的 App、桌面状态 | ✅ | 信号源：4.x 没有 `TvInputManager`，小米电视（有 `com.xiaomi.mitv.tvplayer/.ExternalSourceActivity`、不是盒子）列出 HDMI 1–3（`input` 23–25，和完整版的小米兜底相同，#1094），其他只能打开海信/TCL/酷开自己的信号源面板，没有就提示；亮度：`Brightness`（小米 `picture_backlight`、MiTV 中间件、TCL `TTvPictureManager`、海信激光 `PictureManager`、系统亮度），都不行时打开电视自己的图像设置，和完整版一样；网络、设置受家长密码保护 |
 | 长按 / 菜单键菜单：移动、移到文件夹 ›（新建/已有）、从主屏幕隐藏、恢复默认图标、应用信息、开机时打开、卸载；文件夹：移动、重命名 ›、解散 | ✅ | 长按按「按键重复」判断；有的红外遥控器不发重复，可以用菜单键 |
 | 布局：单排/双排、第二排露出、玻璃底板、App 名称、时钟左右/大小、天气开关、焦点样式、按键声音、效果 | ✅ | `HomeView` 按完整版 `GridMetrics` 计算 |
 | 文件夹（`FolderView`）、家长密码（`PinPad`，数字或方向键） | ✅ | 排序、文件夹、隐藏用完整版的 `LayoutStore`，手机页改的名字用 `AppNames` |
