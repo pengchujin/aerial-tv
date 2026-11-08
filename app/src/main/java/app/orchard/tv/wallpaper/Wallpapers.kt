@@ -870,34 +870,75 @@ object Wallpapers {
 
     /** Stores an uploaded picture, downscaled to at most 2560 px wide, and returns its id. */
     suspend fun addPhoto(input: InputStream): String? = io.withLock {
-        val id = withContext(Dispatchers.IO) {
-            val tmp = File.createTempFile("upload", ".bin", app.cacheDir)
-            try {
-                tmp.outputStream().use { input.copyTo(it) }
-                val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-                BitmapFactory.decodeFile(tmp.path, bounds)
-                if (bounds.outWidth <= 0) return@withContext null
-                // Stored upright: the JPEG written below keeps no EXIF, so the turn is applied now.
-                val orientation = Images.exifOrientation(tmp)
-                val wide = if (Images.quarterTurn(orientation)) bounds.outHeight else bounds.outWidth
-                var sample = 1
-                while (wide / (sample * 2) >= 2560) sample *= 2
-                val decoded = BitmapFactory.decodeFile(tmp.path, BitmapFactory.Options().apply { inSampleSize = sample }) ?: return@withContext null
-                val bmp = Images.upright(decoded, orientation)
-                val name = System.currentTimeMillis().toString(36)
-                File(photoDir, "$name.jpg").outputStream().use { bmp.compress(Bitmap.CompressFormat.JPEG, 90, it) }
-                bmp.recycle()
-                "photo:$name"
-            } finally {
-                tmp.delete()
-            }
-        }
+        val id = withContext(Dispatchers.IO) { storeJpeg(input, System.currentTimeMillis().toString(36))?.let { "photo:$it" } }
         if (id != null) {
             synchronized(thumbs) { thumbs.remove(ROTATE_PHOTOS) }
             rebuildList()
             select(id)
         }
         id
+    }
+
+    /** Decodes [input], turns it upright, and writes it as files/photos/[name].jpg. Null when it is no picture. */
+    private fun storeJpeg(input: InputStream, name: String): String? {
+        val tmp = File.createTempFile("upload", ".bin", app.cacheDir)
+        try {
+            tmp.outputStream().use { input.copyTo(it) }
+            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            BitmapFactory.decodeFile(tmp.path, bounds)
+            if (bounds.outWidth <= 0) return null
+            // Stored upright: the JPEG written below keeps no EXIF, so the turn is applied now.
+            val orientation = Images.exifOrientation(tmp)
+            val wide = if (Images.quarterTurn(orientation)) bounds.outHeight else bounds.outWidth
+            var sample = 1
+            while (wide / (sample * 2) >= 2560) sample *= 2
+            val decoded = BitmapFactory.decodeFile(tmp.path, BitmapFactory.Options().apply { inSampleSize = sample }) ?: return null
+            val bmp = Images.upright(decoded, orientation)
+            File(photoDir, "$name.jpg").outputStream().use { bmp.compress(Bitmap.CompressFormat.JPEG, 90, it) }
+            bmp.recycle()
+            return name
+        } finally {
+            tmp.delete()
+        }
+    }
+
+    // ---- photos from a cloud folder (CloudPhotos) ----
+
+    /** Ids (file names) of the photos CloudPhotos has stored; phone uploads never start with its prefix. */
+    fun cloudPhotoIds(): Set<String> =
+        (photoDir.listFiles { f -> f.extension == "jpg" && f.name.startsWith(CloudPhotos.PREFIX) } ?: emptyArray())
+            .map { it.nameWithoutExtension }.toSet()
+
+    /** Stores one picture from the cloud folder; the list is rebuilt by [cloudChanged] once all are in. */
+    suspend fun addCloudPhoto(id: String, input: InputStream): Boolean = io.withLock {
+        withContext(Dispatchers.IO) { storeJpeg(input, id) } != null
+    }
+
+    fun removeCloudPhotos(ids: Collection<String>) {
+        // Only ones that are CloudPhotos': a phone upload is never named for removal here.
+        ids.filter { it.startsWith(CloudPhotos.PREFIX) && !it.contains('/') && !it.contains("..") }
+            .forEach { File(photoDir, "$it.jpg").delete(); synchronized(thumbs) { thumbs.remove("photo:$it") } }
+    }
+
+    /** The cloud folder's pictures changed: the lists and the one-a-day wallpaper follow. Main thread. */
+    fun cloudChanged() {
+        synchronized(thumbs) { thumbs.remove(ROTATE_PHOTOS) }
+        rebuildList()
+        if (selectedId == ROTATE_PHOTOS || (selectedId.startsWith("photo:") && items.none { it.id == selectedId })) {
+            if (items.none { it.id == selectedId } && selectedId != ROTATE_PHOTOS) select(LATEST_DAILY) else rebuildBackdrop()
+        }
+    }
+
+    private var lastCloudSync = 0L
+
+    /** Syncs the cloud folder when it is set up and 6 hours (or [force]) have passed since the last. */
+    fun syncCloudIfDue(force: Boolean = false) {
+        if (!started) return
+        if (!CloudPhotos.config(app).on) return
+        val now = System.currentTimeMillis()
+        if (!force && now - lastCloudSync < 6 * 60 * 60 * 1000L) return
+        lastCloudSync = now
+        scope.launch { CloudPhotos.sync(app) }
     }
 
     fun deletePhoto(id: String) {

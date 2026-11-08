@@ -114,6 +114,16 @@ class PhoneServer private constructor(private val context: Context, private val 
                     }
                     json(state().put("saved", known))
                 }
+                session.method == Method.POST && path == "/api/cloud" -> {
+                    // The WebDAV folder whose pictures play as the owner's photos (CloudPhotos).
+                    val f = form(session)
+                    onMain {
+                        CloudPhotos.save(context, f["url"].orEmpty(), f["user"].orEmpty(), f["password"])
+                        if (f["sync"] == "1" || f["url"].isNullOrBlank().not()) Wallpapers.syncCloudIfDue(force = true)
+                        if (f["url"].isNullOrBlank()) { Wallpapers.removeCloudPhotos(Wallpapers.cloudPhotoIds()); Wallpapers.cloudChanged() }
+                    }
+                    json(state())
+                }
                 session.method == Method.POST && path == "/api/focus" -> {
                     val style = FocusStyle.of(form(session)["style"])
                     onMain { AerialSettings.chooseFocusStyle(style) }
@@ -241,6 +251,11 @@ class PhoneServer private constructor(private val context: Context, private val 
             .put("videoRoom", ScreensaverVideos.room(context))
             .put("focusStyle", AerialSettings.focusStyle.key)
             .put("kids", kidsState())
+            .put("cloud", CloudPhotos.config(context).let {
+                // The password is never sent back to the page.
+                JSONObject().put("url", it.url).put("user", it.user).put("hasPassword", it.password.isNotEmpty())
+                    .put("state", CloudPhotos.state).put("count", CloudPhotos.count).put("detail", CloudPhotos.detail)
+            })
             .put("wallpaperAlwaysMoves", AerialSettings.wallpaperAlwaysMoves)
             .put("showWeather", AerialSettings.showWeather)
             .put("screensaverClock", AerialSettings.screensaverClock)

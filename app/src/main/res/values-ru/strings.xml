@@ -157,6 +157,11 @@
     <string name="st_effects_lite">Лёгкие</string>
     <string name="st_effects_hint">Лёгкие: простые панели, выбранное приложение без блика, экран остаётся на 60 Гц. Для телевизоров, которые подтормаживают.</string>
     <string name="st_effects_auto_lite_hint">У этого телевизора мало памяти или старый Android, поэтому «Авто» выбирает лёгкие.</string>
+    <string name="st_language">Язык</string>
+    <string name="st_language_auto">Авто</string>
+    <string name="st_language_zh">中文</string>
+    <string name="st_language_en">English</string>
+    <string name="st_language_hint">«Авто» — язык телевизора. Aerial перезапустится, чтобы применить изменение.</string>
     <string name="cc_inputs_settings">Настройки источников</string>
     <string name="cc_inputs_pin">Показывать на главном экране (любое число)</string>
     <string name="cc_inputs_boot">При включении телевизора (один)</string>

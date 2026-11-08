@@ -165,6 +165,11 @@
     <string name="st_effects_lite">Lite</string>
     <string name="st_effects_hint">Lite draws plain panels and the selected app without its sheen, and keeps the screen at 60 Hz: for TVs that stutter.</string>
     <string name="st_effects_auto_lite_hint">This TV has little memory or an older Android, so Auto uses Lite.</string>
+    <string name="st_language">Language</string>
+    <string name="st_language_auto">Auto</string>
+    <string name="st_language_zh">中文</string>
+    <string name="st_language_en">English</string>
+    <string name="st_language_hint">Auto follows the TV\'s language. Aerial restarts to apply the change.</string>
     <string name="cc_inputs_settings">Input Settings</string>
     <string name="cc_inputs_pin">Show on Home (any number)</string>
     <string name="cc_inputs_boot">When the TV Turns On (one)</string>

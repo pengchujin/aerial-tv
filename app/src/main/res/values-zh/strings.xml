@@ -164,6 +164,11 @@
     <string name="st_effects_lite">流畅</string>
     <string name="st_effects_hint">流畅：面板用纯色，选中的 App 不加高光和视差，屏幕保持 60Hz，给会卡顿的电视用。</string>
     <string name="st_effects_auto_lite_hint">这台电视内存较小或系统较旧，「自动」用的是流畅。</string>
+    <string name="st_language">语言</string>
+    <string name="st_language_auto">自动</string>
+    <string name="st_language_zh">中文</string>
+    <string name="st_language_en">English</string>
+    <string name="st_language_hint">「自动」跟随电视的系统语言，切换后 Aerial 会重新打开。</string>
     <string name="cc_inputs_settings">信号源设置</string>
     <string name="cc_inputs_pin">显示在主屏幕（可多选）</string>
     <string name="cc_inputs_boot">开机时打开（选一个）</string>

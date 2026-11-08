@@ -273,6 +273,22 @@ fun WallpaperSheet(
                         listOf(Effects.Auto to R.string.st_effects_auto, Effects.Full to R.string.st_effects_full, Effects.Lite to R.string.st_effects_lite),
                         AerialSettings.effects, AerialSettings::chooseEffects,
                     )
+                    val activity = remember(context) {
+                        var c = context
+                        while (c is android.content.ContextWrapper && c !is android.app.Activity) c = c.baseContext
+                        c as? android.app.Activity
+                    }
+                    Choices(
+                        R.string.st_language,
+                        stringResource(R.string.st_language_hint),
+                        note,
+                        listOf(
+                            app.orchard.tv.settings.AppLanguage.Auto to R.string.st_language_auto,
+                            app.orchard.tv.settings.AppLanguage.Chinese to R.string.st_language_zh,
+                            app.orchard.tv.settings.AppLanguage.English to R.string.st_language_en,
+                        ),
+                        AerialSettings.language, { AerialSettings.chooseLanguage(it); activity?.recreate() },
+                    )
                 }
 
                 Spacer(Modifier.height(22.dp))

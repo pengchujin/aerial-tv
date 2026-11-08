@@ -36,9 +36,11 @@ app/src/main/java/app/orchard/tv/
 │   ├── Gradients.kt         14 张 Mac 风格内置壁纸（山丘、沙丘、海、波浪、光晕），在电视上按实际分辨率画
 │   ├── Images.kt            解码裁剪、首页压暗烘焙、抖动、box blur
 │   ├── Aerials.kt           读取 assets/aerials.json（Apple 航拍目录）；AerialFormats：这台电视能播哪档画质
+│   ├── CloudPhotos.kt       网盘照片：读一个 WebDAV 文件夹（PROPFIND 走 Socket，图片走 GET），把里面的图片存成 files/photos/dav-<id>.jpg，和手机上传的照片一起进照片屏保 / 「每天换一张」；每 6 小时同步，只会删自己存的 dav-* 文件；Google Photos 没有读相册的接口，要经 Google Drive + Alist 接入。因为地址是户主输入的（局域网 http 居多），`network_security_config.xml` 的 base-config 放开了明文 http
 │   └── PhoneServer.kt       NanoHTTPD 手机配置页 + 二维码生成
 ├── settings/
 │   ├── Restricted.kt        儿童与长辈模式（Kids and Elders，SharedPreferences "restricted"）：给谁用、显示的 App、其他 App 拦不拦、时间规则 `KidsTime`、今天的用量（见「儿童与长辈模式」）
+│   ├── AppLanguage.kt       界面语言（自动 / 中文 / English）：`attachBaseContext` 里套上所选语言并设默认 Locale；个性化里「语言」一行，ADB `--es language auto|zh|en`
 │   └── AerialSettings.kt    Aerial 自己的偏好（SharedPreferences "settings"）：焦点样式 FocusStyle（默认高对比度）、固定到主屏幕的信号源、开机信号源、屏保开始时间、家长密码（SHA-256，解锁 10 分钟或按 HOME 重新上锁）
 ├── update/
 │   └── Updates.kt           每 3 小时读一次官网 download/version.txt，有新版时控制中心提示；点「下载并安装」才下载 APK 并交给系统安装器（见「升级」）

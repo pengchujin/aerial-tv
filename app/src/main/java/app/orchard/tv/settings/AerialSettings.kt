@@ -177,6 +177,9 @@ object AerialSettings {
 
     var effects by mutableStateOf(Effects.Auto); private set
 
+    /** The interface language; Auto follows the TV. Applied by [AppLanguage.wrap] when an Activity starts. */
+    var language by mutableStateOf(AppLanguage.Auto); private set
+
     /** This TV counts as low-end for [Effects.Auto]; see DeviceClass. */
     var lowEnd = false; private set
 
@@ -219,6 +222,7 @@ object AerialSettings {
         screensaverMinutes = prefs.getInt("screensaver_minutes", DEFAULT_SCREENSAVER_MINUTES)
         aerialQuality = AerialQuality.of(prefs.getString("aerial_quality", null))
         effects = Effects.of(prefs.getString("effects", null))
+        language = AppLanguage.of(prefs.getString("language", null))
         lowEnd = DeviceClass.lowEnd(app)
     }
 
@@ -341,6 +345,11 @@ object AerialSettings {
         app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit { putStringSet("pinned_sources", pinnedSources) }
     }
 
+
+    fun chooseLanguage(choice: AppLanguage) {
+        language = choice
+        app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit { putString("language", choice.key) }
+    }
 
     fun chooseEffects(choice: Effects) {
         effects = choice

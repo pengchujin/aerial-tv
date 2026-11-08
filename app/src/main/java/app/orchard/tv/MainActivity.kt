@@ -119,6 +119,7 @@ class MainActivity : ComponentActivity() {
     private val dayReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             Wallpapers.refreshDailyIfStale()
+            Wallpapers.syncCloudIfDue()
             Wallpapers.rotateIfDue()
         }
     }
@@ -127,6 +128,7 @@ class MainActivity : ComponentActivity() {
         override fun onAvailable(network: Network) = runOnUiThread {
             vm.refreshNetwork()
             Wallpapers.refreshDailyIfStale(networkCameUp = true)
+            Wallpapers.syncCloudIfDue()
             Weather.refreshIfStale(networkCameUp = true)
             Updates.checkIfStale(networkCameUp = true)
         }
@@ -193,6 +195,10 @@ class MainActivity : ComponentActivity() {
             watchHandOver(applicationContext)
         }
         return started
+    }
+
+    override fun attachBaseContext(newBase: android.content.Context) {
+        super.attachBaseContext(app.orchard.tv.settings.AppLanguage.wrap(newBase))
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -972,6 +978,7 @@ class MainActivity : ComponentActivity() {
         // it cancelled the load init() had begun and ran it again. On this TCL the guard brings
         // Aerial back several times a minute, so each bounce cost a full rebuild.
         Wallpapers.refreshDailyIfStale()
+        Wallpapers.syncCloudIfDue()
         Wallpapers.rotateIfDue()
         Weather.refreshIfStale()
         Updates.checkIfStale()
