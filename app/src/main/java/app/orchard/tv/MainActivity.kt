@@ -754,6 +754,11 @@ class MainActivity : ComponentActivity() {
 
     /** An app (or the stock launcher) was opened from the grid and Home has not been pressed since. */
     private var openedAppSinceHome = false
+        set(value) {
+            field = value
+            if (value) openedAppAt = SystemClock.uptimeMillis()
+        }
+    private var openedAppAt = Long.MIN_VALUE / 2
 
     private fun restartIdleTimer() {
         vm.lastInputAt = SystemClock.uptimeMillis()
@@ -1000,9 +1005,14 @@ class MainActivity : ComponentActivity() {
             if (BootOpen.dueAfterColdWake(this, age)) openBootSource("first in front after a cold wake")
         }
         // Back in front by any route (Home was handled in onNewIntent, which runs first; Back from
-        // the app lands here directly), so the next Home press is a Home-on-Home again.
-        openedAppSinceHome = false
-        leftForAnApp = false
+        // the app lands here directly), so the next Home press is a Home-on-Home again. Not for an
+        // app opened just now, in this resume or the onCreate / onNewIntent before it (what the TV
+        // starts on opens from its own entry without suspending): cleared, the guard took that app
+        // for a cover of Home and pulled Aerial over it (MiTV-MFTR0 wake, 2026-11-08).
+        if (SystemClock.uptimeMillis() - openedAppAt > JUST_OPENED_MS) {
+            openedAppSinceHome = false
+            leftForAnApp = false
+        }
         LaunchFallback.next()?.let { page ->
             // Only where the page truly closed: Hisense's network page (85E5N, MT9653, Android 11)
             // is a panel over Aerial, which resumes beneath it without window focus, and the next
@@ -1270,6 +1280,8 @@ class MainActivity : ComponentActivity() {
             if (dreamFailCount(context) > 0) context.getSharedPreferences("system", MODE_PRIVATE).edit().remove(DREAM_FAILS).apply()
         }
 
+        /** An app opened this recently is still on its way to the front; see onResume. */
+        private const val JUST_OPENED_MS = 1_000L
         private const val DREAM_FAILS_ON = "dream_fails_on"
         private const val DREAM_FAILS = "dream_fails"
 
