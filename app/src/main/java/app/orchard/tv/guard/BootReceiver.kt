@@ -47,6 +47,14 @@ class BootReceiver : BroadcastReceiver() {
         // has to look: on Xiaomi MiTV-MTEQ0 (Android 10) it is bound ~20 s before BOOT_COMPLETED,
         // never sees PatchWall's windows, and the take-over at bind time did not stick (issue #154).
         if (HomeGuardService.onBootCompleted()) return
+        // JMGO S60 (Amlogic T968): Settings' "Startup Source" has the TV open that input itself at
+        // power-on, seconds before BOOT_COMPLETED (2026-11-07: the input at 08:00:43, Aerial at
+        // 08:00:51, the input then finished). Coming to the front here covered it. Home Guard leaves
+        // the input's player alone, and Home still brings Aerial back on this TV.
+        if (GuardSetup.startsOnSignalSource(context)) {
+            DiagLog.i("boot: the TV starts on a signal source; leaving it")
+            return
+        }
         if (MainActivity.leftForAnApp) {
             DiagLog.i("boot: an app opened from Aerial is in front; leaving it")
             return

@@ -93,6 +93,9 @@ class HomeGuardService : AccessibilityService() {
     /** When the screen last lit, for take-overs that are really a wake (issue #111). */
     private var screenOnAt = Long.MIN_VALUE / 2
 
+    /** When BOOT_COMPLETED arrived, for boot-only steps a slow boot outlasts; see inBootWindow. */
+    private var bootCompletedAt = 0L
+
     private var takeOverReason = ""
     private var takeOverOnWake = false
     // On a wake, also ask usage stats whether a stock home silently covered Aerial: Tencent's Aurora
@@ -151,6 +154,18 @@ class HomeGuardService : AccessibilityService() {
         val now = SystemClock.elapsedRealtime()
         return now < BOOT_WINDOW_MS || now - screenOnAt in 0 until WAKE_WINDOW_MS ||
             now - boundAwakeAt in 0 until WAKE_WINDOW_MS
+    }
+
+    /**
+     * Still in the boot window, counted from BOOT_COMPLETED as well as from power-on. A firmware
+     * that spends minutes in dexopt has AMS ready long after [BOOT_WINDOW_MS] of uptime, and the
+     * input it then opens, seconds before BOOT_COMPLETED, would be outside the window: the guard
+     * pulled Aerial over it (JMGO S60, Android 5.1, 2026-11-07: AMS ready at 205 s, input taken
+     * over 8 s later).
+     */
+    private fun inBootWindow(): Boolean {
+        val now = SystemClock.elapsedRealtime()
+        return now < BOOT_WINDOW_MS || (bootCompletedAt != 0L && now - bootCompletedAt < BOOT_WINDOW_MS)
     }
 
     private fun isPatchwallHomeCover(pkg: String, cls: String): Boolean =
@@ -965,6 +980,17 @@ class HomeGuardService : AccessibilityService() {
         // take-over in onCreate and the one at the connection are a few seconds apart, and the
         // second redid Home's resume (MiTV-MFTR0).
         if (last == null && SystemClock.uptimeMillis() - broughtBackAt < 30_000) return
+        // JMGO S60: with its Settings' "Startup Source" set, the TV opens that input seconds before
+        // BOOT_COMPLETED. Android 5.1 does not let the guard read usage stats, so this take-over saw
+        // no front and pulled Aerial over the input (2026-11-07 boot: "front unknown; bringing
+        // Aerial back" right after the input). The input is what the viewer is waiting for; Home
+        // still brings Aerial back, and the key rebind runs here because no Aerial activity starts.
+        // inBootWindow also counts from BOOT_COMPLETED: see its comment for the dexopt-slowed boot.
+        if (last == null && inBootWindow() && GuardSetup.startsOnSignalSource(this)) {
+            DiagLog.i("guard: $reason; the TV starts on a signal source; leaving it")
+            GuardSetup.rebindForJmgoKeys(this)
+            return
+        }
         // XGIMI Z9X (MT9660-class, Android 13, GMUI v6.17.12): with no HOME preferred-activity on
         // record, power-on and wake land on the firmware's own Home chooser
         // (com.xgimi.xgimiframeworkui/.resolver.ResolverActivity) and stay there: usage stats name
@@ -976,7 +1002,22 @@ class HomeGuardService : AccessibilityService() {
         // frontAfterHome already accepts right after a Home press (issue #44). The same chooser
         // also serves "open with", but only right after a revival or a wake, which is rarer than a
         // boot and was already accepted there.
-        val stockInFront = last == null || last.first in stockHomes ||
+        // JMGO S60 (Amlogic T968, Android 5.1): its TV app declares Home, so the guard counted it as
+        // the stock launcher by package alone and pulled Aerial back over the input
+        // AmlogicTvActivity had just opened, leaving Aerial's Home on screen. That activity is the
+        // input player, not a Home, so it never is one whatever opened it; the package's Home is its
+        // MainActivity, which the package check still covers. Not timed by BootOpen: this TV sets
+        // its clock from the network a while into the boot, which dates the saved open as another
+        // boot and let the guard take over 34 s after the input had opened anyway.
+        val jmgoPlayer = last != null && last.first == JMGO_TV &&
+            last.second.endsWith(".AmlogicTvActivity")
+        if (jmgoPlayer) {
+            DiagLog.i("guard: $reason with JMGO's TV player in front; leaving it")
+            // The firmware can open the input without Aerial's activity ever running, and then the
+            // once-per-boot key rebind there would not happen (seen on this TV's boot).
+            GuardSetup.rebindForJmgoKeys(this)
+        }
+        val stockInFront = last == null || (last.first in stockHomes && !jmgoPlayer) ||
             (last.first == XGIMI_FRAMEWORK && last.second.endsWith(".resolver.ResolverActivity")) ||
             firmwarePushedAtBoot(last.first) ||
             (coveredSilently && aerialCoveredUnseen(last))
@@ -1574,6 +1615,14 @@ class HomeGuardService : AccessibilityService() {
             return
         }
         val allowed = SystemClock.uptimeMillis() < allowStockUntil
+        // JMGO S60: the remote's custom key is taken by the firmware, which opens the launcher's
+        // quick menu (search, history, apps, files, kids mode) over Aerial. That menu is not the
+        // launcher's home activity, so the checks below would leave it in front.
+        if (!allowed && pkg == JMGO_LAUNCHER && cls == JMGO_QUICK_CENTER) {
+            DiagLog.i("guard: stock launcher quick menu $pkg/$cls in front; bringing Aerial back")
+            goHome()
+            return
+        }
         if (pkg in stockHomes) {
             // Any of its screens, uncovered once the installer of an update from Control Center closed.
             if (!allowed && isActivity(pkg, cls) && GuardSetup.installerJustClosed(this)) {
@@ -1938,6 +1987,10 @@ class HomeGuardService : AccessibilityService() {
         /** Xiaomi's UI boost; see uiBoostChanged. */
         private const val UI_BOOST = "mitv_fast_cur_anim_scale"
         private const val XGIMI_FRAMEWORK = "com.xgimi.xgimiframeworkui"
+        private const val JMGO_LAUNCHER = "com.jmgo.launcher"
+        private const val JMGO_TV = "com.jmgo.tv"
+        /** The screen JMGO's custom remote key opens on the stock launcher. */
+        private const val JMGO_QUICK_CENTER = "com.jmgo.launcher.view.quickcenter.JGQuickCenterActivity"
         private const val FOREGROUND_POLL_MS = 1_000L
         private const val FOREGROUND_LOOKBACK_MS = 10_000L
         /** How far back to look for the front when no window has been seen; see frontByUsage. */
@@ -2266,6 +2319,7 @@ class HomeGuardService : AccessibilityService() {
         /** Looks once more at boot completion; false if the guard is not running. */
         fun onBootCompleted(): Boolean {
             val s = instance ?: return false
+            s.bootCompletedAt = SystemClock.elapsedRealtime()
             s.handler.post {
                 // Unlocked by now, whether or not the guard heard of it (issue #1213).
                 if (s.unlockPending && GuardSetup.isUserUnlocked(s)) {

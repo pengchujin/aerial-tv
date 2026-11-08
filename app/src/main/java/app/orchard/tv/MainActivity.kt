@@ -1016,6 +1016,7 @@ class MainActivity : ComponentActivity() {
                 }
             }, FALLBACK_FOCUS_MS)
         }
+        GuardSetup.rebindForJmgoKeys(this)
     }
 
     override fun onPause() {
