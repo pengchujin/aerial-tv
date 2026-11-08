@@ -30,6 +30,8 @@ object Brightness {
 
     /** Current level as 0..1, or null when Lite cannot change it on this TV. */
     fun level(context: Context): Float? {
+        // Hisense laser: the light source's own level, which screen_brightness does not touch.
+        HisenseLaserPanel.level(context)?.let { return it }
         val r = context.contentResolver
         if (installed(context, "com.tcl.settings")) TclPicture.backlight(context)?.let { return it / 100f }
         return when {
@@ -51,6 +53,13 @@ object Brightness {
 
     /** One notch (5%) up or down, never to 0 (Xiaomi turns the backlight off there, issue #174). */
     fun adjust(context: Context, direction: Int): Float? {
+        // Hisense laser: 11 notches of the TV's own level, where 5% would land on the same notch
+        // twice and the row would seem to stick.
+        HisenseLaserPanel.level(context)?.let { current ->
+            val next = HisenseLaserPanel.step(current, direction)
+            HisenseLaserPanel.setLevel(context, next)
+            return next
+        }
         val current = level(context) ?: return null
         val percent = Math.round(current * 100)
         val next = (if (direction > 0) (percent / 5 + 1) * 5 else ((percent + 4) / 5 - 1) * 5).coerceIn(1, 100)
