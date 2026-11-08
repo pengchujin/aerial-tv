@@ -18,7 +18,7 @@ import kotlin.random.Random
 /** Bitmap helpers shared by the wallpaper code. All of it runs off the main thread. */
 object Images {
 
-    /** Decodes [file] no larger than needed for [w]×[h], upright, then centre-crops it to exactly that size. */
+    /** Decodes [file] no larger than needed for [w]×[h], upright, then fits it with letterbox / blurred backdrop for portrait photos. */
     fun decodeCover(file: File, w: Int, h: Int): Bitmap? {
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         BitmapFactory.decodeFile(file.path, bounds)
@@ -31,7 +31,26 @@ object Images {
         while (bw / (sample * 2) >= w && bh / (sample * 2) >= h) sample *= 2
         val decoded = BitmapFactory.decodeFile(file.path, BitmapFactory.Options().apply { inSampleSize = sample }) ?: return null
         val src = upright(decoded, orientation)
-        return cover(src, w, h).also { if (it !== src) src.recycle() }
+        return if (src.height > src.width) fitWithBlur(src, w, h) else cover(src, w, h).also { if (it !== src) src.recycle() }
+    }
+
+    fun fitWithBlur(src: Bitmap, w: Int, h: Int): Bitmap {
+        val out = createBitmap(w, h)
+        val canvas = Canvas(out)
+        // 1. Draw blurred backdrop filling the entire 16:9 frame
+        val bgCover = cover(src, w, h)
+        val blurredBg = frost(bgCover)
+        canvas.drawBitmap(blurredBg, 0f, 0f, Paint(Paint.FILTER_BITMAP_FLAG).apply { alpha = 160 })
+        if (bgCover !== src) bgCover.recycle()
+        blurredBg.recycle()
+
+        // 2. Draw portrait image centered without cropping (Fit)
+        val scale = h / src.height.toFloat()
+        val fw = (src.width * scale).roundToInt()
+        val fh = h
+        val left = (w - fw) / 2
+        canvas.drawBitmap(src, null, Rect(left, 0, left + fw, fh), Paint(Paint.FILTER_BITMAP_FLAG))
+        return out
     }
 
     /**
