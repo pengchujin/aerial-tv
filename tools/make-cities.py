@@ -24,6 +24,10 @@ from collections import Counter
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, "app/src/main/assets/cities-cn.tsv")
 RANK = {"PPLC": 0, "PPLA": 0, "PPLA2": 1, "PPLA3": 2, "ADM3": 3}
+# Prefecture cities GeoNames codes as a plain place (PPL), not as a seat: 锦州, 大连, 潍坊, 烟台,
+# 扬州 and others were missing, so typing 锦州 found nothing (issue #1367). Above this population a
+# plain place is a city of its own; below it are towns and Shanghai's districts (塘沽 535 000).
+PPL_CITY_POPULATION = 600_000
 # Places GeoNames still lists most often under a former name: 襄樊 became 襄阳 in 2010, and the
 # weather showed the old name even after the viewer picked 襄阳 (issue #1328).
 CURRENT = {"襄樊": "襄阳"}
@@ -61,10 +65,10 @@ with open(sys.argv[1], encoding="utf-8") as f:
             names = [short(n) for n in chinese_names(c[3]) if len(short(n)) >= 2]
             if names:
                 provinces[admin1] = min(names, key=len)
-        elif code in RANK:
+        elif code in RANK or (code == "PPL" and int(c[14] or 0) >= PPL_CITY_POPULATION):
             names = chinese_names(c[3])
             if names:
-                rows.append((RANK[code], -int(c[14] or 0), names, admin1, float(c[4]), float(c[5]), c[2]))
+                rows.append((RANK.get(code, 1), -int(c[14] or 0), names, admin1, float(c[4]), float(c[5]), c[2]))
 
 rows.sort(key=lambda r: (r[0], r[1]))
 seen = set()
