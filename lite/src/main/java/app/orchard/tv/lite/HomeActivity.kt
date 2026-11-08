@@ -200,6 +200,9 @@ class HomeActivity : Activity(), HomeView.Host {
 
     // ---- loading ----
 
+    /** "My Photos, in turn" on to its next photo when due: on coming back to Home and each minute while up. */
+    override fun minute() { if (resumed && Wallpapers.rotationDue()) loadBackdrop() }
+
     private fun loadBackdrop() {
         work.execute {
             val b = runCatching { Wallpapers.load() }
@@ -374,12 +377,15 @@ class HomeActivity : Activity(), HomeView.Host {
     override fun openFolder(folder: AppEntry) {
         val f = folder.folder ?: return
         val inside = folderApps[f.id] ?: return
-        showPanel(FolderView(this, ::closePanel, f.id, f.name, inside, launch = ::launch, menu = { app, tile -> openMenu(app, tile) }), keepBelow = false)
+        showPanel(FolderView(this, ::closePanel, f.id, f.name, inside, launch = ::launch, menu = { app, tile -> openMenu(app, tile) },
+            moveTo = { key, target -> layout.moveInFolder(key, target); arrange() }), keepBelow = false)
     }
 
     override fun openMenu(app: AppEntry, tile: android.view.View) {
-        // Nothing to rearrange in Kids and Elders mode (#1013).
-        if (!Kids.active) showMenu(app, tileRect(tile), MenuPage.Main)
+        // Nothing to rearrange in Kids and Elders mode (#1013), nor on a locked Home: say where it unlocks.
+        if (Kids.active) return
+        if (LiteSettings.homeLocked) { Toast.makeText(this, getString(R.string.home_locked_notice), Toast.LENGTH_LONG).show(); return }
+        showMenu(app, tileRect(tile), MenuPage.Main)
     }
 
     private enum class MenuPage { Main, Folders, Rename }
@@ -406,8 +412,13 @@ class HomeActivity : Activity(), HomeView.Host {
                 add(Glyph.Pencil, R.string.menu_rename_folder, "›") { showMenu(app, anchor, MenuPage.Rename) }
                 add(Glyph.Folder, R.string.menu_ungroup) { closeMenu(); layout.ungroup(folder.id); folderTiles.remove(folder.id); arrange() }
             } else {
+                // In a folder too: its apps keep an order of their own (issue #1344).
+                add(Glyph.Move, R.string.menu_move) {
+                    closeMenu()
+                    val open = panels.lastOrNull() as? FolderView
+                    if (holder != null && open != null) open.startMove(app.key) else home.startMove(app)
+                }
                 if (holder != null) add(Glyph.Folder, R.string.menu_out_of_folder) { closeMenu(); layout.takeOutOfFolder(app.key); arrange() }
-                else add(Glyph.Move, R.string.menu_move) { closeMenu(); home.startMove(app) }
                 add(Glyph.Folder, R.string.menu_to_folder, "›") { showMenu(app, anchor, MenuPage.Folders) }
                 add(Glyph.EyeSlash, R.string.menu_hide) { closeMenu(); layout.hide(app.key); arrange() }
                 // A picture chosen on the phone page; changing it is done there.
@@ -511,6 +522,11 @@ class HomeActivity : Activity(), HomeView.Host {
             },
             onLayout = { home.applySettings(); showWeather(); refaceIfResized() },
             onHidden = { whenUnlocked(::openHidden) },
+            // Locking needs nothing; unlocking, the PIN where one is set.
+            onHomeLock = { on ->
+                if (on) { LiteSettings.chooseHomeLocked(true); refreshPersonalize() }
+                else whenUnlocked { LiteSettings.chooseHomeLocked(false); refreshPersonalize() }
+            },
             onSaverNow = { closeAll(); showSaver() },
             onPin = { on ->
                 if (on) showPanel(PinPad(this, ::closePanel, PinPad.Mode.Create) { closePanel(); refreshPersonalize() }, keepBelow = true)

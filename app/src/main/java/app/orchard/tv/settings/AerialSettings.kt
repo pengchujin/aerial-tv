@@ -56,6 +56,19 @@ enum class Effects(val key: String) {
     }
 }
 
+/**
+ * 24- or 12-hour time. System follows the TV's own setting, and 24 hours where the TV has none: an
+ * unset setting means the locale's habit, and zh_CN's is 12-hour, which TV clocks here never show
+ * (TCL 65S515D, issue #15).
+ */
+enum class ClockHours(val key: String) {
+    System("system"), H24("24"), H12("12");
+
+    companion object {
+        fun of(key: String?) = entries.firstOrNull { it.key == key } ?: System
+    }
+}
+
 /** Aerial's own preferences. Compose state, written on the main thread only. */
 object AerialSettings {
     private const val PREFS = "settings"
@@ -67,6 +80,18 @@ object AerialSettings {
     /** The style chosen; always the white frame in Elders mode (Restricted), where it is easiest to see (#969). */
     val focusStyle: FocusStyle get() = if (Restricted.active && Restricted.kind == RestrictedKind.Elders) FocusStyle.HighContrast else chosenFocusStyle
 
+
+    /**
+     * TV inputs the owner took out of the inputs list, by id: ports the firmware lists but the TV
+     * does not have (TCL 75V2 lists four HDMI for its two, issue #279), or never uses (#744).
+     */
+    var hiddenSources by mutableStateOf<Set<String>>(emptySet()); private set
+
+    /**
+     * Switch to an input when the device on it switches itself on over HDMI-CEC (CecSwitch, issue
+     * #1020). Off unless chosen: a console waking should not take the TV from everyone.
+     */
+    var cecSwitch by mutableStateOf(false); private set
 
     /** TV inputs pinned to Home as tiles, by TvInputInfo id. */
     var pinnedSources by mutableStateOf<Set<String>>(emptySet()); private set
@@ -111,6 +136,17 @@ object AerialSettings {
     /** Interface sounds (system/Sounds), as tvOS plays them on every press. */
     var uiSounds by mutableStateOf(UiSounds.Tv); private set
 
+    const val DAY_MINUTES = 1440
+    /** The choices for [photoMinutes]: a day, an hour, 15, 5 and 1 minutes. */
+    val PHOTO_MINUTES = listOf(DAY_MINUTES, 60, 15, 5, 1)
+
+    /**
+     * Home's apps stay where they are: holding OK or Menu on one opens no menu, so nothing gets
+     * moved, hidden, put in a folder or uninstalled by a stray press (issues #717 #1013 #1106).
+     * Unlocking asks for the parental PIN when one is set.
+     */
+    var homeLocked by mutableStateOf(false); private set
+
     /** The Liquid Glass plate under the top row; some prefer the apps straight on the wallpaper (#151). */
     var homePlate by mutableStateOf(true); private set
 
@@ -119,6 +155,15 @@ object AerialSettings {
 
     /** The date and weather over a big clock above the top row, instead of one small line in the corner. */
     var largeClock by mutableStateOf(false); private set
+
+    /**
+     * How often "My Photos, in turn" moves to the next photo, in minutes; a day (1440) unless the
+     * owner chose shorter, for a home that wants Home to be a slideshow (issue #1314).
+     */
+    var photoMinutes by mutableIntStateOf(DAY_MINUTES); private set
+
+    /** 24- or 12-hour time, or as the TV is set (issues #1324 #1044). */
+    var clockHours by mutableStateOf(ClockHours.System); private set
 
     /**
      * The moving wallpaper (aerial films, the owner's own videos) plays on the top row whatever the
@@ -194,6 +239,8 @@ object AerialSettings {
         val prefs = app.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         chosenFocusStyle = FocusStyle.of(prefs.getString("focus_style", null))
         pinnedSources = prefs.getStringSet("pinned_sources", null)?.toSet() ?: emptySet()
+        hiddenSources = prefs.getStringSet("hidden_sources", null)?.toSet() ?: emptySet()
+        cecSwitch = prefs.getBoolean("cec_switch", false)
         bootSource = prefs.getString("boot_source", null)
         bootApp = prefs.getString("boot_app", null)
         pinHash = prefs.getString("pin_hash", null)
@@ -204,6 +251,9 @@ object AerialSettings {
         chosenColumns = prefs.getInt("home_columns", DEFAULT_HOME_COLUMNS).takeIf { it in HOME_COLUMNS } ?: DEFAULT_HOME_COLUMNS
         clockRight = prefs.getBoolean("clock_right", false)
         largeClock = prefs.getBoolean("large_clock", false)
+        clockHours = ClockHours.of(prefs.getString("clock_hours", null))
+        homeLocked = prefs.getBoolean("home_locked", false)
+        photoMinutes = prefs.getInt("photo_minutes", DAY_MINUTES).takeIf { it in PHOTO_MINUTES } ?: DAY_MINUTES
         homePlate = prefs.getBoolean("home_plate", true)
         chosenAllNames = prefs.getBoolean("show_all_names", false)
         wallpaperAlwaysMoves = prefs.getBoolean("wallpaper_always_moves", false)
@@ -300,6 +350,22 @@ object AerialSettings {
         app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit { putBoolean("large_clock", on) }
     }
 
+    fun choosePhotoMinutes(minutes: Int) {
+        if (minutes !in PHOTO_MINUTES) return
+        photoMinutes = minutes
+        app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit { putInt("photo_minutes", minutes) }
+    }
+
+    fun chooseHomeLocked(on: Boolean) {
+        homeLocked = on
+        app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit { putBoolean("home_locked", on) }
+    }
+
+    fun chooseClockHours(hours: ClockHours) {
+        clockHours = hours
+        app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit { putString("clock_hours", hours.key) }
+    }
+
     fun chooseShowAllNames(on: Boolean) {
         chosenAllNames = on
         app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit { putBoolean("show_all_names", on) }
@@ -334,6 +400,16 @@ object AerialSettings {
         screensaverMinutes = minutes
         app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit { putInt("screensaver_minutes", minutes) }
         GuardSetup.setSystemScreensaverOff(app, minutes == NEVER)
+    }
+
+    fun chooseCecSwitch(on: Boolean) {
+        cecSwitch = on
+        app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit { putBoolean("cec_switch", on) }
+    }
+
+    fun setSourceHidden(inputId: String, hidden: Boolean) {
+        hiddenSources = if (hidden) hiddenSources + inputId else hiddenSources - inputId
+        app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit { putStringSet("hidden_sources", hiddenSources) }
     }
 
     fun setPinned(inputId: String, pinned: Boolean) {

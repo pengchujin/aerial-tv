@@ -407,7 +407,7 @@ let state = null, stateJson = '';
 
 // The language: ?lang=ru in the address, else the one picked under More (kept on the phone), else the
 // first of the phone's preferred languages that has a table, else English. Keys are in KEYS, one array of texts per language.
-const KEYS = ["screensaver", "screensaver_short", "ss_aerial", "ss_photos", "ss_clock", "focus", "focus_high", "focus_standard", "weather", "city_ph", "set", "upload_label", "feedback_h", "feedback_hint", "diag_show", "diag_copy", "diag_github", "hint_aerial", "hint_photos", "hint_clock", "g_live", "g_live_sub", "g_daily", "g_daily_sub", "g_photo", "g_builtin", "g_auto", "toast_wallpaper", "aria_delete", "confirm_delete", "wx_clear", "wx_partlycloudy", "wx_cloudy", "wx_fog", "wx_rain", "wx_snow", "wx_thunder", "wx_chosen", "wx_auto_btn", "toast_auto", "wx_guessed", "wx_none", "tag_source", "aria_rename", "toast_renamed", "toast_name_reset", "toast_rename_fail", "aria_reset_icon", "toast_icon_reset", "focus_hint_standard", "focus_hint_high", "daily_title", "daily_caption", "rotate_title", "rotate_caption", "empty_photos", "add_second", "toast_tv_updated", "sending_n", "toast_added", "toast_no_photos", "toast_send_fail", "toast_city_set", "toast_city_nf", "toast_set_fail", "toast_sending_icon", "toast_icon_set", "toast_icon_bad", "diag_collecting", "toast_diag_fail", "toast_copied", "toast_copy_manual", "language", "hint_follows", "ss_videos", "hint_videos", "videos_h", "videos_upload", "videos_hint", "videos_empty", "confirm_video_delete", "toast_videos_added", "toast_video_bad", "sending_video", "hint_system", "tab_home", "tab_more", "current_wp", "cancel", "save", "name_ph", "rename_hint", "change_icon", "this_tv", "folder_count", "folder_ph", "inputs_h", "inputs_hint", "rename_hint_app", "was_named", "arrange_hint", "arrange_unready", "hidden_h", "hidden_none", "hidden_locked", "show_app", "hide_app", "to_folder", "new_folder", "out_of_folder", "ungroup", "ungroup_confirm", "folder_hint", "toast_hidden", "toast_shown", "toast_in_folder", "toast_out_folder", "toast_ungrouped", "tab_looks", "looks_title", "show_on_home", "source_device", "source_plain", "source_device_hint", "tv_model", "sw_always", "sw_always_sub", "sw_weather", "sw_saver_time", "sw_saver_time_sub", "g_source_sub", "icon_h", "icon_library", "icon_own", "icon_custom", "toast_icon_picked", "drop_hint", "drop_sub", "drop_none", "toast_diag_paste", "kids_h", "elders_h", "kids_used", "kids_left", "kids_nolimit", "kids_allowed", "kids_lock_day", "kids_lock_late", "kids_lock_break", "kids_pin_ph", "kids_unlock", "kids_wrong", "kids_need_pin", "kids_locked_foot", "kids_add", "kids_day", "kids_leave_k", "kids_leave_e", "kids_paused", "kids_resume", "kids_min", "kids_hm", "kids_erase", "kids_hr", "kids_both", "kids_off_line", "kids_settings", "kids_no_pin", "kids_pin_foot", "ks_meta", "ks_on", "ks_on_sub", "ks_block", "ks_block_sub", "ks_block_noguard", "ks_time_h", "ks_weekday", "ks_weekend", "ks_minutes", "ks_nolimit", "ks_window", "ks_from", "ks_to", "ks_break", "ks_break_every", "ks_break_len", "ks_time_foot", "ks_apps", "ks_apps_sub", "ks_input", "ks_save", "ks_saved", "ks_invalid", "ks_for"];
+const KEYS = ["screensaver", "screensaver_short", "ss_aerial", "ss_photos", "ss_clock", "focus", "focus_high", "focus_standard", "weather", "city_ph", "set", "upload_label", "feedback_h", "feedback_hint", "diag_show", "diag_copy", "diag_github", "hint_aerial", "hint_photos", "hint_clock", "g_live", "g_live_sub", "g_daily", "g_daily_sub", "g_photo", "g_builtin", "g_auto", "toast_wallpaper", "aria_delete", "confirm_delete", "wx_clear", "wx_partlycloudy", "wx_cloudy", "wx_fog", "wx_rain", "wx_snow", "wx_thunder", "wx_chosen", "wx_auto_btn", "toast_auto", "wx_guessed", "wx_none", "tag_source", "aria_rename", "toast_renamed", "toast_name_reset", "toast_rename_fail", "aria_reset_icon", "toast_icon_reset", "focus_hint_standard", "focus_hint_high", "daily_title", "daily_caption", "rotate_title", "rotate_caption", "empty_photos", "add_second", "toast_tv_updated", "sending_n", "toast_added", "toast_no_photos", "toast_send_fail", "toast_city_set", "toast_city_nf", "toast_set_fail", "toast_sending_icon", "toast_icon_set", "toast_icon_bad", "diag_collecting", "toast_diag_fail", "toast_copied", "toast_copy_manual", "language", "hint_follows", "ss_videos", "hint_videos", "videos_h", "videos_upload", "videos_hint", "videos_empty", "confirm_video_delete", "toast_videos_added", "toast_video_bad", "sending_video", "hint_system", "tab_home", "tab_more", "current_wp", "cancel", "save", "name_ph", "rename_hint", "change_icon", "this_tv", "folder_count", "folder_ph", "inputs_h", "inputs_hint", "rename_hint_app", "was_named", "arrange_hint", "arrange_unready", "hidden_h", "hidden_none", "hidden_locked", "show_app", "hide_app", "to_folder", "new_folder", "out_of_folder", "ungroup", "ungroup_confirm", "folder_hint", "toast_hidden", "toast_shown", "toast_in_folder", "toast_out_folder", "toast_ungrouped", "tab_looks", "looks_title", "show_on_home", "source_device", "source_plain", "source_device_hint", "tv_model", "sw_always", "sw_always_sub", "sw_weather", "sw_saver_time", "sw_saver_time_sub", "g_source_sub", "icon_h", "icon_library", "icon_own", "icon_custom", "toast_icon_picked", "drop_hint", "drop_sub", "drop_none", "toast_diag_paste", "kids_h", "elders_h", "kids_used", "kids_left", "kids_nolimit", "kids_allowed", "kids_lock_day", "kids_lock_late", "kids_lock_break", "kids_pin_ph", "kids_unlock", "kids_wrong", "kids_need_pin", "kids_locked_foot", "kids_add", "kids_day", "kids_leave_k", "kids_leave_e", "kids_paused", "kids_resume", "kids_min", "kids_hm", "kids_erase", "kids_hr", "kids_both", "kids_off_line", "kids_settings", "kids_no_pin", "kids_pin_foot", "ks_meta", "ks_on", "ks_on_sub", "ks_block", "ks_block_sub", "ks_block_noguard", "ks_time_h", "ks_weekday", "ks_weekend", "ks_minutes", "ks_nolimit", "ks_window", "ks_from", "ks_to", "ks_break", "ks_break_every", "ks_break_len", "ks_time_foot", "ks_apps", "ks_apps_sub", "ks_input", "ks_save", "ks_saved", "ks_invalid", "ks_for", "wx_temp"];
 const TEXTS = {
  "zh": [
   "屏幕保护程序",
@@ -463,8 +463,8 @@ const TEXTS = {
   "选中的 App 外面加一圈白色描边，离得远也看得清。",
   "每日自动更新",
   "总是使用当天的照片",
-  "每天换一张",
-  "每天自动换成下一张照片",
+  "轮流换",
+  "每天换成下一张，电视上可以选得更勤",
   "还没有照片。用上面的按钮添加，电脑上也可以直接把照片拖进来。",
   "再加一张照片，就可以选「每天换一张」。",
   "电视上已更新",
@@ -603,7 +603,8 @@ const TEXTS = {
   "保存",
   "已保存，电视已更新",
   "保存失败：时段的结束要晚于开始，分钟数在 0–1440 之间；开启时至少选一个 App。",
-  "给谁用"
+  "给谁用",
+  "{n}℃"
  ],
  "en": [
   "Screensaver",
@@ -659,8 +660,8 @@ const TEXTS = {
   "A white frame around the selected app, easy to see from across the room.",
   "Always Today’s",
   "Always uses today’s photo",
-  "One a Day",
-  "Switches to the next photo every day",
+  "In Turn",
+  "The next photo each day, or more often as chosen on the TV",
   "No photos yet. Add some with the button above, or drag them in on a computer.",
   "Add one more photo to choose “One a Day”.",
   "Updated on the TV",
@@ -799,7 +800,8 @@ const TEXTS = {
   "Save",
   "Saved; the TV is updated",
   "Not saved: the hours must end after they start, minutes must be 0–1440, and the mode needs at least one app to be on.",
-  "For"
+  "For",
+  "{n}°"
  ],
  "ru": [
   "Заставка",
@@ -855,8 +857,8 @@ const TEXTS = {
   "Белая рамка вокруг выбранного приложения, хорошо заметная с другого конца комнаты.",
   "Всегда сегодняшнее",
   "Всегда сегодняшнее фото",
-  "Одно в день",
-  "Каждый день сменяется следующим фото",
+  "По очереди",
+  "Следующее фото каждый день или чаще — как выбрано на ТВ",
   "Фото пока нет. Добавьте их кнопкой выше или перетащите на компьютере.",
   "Добавьте ещё одно фото, чтобы выбрать «Одно в день».",
   "Обновлено на телевизоре",
@@ -995,7 +997,8 @@ const TEXTS = {
   "Сохранить",
   "Сохранено, телевизор обновлён",
   "Не сохранено: конец должен быть позже начала, минуты — от 0 до 1440, а для включения нужно хотя бы одно приложение.",
-  "Для кого"
+  "Для кого",
+  "{n}°"
  ],
  "uk": [
   "Заставка",
@@ -1051,8 +1054,8 @@ const TEXTS = {
   "Біла рамка навколо вибраного застосунку, добре помітна з іншого кінця кімнати.",
   "Завжди сьогоднішнє",
   "Завжди сьогоднішнє фото",
-  "Одне на день",
-  "Щодня змінюється наступним фото",
+  "По черзі",
+  "Наступне фото щодня або частіше — як обрано на ТБ",
   "Фото ще немає. Додайте їх кнопкою вище або перетягніть на комп’ютері.",
   "Додайте ще одне фото, щоб вибрати «Одне на день».",
   "Оновлено на телевізорі",
@@ -1191,7 +1194,8 @@ const TEXTS = {
   "Зберегти",
   "Збережено, телевізор оновлено",
   "Не збережено: кінець має бути пізніше за початок, хвилини — від 0 до 1440, а для ввімкнення потрібен хоча б один застосунок.",
-  "Для кого"
+  "Для кого",
+  "{n}°"
  ],
  "kk": [
   "Экран қорғаушы",
@@ -1247,8 +1251,8 @@ const TEXTS = {
   "Таңдалған қолданбаның айналасындағы ақ жақтау, бөлменің арғы шетінен де жақсы көрінеді.",
   "Әрқашан бүгінгісі",
   "Әрқашан бүгінгі фото",
-  "Күніне біреуі",
-  "Күн сайын келесі фотоға ауысады",
+  "Кезекпен",
+  "Келесі фото күн сайын немесе ТД-да таңдалғандай жиірек",
   "Фотолар әлі жоқ. Оларды жоғарыдағы түймемен қосыңыз немесе компьютерде сүйреп әкеліңіз.",
   "«Күніне біреуін» таңдау үшін тағы бір фото қосыңыз.",
   "Теледидарда жаңартылды",
@@ -1387,7 +1391,8 @@ const TEXTS = {
   "Сақтау",
   "Сақталды, теледидар жаңартылды",
   "Сақталмады: соңы басынан кеш болуы керек, минуттар 0–1440 аралығында, ал қосу үшін кемінде бір қолданба керек.",
-  "Кімге"
+  "Кімге",
+  "{n}°"
  ]
 };
 const LANGS = Object.keys(TEXTS);
@@ -1729,7 +1734,7 @@ function renderMore() {
   $('#swWeather').checked = state.showWeather !== false;
   document.querySelectorAll('#focus [data-style]').forEach(b => b.setAttribute('aria-checked', b.dataset.style === state.focusStyle ? 'true' : 'false'));
   const w = state.weather || {};
-  $('#wxNow').textContent = w.celsius !== undefined ? `${w.celsius}° ${weatherNames[w.kind] || ''}` : '—';
+  $('#wxNow').textContent = w.celsius !== undefined ? `${t('wx_temp', { n: w.celsius })} ${weatherNames[w.kind] || ''}` : '—';
   $('#wxPlace').textContent = w.place || '';
   const hint = $('#wxHint'); hint.replaceChildren();
   if (w.chosen) {

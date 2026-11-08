@@ -141,7 +141,7 @@ class ControlCenter(
             CcPage.Inputs -> inputs()
         }
         // In Kids mode on leaving it, as the full app.
-        focusFirst(if (page == CcPage.Main && Kids.active) 1 else 0)
+        focusFirst(if (page == CcPage.Main && Kids.active && OutputDevice.showsVolume(context)) 1 else 0)
     }
 
     private fun volumeRow(): SliderRow = SliderRow(
@@ -157,12 +157,13 @@ class ControlCenter(
         col.add(context.label(timeText(context), 27.3f, 600, spacingEm = 0.05f))
         col.add(context.label(dateText(), 13f, 500, Ui.SECONDARY), top = 4f)
         kidsTimeLine(context)?.let { col.add(context.label(it, 13f, 500, Ui.SECONDARY), top = 6f) }
-        val volume = volumeRow()
-        col.add(volume, top = 12f)
+        // A box or stick with its volume fixed has no sound level of its own (OutputDevice, #1307).
+        val volume = if (OutputDevice.showsVolume(context)) volumeRow() else null
+        if (volume != null) col.add(volume, top = 12f)
         val leave = MenuRow(context, Glyph.Shield, context.getString(if (Kids.kind == KidsKind.Kids) R.string.cc_kids_leave else R.string.cc_elders_leave))
             .apply { action = kidsLeave }
-        col.add(leave, top = 6f)
-        row(volume)
+        col.add(leave, top = if (volume != null) 6f else 12f)
+        if (volume != null) row(volume)
         row(leave)
     }
 
@@ -222,12 +223,16 @@ class ControlCenter(
         col.add(buttons, top = 12f)
         row(inputs, netButton, settings)
 
-        val volume = volumeRow()
-        col.add(volume, top = 12f)
-        row(volume)
+        // A box or stick has neither a panel nor, with its volume fixed, a sound level of its own (#1307).
+        if (OutputDevice.showsVolume(context)) {
+            val volume = volumeRow()
+            col.add(volume, top = 12f)
+            row(volume)
+        }
 
         // Brightness where Lite can set the panel's (Brightness), else the TV's own picture settings.
-        if (Brightness.level(context) != null) {
+        if (!OutputDevice.showsBrightness()) Unit
+        else if (Brightness.level(context) != null) {
             val brightness = SliderRow(
                 context,
                 glyph = { Glyph.Sun },
@@ -423,6 +428,7 @@ class Personalize(
     private val onWallpaper: (String) -> Unit,
     private val onLayout: () -> Unit,
     private val onHidden: () -> Unit,
+    private val onHomeLock: (Boolean) -> Unit,
     private val onSaverNow: () -> Unit,
     private val onPin: (Boolean) -> Unit,
     private val onKids: () -> Unit = {},
@@ -507,6 +513,19 @@ class Personalize(
         col.add(context.label(context.getString(R.string.wp_title), 26f, 600, display = true, spacingEm = -0.015f))
         col.add(section(R.string.wp_wallpaper), top = 16f)
         wallpaperRow()
+        // How often "My Photos, in turn" moves on (issue #1314); there whenever that card is.
+        // Built once with the panel, so not only while it is the one chosen, as in the full app.
+        if (Wallpapers.items.count { it.kind == WallpaperKind.Photo } > 1) group {
+            choices(R.string.st_photo_every, string(R.string.st_photo_every_hint),
+                LiteSettings.PHOTO_MINUTES.map { m ->
+                    m to when {
+                        m >= LiteSettings.DAY_MINUTES -> string(R.string.st_photo_every_day)
+                        m >= 60 -> context.getString(R.string.kids_h, m / 60)
+                        else -> context.getString(R.string.kids_m, m)
+                    }
+                },
+                LiteSettings.photoMinutes) { LiteSettings.choosePhotoMinutes(it); onLayout() }
+        }
 
         col.add(section(R.string.st_home_layout), top = 6f)
         group {
@@ -524,6 +543,8 @@ class Personalize(
             val hidden = Chip(context, if (hiddenCount == 0) string(R.string.st_hidden_none) else context.getString(R.string.st_hidden_count, hiddenCount), { false }, Glyph.ChevronRight)
                 .apply { action = onHidden }
             settingRow(R.string.st_hidden_apps, string(R.string.st_hidden_apps_hint), listOf(hidden))
+            choices(R.string.st_home_lock, string(R.string.st_home_lock_hint), listOf(false to R.string.st_off, true to R.string.st_on),
+                LiteSettings.homeLocked) { if (it != LiteSettings.homeLocked) onHomeLock(it) }
         }
         col.add(space(context, 10f))
         group {
@@ -531,6 +552,9 @@ class Personalize(
                 LiteSettings.clockRight) { LiteSettings.chooseClockRight(it); onLayout() }
             choices(R.string.st_clock_size, string(R.string.st_clock_size_hint), listOf(false to R.string.st_clock_small, true to R.string.st_clock_large),
                 LiteSettings.largeClock) { LiteSettings.chooseLargeClock(it); onLayout() }
+            choices(R.string.st_clock_hours, string(R.string.st_clock_hours_hint),
+                listOf(ClockHours.System to R.string.st_clock_hours_system, ClockHours.H24 to R.string.st_clock_hours_24, ClockHours.H12 to R.string.st_clock_hours_12),
+                LiteSettings.clockHours) { LiteSettings.chooseClockHours(it); onLayout() }
             choices(R.string.wp_weather, null, listOf(true to R.string.st_on, false to R.string.st_off),
                 LiteSettings.showWeather) { LiteSettings.chooseShowWeather(it); onLayout() }
         }
@@ -671,7 +695,7 @@ class Personalize(
                 Weather.Kind.Snow -> R.string.wx_snow
                 Weather.Kind.Thunder -> R.string.wx_thunder
             })
-            listOfNotNull(Weather.place, "${w.celsius}° $kind").joinToString(" · ")
+            listOfNotNull(Weather.place, context.getString(R.string.weather_temperature, w.celsius) + " $kind").joinToString(" · ")
         } else string(R.string.wp_weather_none)
         return context.label(text, 14f, 500, Ui.SECONDARY)
     }

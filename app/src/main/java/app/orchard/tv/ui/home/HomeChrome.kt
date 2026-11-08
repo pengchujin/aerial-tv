@@ -87,6 +87,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import app.orchard.tv.R
 import app.orchard.tv.settings.AerialSettings
+import app.orchard.tv.settings.ClockHours
 import app.orchard.tv.wallpaper.Images
 import app.orchard.tv.system.NetKind
 import app.orchard.tv.system.NetworkStatus
@@ -162,14 +163,22 @@ fun rememberNow(): State<LocalDateTime> {
     return now
 }
 
+/**
+ * The time, 24- or 12-hour as chosen in Personalize ([ClockHours]). 12-hour time has no AM/PM, as on
+ * tvOS and the iPhone's lock screen: the screensaver's clock takes over from Home's, and the two
+ * must read the same.
+ */
 @Composable
 fun timeText(now: LocalDateTime): String {
-    val context = LocalContext.current
-    // 24-hour unless the owner chose 12-hour. With the setting unset, Android falls back to the
-    // locale, and zh_CN means 12-hour, which TV clocks here never show (TCL 65S515D, issue #15).
-    val twelve = runCatching { android.provider.Settings.System.getString(context.contentResolver, android.provider.Settings.System.TIME_12_24) }.getOrNull() == "12"
-    val pattern = if (twelve) "h:mm" else "H:mm"
-    return now.format(DateTimeFormatter.ofPattern(pattern))
+    val twelve = twelveHour(LocalContext.current, AerialSettings.clockHours)
+    return now.format(DateTimeFormatter.ofPattern(if (twelve) "h:mm" else "H:mm"))
+}
+
+/** Whether to show 12-hour time: as chosen, or as the TV is set (24-hour where it says nothing). */
+fun twelveHour(context: Context, hours: ClockHours): Boolean = when (hours) {
+    ClockHours.H24 -> false
+    ClockHours.H12 -> true
+    ClockHours.System -> runCatching { android.provider.Settings.System.getString(context.contentResolver, android.provider.Settings.System.TIME_12_24) }.getOrNull() == "12"
 }
 
 @Composable
@@ -679,7 +688,7 @@ fun ShelfClock(
                 GlyphIcon(glyphFor(w), Color.White, 18.dp, Modifier.padding(end = 7.dp))
                 BasicText(
                     buildAnnotatedString {
-                        append("${w.celsius}°")
+                        append(stringResource(R.string.weather_temperature, w.celsius))
                         withStyle(second) { append("  $detail") }
                     },
                     style = Type.ClockDetail.copy(shadow = shadow),
@@ -762,25 +771,27 @@ private fun conditionName(kind: WeatherKind): Int = when (kind) {
 /**
  * The small clock: the time and the weather in one quiet line in the top left, level with the status
  * pill, so the wallpaper keeps the rest of the screen. A soft shadow keeps it readable on photos.
+ * No date: tried for issue #104, the owner found the line too busy (2026-11-08).
  */
 @Composable
 fun CornerClock(now: LocalDateTime, modifier: Modifier = Modifier, toSaver: () -> Float = { 0f }, saving: Boolean = false) {
     val drift = heldDrift(saving, now)
     val dim = Color.White.copy(alpha = 0.92f)
     val shadow = Shadow(Color.Black.copy(alpha = 0.5f), blurRadius = 8f)
+    // The weather goes as the time moves to the screensaver's place.
+    val aside = Modifier.graphicsLayer {
+        alpha = 1f - (toSaver() * 2.5f).coerceIn(0f, 1f)
+        compositingStrategy = CompositingStrategy.ModulateAlpha
+    }
     Row(modifier.height(34.dp), verticalAlignment = Alignment.CenterVertically) {
         BasicText(
             timeText(now), style = Type.SmallClock.copy(fontSize = Type.Title.fontSize, color = dim, shadow = shadow),
             modifier = Modifier.toSaverClock(toSaver, Type.Title.fontSize, Type.Title.fontSize.value.dp * CAP_TOP, drift),
         )
         Weather.now?.takeIf { AerialSettings.showWeather }?.let { w ->
-            val aside = Modifier.graphicsLayer {
-                alpha = 1f - (toSaver() * 2.5f).coerceIn(0f, 1f)
-                compositingStrategy = CompositingStrategy.ModulateAlpha
-            }
             GlyphIcon(glyphFor(w), dim, 18.dp, aside.padding(start = 16.dp, end = 6.dp))
             val place = Weather.place?.takeIf { it.length <= 12 }
-            BasicText(listOfNotNull(place, "${w.celsius}°").joinToString(" "), style = Type.Headline.copy(color = dim, shadow = shadow), modifier = aside)
+            BasicText(listOfNotNull(place, stringResource(R.string.weather_temperature, w.celsius)).joinToString(" "), style = Type.Headline.copy(color = dim, shadow = shadow), modifier = aside)
         }
     }
 }

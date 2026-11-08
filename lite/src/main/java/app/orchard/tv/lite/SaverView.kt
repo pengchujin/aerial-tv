@@ -203,7 +203,7 @@ class SaverView(context: Context, mode: ScreensaverMode, private val proxy: Film
         val wp = pictures[next % pictures.size]
         next++
         loader.execute {
-            val b = runCatching { Wallpapers.picture(wp, Ui.screenW, Ui.screenH) }.getOrNull()
+            val b = runCatching { Wallpapers.picture(wp, Ui.screenW, Ui.screenH, whole = true) }.getOrNull()
             handler.post {
                 if (b == null) { handler.postDelayed(::nextPhoto, 1000); return@post }
                 val back = frames[front]

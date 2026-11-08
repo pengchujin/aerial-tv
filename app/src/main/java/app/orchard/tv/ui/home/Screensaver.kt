@@ -671,7 +671,7 @@ private fun PhotoSaver(
         if (pool.isEmpty()) return@LaunchedEffect
         if (carried == null || slide != 0) {
             val wp = pool[slide.mod(pool.size)]
-            val bmp = withContext(Dispatchers.Default) { Wallpapers.picture(wp, Wallpapers.screenW, Wallpapers.screenH)?.asImageBitmap() }
+            val bmp = withContext(Dispatchers.Default) { Wallpapers.saverPicture(wp, Wallpapers.screenW, Wallpapers.screenH)?.asImageBitmap() }
             if (bmp != null) image = slide to bmp
         }
         delay(18_000)

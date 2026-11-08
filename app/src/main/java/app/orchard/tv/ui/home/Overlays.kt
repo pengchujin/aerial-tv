@@ -240,11 +240,9 @@ fun AppMenu(
                             MenuRow(Glyph.Folder, stringResource(R.string.menu_ungroup), { onUngroup(folder.id) })
                         }
                         else -> {
-                            if (inFolder) {
-                                MenuRow(Glyph.Folder, stringResource(R.string.menu_out_of_folder), { onOutOfFolder(shownApp.key) }, focusRequester = first)
-                            } else {
-                                MenuRow(Glyph.Move, stringResource(R.string.menu_move), { onMove(shownApp.key) }, focusRequester = first)
-                            }
+                            // In a folder too: its apps keep an order of their own (issue #1344).
+                            MenuRow(Glyph.Move, stringResource(R.string.menu_move), { onMove(shownApp.key) }, focusRequester = first)
+                            if (inFolder) MenuRow(Glyph.Folder, stringResource(R.string.menu_out_of_folder), { onOutOfFolder(shownApp.key) })
                             MenuRow(Glyph.Folder, stringResource(R.string.menu_to_folder), { page = MenuPage.Folders }, trailing = "›")
                             if (shownApp.source != null) {
                                 // A pinned TV input: no app info or uninstall, and "remove" unpins it.

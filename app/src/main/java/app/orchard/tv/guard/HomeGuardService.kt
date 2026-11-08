@@ -36,6 +36,7 @@ import app.orchard.tv.MainActivity
 import app.orchard.tv.dream.AerialDream
 import app.orchard.tv.settings.AerialSettings
 import app.orchard.tv.system.BootOpen
+import app.orchard.tv.system.CecSwitch
 import app.orchard.tv.system.CoocaaHome
 import app.orchard.tv.system.DeviceProfile
 import app.orchard.tv.system.DiagLog
@@ -742,6 +743,7 @@ class HomeGuardService : AccessibilityService() {
         }
         checkMouseWithFilter(this)
         watchUiBoost()
+        CecSwitch.register(this)
         // The profile is in credential storage: only once unlocked.
         if (SystemClock.elapsedRealtime() < BOOT_WINDOW_MS && GuardSetup.isUserUnlocked(this) &&
             DeviceProfile.current(this).bootStockMs > 0
