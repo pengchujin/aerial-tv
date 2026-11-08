@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="watch_next_title">Watch Next</string>
+    <string name="watch_next_source">Show Watch Next</string>
+    <string name="watch_next_play">Continue playing</string>
+    <string name="watch_next_untitled">Untitled program</string>
+    <string name="watch_next_season">Season %1$s</string>
+    <string name="watch_next_episode">Episode %1$s</string>
+    <string name="watch_next_on">On</string>
+    <string name="watch_next_off">Off</string>
+    <string name="watch_next_unsupported">Watch Next is not supported on this TV.</string>
+    <string name="watch_next_permission">Allow Aerial to read public TV listings in system permissions.</string>
+    <string name="watch_next_disabled">Watch Next is turned off. Source preferences are kept.</string>
+    <string name="watch_next_loading">Loading programs…</string>
+    <string name="watch_next_empty">No programs are available from the enabled sources.</string>
+    <string name="watch_next_ready">Programs from enabled apps appear together on Home.</string>
+    <string name="watch_next_failed">TV listings are temporarily unavailable. Try again on returning Home.</string>
+    <string name="watch_next_remaining">%1$d min remaining</string>
+    <string name="watch_next_watched">Watched %1$s</string>
+    <string name="watch_next_previous">Previous episode watched %1$s</string>
+    <string name="watch_next_published">Published %1$s</string>
+    <string name="watch_next_added">Added %1$s</string>
+    <string name="watch_next_related">Updated %1$s</string>
+    <string name="watch_next_movie">Movie</string>
+    <string name="watch_next_episode_type">Episode</string>
+    <string name="watch_next_rating">Rating %1$s</string>
+    <string-array name="watch_next_genres">
+        <item>Nature</item>
+        <item>Arts</item>
+        <item>Comedy</item>
+        <item>Drama</item>
+        <item>Education</item>
+        <item>Entertainment</item>
+        <item>Family</item>
+        <item>Gaming</item>
+        <item>Lifestyle</item>
+        <item>Movies</item>
+        <item>Music</item>
+        <item>News</item>
+        <item>Premiere</item>
+        <item>Shopping</item>
+        <item>Sports</item>
+        <item>Science &amp; technology</item>
+        <item>Travel</item>
+    </string-array>
+</resources>

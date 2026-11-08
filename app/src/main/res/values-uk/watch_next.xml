@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="watch_next_title">Дивитися далі</string>
+    <string name="watch_next_source">Показувати «Дивитися далі»</string>
+    <string name="watch_next_play">Продовжити</string>
+    <string name="watch_next_untitled">Без назви</string>
+    <string name="watch_next_season">Сезон %1$s</string>
+    <string name="watch_next_episode">Серія %1$s</string>
+    <string name="watch_next_on">Увімк.</string>
+    <string name="watch_next_off">Вимк.</string>
+    <string name="watch_next_unsupported">Цей телевізор не підтримує функцію.</string>
+    <string name="watch_next_permission">Дозвольте Aerial читати загальнодоступні телепрограми в налаштуваннях системи.</string>
+    <string name="watch_next_disabled">Функцію вимкнено. Вибір джерел збережено.</string>
+    <string name="watch_next_loading">Завантаження програм…</string>
+    <string name="watch_next_empty">У вибраних джерелах поки немає програм.</string>
+    <string name="watch_next_ready">Програми вибраних застосунків відображаються разом на головному екрані.</string>
+    <string name="watch_next_failed">Програми тимчасово недоступні. Повторна спроба після повернення додому.</string>
+    <string name="watch_next_remaining">Залишилося %1$d хв</string>
+    <string name="watch_next_watched">Переглянуто: %1$s</string>
+    <string name="watch_next_previous">Попередня серія: %1$s</string>
+    <string name="watch_next_published">Опубліковано: %1$s</string>
+    <string name="watch_next_added">Додано: %1$s</string>
+    <string name="watch_next_related">Оновлено: %1$s</string>
+    <string name="watch_next_movie">Фільм</string>
+    <string name="watch_next_episode_type">Епізод</string>
+    <string name="watch_next_rating">Оцінка %1$s</string>
+    <string-array name="watch_next_genres">
+        <item>Природа</item>
+        <item>Мистецтво</item>
+        <item>Комедія</item>
+        <item>Драма</item>
+        <item>Освіта</item>
+        <item>Розваги</item>
+        <item>Родина</item>
+        <item>Ігри</item>
+        <item>Спосіб життя</item>
+        <item>Кіно</item>
+        <item>Музика</item>
+        <item>Новини</item>
+        <item>Прем’єра</item>
+        <item>Покупки</item>
+        <item>Спорт</item>
+        <item>Наука й техніка</item>
+        <item>Подорожі</item>
+    </string-array>
+</resources>

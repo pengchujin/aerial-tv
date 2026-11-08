@@ -1,5 +1,6 @@
 package app.orchard.tv.ui.home
 
+import app.orchard.tv.watchnext.*
 import android.content.Intent
 import android.content.res.Configuration
 import android.os.Build
@@ -34,6 +35,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -85,6 +87,9 @@ import app.orchard.tv.wallpaper.AerialFormats
 import app.orchard.tv.wallpaper.ScreensaverMode
 import app.orchard.tv.wallpaper.Wallpapers
 import app.orchard.tv.ui.components.liquidGlass
+import app.orchard.tv.ui.components.clipBelow
+import app.orchard.tv.ui.components.GlassSource
+import app.orchard.tv.ui.components.LocalGlassSource
 import app.orchard.tv.ui.theme.LocalReducedMotion
 import app.orchard.tv.ui.theme.Motion
 import app.orchard.tv.ui.theme.Type
@@ -164,13 +169,13 @@ internal fun gridGap(columns: Int): Dp = when (columns) {
 internal fun restTileWidth(screenW: Dp, columns: Int): Dp = (screenW - GridMargin * 2 - gridGap(columns) * (columns - 1)) / columns
 
 /** Grid geometry for the screen at hand. On a 1080p TV this is a 960×540 dp canvas. */
-private class GridMetrics(screenW: Dp, screenH: Dp, val columns: Int, oneRow: Boolean, plateNames: Boolean, peek: Boolean, plate: Boolean, largeClock: Boolean, clockRight: Boolean) {
+internal class GridMetrics(screenW: Dp, screenH: Dp, val columns: Int, oneRow: Boolean, plateNames: Boolean, peek: Boolean, plate: Boolean, largeClock: Boolean, clockRight: Boolean, private val programArea: Boolean = false) {
     val margin = GridMargin
     val gap = gridGap(columns)
     val tileW = restTileWidth(screenW, columns)
     val tileH = tileW * 9f / 16f
     val pitchX = tileW + gap
-    val pitchY = tileH + 50.dp
+    val pitchY = tileH + if (programArea && !oneRow && plate && !plateNames) ShelfRowGap else 50.dp
 
     /**
      * Extra room under the top row while it is the one in focus, for names on a plate grown to
@@ -259,6 +264,7 @@ private class GridMetrics(screenW: Dp, screenH: Dp, val columns: Int, oneRow: Bo
 
     fun scrollFor(row: Int, rows: Int): Dp {
         if (row <= 0) return 0.dp
+        if (programArea) return pitchY * row + shelfLift
         val wanted = topRowY + pitchY * row - restY
         val bottom = topRowY + pitchY * rows + 36.dp - screenH
         return minOf(wanted, maxOf(bottom, topRowY + pitchY - restY))
@@ -285,6 +291,7 @@ fun HomeScreen(
     onAppInfo: (String) -> Unit,
     onUninstall: (String) -> Unit,
     onStartScreensaver: () -> Unit,
+    onWatchNext: ((AppEntry, WatchNextProgram, (WatchNextLaunchResult) -> Unit) -> Unit)? = null,
 ) {
     val apps = vm.apps
     val overlay = vm.overlay
@@ -308,6 +315,22 @@ fun HomeScreen(
     var focusAfterOverlay by remember { mutableStateOf<String?>(null) }
     var indexAfterOverlay by remember { mutableStateOf(0) }
     var pillFocused by remember { mutableStateOf(false) }
+    var programFocused by remember { mutableStateOf(false) }
+    var statusReturnsProgram by remember { mutableStateOf(false) }
+    var initialProgramFocus by remember { mutableStateOf(true) }
+    var userOperated by remember { mutableStateOf(false) }
+    val programRequester = remember { FocusRequester() }
+    val windowFocused = LocalWindowInfo.current.isWindowFocused
+    val watchCatalog = remember(apps, vm.folderApps, vm.hiddenApps, vm.kidsCandidates) {
+        (apps + vm.folderApps.values.flatten() + vm.hiddenApps + vm.kidsCandidates)
+            .filter { it.isWatchNextSource() }.associateBy { it.packageName }
+    }
+    val watchAllowed = if (!Restricted.active) watchCatalog.keys else
+        if (Restricted.lock != null) emptySet() else watchCatalog.keys.intersect(Restricted.allowed)
+    val watch = rememberWatchNextHost()
+    val program = watch.state.current
+    val hasProgram = program != null && onWatchNext != null
+
     var lastFocusedIndex by remember { mutableStateOf(0) }
     val focusedIndex = apps.indexOfFirst { it.key == focusedKey }
     val columns = AerialSettings.homeColumns
@@ -414,21 +437,32 @@ fun HomeScreen(
     val movingNow by rememberUpdatedState(moving)
 
     fun focusApp(index: Int) {
-        val app = apps.getOrNull(index.coerceIn(0, (apps.size - 1).coerceAtLeast(0))) ?: return
+        val app = apps.getOrNull(index.coerceIn(0, (apps.size - 1).coerceAtLeast(0)))
+        if (app == null) { runCatching { pillRequester.requestFocus() }; return }
         runCatching { requester(app.key).requestFocus() }
     }
 
     // First focus once the apps are in; afterwards, put focus back wherever it was when an overlay closes.
-    LaunchedEffect(vm.loaded, overlay) {
-        if (!vm.loaded || overlay != Overlay.None) return@LaunchedEffect
+    LaunchedEffect(vm.loaded, overlay, hasProgram, windowFocused, vm.screensaverVisible, kidsLock) {
+        if (!vm.loaded || overlay != Overlay.None || !windowFocused || vm.screensaverVisible || kidsLock != null) return@LaunchedEffect
         withFrameNanos { }
+        if (hasProgram && initialProgramFocus && !userOperated && !vm.homeResetPending) {
+            programFocused = true
+            initialProgramFocus = false
+        }
+        if (hasProgram && programFocused && !vm.homeResetPending) {
+            watch.state.pauseCarousel()
+            runCatching { programRequester.requestFocus() }
+            return@LaunchedEffect
+        }
+        if (!hasProgram) programFocused = false
         val wanted = focusAfterOverlay
         focusAfterOverlay = null
         if (wanted != null) { focusedKey = wanted; pillFocused = false }
         val index = apps.indexOfFirst { it.key == focusedKey }
         // A tile that went while the overlay was up (hidden, put in a folder, a folder ungrouped)
         // leaves focus where it was.
-        if (pillFocused && focusedKey != null) runCatching { pillRequester.requestFocus() }
+        if (pillFocused && (focusedKey != null || statusReturnsProgram)) runCatching { pillRequester.requestFocus() }
         else focusApp(if (index >= 0) index else if (wanted != null) indexAfterOverlay else lastFocusedIndex)
     }
     // A folder whose last app left closes.
@@ -438,7 +472,7 @@ fun HomeScreen(
     }
     // An app vanished from under the focus (uninstalled or hidden): take its neighbour.
     LaunchedEffect(apps) {
-        if (focusedKey != null && apps.none { it.key == focusedKey } && overlay == Overlay.None) {
+        if (!programFocused && focusedKey != null && apps.none { it.key == focusedKey } && overlay == Overlay.None) {
             withFrameNanos { }
             focusApp(lastFocusedIndex)
         }
@@ -451,11 +485,14 @@ fun HomeScreen(
         withFrameNanos { }
         runCatching { requester(key).requestFocus() }
     }
-    val windowFocused = LocalWindowInfo.current.isWindowFocused
     LaunchedEffect(windowFocused, vm.homeResetPending, vm.loaded) {
         if (windowFocused && vm.homeResetPending && vm.loaded) {
             withFrameNanos { }
             dragged = false
+            userOperated = true
+            initialProgramFocus = false
+            programFocused = false
+            statusReturnsProgram = false
             focusApp(0)
             vm.homeResetPending = false
         }
@@ -467,14 +504,23 @@ fun HomeScreen(
         val scrolled = dragged && scroll.value > 1f
         dragged = false
         // Handled even when that is turned off: unhandled, Back would close Home itself.
-        if (focusedRow > 0 || scrolled) focusApp(focusedIndex.coerceAtLeast(0) % columns)
+        if (!programFocused && (focusedRow > 0 || scrolled)) focusApp(focusedIndex.coerceAtLeast(0) % columns)
         else if (AerialSettings.backStartsScreensaver) onStartScreensaver()
     }
 
     BoxWithConstraints(
         Modifier
             .fillMaxSize()
+            .pointerInput(Unit) {
+                awaitPointerEventScope {
+                    while (true) {
+                        val event = awaitPointerEvent(androidx.compose.ui.input.pointer.PointerEventPass.Initial)
+                        if (event.changes.any { it.pressed }) userOperated = true
+                    }
+                }
+            }
             .onPreviewKeyEvent { e ->
+                userOperated = true
                 // The remote takes the grid back from the finger: scroll follows focus again.
                 // Back leaves it to BackHandler, which needs to know the grid was dragged
                 // (gesture navigation sends Back as a key too).
@@ -503,7 +549,7 @@ fun HomeScreen(
                         // On an app tile, Menu opens that app's menu (AppTile): remotes whose held
                         // OK never reads as held had no other way to it (issue #28). Control
                         // Center stays one press up, on the status pill, where Menu still opens it.
-                        if (overlay == Overlay.None && !pillFocused && focusedIndex >= 0) return@onPreviewKeyEvent false
+                        if (overlay == Overlay.None && !pillFocused && !programFocused && focusedIndex >= 0) return@onPreviewKeyEvent false
                         // Inside a folder, Menu is the focused app's, as on Home.
                         if (overlay is Overlay.Folder) return@onPreviewKeyEvent false
                         vm.overlay = if (overlay is Overlay.ControlCenter) Overlay.None else Overlay.ControlCenter()
@@ -547,10 +593,41 @@ fun HomeScreen(
         val hasPlate = AerialSettings.homePlate
         val largeClock = AerialSettings.largeClock
         val clockRightNow = AerialSettings.clockRight
-        val metrics = remember(maxWidth, maxHeight, columns, oneRow, plateNames, peek, hasPlate, largeClock, clockRightNow) {
-            GridMetrics(maxWidth, maxHeight, columns, oneRow, plateNames, peek, hasPlate, largeClock, clockRightNow)
+        val metrics = remember(maxWidth, maxHeight, columns, oneRow, plateNames, peek, hasPlate, largeClock, clockRightNow, hasProgram) {
+            GridMetrics(maxWidth, maxHeight, columns, oneRow, plateNames, peek, hasPlate, largeClock, clockRightNow, hasProgram)
         }
         val collapsePx = with(density) { metrics.collapse.toPx() }
+        val programLayout = WatchNextHomeLayout.calculate(maxWidth.value,
+            (metrics.topRowY - PlatePadV).value, oneRow, largeClock, clockRightNow)
+        val programArtwork = rememberWatchNextHomeArtwork(watch.state, program, programLayout,
+            active = hasProgram && vm.resumed && kidsLock == null,
+            previewingWallpaper = overlay is Overlay.Wallpaper, frozen = overlay != Overlay.None,
+            screenWidth = Wallpapers.screenW, screenHeight = Wallpapers.screenH,
+            paused = vm.screensaverVisible)
+        val programFrame = programArtwork.frame
+        val programBackground = programFrame.image
+        // Retain the programme picture for waking, but let the original carried screensaver
+        // reveal its photo/film and fade the shelf glass over that retained home picture.
+        val programCoversFilm = programBackground != null && !filmSaver
+        val backgroundVisible by remember(collapsePx, programBackground != null) {
+            derivedStateOf {
+                !vm.screensaverVisible &&
+                    gridGlassAmount(scroll.value, collapsePx, if (programBackground != null) 0f else toSaver.value) < 0.99f
+            }
+        }
+        val programOpacity = remember(collapsePx) { { shelfContentAlpha(scroll.value, collapsePx) } }
+        val programVisible by remember(programOpacity) { derivedStateOf { programOpacity() > 0f } }
+        LaunchedEffect(programVisible, overlay, windowFocused, vm.resumed, vm.screensaverVisible) {
+            if (!programVisible && programFocused && gridEnabled && moving == null &&
+                windowFocused && vm.resumed && !vm.screensaverVisible) {
+                programFocused = false
+                statusReturnsProgram = true
+                runCatching { pillRequester.requestFocus() }
+            }
+        }
+        BindWatchNextLifecycle(watch.state, watchCatalog, watchAllowed, !vm.screensaverVisible,
+            hasProgram && backgroundVisible && windowFocused && overlay == Overlay.None && moving == null &&
+                !programFocused && !pillFocused && kidsLock == null, vm.lastInputAt)
 
         // Into the grid as from one row: the first row whole at the top. Two rows go in a row
         // further down, from the second shelf row to the third, so they scroll a row less; scrolled
@@ -564,9 +641,13 @@ fun HomeScreen(
         LaunchedEffect(maxScroll) { scroll.updateBounds(0f, maxScroll) }
         val pastShelf by remember(collapsePx) { derivedStateOf { scroll.value > collapsePx / 2 } }
         val decay = rememberSplineBasedDecay<Float>()
-        LaunchedEffect(target, dragged) {
+        var previousProgramArea by remember { mutableStateOf(hasProgram) }
+        LaunchedEffect(target, dragged, hasProgram) {
+            val viewportChanged = previousProgramArea != hasProgram
+            previousProgramArea = hasProgram
             if (dragged) return@LaunchedEffect
-            if (reduced) scroll.snapTo(target)
+            // Late data must not leave the focused tile above the newly reserved viewport.
+            if (reduced || viewportChanged) scroll.snapTo(target)
             // A spring keeps its velocity when a quick second press retargets it mid-flight. At 170
             // a row took about 300 ms to get 90% of the way and half a second to settle.
             else scroll.animateTo(target, spring(dampingRatio = 1f, stiffness = 280f))
@@ -595,8 +676,8 @@ fun HomeScreen(
         // with GPU layers, and hwui aborts with "Wrong thread!" (MiTV4-ANSM0, Android 6.0.1,
         // issue #466: the reporter rebuilt the same steps in a small app and got the same 16 frames).
         val homeLayer = rememberGraphicsLayer()
-        var homeShot by remember { mutableStateOf<ImageBitmap?>(null) }
-        LaunchedEffect(ccOpen) {
+        var homeShot by remember(programArtwork.visibleKeys) { mutableStateOf<ImageBitmap?>(null) }
+        LaunchedEffect(ccOpen, programArtwork.visibleKeys) {
             homeShot = null
             if (!ccOpen || Build.VERSION.SDK_INT < Build.VERSION_CODES.N) return@LaunchedEffect
             delay(HOME_SHOT_AFTER_MS)
@@ -620,11 +701,14 @@ fun HomeScreen(
         // drawn cuts no hole in the window, so the paused film showed as the window's black
         // (Xiaomi MiTV-MFTR0, the aerial wallpaper under Control Center).
         val filmMoves = vm.filmFront && overlay == Overlay.None && !vm.screensaverVisible && !pastShelf &&
-            !inGrid && moving == null
+            !inGrid && moving == null && !programArtwork.coversFilm
         val sourceInput = Wallpapers.sourceInput
+        val homeBackdrop = programBackground?.backdrop ?: Wallpapers.backdrop ?: ambientApp?.art?.backdrop
+        val homeFrost = programBackground?.frosted ?: Wallpapers.frosted.takeIf { Wallpapers.backdrop != null }
         // Nothing over Home blurs it: a paused film stays (why: at LiveWallpaper below).
         val filmStandsIn = overlay == Overlay.None || overlay is Overlay.ControlCenter || overlay is Overlay.Wallpaper ||
             (overlay is Overlay.AppMenu && overlay.inFolder == null)
+        CompositionLocalProvider(LocalGlassSource provides programBackground?.let { GlassSource(it.sourceKey, it.frosted) }) {
         when {
             Wallpapers.selectedId == Wallpapers.LIVE -> LiveWallpaper(
                 moving = filmMoves,
@@ -653,7 +737,7 @@ fun HomeScreen(
                     cover = filmCover,
                 )
             }
-            sourceInput != null -> SourceWallpaper(sourceInput, show = vm.resumed && !vm.screensaverVisible, cover = filmCover)
+            sourceInput != null -> SourceWallpaper(sourceInput, show = vm.resumed && !vm.screensaverVisible && !programArtwork.coversFilm, cover = filmCover)
         }
         Box(
             Modifier
@@ -705,31 +789,42 @@ fun HomeScreen(
             val clip = if (Wallpapers.selectedId == Wallpapers.LIVE) liveFilm.film?.id ?: pictureClip else null
             LaunchedEffect(clip) { Wallpapers.showClipGlass(clip) }
             val clipGlass = Wallpapers.clipGlass?.takeIf { it.first == clip }?.second
+            // Discard both sharp and frosted snapshots when records leave the visible scope.
+            key(programArtwork.visibleKeys) {
             HomeBackground(
                 // The chosen wallpaper; in "Follow App" mode, light from the focused app.
-                backdrop = Wallpapers.backdrop ?: ambientApp?.art?.backdrop,
-                frosted = Wallpapers.frosted.takeIf { Wallpapers.backdrop != null },
+                backdrop = homeBackdrop,
+                frosted = homeFrost,
                 plate = plate,
                 scroll = { scroll.value },
                 collapse = collapsePx,
-                cover = { filmCover.value },
+                cover = { if (programCoversFilm) 0f else filmCover.value },
                 // An input's picture gets the shade a picture has; in the grid it gives way to the
                 // glass, as any wallpaper does (it cannot be blurred). Not a film, moving or not
                 // (the owner, 2026-10-29): since the aerial wallpaper keeps moving under keys
                 // (Wallpapers.keepsMoving) it was still shaded here, a full-screen draw each frame
                 // (Xiaomi MiTV-MFTR0: GPU 9.8 -> 6.9 ms a frame moving focus over the film).
-                shadeMoving = sourceInput != null,
-                filmStopped = { filmStopped },
+                shadeMoving = programBackground == null && sourceInput != null,
+                filmStopped = { if (programBackground != null) 0f else filmStopped },
                 toSaver = { toSaver.value },
-                filmGlass = (Wallpapers.filmFrost ?: Wallpapers.frosted).takeIf { Wallpapers.moves() && Wallpapers.backdrop != null },
+                filmGlass = (Wallpapers.filmFrost ?: Wallpapers.frosted).takeIf { programBackground == null && Wallpapers.moves() && Wallpapers.backdrop != null },
                 saverImage = saverImage,
                 saverReveal = { saverReveal.value },
                 saverPush = { saverPush.value },
                 lift = { lift },
-                wallpaper = Wallpapers.selectedId,
-                glassAwaitsStop = Wallpapers.selectedId == Wallpapers.LIVE && clipGlass == null,
-                gridGlass = clipGlass,
+                wallpaper = programBackground?.sourceKey ?: Wallpapers.selectedId,
+                glassAwaitsStop = programBackground == null && Wallpapers.selectedId == Wallpapers.LIVE && clipGlass == null,
+                gridGlass = clipGlass.takeIf { programBackground == null },
+                glassless = programBackground == null && Wallpapers.filmGlassless,
+                pictureTransition = if (programArtwork.transitionEnabled) { image, content ->
+                    WatchNextPictureTransition(image, programBackground != null, programFrame.direction,
+                        animate = vm.resumed && windowFocused && overlay == Overlay.None && moving == null && !vm.screensaverVisible,
+                        revealFilm = filmSaver,
+                        filmCover = { filmCover.value },
+                        content = content)
+                } else null,
             )
+            }
 
             // Before Android 7 there is no picture of Home under Control Center (issue #466), so the
             // GPU draws every tile again under the panel each frame. Lite there once let the clock and
@@ -742,7 +837,7 @@ fun HomeScreen(
                 val clockRight = AerialSettings.clockRight
                 // The large clock stands over the top row; the small one is the time and weather in
                 // one line, top left or beside the pill, so the wallpaper keeps the screen.
-                if (AerialSettings.largeClock) {
+                if (largeClock) {
                     ShelfClock(
                         now = now,
                         alignEnd = clockRight,
@@ -754,7 +849,7 @@ fun HomeScreen(
                             // No offscreen buffer while it fades: it would be the clock's capBox, and the
                             // Chinese, the icon and the shadows above and below it were cut off (#727).
                             .graphicsLayer {
-                                alpha = 1f - (scroll.value / collapsePx * 1.6f).coerceIn(0f, 1f)
+                                alpha = shelfContentAlpha(scroll.value, collapsePx)
                                 compositingStrategy = CompositingStrategy.ModulateAlpha
                             },
                         toSaver = { clockToSaver.value },
@@ -768,7 +863,7 @@ fun HomeScreen(
                             .diagLayer("clock")
                             .padding(start = metrics.margin, top = 28.dp)
                             .graphicsLayer {
-                                alpha = 1f - (scroll.value / collapsePx * 1.6f).coerceIn(0f, 1f)
+                                alpha = shelfContentAlpha(scroll.value, collapsePx)
                                 compositingStrategy = CompositingStrategy.ModulateAlpha
                             },
                         toSaver = { toSaver.value },
@@ -776,6 +871,14 @@ fun HomeScreen(
                     )
                 }
 
+            }
+            // Only tiles are clipped below the program area; the original clock also carries
+            // into the screensaver and must remain outside this viewport.
+            Box(
+                Modifier.fillMaxSize()
+                    .then(if (hasProgram) Modifier.clipBelow(metrics.topRowY - PlatePadV) else Modifier)
+                    .offset { IntOffset(0, -scroll.value.roundToInt()) },
+            ) {
                 // The rows below the shelf stay out of sight until Home scrolls to them: in one row
                 // unless set to peek; in two rows always, as the second row already shows there are more.
                 val hiddenFrom = when {
@@ -803,6 +906,8 @@ fun HomeScreen(
                             opacity = { 1f - saverFade() },
                             onFocused = {
                                 focusedKey = app.key
+                                programFocused = false
+                                statusReturnsProgram = false
                                 lastFocusedIndex = index
                                 pillFocused = false
                             },
@@ -836,6 +941,14 @@ fun HomeScreen(
                             },
                             modifier = Modifier
                                 .diagLayer("tiles")
+                                .focusProperties {
+                                    if (hasProgram && moving == null) {
+                                        up = if (index < columns) {
+                                            if (programVisible) programRequester else FocusRequester.Cancel
+                                        } else requester(apps[index - columns].key)
+                                        if (index + columns < apps.size) down = requester(apps[index + columns].key)
+                                    }
+                                }
                                 // Lifted on the shelf with the plate; the clock above stays put.
                                 .offset { slot.value - IntOffset(0, lift.roundToInt()) }
                                 // Into the screensaver, the apps go left to right, sinking a little.
@@ -858,10 +971,34 @@ fun HomeScreen(
                     }
                 }
             }
+            if (program != null && hasProgram && kidsLock == null && !vm.screensaverVisible) {
+                watchCatalog[program.key.source]?.let { source ->
+                    Box(Modifier.fillMaxSize().offset { IntOffset(0, -scroll.value.roundToInt()) }) {
+                        WatchNextPreview(program, source, watch.state.records, programLayout, programArtwork.localImage,
+                            enabled = gridEnabled && moving == null,
+                            indicators = overlay == Overlay.None && moving == null,
+                            requester = programRequester,
+                            onFocused = { watch.state.pauseCarousel(); programFocused = true; pillFocused = false },
+                            onAdvance = watch.state::advance,
+                            onUp = { statusReturnsProgram = true; runCatching { pillRequester.requestFocus() } },
+                            onDown = { programFocused = false; focusApp(lastFocusedIndex) },
+                            direction = watch.state.navigationDirection,
+                            backgroundReady = programFrame.programKey == program.key,
+                            animate = vm.resumed && windowFocused && overlay == Overlay.None && moving == null && programVisible,
+                            visibility = programOpacity,
+                            onPlay = { displayed -> watch.state.current?.takeIf { it.key == displayed.key }?.let { selected ->
+                                watchCatalog[selected.key.source]?.let { source ->
+                                    onWatchNext?.invoke(source, selected) { result -> watch.state.launched(selected.key, result) }
+                                }
+                            } },
+                        )
+                    }
+                }
+            }
         }
 
         homeShot?.let { shot -> Canvas(Modifier.fillMaxSize()) { drawImage(shot) } }
-        PanelBackdrop(Wallpapers.frosted.takeIf { Wallpapers.backdrop != null }, { backdropFrost }, { backdropVeil })
+        PanelBackdrop(homeFrost, { backdropFrost }, { backdropVeil })
 
         // The pill holds only the network and Control Center. The time joins it once the clock
         // above the top row has scrolled away, so the screen never shows the time twice. The small
@@ -880,7 +1017,7 @@ fun HomeScreen(
                         .diagLayer("clock")
                         .padding(end = 14.dp)
                         .graphicsLayer {
-                            alpha = 1f - (scroll.value / collapsePx * 1.6f).coerceIn(0f, 1f)
+                            alpha = shelfContentAlpha(scroll.value, collapsePx)
                             compositingStrategy = CompositingStrategy.ModulateAlpha
                         },
                     toSaver = { toSaver.value },
@@ -899,7 +1036,8 @@ fun HomeScreen(
                     // which under the pill is the last of the row (issue #703).
                     .focusProperties {
                         val key = focusedKey
-                        if (key != null && apps.indexOfFirst { it.key == key } in 0 until columns) down = requester(key)
+                        if (hasProgram && programVisible && statusReturnsProgram) down = programRequester
+                        else if (key != null && apps.indexOfFirst { it.key == key } in 0 until columns) down = requester(key)
                     }
                     .graphicsLayer {
                         alpha = 1f - (toSaver.value * 2f).coerceIn(0f, 1f)
@@ -909,8 +1047,10 @@ fun HomeScreen(
                 onFocused = { gained ->
                     // The window hands its first focus to the top-most control; the top row is where Home starts.
                     if (gained) {
-                        if (focusedKey == null) {
-                            if (apps.isNotEmpty()) focusApp(0)
+                        if (programFocused) statusReturnsProgram = true
+                        programFocused = false
+                        if (focusedKey == null && !statusReturnsProgram) {
+                            if (apps.isNotEmpty()) focusApp(0) else pillFocused = true
                         } else {
                             pillFocused = true
                         }
@@ -998,6 +1138,10 @@ fun HomeScreen(
             anchor = menu?.anchor,
             inFolder = menu?.inFolder != null,
             folders = vm.folders(),
+            watchNextEnabled = menu?.let { vm.entry(it.key) }?.takeIf {
+                watch.state.capability.supported && watch.state.capability.granted && watch.state.master && it.isWatchNextSource()
+            }?.let { watch.state.sourceOn(it.packageName) },
+            onWatchNext = { pkg -> watch.source(pkg) },
             onMove = { vm.startMove(it) },
             onHide = { key ->
                 closeMenu()
@@ -1086,6 +1230,9 @@ fun HomeScreen(
             visible = overlay is Overlay.Wallpaper,
             onSettled = { sheetIn = it },
             warm = sheetWarm,
+            watchNextEnabled = if (watch.state.capability.supported) watch.state.master && watch.state.capability.granted else null,
+            watchNextStatus = watch.state.status.messageResource(),
+            onWatchNext = watch::master,
             onDismiss = { vm.overlay = Overlay.ControlCenter() },
             hiddenCount = vm.hiddenApps.size,
             onHiddenApps = { vm.whenUnlocked { vm.overlay = Overlay.HiddenApps } },
@@ -1117,5 +1264,6 @@ fun HomeScreen(
                 else -> null
             },
         )
+        }
     }
 }

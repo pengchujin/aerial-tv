@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="watch_next_title">Көруді жалғастыру</string>
+    <string name="watch_next_source">Жалғастырып көруді көрсету</string>
+    <string name="watch_next_play">Жалғастыру</string>
+    <string name="watch_next_untitled">Атаусыз бағдарлама</string>
+    <string name="watch_next_season">%1$s-маусым</string>
+    <string name="watch_next_episode">%1$s-бөлім</string>
+    <string name="watch_next_on">Қосу</string>
+    <string name="watch_next_off">Өшіру</string>
+    <string name="watch_next_unsupported">Бұл теледидар бұл мүмкіндікті қолдамайды.</string>
+    <string name="watch_next_permission">Жүйе рұқсаттарында Aerial қолданбасына ашық телебағдарламаларды оқуға рұқсат беріңіз.</string>
+    <string name="watch_next_disabled">Мүмкіндік өшірілген. Дереккөз таңдауы сақталды.</string>
+    <string name="watch_next_loading">Бағдарламалар жүктелуде…</string>
+    <string name="watch_next_empty">Қосылған дереккөздерде бағдарламалар жоқ.</string>
+    <string name="watch_next_ready">Қосылған қолданбалардың бағдарламалары басты бетте бірге көрсетіледі.</string>
+    <string name="watch_next_failed">Бағдарламалар уақытша қолжетімсіз. Басты бетке оралғанда қайта тексеріледі.</string>
+    <string name="watch_next_remaining">%1$d минут қалды</string>
+    <string name="watch_next_watched">Көрілген: %1$s</string>
+    <string name="watch_next_previous">Алдыңғы бөлім көрілген: %1$s</string>
+    <string name="watch_next_published">Жарияланған: %1$s</string>
+    <string name="watch_next_added">Қосылған: %1$s</string>
+    <string name="watch_next_related">Жаңартылған: %1$s</string>
+    <string name="watch_next_movie">Фильм</string>
+    <string name="watch_next_episode_type">Эпизод</string>
+    <string name="watch_next_rating">Баға %1$s</string>
+    <string-array name="watch_next_genres">
+        <item>Табиғат</item>
+        <item>Өнер</item>
+        <item>Комедия</item>
+        <item>Драма</item>
+        <item>Білім</item>
+        <item>Ойын-сауық</item>
+        <item>Отбасы</item>
+        <item>Ойындар</item>
+        <item>Өмір салты</item>
+        <item>Кино</item>
+        <item>Музыка</item>
+        <item>Жаңалықтар</item>
+        <item>Премьера</item>
+        <item>Сауда</item>
+        <item>Спорт</item>
+        <item>Ғылым мен техника</item>
+        <item>Саяхат</item>
+    </string-array>
+</resources>

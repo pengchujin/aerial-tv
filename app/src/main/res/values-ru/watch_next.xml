@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="watch_next_title">Смотреть далее</string>
+    <string name="watch_next_source">Показывать «Смотреть далее»</string>
+    <string name="watch_next_play">Продолжить</string>
+    <string name="watch_next_untitled">Без названия</string>
+    <string name="watch_next_season">Сезон %1$s</string>
+    <string name="watch_next_episode">Серия %1$s</string>
+    <string name="watch_next_on">Вкл.</string>
+    <string name="watch_next_off">Выкл.</string>
+    <string name="watch_next_unsupported">Этот телевизор не поддерживает функцию.</string>
+    <string name="watch_next_permission">Разрешите Aerial читать общедоступные телепрограммы в настройках системы.</string>
+    <string name="watch_next_disabled">Функция выключена. Выбор источников сохранён.</string>
+    <string name="watch_next_loading">Загрузка программ…</string>
+    <string name="watch_next_empty">У выбранных источников пока нет программ.</string>
+    <string name="watch_next_ready">Программы выбранных приложений отображаются вместе на главном экране.</string>
+    <string name="watch_next_failed">Программы временно недоступны. Повторная попытка при возврате домой.</string>
+    <string name="watch_next_remaining">Осталось %1$d мин</string>
+    <string name="watch_next_watched">Просмотрено: %1$s</string>
+    <string name="watch_next_previous">Предыдущая серия: %1$s</string>
+    <string name="watch_next_published">Опубликовано: %1$s</string>
+    <string name="watch_next_added">Добавлено: %1$s</string>
+    <string name="watch_next_related">Обновлено: %1$s</string>
+    <string name="watch_next_movie">Фильм</string>
+    <string name="watch_next_episode_type">Эпизод</string>
+    <string name="watch_next_rating">Оценка %1$s</string>
+    <string-array name="watch_next_genres">
+        <item>Природа</item>
+        <item>Искусство</item>
+        <item>Комедия</item>
+        <item>Драма</item>
+        <item>Образование</item>
+        <item>Развлечения</item>
+        <item>Семья</item>
+        <item>Игры</item>
+        <item>Образ жизни</item>
+        <item>Кино</item>
+        <item>Музыка</item>
+        <item>Новости</item>
+        <item>Премьера</item>
+        <item>Покупки</item>
+        <item>Спорт</item>
+        <item>Наука и техника</item>
+        <item>Путешествия</item>
+    </string-array>
+</resources>
