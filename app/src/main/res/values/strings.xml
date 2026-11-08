@@ -88,9 +88,12 @@
     <string name="wx_thunder">Thunderstorm</string>
     <string name="wp_daily_latest">Daily Photo</string>
     <string name="wp_live">Moving aerial films. They play while Home is on the top row (either row in two rows) and stop on the frame showing when you go further down to the apps, which stays as the picture; the next film picks up from there.</string>
-    <string name="wp_photos_rotate">My Photos, Daily</string>
+    <string name="wp_photos_rotate">My Photos, in Turn</string>
     <string name="wp_daily_note">Bing\'s photo of the day, changing to the new one every day.</string>
-    <string name="wp_photos_rotate_note">A different one of your photos each day.</string>
+    <string name="wp_photos_rotate_note">Your photos in turn, the next one each day, or as often as you choose below.</string>
+    <string name="st_photo_every">Next Photo</string>
+    <string name="st_photo_every_day">Daily</string>
+    <string name="st_photo_every_hint">How often Home moves on to the next of your photos.</string>
     <string name="wp_photo_note">Your photo. Scan the code on the right to send more from your phone.</string>
     <string name="wp_auto_note">Light taken from the selected app\'s artwork.</string>
     <string name="wp_screensaver">Screensaver</string>
@@ -131,6 +134,11 @@
     <string name="st_clock_small">Small</string>
     <string name="st_clock_large">Large</string>
     <string name="st_clock_size_hint">Small puts the time and weather in one line in the corner. Large puts a big clock at the top of the screen, the date over it and the weather under it.</string>
+    <string name="st_clock_hours">Time</string>
+    <string name="st_clock_hours_system">As the TV</string>
+    <string name="st_clock_hours_24">24-Hour</string>
+    <string name="st_clock_hours_12">12-Hour</string>
+    <string name="st_clock_hours_hint">As the TV follows the TV’s own time setting, and shows 24-hour time where it has none.</string>
     <string name="st_names">App Names</string>
     <string name="st_names_focused">Selected App</string>
     <string name="st_names_all">All Apps</string>
@@ -153,6 +161,9 @@
     <string name="st_off">Off</string>
     <string name="st_hidden_apps">Hidden Apps</string>
     <string name="st_hidden_apps_hint">Apps hidden from Home are kept here, to put back. With a parental PIN set, it asks for the PIN first.</string>
+    <string name="st_home_lock">Lock Home</string>
+    <string name="st_home_lock_hint">When on, holding OK or pressing Menu on an app opens no menu, so apps can’t be moved, hidden or uninstalled by accident. With a parental PIN, turning it off asks for the PIN.</string>
+    <string name="home_locked_notice">Home is locked. To arrange apps, turn off Lock Home in Personalize.</string>
     <string name="st_hidden_none">None</string>
     <string name="st_hidden_count">%d</string>
     <string name="st_focus_high">High Contrast</string>
@@ -166,6 +177,10 @@
     <string name="st_effects_hint">Lite draws plain panels and the selected app without its sheen, and keeps the screen at 60 Hz: for TVs that stutter.</string>
     <string name="st_effects_auto_lite_hint">This TV has little memory or an older Android, so Auto uses Lite.</string>
     <string name="cc_inputs_settings">Input Settings</string>
+    <string name="cc_inputs_list">Show in the List</string>
+    <string name="cc_inputs_list_hint">Untick inputs this TV lists but does not have, or that you never use. They leave the list and Home.</string>
+    <string name="cc_inputs_cec">Switch When a Device Turns On</string>
+    <string name="cc_inputs_cec_hint">When a console or a box turns itself on over HDMI-CEC (One Touch Play), the TV switches to its input, as the TV’s own home screen does. Not every TV says when this happens; Amlogic TVs such as many Xiaomi models do.</string>
     <string name="cc_inputs_pin">Show on Home (any number)</string>
     <string name="cc_inputs_boot">When the TV Turns On (one)</string>
     <string name="cc_inputs_boot_none">Nothing, stay on Aerial</string>
@@ -223,6 +238,7 @@
     <string name="weather_rain">Rain</string>
     <string name="weather_snow">Snow</string>
     <string name="weather_thunder">Thunderstorms</string>
+    <string name="weather_temperature">%1$d°</string>
     <string name="weather_high_low">H:%1$d°  L:%2$d°</string>
     <string name="st_columns">Apps per Row</string>
     <string name="st_columns_hint">How many apps fit across Home, and in folders. Six shows more at a glance; four makes them larger, easier to see from across the room.</string>

@@ -267,21 +267,33 @@ object Wallpapers {
     fun resolve(id: String = selectedId): Wallpaper? = when (id) {
         LATEST_DAILY -> items.firstOrNull { it.kind == WallpaperKind.Daily }
         ROTATE_PHOTOS -> items.filter { it.kind == WallpaperKind.Photo }.sortedBy { it.id }.let { photos ->
-            if (photos.isEmpty()) resolve(LATEST_DAILY) else photos[Math.floorMod(today(), photos.size)]
+            if (photos.isEmpty()) resolve(LATEST_DAILY) else photos[Math.floorMod(photoSlot(), photos.size)]
         }
         // Inputs are listed after Home starts; until then the input is taken on trust.
         else -> items.firstOrNull { it.id == id }
             ?: if (isSource(id)) Wallpaper(id, WallpaperKind.Source, id.substringAfterLast('/')) else null
     }
 
-    private fun today(): Long = java.time.LocalDate.now().toEpochDay()
+    /**
+     * Which turn "My Photos, in turn" is on: the day, or with a shorter interval chosen
+     * (AerialSettings.photoMinutes, #1314), the count of such intervals in local time.
+     */
+    private fun photoSlot(): Long {
+        val minutes = AerialSettings.photoMinutes
+        if (minutes >= AerialSettings.DAY_MINUTES) return java.time.LocalDate.now().toEpochDay()
+        val now = System.currentTimeMillis()
+        return (now + java.util.TimeZone.getDefault().getOffset(now)) / 60_000L / minutes
+    }
 
-    /** The day the rotating photo was last picked for; a new day picks the next one. */
-    private var rotatedOn = 0L
+    /** The turn the rotating photo was last picked for; a new one picks the next photo. */
+    private var rotatedOn = Long.MIN_VALUE
 
-    /** Moves "My Photos, rotating" on to today's photo; Aerial calls it whenever Home comes back. */
+    /**
+     * Moves "My Photos, in turn" on to the photo for now; Aerial calls it whenever Home comes back,
+     * and each minute while Home is in front.
+     */
     fun rotateIfDue() {
-        if (!started || selectedId != ROTATE_PHOTOS || rotatedOn == today()) return
+        if (!started || selectedId != ROTATE_PHOTOS || rotatedOn == photoSlot()) return
         rebuildBackdrop()
     }
 
@@ -292,6 +304,14 @@ object Wallpapers {
         WallpaperKind.Photo -> File(photoDir, w.id.removePrefix("photo:") + ".jpg")
         else -> null
     }
+
+    /**
+     * For the photo screensaver: a portrait photo of the owner's whole, on a blurred copy of itself
+     * (Images.decodeWhole, issue #647); anything else as [picture]. Call off the main thread.
+     */
+    fun saverPicture(wp: Wallpaper, w: Int, h: Int): Bitmap? =
+        if (wp.kind == WallpaperKind.Photo) fileFor(wp)?.takeIf { it.exists() }?.let { Images.decodeWhole(it, w, h) }
+        else picture(wp, w, h)
 
     /** Full picture at [w]×[h] without shading, for the photo screensaver. Call off the main thread. */
     fun picture(wp: Wallpaper, w: Int, h: Int): Bitmap? = when (wp.kind) {
@@ -377,7 +397,7 @@ object Wallpapers {
                 frosted = null
                 return@launch
             }
-            rotatedOn = today()
+            rotatedOn = photoSlot()
             val wp = resolve(id) ?: resolve(DEFAULT_FALLBACK)
             val key = wp?.let(::bakedKey)
             if (key != null && key == bakedKey && backdrop != null) return@launch

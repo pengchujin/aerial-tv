@@ -101,6 +101,7 @@ import app.orchard.tv.system.LaunchFallback
 import app.orchard.tv.system.NetKind
 import app.orchard.tv.system.SourceKind
 import app.orchard.tv.system.Sounds
+import app.orchard.tv.system.OutputDevice
 import app.orchard.tv.system.SystemProbe
 import app.orchard.tv.ui.components.Pressable
 import app.orchard.tv.ui.components.consumeTaps
@@ -229,6 +230,8 @@ private fun KidsPage(vm: HomeViewModel, now: LocalDateTime, takeFocus: Boolean) 
     val first = remember { FocusRequester() }
     val context = LocalContext.current
     val laser = remember { HisenseLaserPanel.usable(context) }
+    val showsVolume = remember { OutputDevice.showsVolume(context) }
+    val showsBrightness = remember { OutputDevice.showsBrightness() }
     PollBrightness(vm, laser, enabled = takeFocus)
     LaunchedEffect(Unit) {
         if (!takeFocus) return@LaunchedEffect
@@ -243,9 +246,12 @@ private fun KidsPage(vm: HomeViewModel, now: LocalDateTime, takeFocus: Boolean) 
             BasicText(it, style = Type.Callout.copy(color = Palette.SecondaryLabel))
         }
         Spacer(Modifier.height(12.dp))
-        VolumeRow(vm, first)
-        Spacer(Modifier.height(6.dp))
-        BrightnessRow(vm, laser)
+        // A box or stick has neither a panel nor, with its volume fixed, a sound level of its own (#1307).
+        if (showsVolume) {
+            VolumeRow(vm, first)
+            Spacer(Modifier.height(6.dp))
+        }
+        if (showsBrightness) BrightnessRow(vm, laser)
         Spacer(Modifier.height(6.dp))
         MenuRow(
             Glyph.Shield,
@@ -269,6 +275,8 @@ private fun MainPage(
     // The laser level belongs to the laser sets only (HisenseLaserPanel); every other TV keeps
     // the brightness row it had.
     val laser = remember { HisenseLaserPanel.usable(context) }
+    val showsVolume = remember { OutputDevice.showsVolume(context) }
+    val showsBrightness = remember { OutputDevice.showsBrightness() }
     PollBrightness(vm, laser, poll)
     val first = remember { FocusRequester() }
     val networkFocus = remember { FocusRequester() }
@@ -352,9 +360,12 @@ private fun MainPage(
         }
 
         Spacer(Modifier.height(12.dp))
-        VolumeRow(vm, cameFrom)
-        Spacer(Modifier.height(6.dp))
-        BrightnessRow(vm, laser)
+        // A box or stick has neither a panel nor, with its volume fixed, a sound level of its own (#1307).
+        if (showsVolume) {
+            VolumeRow(vm, cameFrom)
+            Spacer(Modifier.height(6.dp))
+        }
+        if (showsBrightness) BrightnessRow(vm, laser)
 
         Spacer(Modifier.height(6.dp))
         // A parent left Kids and Elders mode: one press back into it, no PIN.
@@ -799,11 +810,12 @@ private fun InputsPage(vm: HomeViewModel, takeFocus: Boolean, onOpen: (android.c
     Column(Modifier.heightIn(max = 470.dp).verticalScroll(rememberScrollState())) {
         MenuRow(Glyph.ChevronLeft, stringResource(R.string.cc_inputs), onClick = { vm.overlay = Overlay.ControlCenter(CcPage.Main) })
         Spacer(Modifier.height(8.dp))
-        if (vm.sources.isEmpty()) {
+        val shown = vm.shownSources
+        if (shown.isEmpty()) {
             BasicText(stringResource(R.string.cc_no_inputs), style = Type.Callout, modifier = Modifier.padding(14.dp))
         }
         val connected = stringResource(R.string.input_connected)
-        vm.sources.forEachIndexed { i, source ->
+        shown.forEachIndexed { i, source ->
             MenuRow(
                 glyph = when (source.kind) {
                     SourceKind.Hdmi, SourceKind.DisplayPort -> Glyph.Hdmi
@@ -823,7 +835,12 @@ private fun InputsPage(vm: HomeViewModel, takeFocus: Boolean, onOpen: (android.c
         // Switching is this page's one job; what Aerial does with the inputs is a page further in.
         if (vm.sources.isNotEmpty()) {
             Spacer(Modifier.height(10.dp))
-            MenuRow(Glyph.Gear, stringResource(R.string.cc_inputs_settings), onClick = { vm.overlay = Overlay.ControlCenter(CcPage.InputSettings) })
+            MenuRow(
+                Glyph.Gear, stringResource(R.string.cc_inputs_settings),
+                onClick = { vm.overlay = Overlay.ControlCenter(CcPage.InputSettings) },
+                // With every input taken out of the list, the way back in is the first row.
+                focusRequester = if (shown.isEmpty()) first else null,
+            )
         }
     }
 }
@@ -844,14 +861,33 @@ private fun InputSettingsPage(vm: HomeViewModel, takeFocus: Boolean) {
     Column(Modifier.heightIn(max = 470.dp).verticalScroll(rememberScrollState())) {
         MenuRow(Glyph.ChevronLeft, stringResource(R.string.cc_inputs_settings), onClick = { vm.overlay = Overlay.ControlCenter(CcPage.Inputs) })
 
+        val shown = vm.shownSources
+        // Which inputs the list has: firmwares list ports the TV does not have (issue #279).
         Spacer(Modifier.height(10.dp))
-        BasicText(stringResource(R.string.cc_inputs_pin), style = Type.Callout, modifier = Modifier.padding(start = 14.dp, bottom = 6.dp))
+        BasicText(stringResource(R.string.cc_inputs_list), style = Type.Callout, modifier = Modifier.padding(start = 14.dp, bottom = 6.dp))
         vm.sources.forEachIndexed { i, source ->
+            val listed = source.id !in AerialSettings.hiddenSources
+            ChoiceRow(
+                text = name(source),
+                selected = listed,
+                focusRequester = if (i == 0) first else null,
+                onClick = { vm.setSourceHidden(source, listed) },
+            )
+        }
+        BasicText(
+            stringResource(R.string.cc_inputs_list_hint),
+            style = Type.Caption,
+            modifier = Modifier.padding(start = 14.dp, end = 14.dp, top = 8.dp),
+        )
+
+        Spacer(Modifier.height(18.dp))
+        BasicText(stringResource(R.string.cc_inputs_pin), style = Type.Callout, modifier = Modifier.padding(start = 14.dp, bottom = 6.dp))
+        shown.forEach { source ->
             val pinned = source.id in AerialSettings.pinnedSources
             ChoiceRow(
                 text = name(source),
                 selected = pinned,
-                focusRequester = if (i == 0) first else null,
+                focusRequester = null,
                 onClick = { vm.setSourcePinned(source, !pinned) },
             )
         }
@@ -878,7 +914,7 @@ private fun InputSettingsPage(vm: HomeViewModel, takeFocus: Boolean) {
                 onClick = {},
             )
         }
-        vm.sources.forEach { source ->
+        shown.forEach { source ->
             ChoiceRow(
                 text = name(source),
                 selected = source.id == AerialSettings.bootSource,
@@ -888,6 +924,17 @@ private fun InputSettingsPage(vm: HomeViewModel, takeFocus: Boolean) {
         }
         BasicText(
             stringResource(R.string.cc_inputs_boot_hint),
+            style = Type.Caption,
+            modifier = Modifier.padding(start = 14.dp, end = 14.dp, top = 8.dp),
+        )
+
+        // A device switching itself on over HDMI-CEC takes the TV (issue #1020); off unless chosen.
+        Spacer(Modifier.height(18.dp))
+        BasicText(stringResource(R.string.cc_inputs_cec), style = Type.Callout, modifier = Modifier.padding(start = 14.dp, bottom = 6.dp))
+        ChoiceRow(stringResource(R.string.st_on), AerialSettings.cecSwitch, null) { AerialSettings.chooseCecSwitch(true) }
+        ChoiceRow(stringResource(R.string.st_off), !AerialSettings.cecSwitch, null) { AerialSettings.chooseCecSwitch(false) }
+        BasicText(
+            stringResource(R.string.cc_inputs_cec_hint),
             style = Type.Caption,
             modifier = Modifier.padding(start = 14.dp, end = 14.dp, top = 8.dp),
         )

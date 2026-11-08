@@ -13,7 +13,7 @@ import kotlin.random.Random
 /** Bitmap helpers, from the full app's wallpaper/Images.kt. All of it runs off the main thread. */
 object Images {
     /** Decodes [file] no larger than needed for [w]×[h], then centre-crops it to exactly that size (the full app's decodeCover). */
-    fun decodeCover(file: java.io.File, w: Int, h: Int): Bitmap? {
+    fun decodeCover(file: java.io.File, w: Int, h: Int, whole: Boolean = false): Bitmap? {
         val bounds = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
         android.graphics.BitmapFactory.decodeFile(file.path, bounds)
         if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
@@ -25,6 +25,8 @@ object Images {
         while (bw / (sample * 2) >= w && bh / (sample * 2) >= h) sample *= 2
         val decoded = android.graphics.BitmapFactory.decodeFile(file.path, android.graphics.BitmapFactory.Options().apply { inSampleSize = sample }) ?: return null
         val src = upright(decoded, orientation)
+        // The photo screensaver shows a portrait photo whole (the full app's decodeWhole, #647).
+        if (whole && src.height > src.width) return fitWhole(src, w, h).also { src.recycle() }
         val scale = maxOf(w / src.width.toFloat(), h / src.height.toFloat())
         val cw = (w / scale).roundToInt().coerceAtMost(src.width)
         val ch = (h / scale).roundToInt().coerceAtMost(src.height)
@@ -33,6 +35,25 @@ object Images {
         val out = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
         Canvas(out).drawBitmap(src, android.graphics.Rect(l, t, l + cw, t + ch), android.graphics.Rect(0, 0, w, h), Paint(Paint.FILTER_BITMAP_FLAG))
         src.recycle()
+        return out
+    }
+
+    /** [src] whole and centred, 1.12 times inside the frame (the Ken Burns push), over itself frosted and darkened. */
+    private fun fitWhole(src: Bitmap, w: Int, h: Int): Bitmap {
+        val out = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(out)
+        val filter = Paint(Paint.FILTER_BITMAP_FLAG)
+        // Squeezed to 320×180 by frost: only ever seen blurred.
+        val frosted = frost(src)
+        canvas.drawBitmap(frosted, null, android.graphics.Rect(0, 0, w, h), filter)
+        frosted.recycle()
+        canvas.drawColor(0x66000000)
+        val scale = minOf(w / src.width.toFloat(), h / src.height.toFloat()) / 1.12f
+        val fw = (src.width * scale).roundToInt()
+        val fh = (src.height * scale).roundToInt()
+        val left = (w - fw) / 2
+        val top = (h - fh) / 2
+        canvas.drawBitmap(src, null, android.graphics.Rect(left, top, left + fw, top + fh), filter)
         return out
     }
 

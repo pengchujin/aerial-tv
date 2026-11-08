@@ -80,9 +80,12 @@
     <string name="wx_thunder">Гроза</string>
     <string name="wp_daily_latest">Завжди сьогоднішнє</string>
     <string name="wp_live">Аерозйомка · грає на верхньому ряду головного екрана (у дворядному вигляді — на обох рядах)</string>
-    <string name="wp_photos_rotate">Одне на день</string>
+    <string name="wp_photos_rotate">По черзі</string>
     <string name="wp_daily_note">Фото дня від Bing, щодня нове.</string>
-    <string name="wp_photos_rotate_note">Щодня інше з ваших фото.</string>
+    <string name="wp_photos_rotate_note">Ваші фото по черзі: наступне щодня або так часто, як оберете нижче.</string>
+    <string name="st_photo_every">Наступне фото</string>
+    <string name="st_photo_every_day">Щодня</string>
+    <string name="st_photo_every_hint">Як часто головний екран переходить до наступного фото.</string>
     <string name="wp_photo_note">Ваше фото. Відскануйте код праворуч, щоб надіслати ще з телефона.</string>
     <string name="wp_auto_note">Світло береться з обкладинки вибраного застосунку.</string>
     <string name="wp_screensaver">Заставка</string>
@@ -123,6 +126,11 @@
     <string name="st_clock_small">Малий</string>
     <string name="st_clock_large">Великий</string>
     <string name="st_clock_size_hint">«Малий» показує час і погоду одним рядком у кутку. «Великий» ставить великий годинник угорі екрана, дату над ним і погоду під ним.</string>
+    <string name="st_clock_hours">Формат часу</string>
+    <string name="st_clock_hours_system">Як на ТБ</string>
+    <string name="st_clock_hours_24">24 години</string>
+    <string name="st_clock_hours_12">12 годин</string>
+    <string name="st_clock_hours_hint">«Як на ТБ» іде за налаштуванням часу телевізора, а якщо його немає, показує 24 години.</string>
     <string name="st_names">Назви застосунків</string>
     <string name="st_names_focused">Вибраний застосунок</string>
     <string name="st_names_all">Усі застосунки</string>
@@ -145,6 +153,9 @@
     <string name="st_off">Вимк.</string>
     <string name="st_hidden_apps">Приховані застосунки</string>
     <string name="st_hidden_apps_hint">Застосунки, приховані з головного екрана, зберігаються тут, щоб їх можна було повернути. Якщо задано батьківський PIN-код, спочатку його буде запитано.</string>
+    <string name="st_home_lock">Закріпити екран</string>
+    <string name="st_home_lock_hint">Якщо ввімкнено, утримання OK або кнопка «Меню» на програмі не відкривають меню, і програми не можна випадково перемістити, сховати чи видалити. З батьківським PIN-кодом для вимкнення потрібен PIN.</string>
+    <string name="home_locked_notice">Екран закріплено. Щоб упорядкувати програми, вимкніть «Закріпити екран» у розділі «Персоналізація».</string>
     <string name="st_hidden_none">Немає</string>
     <string name="st_hidden_count">%d</string>
     <string name="st_focus_high">Високий контраст</string>
@@ -158,6 +169,10 @@
     <string name="st_effects_hint">Легкі: прості панелі, вибраний застосунок без відблиску, екран лишається на 60 Гц. Для телевізорів, що пригальмовують.</string>
     <string name="st_effects_auto_lite_hint">У цього телевізора мало пам\'яті або старий Android, тому «Авто» вибирає легкі.</string>
     <string name="cc_inputs_settings">Налаштування джерел</string>
+    <string name="cc_inputs_list">Показувати у списку</string>
+    <string name="cc_inputs_list_hint">Зніміть позначку з джерел, яких у телевізора немає або якими ви не користуєтеся. Вони зникнуть зі списку та з головного екрана.</string>
+    <string name="cc_inputs_cec">Перемикати, коли пристрій вмикається</string>
+    <string name="cc_inputs_cec_hint">Коли приставка або консоль вмикається через HDMI-CEC (One Touch Play), телевізор перемикається на її джерело, як це робить його власний головний екран. Не кожен телевізор про це повідомляє; телевізори на Amlogic, як багато моделей Xiaomi, повідомляють.</string>
     <string name="cc_inputs_pin">Показувати на головному екрані (будь-яка кількість)</string>
     <string name="cc_inputs_boot">Під час вмикання телевізора (одне)</string>
     <string name="cc_inputs_boot_none">Нічого, залишатися в Aerial</string>
@@ -215,6 +230,7 @@
     <string name="weather_rain">Дощ</string>
     <string name="weather_snow">Сніг</string>
     <string name="weather_thunder">Грози</string>
+    <string name="weather_temperature">%1$d°</string>
     <string name="weather_high_low">Макс.: %1$d°  Мін.: %2$d°</string>
     <string name="st_columns">Програм у ряду</string>
     <string name="st_columns_hint">Скільки програм уміщується в ряд на головному екрані й у папках. Шість — більше видно одразу; чотири — більші, їх краще видно здалеку.</string>

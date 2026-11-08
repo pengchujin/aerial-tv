@@ -11,6 +11,7 @@ import android.view.View
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
+import app.orchard.tv.lite.Ui.textPx
 
 /**
  * An open folder, as the full app's FolderView: its name over its apps, at Home's tile size, on
@@ -25,6 +26,8 @@ class FolderView(
     apps: List<AppEntry>,
     private val launch: (AppEntry) -> Unit,
     private val menu: (AppEntry, View) -> Unit,
+    /** Puts the first app on the second's slot in this folder (LayoutStore.moveInFolder). */
+    private val moveTo: (String, String) -> Unit = { _, _ -> },
 ) : Sheet(context, close) {
     private val content = FrameLayout(context)
     private val tiles = ArrayList<HomeView.TileView>()
@@ -32,6 +35,9 @@ class FolderView(
     private var apps: List<AppEntry> = emptyList()
     private var focus = 0
     private val press = Press()
+    /** The focused app follows the remote, as on Home (issue #1344). */
+    private var moving = false
+    private val hint = TextView(context)
 
     init {
         // Home frosted under 45% black: one picture, made once per wallpaper.
@@ -49,6 +55,18 @@ class FolderView(
         addView(content, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
         content.addView(context.label(name, 26f, 600, display = true, spacingEm = -0.015f), LayoutParams(Ui.pxi(960f - 2 * HomeView.MARGIN), LayoutParams.WRAP_CONTENT).apply {
             leftMargin = Ui.pxi(HomeView.MARGIN); topMargin = Ui.pxi(56f)
+        })
+        // Home's move hint, at the foot.
+        hint.apply {
+            setTextColor(Ui.WHITE)
+            textPx(15f)
+            typeface = Ui.font(500)
+            text = context.getString(R.string.move_hint)
+            setShadowLayer(Ui.px(4f), 0f, 0f, 0x99000000.toInt())
+            visibility = INVISIBLE
+        }
+        addView(hint, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT, android.view.Gravity.BOTTOM or android.view.Gravity.CENTER_HORIZONTAL).apply {
+            bottomMargin = Ui.pxi(28f)
         })
         setApps(apps)
         if (LiteSettings.full(isHardwareAccelerated)) {
@@ -91,28 +109,40 @@ class FolderView(
             t.lifted = on
             t.ring = ring
             t.shadow = LiteSettings.effects != Effects.Lite
+            t.moving = on && moving
             val s = if (on) HomeView.FOCUS_SCALE else 1f
             if (smooth) t.animate().scaleX(s).scaleY(s).setDuration(160).start() else { t.scaleX = s; t.scaleY = s }
             val n = names[i]
-            n.visibility = if (on || LiteSettings.showAllNames) VISIBLE else INVISIBLE
+            n.visibility = if ((on || LiteSettings.showAllNames) && !(on && moving)) VISIBLE else INVISIBLE
             n.alpha = if (on) 1f else 0.7f
             var dy = HomeView.TILE_H + 10f
             if (on) dy += HomeView.TILE_H * (HomeView.FOCUS_SCALE - 1) / 2 + if (ring) (HomeView.RING_GAP + HomeView.RING_WIDTH) * HomeView.FOCUS_SCALE else 0f
             n.translationX = Ui.px(x(i) + HomeView.TILE_W / 2) - n.layoutParams.width / 2f
             n.translationY = Ui.px(y(i) + dy)
         }
+        hint.visibility = if (moving) VISIBLE else INVISIBLE
         // Rows past the bottom scroll up, the focused one kept in view with room for its name.
         val bottom = y(focus) + HomeView.PITCH + 24f
         val shift = -(bottom - Ui.canvasH).coerceAtLeast(0f)
         if (smooth) content.animate().translationY(Ui.px(shift)).setDuration(220).start() else content.translationY = Ui.px(shift)
     }
 
+    /** Starts moving [key] (from its menu). */
+    fun startMove(key: String) {
+        focus = apps.indexOfFirst { it.key == key }.takeIf { it >= 0 } ?: return
+        moving = true
+        press.reset()
+        showFocus(animate = true)
+    }
+
+    private fun endMove() { moving = false; showFocus(animate = true) }
+
     override fun onKey(e: KeyEvent): Boolean {
         val app = apps.getOrNull(focus)
-        if (press.onKey(e, click = { app?.let(launch) }, longPress = { app?.let { menu(it, tiles[focus]) } })) return true
+        if (press.onKey(e, click = { if (moving) endMove() else app?.let(launch) }, longPress = { if (!moving) app?.let { menu(it, tiles[focus]) } })) return true
         when (e.keyCode) {
-            KeyEvent.KEYCODE_BACK -> { if (e.action == KeyEvent.ACTION_UP) close(); return true }
-            KeyEvent.KEYCODE_MENU -> { if (e.action == KeyEvent.ACTION_UP) app?.let { menu(it, tiles[focus]) }; return true }
+            KeyEvent.KEYCODE_BACK -> { if (e.action == KeyEvent.ACTION_UP) { if (moving) endMove() else close() }; return true }
+            KeyEvent.KEYCODE_MENU -> { if (e.action == KeyEvent.ACTION_UP && !moving) app?.let { menu(it, tiles[focus]) }; return true }
         }
         val cols = HomeView.COLS
         val to = when (e.keyCode) {
@@ -126,7 +156,11 @@ class FolderView(
             }
             else -> return false
         }
-        if (e.action == KeyEvent.ACTION_DOWN && to != focus) { focus = to; showFocus(animate = true) }
+        if (e.action == KeyEvent.ACTION_DOWN && to != focus) {
+            // Moving: the app takes the slot, and setApps keeps focus on it.
+            if (moving && app != null) moveTo(app.key, apps[to].key)
+            else { focus = to; showFocus(animate = true) }
+        }
         return true
     }
 
