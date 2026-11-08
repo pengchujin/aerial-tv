@@ -38,6 +38,10 @@ object BootOpen {
             .getOrNull()?.takeIf { it.isNotEmpty() }
     }
 
+    // Written at once (commit), not later: Xiaomi MiTV-MFTR0 (Android 14) force-stops Aerial 1.3 s
+    // after the screen goes off, before apply() had saved the screen-off, so the wake after it took
+    // what the TV starts on for opened already and left it shut (2026-11-08, on the owner's TV).
+
     /** When this boot began by the wall clock, to tell a stored time of this boot from one before. */
     private fun bootStamp(): Long = System.currentTimeMillis() - SystemClock.elapsedRealtime()
 
@@ -55,7 +59,7 @@ object BootOpen {
 
     /** The screen went off: the next time it lights is a wake, and the target is due again. */
     fun noteScreenOff(context: Context) {
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit(commit = true) {
             putLong(SCREEN_OFF_ELAPSED, SystemClock.elapsedRealtime()).putLong(SCREEN_OFF_BOOT, bootStamp())
                 .putString(SCREEN_OFF_BOOT_ID, BOOT_ID)
         }
@@ -68,7 +72,7 @@ object BootOpen {
      * Home press was the viewer's rather than what the TV starts on being covered.
      */
     fun noteHomeKey(context: Context) {
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit(commit = true) {
             putLong(HOME_ELAPSED, SystemClock.elapsedRealtime()).putLong(HOME_BOOT, bootStamp())
                 .putString(HOME_BOOT_ID, BOOT_ID)
         }
@@ -83,7 +87,7 @@ object BootOpen {
     }
 
     fun noteOpened(context: Context) {
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit(commit = true) {
             putLong(OPENED_ELAPSED, SystemClock.elapsedRealtime()).putLong(OPENED_BOOT, bootStamp())
                 .putLong(OPENED_ASLEEP, asleep()).putString(OPENED_BOOT_ID, BOOT_ID)
         }
