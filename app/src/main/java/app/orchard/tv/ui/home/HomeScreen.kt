@@ -323,15 +323,20 @@ fun HomeScreen(
         LiveFilm.onHome = liveFilm
         onDispose { if (LiveFilm.onHome === liveFilm) LiveFilm.onHome = null }
     }
-    // A screensaver of aerials over the aerial wallpaper carries the wallpaper's film on, one shot
-    // from Home to screensaver: the apps fade, the clock moves to the corner. Whether the film is
-    // moving already or still on its frame (Back on the top row), as long as Home shows it: on the
-    // top row with nothing over it. A film that does not move within FILM_SAVER_WAIT_MS hands over
-    // to the screensaver's own films.
+    val homeVideo = remember { HomeVideo() }
+    DisposableEffect(homeVideo) {
+        HomeVideo.onHome = homeVideo
+        onDispose { if (HomeVideo.onHome === homeVideo) HomeVideo.onHome = null }
+    }
+    // A screensaver of aerials over the aerial wallpaper, or of the owner's videos over their video
+    // wallpaper, carries the wallpaper's film on, one shot from Home to screensaver: the apps fade,
+    // the clock moves to the corner (saverCarriesWallpaper). Whether the film is moving already or
+    // still on its frame (Back on the top row), as long as Home shows it: on the top row with
+    // nothing over it. A film that does not move within FILM_SAVER_WAIT_MS hands over to the
+    // screensaver's own films.
     var filmFailed by remember(vm.screensaverVisible) { mutableStateOf(false) }
     val filmSaverChosen = remember(vm.screensaverVisible) {
-        vm.screensaverVisible && Wallpapers.selectedId == Wallpapers.LIVE && Wallpapers.screensaver == ScreensaverMode.Aerial &&
-            AerialFormats.screensaverCarriesWallpaper(appContext) &&
+        vm.screensaverVisible && saverCarriesWallpaper(appContext) &&
             (filmCover.value > 0.5f || focusedRow == 0 && overlay == Overlay.None && moving == null)
     }
     val filmSaver = filmSaverChosen && !filmFailed
@@ -647,7 +652,9 @@ fun HomeScreen(
             Wallpapers.isVideo() -> key(Wallpapers.selectedId) {
                 VideoWallpaper(
                     moving = filmMoves,
-                    keep = vm.filmFront && !vm.screensaverVisible,
+                    keep = vm.filmFront && (!vm.screensaverVisible || filmSaver),
+                    hold = filmSaver && vm.filmFront,
+                    home = homeVideo,
                     standIn = filmStandsIn,
                     lastInputAt = vm.lastInputAt,
                     cover = filmCover,
@@ -1112,7 +1119,7 @@ fun HomeScreen(
         NoticeBanner(vm.notice, Modifier.align(Alignment.TopCenter).padding(top = 24.dp), vm.noticeGlyph)
 
         Screensaver(visible = vm.screensaverVisible, apps = apps, now = now, skips = vm.screensaverSkips, carry = when {
-                filmSaver -> SaverCarry.Film(liveFilm)
+                filmSaver -> if (Wallpapers.isVideo()) SaverCarry.Video(homeVideo) else SaverCarry.Film(liveFilm)
                 stillCarry != null -> stillCarry
                 else -> null
             },

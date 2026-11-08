@@ -63,6 +63,7 @@ import app.orchard.tv.ui.home.FilmAfterInput
 import app.orchard.tv.ui.home.HomeScreen
 import app.orchard.tv.ui.home.AerialStart
 import app.orchard.tv.ui.home.LiveFilm
+import app.orchard.tv.ui.home.saverCarriesWallpaper
 import app.orchard.tv.ui.home.asFocusedTile
 import app.orchard.tv.ui.theme.LocalReducedMotion
 import app.orchard.tv.ui.home.TileFaces
@@ -691,12 +692,11 @@ class MainActivity : ComponentActivity() {
             if (asked && !SystemScreensaver.startFirmware(this)) DiagLog.i("no system screensaver to start")
             return
         }
-        // Aerials over the aerial wallpaper: Home carries the wallpaper's film on, the same player in
-        // the same format, so there is no black between them; the dream would be a new player in a
-        // new window, and showed black even in 4K (TCL MT5879). Not with Dolby Vision chosen by hand,
-        // which the wallpaper does not play (AerialFormats.screensaverCarriesWallpaper).
-        val carry = Wallpapers.selectedId == Wallpapers.LIVE && Wallpapers.screensaver == ScreensaverMode.Aerial &&
-            AerialFormats.screensaverCarriesWallpaper(this)
+        // Aerials over the aerial wallpaper, or the owner's videos over their video wallpaper: Home
+        // carries the wallpaper's film on, the same player in the same format, so there is no black
+        // between them; the dream would be a new player in a new window, and showed black even in
+        // 4K (TCL MT5879). Not with Dolby Vision chosen by hand, which the wallpaper does not play.
+        val carry = saverCarriesWallpaper(this)
         if (!carry && !dreamFails(this) && SystemScreensaver.isAerials(this)) {
             // The dream's film needs the decoder the wallpaper's holds: TCL MT5879 failed Dolby
             // Vision beside it and the dream fell back to 4K HEVC.

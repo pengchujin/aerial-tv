@@ -248,7 +248,7 @@ internal object FilmKeyFrame {
                 if (out < 0) continue
                 if (info.size > 0) {
                     val decoded = SystemClock.elapsedRealtime()
-                    val bitmap = codec.getOutputImage(out)?.use { toBitmap(it, w, h) }
+                    val bitmap = codec.getOutputImage(out)?.use { toBitmap(it, w, h, sample.format.rotationDegrees, sample.format.pixelWidthHeightRatio) }
                     codec.releaseOutputBuffer(out, false)
                     val converted = SystemClock.elapsedRealtime()
                     return Decoded(bitmap ?: error("no image from $name"), name, decoded - started, converted - decoded)
@@ -265,9 +265,11 @@ internal object FilmKeyFrame {
 
     /**
      * A YUV 4:2:0 image as an ARGB bitmap of [wanted]×[wantedH] at most its own size, scaled by picking the nearest pixel. BT.709 in
-     * studio range, as Apple's SDR films are.
+     * studio range, as Apple's SDR films are. Turned by [rotation] (a phone's upright film is kept
+     * on its side with the turn in the file) and centre-cropped to the screen's shape, as the
+     * player shows it (SCALE_TO_FIT_WITH_CROPPING): a portrait video was squashed into 16:9.
      */
-    private fun toBitmap(image: android.media.Image, wanted: Int, wantedH: Int): Bitmap {
+    private fun toBitmap(image: android.media.Image, wanted: Int, wantedH: Int, rotation: Int = 0, pixelRatio: Float = 1f): Bitmap {
         if (image.format != ImageFormat.YUV_420_888) error("image format ${image.format}")
         val crop = image.cropRect
         val (yP, uP, vP) = image.planes.let { Triple(it[0], it[1], it[2]) }
@@ -278,40 +280,84 @@ internal object FilmKeyFrame {
         val uRow = uP.rowStride; val uPix = uP.pixelStride
         val vRow = vP.rowStride; val vPix = vP.pixelStride
         val cw = crop.width(); val ch = crop.height()
-        // No bigger than the film's own frame: on a 4K screen the picture is scaled when drawn,
-        // rather than made four times as large here by repeating pixels.
-        val w = minOf(wanted, cw)
-        val h = if (wanted > cw) (wantedH.toLong() * cw / wanted).toInt() else wantedH
+        val turn = ((rotation % 360) + 360) % 360
+        val side = turn == 90 || turn == 270
+        // The film's width as shown, upright, in the stored frame's pixels.
+        val shownW = if (side) ch else cw
+        val par = if (pixelRatio > 0f) pixelRatio.toDouble() else 1.0
+        val shownAspect = if (side) ch / (cw * par) else cw * par / ch
+        val screenAspect = wanted.toDouble() / wantedH
+        // The part of the shown film the screen holds, as a fraction of each side, centred.
+        val fracW = if (shownAspect > screenAspect) screenAspect / shownAspect else 1.0
+        val fracH = if (shownAspect > screenAspect) 1.0 else shownAspect / screenAspect
+        // No bigger than the film's own pixels across that part: on a 4K screen the picture is
+        // scaled when drawn, rather than made four times as large here by repeating pixels.
+        val across = maxOf(1, (shownW * fracW).toInt())
+        val w = minOf(wanted, across)
+        val h = if (wanted > across) maxOf(1, (wantedH.toLong() * across / wanted).toInt()) else wantedH
+        // Each output column and row as a place along the shown film's width and height (0 until 1).
+        val colAt = DoubleArray(w) { (0.5 - fracW / 2) + (it + 0.5) / w * fracW }
+        val rowAt = DoubleArray(h) { (0.5 - fracH / 2) + (it + 0.5) / h * fracH }
+        // A place along the stored frame's width (x) or height (y) as a pixel, absolute in the image.
+        fun px(f: Double) = crop.left + (f * cw).toInt().coerceIn(0, cw - 1)
+        fun py(f: Double) = crop.top + (f * ch).toInt().coerceIn(0, ch - 1)
+        // Shown (col, row) to stored (x, y): 90 is turned clockwise to show, so the shown top runs
+        // down the stored left side's far end; 270 the other way.
+        val xOfCol: IntArray; val yOfRow: IntArray; val xOfRow: IntArray; val yOfCol: IntArray
+        when (turn) {
+            90 -> { xOfRow = IntArray(h) { px(rowAt[it]) }; yOfCol = IntArray(w) { py(1 - colAt[it]) }; xOfCol = IntArray(0); yOfRow = IntArray(0) }
+            180 -> { xOfCol = IntArray(w) { px(1 - colAt[it]) }; yOfRow = IntArray(h) { py(1 - rowAt[it]) }; xOfRow = IntArray(0); yOfCol = IntArray(0) }
+            270 -> { xOfRow = IntArray(h) { px(1 - rowAt[it]) }; yOfCol = IntArray(w) { py(colAt[it]) }; xOfCol = IntArray(0); yOfRow = IntArray(0) }
+            else -> { xOfCol = IntArray(w) { px(colAt[it]) }; yOfRow = IntArray(h) { py(rowAt[it]) }; xOfRow = IntArray(0); yOfCol = IntArray(0) }
+        }
         val pixels = IntArray(w * h)
-        val xs = IntArray(w) { crop.left + it * cw / w }
         // The chroma worked out once for the two pixels that share it: 1.793, 0.213, 0.533 and
         // 2.112, times 256 (BT.709); the luma's 1.164 and offset from [luma], the 0-255 range from
         // [clamp]. Worked out for each pixel with coerceIn, 1080p took 0.18-0.36 s on TCL MT5879.
         val luma = IntArray(256) { ((it - 16) * 298 + 128) }
-        for (row in 0 until h) {
-            val sy = crop.top + row * ch / h
-            val yBase = sy * yRow
-            val uBase = (sy / 2) * uRow
-            val vBase = (sy / 2) * vRow
-            val outBase = row * w
-            var lastCx = -1
-            var rv = 0; var gv = 0; var bv = 0
-            for (col in 0 until w) {
-                val sx = xs[col]
-                val cx = sx / 2
-                if (cx != lastCx) {
-                    val d = (u[uBase + cx * uPix].toInt() and 0xFF) - 128
-                    val e = (v[vBase + cx * vPix].toInt() and 0xFF) - 128
-                    rv = 459 * e
-                    gv = -55 * d - 136 * e
-                    bv = 541 * d
-                    lastCx = cx
+        if (!side) {
+            for (row in 0 until h) {
+                val sy = yOfRow[row]
+                val yBase = sy * yRow
+                val uBase = (sy / 2) * uRow
+                val vBase = (sy / 2) * vRow
+                val outBase = row * w
+                var lastCx = -1
+                var rv = 0; var gv = 0; var bv = 0
+                for (col in 0 until w) {
+                    val sx = xOfCol[col]
+                    val cx = sx / 2
+                    if (cx != lastCx) {
+                        val d = (u[uBase + cx * uPix].toInt() and 0xFF) - 128
+                        val e = (v[vBase + cx * vPix].toInt() and 0xFF) - 128
+                        rv = 459 * e
+                        gv = -55 * d - 136 * e
+                        bv = 541 * d
+                        lastCx = cx
+                    }
+                    val c = luma[y[yBase + sx * yPix].toInt() and 0xFF]
+                    val r = clamp[((c + rv) shr 8) + CLAMP_OFFSET]
+                    val g = clamp[((c + gv) shr 8) + CLAMP_OFFSET]
+                    val bb = clamp[((c + bv) shr 8) + CLAMP_OFFSET]
+                    pixels[outBase + col] = (0xFF shl 24) or (r shl 16) or (g shl 8) or bb
                 }
-                val c = luma[y[yBase + sx * yPix].toInt() and 0xFF]
-                val r = clamp[((c + rv) shr 8) + CLAMP_OFFSET]
-                val g = clamp[((c + gv) shr 8) + CLAMP_OFFSET]
-                val bb = clamp[((c + bv) shr 8) + CLAMP_OFFSET]
-                pixels[outBase + col] = (0xFF shl 24) or (r shl 16) or (g shl 8) or bb
+            }
+        } else {
+            // On its side: a row of the picture is a column of the stored frame.
+            for (row in 0 until h) {
+                val sx = xOfRow[row]
+                val cx = sx / 2
+                val outBase = row * w
+                for (col in 0 until w) {
+                    val sy = yOfCol[col]
+                    val d = (u[(sy / 2) * uRow + cx * uPix].toInt() and 0xFF) - 128
+                    val e = (v[(sy / 2) * vRow + cx * vPix].toInt() and 0xFF) - 128
+                    val c = luma[y[sy * yRow + sx * yPix].toInt() and 0xFF]
+                    val r = clamp[((c + 459 * e) shr 8) + CLAMP_OFFSET]
+                    val g = clamp[((c - 55 * d - 136 * e) shr 8) + CLAMP_OFFSET]
+                    val bb = clamp[((c + 541 * d) shr 8) + CLAMP_OFFSET]
+                    pixels[outBase + col] = (0xFF shl 24) or (r shl 16) or (g shl 8) or bb
+                }
             }
         }
         return Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888).apply { setPixels(pixels, 0, w, 0, 0, w, h) }

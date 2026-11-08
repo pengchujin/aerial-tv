@@ -495,25 +495,32 @@ object Wallpapers {
         withContext(Dispatchers.Default) { PreparedFrame(frame, Images.frost(frame)) }
 
     /**
-     * [prepared] becomes the aerial wallpaper's picture at once, as film [film] at [atMs]; its file
+     * [prepared] becomes the moving wallpaper's picture at once, as film [film] at [atMs]; its file
      * and the baked Home are written after, apart, so Home coming back on it does not wait for them
-     * (the screensaver's pictures, LiveWallpaper.SaverFrames).
+     * (the screensaver's pictures: LiveWallpaper.SaverFrames for the aerials, VideoSaverFrames for
+     * the owner's videos). Not a film the wallpaper does not play (another video than the one chosen).
      */
     fun applyLiveFrame(prepared: PreparedFrame, film: String, atMs: Long): Boolean {
         val id = selectedId
-        if (!moves() || isVideo(id)) return false
+        if (!moves()) return false
+        val video = isVideo(id)
+        if (id.startsWith(VIDEO_PREFIX) && film != id.removePrefix(VIDEO_PREFIX)) return false
         backdropJob?.cancel()
-        leftHere = null
-        prefs.edit { putString("live_film", film).putLong("live_at", atMs).remove("live_left_film").remove("live_left_at") }
-        synchronized(thumbs) { thumbs.remove(id) }
+        if (video) videoLeftHere = null else leftHere = null
+        val key = if (video) "video" else "live"
+        prefs.edit { putString("${key}_film", film).putLong("${key}_at", atMs).remove("${key}_left_film").remove("${key}_left_at") }
+        // The frame is both the film's own card and the card that plays them all in turn (useLiveFrame).
+        synchronized(thumbs) { thumbs.remove(id); if (video) { thumbs.remove(VIDEOS); thumbs.remove(VIDEO_PREFIX + film) } }
         backdrop = prepared.frame.asImageBitmap()
         frosted = prepared.frost.asImageBitmap()
         pictureVersion++
+        val target = if (video) videoFrame else liveFrame
         scope.launch(Dispatchers.IO) {
-            val part = File(liveFrame.path + ".part")
+            val part = File(target.path + ".part")
             runCatching { part.outputStream().use { prepared.frame.compress(Bitmap.CompressFormat.JPEG, 90, it) } }
                 .onFailure { Log.w(TAG, "could not keep the film's frame", it) }
-            if (part.exists() && !part.renameTo(liveFrame)) part.delete()
+            if (part.exists() && !part.renameTo(target)) part.delete()
+            if (video) videoFilms(VIDEOS).firstOrNull { it.id == film }?.let { keepPoster(it, prepared.frame) }
             if (selectedId == id) resolve(id)?.let { saveBaked(bakedKey(it), prepared.frame, prepared.frost) }
         }
         return true
@@ -540,7 +547,7 @@ object Wallpapers {
         }
         backdropJob?.cancel()
         if (part.exists() && !part.renameTo(target)) part.delete()
-        if (!isVideo(id)) leftHere = null
+        if (isVideo(id)) videoLeftHere = null else leftHere = null
         prefs.edit { putString("${key}_film", film).putLong("${key}_at", atMs).remove("${key}_left_film").remove("${key}_left_at") }
         // The film's own card keeps a picture when another film is chosen.
         if (isVideo(id)) withContext(Dispatchers.IO) { videoFilms(VIDEOS).firstOrNull { it.id == film }?.let { keepPoster(it, frame) } }
@@ -609,6 +616,18 @@ object Wallpapers {
             prefs.edit { putString("live_left_film", film).putLong("live_left_at", atMs) }
         }
     }
+
+    /**
+     * Where the owner's video wallpaper was let go (into an app, or a screensaver of its own), held
+     * in memory until a frame of it, or a later one, is the picture: a screensaver of their videos
+     * starts from here (HomeVideo.start), as the picture behind the app may still be on its way.
+     */
+    @Volatile
+    private var videoLeftHere: Pair<String, Long>? = null
+
+    fun leaveVideo(film: String, atMs: Long) { videoLeftHere = film to atMs }
+
+    fun videoLeftSpot(): Pair<String, Long>? = videoLeftHere
 
     /** The same for the owner's videos: which one and where it last stopped. */
     fun videoSpot(): Pair<String, Long>? {

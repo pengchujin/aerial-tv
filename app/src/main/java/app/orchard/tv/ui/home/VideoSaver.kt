@@ -1,5 +1,6 @@
 package app.orchard.tv.ui.home
 
+import android.os.SystemClock
 import android.view.SurfaceHolder
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.aspectRatio
@@ -13,6 +14,7 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
@@ -31,24 +33,43 @@ import app.orchard.tv.ui.components.FilmSlot
 import app.orchard.tv.system.DiagLog
 import app.orchard.tv.wallpaper.ScreensaverVideo
 import app.orchard.tv.wallpaper.ScreensaverVideos
+import app.orchard.tv.wallpaper.Wallpapers
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.withContext
 
-/** A local, silent playlist, shared by Home and AerialDream. An empty or broken set falls back. */
+/**
+ * A local, silent playlist, shared by Home and AerialDream. An empty or broken set falls back.
+ * Over the owner's video wallpaper it goes on from it: the wallpaper's films in its order, from the
+ * film and moment it is at (HomeVideo.start), and Home comes back on where it got to
+ * (VideoSaverFrames), so wallpaper and screensaver are one film, as with the aerials. Over any
+ * other wallpaper, all the videos shuffled.
+ */
 @Composable
-internal fun VideoSaver(steps: SharedFlow<Int>, onUnavailable: () -> Unit) {
+internal fun VideoSaver(steps: SharedFlow<Int>, leaving: Boolean = false, onUnavailable: () -> Unit) {
     val context = LocalContext.current
+    val start = remember { if (Wallpapers.isVideo()) HomeVideo.start() else null }
+    val wallpaper = remember { Wallpapers.isVideo() }
     val films by produceState<List<ScreensaverVideo>?>(null) {
-        value = withContext(Dispatchers.IO) { ScreensaverVideos.all(context).shuffled() }
+        value = withContext(Dispatchers.IO) {
+            (if (wallpaper) Wallpapers.videoFilms() else emptyList()).ifEmpty { ScreensaverVideos.all(context).shuffled() }
+        }
     }
-    LocalFilms(films, steps, onUnavailable)
+    LocalFilms(films, start, follows = wallpaper, leaving, steps, onUnavailable)
 }
 
 @androidx.annotation.OptIn(UnstableApi::class)
 @Composable
-private fun LocalFilms(films: List<ScreensaverVideo>?, steps: SharedFlow<Int>, onUnavailable: () -> Unit) {
+private fun LocalFilms(
+    films: List<ScreensaverVideo>?,
+    start: Pair<String, Long>?,
+    /** Over the owner's video wallpaper: Home comes back on where this got to. */
+    follows: Boolean,
+    leaving: Boolean,
+    steps: SharedFlow<Int>,
+    onUnavailable: () -> Unit,
+) {
     val context = LocalContext.current
     val player = remember {
         // As AerialSaver does: Home's wallpaper film starts again as Home resumes for a moment
@@ -64,6 +85,7 @@ private fun LocalFilms(films: List<ScreensaverVideo>?, steps: SharedFlow<Int>, o
             videoScalingMode = C.VIDEO_SCALING_MODE_SCALE_TO_FIT
         }
     }
+    val leavingNow by rememberUpdatedState(leaving)
     var attempt by remember { mutableIntStateOf(0) }
     var playing by remember { mutableStateOf(false) }
     var aspect by remember { mutableFloatStateOf(16f / 9f) }
@@ -109,8 +131,38 @@ private fun LocalFilms(films: List<ScreensaverVideo>?, steps: SharedFlow<Int>, o
             }
         }
         player.addListener(listener)
-        onDispose { player.removeListener(listener); player.release() }
+        onDispose {
+            player.removeListener(listener)
+            player.release()
+            // The dream's window goes with no fade first: its last picture now, before Home is back.
+            if (follows) VideoSaverFrames.apply()
+        }
     }
+    // Over the owner's video wallpaper: every SAVER_PICTURE_EVERY_MS the key frame of where this is
+    // becomes the picture Home comes back on (VideoSaverFrames). Ahead by half a beat and the
+    // decoding's time, so the one kept is as often just ahead of where the screensaver is as just
+    // behind; at once on another film (a skip, the next in turn). Less often after a while.
+    if (follows) LaunchedEffect(Unit) {
+        VideoSaverFrames.latest = null
+        val began = SystemClock.uptimeMillis()
+        var next = began + FIRST_PICTURE_MS
+        var madeOf: String? = null
+        while (true) {
+            delay(FILM_LOOK_MS)
+            if (!player.isPlaying) continue
+            val film = player.currentMediaItem?.mediaId ?: continue
+            val now = SystemClock.uptimeMillis()
+            if (now < next && film == madeOf) continue
+            val beat = if (now - began < PICTURE_FAST_FOR_MS) PICTURE_EVERY_MS else PICTURE_SLOW_MS
+            next = maxOf(next + beat, now + beat / 2)
+            madeOf = film
+            val at = player.currentPosition + beat / 2 + PICTURE_DECODE_MS
+            VideoSaverFrames.make(context, film, at)?.let { if (!leavingNow) VideoSaverFrames.latest = it }
+        }
+    }
+    // Home's own screensaver fades out over Home: the picture is swapped as the fade begins, not
+    // under the fading film once it is over.
+    LaunchedEffect(leaving) { if (leaving && follows) VideoSaverFrames.apply() }
     // The list is read off the main thread, but the film's view is there from the first frame: a
     // SurfaceView added to the dream's window after its first frame never got a surface, and the
     // film played into nothing, a black screen (TCL MT5879, Android 11, issue #609). AerialSaver's
@@ -119,7 +171,13 @@ private fun LocalFilms(films: List<ScreensaverVideo>?, steps: SharedFlow<Int>, o
         val list = films ?: return@LaunchedEffect
         DiagLog.i("local screensaver: ${list.size} films")
         if (list.isEmpty()) { onUnavailable(); return@LaunchedEffect }
-        player.setMediaItems(list.map { MediaItem.Builder().setUri(it.file.toUri()).setMediaId(it.id).build() })
+        val first = list.indexOfFirst { it.id == start?.first }
+        if (first >= 0) DiagLog.i("local screensaver goes on from the wallpaper: ${start?.first} at ${start?.second} ms")
+        player.setMediaItems(
+            list.map { MediaItem.Builder().setUri(it.file.toUri()).setMediaId(it.id).build() },
+            first.coerceAtLeast(0),
+            if (first >= 0) start?.second ?: 0L else 0L,
+        )
         player.prepare()
         player.playWhenReady = true
     }
@@ -149,3 +207,14 @@ private fun LocalFilms(films: List<ScreensaverVideo>?, steps: SharedFlow<Int>, o
         )
     }
 }
+
+/** The first picture of where the screensaver is, once its film has settled. */
+private const val FIRST_PICTURE_MS = 1_500L
+/** How often a picture of where the screensaver is, at first, then after a while (as SaverFrames). */
+private const val PICTURE_EVERY_MS = 5_000L
+private const val PICTURE_FAST_FOR_MS = 10 * 60_000L
+private const val PICTURE_SLOW_MS = 15_000L
+/** About what decoding a key frame in the app takes (1080p, TCL MT5879 and Xiaomi MiTV-MFTR0). */
+private const val PICTURE_DECODE_MS = 800L
+/** How often the loop looks for the screensaver going on to another film. */
+private const val FILM_LOOK_MS = 500L

@@ -117,6 +117,10 @@ fun Screensaver(visible: Boolean, apps: List<AppEntry>, now: LocalDateTime, skip
         if (visible) held.value = carry
         when (val carried = held.value) {
             is SaverCarry.Film -> { FilmCarry(carried.film, now, skips.steps); return@AnimatedVisibility }
+            is SaverCarry.Video -> {
+                LaunchedEffect(skips.steps) { skips.steps.collect { carried.film.skip(it) } }
+                return@AnimatedVisibility
+            }
             is SaverCarry.Still -> { PhotoSaver(now, skips.steps, carried.wallpaper, carried); return@AnimatedVisibility }
             null -> Unit
         }
@@ -134,7 +138,7 @@ fun Screensaver(visible: Boolean, apps: List<AppEntry>, now: LocalDateTime, skip
                 )
                 ScreensaverMode.Photos -> PhotoSaver(now, skips.steps, remember { Wallpapers.screensaverPicture() })
                 ScreensaverMode.Clock, ScreensaverMode.System -> ClockSaver(apps, now)
-                ScreensaverMode.Videos -> if (videosFailed) PhotoSaver(now, skips.steps) else VideoSaver(skips.steps, onUnavailable = { videosFailed = true })
+                ScreensaverMode.Videos -> if (videosFailed) PhotoSaver(now, skips.steps) else VideoSaver(skips.steps, leaving = !visible, onUnavailable = { videosFailed = true })
             }
         }
     }
@@ -165,6 +169,9 @@ class ScreensaverSkips {
 sealed interface SaverCarry {
     /** The aerial wallpaper's film, moving on behind Home. */
     class Film(val film: LiveFilm) : SaverCarry
+
+    /** The owner's video wallpaper, moving on behind Home as the screensaver of their videos. */
+    class Video(val film: HomeVideo) : SaverCarry
 
     /** The wallpaper's picture, drawing in behind Home (HomeBackground) as the photos' first. */
     class Still(val wallpaper: app.orchard.tv.wallpaper.Wallpaper) : SaverCarry {
@@ -209,6 +216,18 @@ fun androidx.compose.ui.graphics.drawscope.DrawScope.drawDrawingIn(image: ImageB
             filterQuality = FilterQuality.Low,
         )
     }
+}
+
+/**
+ * Whether Home's screensaver carries the wallpaper's own player on rather than starting one of its
+ * own: aerials over the aerial wallpaper in its format (not Dolby Vision chosen by hand, which the
+ * wallpaper does not play), or the owner's videos over their video wallpaper. Then neither a new
+ * player in Home nor the system's dream (a new window, TCL MT5879) comes between them.
+ */
+fun saverCarriesWallpaper(context: android.content.Context): Boolean = when {
+    Wallpapers.selectedId == Wallpapers.LIVE -> Wallpapers.screensaver == ScreensaverMode.Aerial && AerialFormats.screensaverCarriesWallpaper(context)
+    Wallpapers.isVideo() -> Wallpapers.screensaver == ScreensaverMode.Videos
+    else -> false
 }
 
 /** Where a screensaver of aerials starts when it cannot carry Home's player on (AerialDream). */
