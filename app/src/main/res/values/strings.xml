@@ -41,6 +41,8 @@
     <string name="input_av">AV</string>
 
     <string name="menu_move">Move</string>
+    <string name="menu_move_out_first_row">Move out of first row</string>
+    <string name="menu_move_to_first_row">Move to first row</string>
     <string name="menu_to_folder">Move to Folder</string>
     <string name="menu_new_folder">New Folder</string>
     <string name="menu_out_of_folder">Move Out of Folder</string>
@@ -226,6 +228,8 @@
     <string name="weather_high_low">H:%1$d°  L:%2$d°</string>
     <string name="st_columns">Apps per Row</string>
     <string name="st_columns_hint">How many apps fit across Home, and in folders. Six shows more at a glance; four makes them larger, easier to see from across the room.</string>
+    <string name="st_hidden_slots">Do Not Fill First-Row Gaps</string>
+    <string name="st_hidden_slots_hint">When an app in the first row is hidden or moved out, leave its original position empty instead of pulling later apps forward.</string>
     <string name="st_peek">Second Row</string>
     <string name="st_peek_show">Peek</string>
     <string name="st_peek_hide">Hidden</string>

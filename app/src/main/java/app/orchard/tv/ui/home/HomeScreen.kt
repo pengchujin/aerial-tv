@@ -1006,6 +1006,24 @@ fun HomeScreen(
             inFolder = menu?.inFolder != null,
             folders = vm.folders(),
             onMove = { vm.startMove(it) },
+            canMoveOutOfFirstRow = menu?.let { m ->
+                vm.apps.indexOfFirst { it.key == m.key } in 0 until columns && vm.apps.size > columns
+            } == true,
+            canMoveToFirstRow = menu?.let { m ->
+                vm.apps.indexOfFirst { it.key == m.key } >= columns
+            } == true,
+            onMoveToFirstRow = { key ->
+                focusAfterOverlay = key
+                closeMenu()
+                vm.moveToFirstRow(key)
+            },
+            onMoveOutOfFirstRow = { key ->
+                val index = vm.apps.indexOfFirst { it.key == key }
+                val neighbor = if (index % columns == columns - 1) index - 1 else index + 1
+                focusAfterOverlay = vm.apps.getOrNull(neighbor)?.key ?: vm.apps.getOrNull(index - 1)?.key
+                closeMenu()
+                vm.moveOutOfFirstRow(key)
+            },
             onHide = { key ->
                 closeMenu()
                 vm.hide(key)
