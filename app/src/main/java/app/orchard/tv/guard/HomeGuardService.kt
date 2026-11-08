@@ -936,13 +936,20 @@ class HomeGuardService : AccessibilityService() {
      * the same boot window, where every such press would otherwise reopen it. Kept on disk as well
      * (BootOpen.noteHomeKey): answering that Home can end with accessibility restarted and the
      * guard in a new process, which would otherwise reopen what the viewer just left.
+     *
+     * Also after a wake, long past the boot window, while the target is fresh: MiTV-MFTR0 (Android
+     * 14) brought PatchWall to the front 1.3 s after Aerial had opened the boot app on a wake, and
+     * the guard answered with Aerial's Home, so the app stayed shut (2026-11-08, on the owner's TV).
+     * Only an open this recent, which nothing but a wake or a boot makes.
      */
     private fun bootTargetCovered(): Boolean =
-        SystemClock.elapsedRealtime() < BOOT_WINDOW_MS &&
-            hasBootSource() &&
+        hasBootSource() &&
             SystemClock.uptimeMillis() - homePressedAt >= HOME_LEFT_MS &&
             !BootOpen.homeKeyWithin(this, HOME_LEFT_MS) &&
-            BootOpen.openedWithin(this, BOOT_TARGET_COVER_MS)
+            BootOpen.openedWithin(
+                this,
+                if (SystemClock.elapsedRealtime() < BOOT_WINDOW_MS) BOOT_TARGET_COVER_MS else WAKE_TARGET_COVER_MS,
+            )
 
     /**
      * A preinstalled app the firmware starts by itself after a boot, over Aerial: 蓝光影院 on Haier
@@ -1972,6 +1979,8 @@ class HomeGuardService : AccessibilityService() {
          * Slower TVs come later: 30 s left little room.
          */
         private const val BOOT_TARGET_COVER_MS = 60_000L
+        /** The same after a wake, outside the boot window; see bootTargetCovered. */
+        private const val WAKE_TARGET_COVER_MS = 15_000L
         /** A Home press this recently is the viewer leaving what the TV starts on; see bootTargetCovered. */
         private const val HOME_LEFT_MS = 5_000L
         private const val SETTLE_MS = 1500L
