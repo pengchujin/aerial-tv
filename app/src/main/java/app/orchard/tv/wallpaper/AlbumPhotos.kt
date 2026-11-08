@@ -35,8 +35,10 @@ object AlbumPhotos {
     private const val MAX_PHOTOS = 150
     private const val MAX_PAGE_BYTES = 12 * 1024 * 1024
     private const val MAX_FILE_BYTES = 30L * 1024 * 1024
-    private const val USER_AGENT =
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
+    // Not a full browser string: the short link answers one of those with a page that needs JavaScript
+    // to continue (a 200, no redirect), and answers this with the 302 to the album's page (checked on a
+    // real album, 2026-11-08, which had 300 pictures in its page).
+    private const val USER_AGENT = "Mozilla/5.0"
     /** Pictures in a shared album's page; others on it (avatars, the cover's owner) have other prefixes. */
     private val PICTURE = Regex("""\["(https://lh3\.googleusercontent\.com/pw/[A-Za-z0-9_\-]+)",(\d+),(\d+)""")
 
