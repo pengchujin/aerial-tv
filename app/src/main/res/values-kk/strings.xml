@@ -300,4 +300,57 @@
     <string name="kids_blocked">«%s» мұнда қолжетімсіз</string>
     <string name="kids_warn">%d мин қалды</string>
     <string name="kids_warn_break">%d минуттан кейін үзіліс</string>
+    <!-- Optional action for an already installed Clash Meta client. -->
+    <string name="cc_shortcuts">Жылдам әрекеттер</string>
+    <string name="cc_clash">Clash Meta</string>
+    <string name="cc_clash_toggle">Ауыстыру</string>
+    <string name="st_clash_shortcut">Clash Meta түймесі</string>
+    <string name="st_clash_shortcut_hint">Басқару орталығында әрекетті көрсету. Алдымен Clash Meta қолданбасын баптап, VPN қосылымына рұқсат беріңіз.</string>
+    <string name="cc_clash_requested">Сұрау жіберілді. Өзгеріс болмаса, Clash Meta профилін және VPN рұқсатын тексеріңіз.</string>
+    <string name="cc_clash_unavailable">Clash Meta сыртқы басқаруы қолжетімсіз. Ресми қолданбаның орнатылғанын және қосылғанын тексеріңіз.</string>
+    <string name="cc_clash_failed">Clash Meta басқарылмады. Қолданба параметрлерін тексеріңіз.</string>
+
+    <!-- Editable quick controls. -->
+    <string name="qc_title">Жылдам басқару</string>
+    <string name="qc_edit_area">Жылдам басқаруды өңдеу</string>
+    <string name="qc_show_area">Жылдам түймелерді көрсету</string>
+    <string name="qc_add">Түйме қосу</string>
+    <string name="qc_hide">Түймені жасыру</string>
+    <string name="qc_show">Түймені көрсету</string>
+    <string name="qc_up">Жоғары</string>
+    <string name="qc_down">Төмен</string>
+    <string name="qc_save">Сақтау</string>
+    <string name="qc_sent">Сұрау қолданбаға жіберілді.</string>
+    <string name="qc_unavailable">Бұл түйме қолжетімсіз. Қолданба мен баптауларын тексеріңіз.</string>
+    <string name="qc_invalid">Атауын, нысанын және параметрлерін тексеріңіз.</string>
+    <string name="qc_failed">Теледидар бұл пәрменді орындай алмады.</string>
+    <string name="qc_limit">12 түймеге дейін қосуға болады.</string>
+    <string name="qc_conflict">Тізім өзгерді. Жаңартып, қайта көріңіз.</string>
+    <string name="qc_background">Іске қоспас бұрын теледидарда Aerial ашыңыз.</string>
+    <string name="qc_restricted">Балалар мен қарттар режимінде жылдам түймелер өшірулі.</string>
+    <string name="qc_hidden">Жасырылған</string>
+    <string name="qc_network_settings">Желі баптаулары</string>
+    <string name="qc_bluetooth_settings">Bluetooth баптаулары</string>
+    <string name="qc_group_system">Қолжетімді түймелер</string>
+    <string name="qc_manual_add">Қолмен қосу</string>
+    <string name="qc_manual_edit">Әрекетті өңдеу</string>
+    <string name="qc_manual_type">Әрекет түрі</string>
+    <string name="qc_manual_activity">Экранды ашу (Activity)</string>
+    <string name="qc_manual_broadcast">Таратылым жіберу</string>
+    <string name="qc_manual_name">Түйме атауы</string>
+    <string name="qc_manual_package">Қолданба пакетінің атауы</string>
+    <string name="qc_manual_component">Компонент класының атауы</string>
+    <string name="qc_manual_action">Intent әрекеті</string>
+    <string name="qc_manual_optional_action">Intent әрекеті (міндетті емес)</string>
+    <string name="qc_manual_uri">Деректер URI (міндетті емес)</string>
+    <string name="qc_manual_extras">Қосымша параметрлер (JSON, міндетті емес)</string>
+    <string name="qc_manual_hint">Қолданба құжаттамасынан ашық компонентті көшіріңіз. Класс атауының басындағы нүкте қолданба пакетін білдіреді. Қосымша мәндер мәтін, сан немесе логикалық мән болуы мүмкін.</string>
+    <string name="qc_vpn_toggle">Ауыстыру</string>
+    <string name="qc_vpn_connect">Қосу</string>
+    <string name="qc_vpn_disconnect">Ажырату</string>
+    <string name="qc_arrange_hint">Атауын өзгерту, жылжыту, жасыру немесе алып тастау үшін түймені таңдаңыз.</string>
+    <string name="qc_rename">Атауын өзгерту</string>
+    <string name="qc_remove">Алып тастау</string>
+    <string name="qc_exists">Бұл түйме бұрын қосылған.</string>
+    <string name="qc_mute">Дыбыссыз</string>
 </resources>

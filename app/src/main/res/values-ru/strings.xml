@@ -300,4 +300,57 @@
     <string name="kids_blocked">«%s» здесь недоступно</string>
     <string name="kids_warn">Осталось %d мин</string>
     <string name="kids_warn_break">Перерыв через %d мин</string>
+    <!-- Optional action for an already installed Clash Meta client. -->
+    <string name="cc_shortcuts">Быстрые действия</string>
+    <string name="cc_clash">Clash Meta</string>
+    <string name="cc_clash_toggle">Переключить</string>
+    <string name="st_clash_shortcut">Кнопка Clash Meta</string>
+    <string name="st_clash_shortcut_hint">Показывать действие в Пункте управления. Сначала настройте Clash Meta и разрешите VPN в приложении.</string>
+    <string name="cc_clash_requested">Запрос отправлен. Если ничего не произошло, проверьте профиль и разрешение VPN в Clash Meta.</string>
+    <string name="cc_clash_unavailable">Внешнее управление Clash Meta недоступно. Проверьте установку и включение официального приложения.</string>
+    <string name="cc_clash_failed">Не удалось управлять Clash Meta. Проверьте настройки приложения.</string>
+
+    <!-- Editable quick controls. -->
+    <string name="qc_title">Быстрое управление</string>
+    <string name="qc_edit_area">Настроить управление</string>
+    <string name="qc_show_area">Показать быстрые кнопки</string>
+    <string name="qc_add">Добавить кнопку</string>
+    <string name="qc_hide">Скрыть кнопку</string>
+    <string name="qc_show">Показать кнопку</string>
+    <string name="qc_up">Выше</string>
+    <string name="qc_down">Ниже</string>
+    <string name="qc_save">Сохранить</string>
+    <string name="qc_sent">Запрос отправлен приложению.</string>
+    <string name="qc_unavailable">Кнопка недоступна. Проверьте приложение и его настройки.</string>
+    <string name="qc_invalid">Проверьте название, цель и параметры.</string>
+    <string name="qc_failed">Телевизор не смог выполнить команду.</string>
+    <string name="qc_limit">Можно добавить до 12 кнопок.</string>
+    <string name="qc_conflict">Список изменился. Обновите его и повторите.</string>
+    <string name="qc_background">Откройте Aerial на телевизоре перед запуском.</string>
+    <string name="qc_restricted">В детском и пожилом режимах быстрые кнопки отключены.</string>
+    <string name="qc_hidden">Скрыто</string>
+    <string name="qc_network_settings">Настройки сети</string>
+    <string name="qc_bluetooth_settings">Настройки Bluetooth</string>
+    <string name="qc_group_system">Доступные кнопки</string>
+    <string name="qc_manual_add">Добавить вручную</string>
+    <string name="qc_manual_edit">Изменить действие</string>
+    <string name="qc_manual_type">Тип действия</string>
+    <string name="qc_manual_activity">Открыть экран (Activity)</string>
+    <string name="qc_manual_broadcast">Отправить широковещательное сообщение</string>
+    <string name="qc_manual_name">Название кнопки</string>
+    <string name="qc_manual_package">Имя пакета приложения</string>
+    <string name="qc_manual_component">Имя класса компонента</string>
+    <string name="qc_manual_action">Действие Intent</string>
+    <string name="qc_manual_optional_action">Действие Intent (необязательно)</string>
+    <string name="qc_manual_uri">URI данных (необязательно)</string>
+    <string name="qc_manual_extras">Дополнительные параметры (JSON, необязательно)</string>
+    <string name="qc_manual_hint">Скопируйте открытый компонент из документации приложения. Точка в начале имени класса обозначает пакет приложения. Дополнительные значения могут быть строками, числами или логическими значениями.</string>
+    <string name="qc_vpn_toggle">Переключить</string>
+    <string name="qc_vpn_connect">Подключить</string>
+    <string name="qc_vpn_disconnect">Отключить</string>
+    <string name="qc_arrange_hint">Выберите плитку, чтобы переименовать, переместить, скрыть или убрать.</string>
+    <string name="qc_rename">Переименовать</string>
+    <string name="qc_remove">Убрать</string>
+    <string name="qc_exists">Эта кнопка уже добавлена.</string>
+    <string name="qc_mute">Без звука</string>
 </resources>

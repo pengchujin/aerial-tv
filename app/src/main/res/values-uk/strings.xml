@@ -300,4 +300,57 @@
     <string name="kids_blocked">«%s» тут недоступний</string>
     <string name="kids_warn">Лишилося %d хв</string>
     <string name="kids_warn_break">Перерва за %d хв</string>
+    <!-- Optional action for an already installed Clash Meta client. -->
+    <string name="cc_shortcuts">Швидкі дії</string>
+    <string name="cc_clash">Clash Meta</string>
+    <string name="cc_clash_toggle">Перемкнути</string>
+    <string name="st_clash_shortcut">Кнопка Clash Meta</string>
+    <string name="st_clash_shortcut_hint">Показувати дію в Центрі керування. Спершу налаштуйте Clash Meta та дозвольте VPN у застосунку.</string>
+    <string name="cc_clash_requested">Запит надіслано. Якщо нічого не сталося, перевірте профіль і дозвіл VPN у Clash Meta.</string>
+    <string name="cc_clash_unavailable">Зовнішнє керування Clash Meta недоступне. Перевірте встановлення та ввімкнення офіційного застосунку.</string>
+    <string name="cc_clash_failed">Не вдалося керувати Clash Meta. Перевірте налаштування застосунку.</string>
+
+    <!-- Editable quick controls. -->
+    <string name="qc_title">Швидке керування</string>
+    <string name="qc_edit_area">Налаштувати керування</string>
+    <string name="qc_show_area">Показати швидкі кнопки</string>
+    <string name="qc_add">Додати кнопку</string>
+    <string name="qc_hide">Приховати кнопку</string>
+    <string name="qc_show">Показати кнопку</string>
+    <string name="qc_up">Вище</string>
+    <string name="qc_down">Нижче</string>
+    <string name="qc_save">Зберегти</string>
+    <string name="qc_sent">Запит надіслано застосунку.</string>
+    <string name="qc_unavailable">Кнопка недоступна. Перевірте застосунок і його налаштування.</string>
+    <string name="qc_invalid">Перевірте назву, ціль і параметри.</string>
+    <string name="qc_failed">Телевізор не зміг виконати команду.</string>
+    <string name="qc_limit">Можна додати до 12 кнопок.</string>
+    <string name="qc_conflict">Список змінився. Оновіть його й повторіть.</string>
+    <string name="qc_background">Відкрийте Aerial на телевізорі перед запуском.</string>
+    <string name="qc_restricted">У дитячому й літньому режимах швидкі кнопки вимкнено.</string>
+    <string name="qc_hidden">Приховано</string>
+    <string name="qc_network_settings">Налаштування мережі</string>
+    <string name="qc_bluetooth_settings">Налаштування Bluetooth</string>
+    <string name="qc_group_system">Доступні кнопки</string>
+    <string name="qc_manual_add">Додати вручну</string>
+    <string name="qc_manual_edit">Змінити дію</string>
+    <string name="qc_manual_type">Тип дії</string>
+    <string name="qc_manual_activity">Відкрити екран (Activity)</string>
+    <string name="qc_manual_broadcast">Надіслати широкомовне повідомлення</string>
+    <string name="qc_manual_name">Назва кнопки</string>
+    <string name="qc_manual_package">Назва пакета застосунку</string>
+    <string name="qc_manual_component">Назва класу компонента</string>
+    <string name="qc_manual_action">Дія Intent</string>
+    <string name="qc_manual_optional_action">Дія Intent (необов’язково)</string>
+    <string name="qc_manual_uri">URI даних (необов’язково)</string>
+    <string name="qc_manual_extras">Додаткові параметри (JSON, необов’язково)</string>
+    <string name="qc_manual_hint">Скопіюйте відкритий компонент із документації застосунку. Крапка на початку назви класу позначає пакет застосунку. Додаткові значення можуть бути рядками, числами або логічними значеннями.</string>
+    <string name="qc_vpn_toggle">Перемкнути</string>
+    <string name="qc_vpn_connect">Підключити</string>
+    <string name="qc_vpn_disconnect">Відключити</string>
+    <string name="qc_arrange_hint">Виберіть плитку, щоб перейменувати, перемістити, приховати чи прибрати.</string>
+    <string name="qc_rename">Перейменувати</string>
+    <string name="qc_remove">Прибрати</string>
+    <string name="qc_exists">Цю кнопку вже додано.</string>
+    <string name="qc_mute">Без звуку</string>
 </resources>

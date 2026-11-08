@@ -283,6 +283,38 @@
     .agrid.sorting .atile:not(.lift) { transition: none; }
     .toast { transform: translate(-50%, 0); }
   }
+  .qc-toolbar { display:flex; align-items:center; justify-content:space-between; margin:24px 16px 8px; }
+  .qc-toolbar h2 { margin:0; }
+  .qc-toolbar button { border:0; background:none; color:var(--tint); font:inherit; padding:6px; }
+  .qc-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; margin:16px 0; }
+  .qc-card { position:relative; min-width:0; border-radius:25px; background:var(--card); }
+  .qc-control { width:100%; min-width:0; min-height:120px; padding:18px 7px 12px; border:0; border-radius:25px;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px;
+    color:var(--label); background:var(--card); font:inherit; cursor:pointer; }
+  .qc-control:focus-visible,.qc-grip:focus-visible,.qc-remove:focus-visible { outline:3px solid var(--tint); outline-offset:3px; }
+  .qc-control:disabled { opacity:.45; cursor:default; }
+  .qc-icon { display:flex; align-items:center; justify-content:center; width:48px; height:48px; border-radius:50%; background:var(--bg); }
+  .qc-icon svg { width:29px; height:29px; }
+  .qc-manual-form .field { align-items: stretch; flex-direction: column; }
+  .qc-manual-form .field :is(select,textarea) {
+    min-width: 0; font: inherit; color: var(--label); background: var(--fill); border: 0; border-radius: 6px;
+  }
+  .qc-manual-form .field textarea { resize: vertical; }
+  .qc-label { font-size:13px; font-weight:550; line-height:1.3; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow-wrap:anywhere; }
+  .qc-active .qc-control { background:#e8f4ff; color:#086cbe; }
+  .qc-active .qc-icon { background:#fff; }
+  .qc-add { color:var(--tint); border:1px dashed var(--tertiary); background:transparent; }
+  .qc-remove { position:absolute; top:-6px; left:-5px; width:27px; height:27px; border-radius:50%; border:1px solid var(--tertiary); background:var(--card); color:var(--label); font:23px/20px system-ui; }
+  .qc-grip { width:100%; height:30px; border:0; background:transparent; color:var(--secondary); font-size:22px; cursor:grab; touch-action:none; }
+  .qc-editing .qc-control { min-height:110px; padding-bottom:3px; }
+  .qc-hidden { opacity:.5; }
+  .qc-lift { transform:scale(1.04); box-shadow:0 8px 22px #0003; z-index:2; }
+  .qc-drop { outline:3px solid var(--tint); outline-offset:2px; }
+  .qc-catalog .qc-control { position:relative; }
+  .qc-chosen { opacity:.7 !important; }
+  .qc-check { position:absolute; right:10px; top:6px; color:var(--tint); font-weight:700; }
+  .qc-action-label { color:var(--secondary); font-size:12px; }
+
 </style>
 </head>
 <body>
@@ -348,6 +380,20 @@
 
 <!-- More -->
 <section data-tab="more" hidden>
+  <div id="quickBox" hidden>
+    <div class="qc-toolbar"><h2 data-i18n="qc_title"></h2><button id="quickEdit" data-i18n="qc_edit" aria-pressed="false"></button></div>
+    <div class="list">
+      <label class="item"><span class="txt" data-i18n="qc_show_area"></span><input class="switch" type="checkbox" id="quickShow"></label>
+    </div>
+    <form class="list" id="quickPinForm" hidden>
+      <div class="item field">
+        <input id="quickPin" type="password" maxlength="4" autocomplete="off" data-i18n-placeholder="qc_pin" data-i18n-aria-label="qc_pin">
+        <button class="link" data-i18n="kids_unlock"></button>
+      </div>
+    </form>
+    <p class="foot" data-i18n="qc_phone_hint"></p>
+    <div class="qc-grid" id="quickRows"></div>
+  </div>
   <h2 data-i18n="focus"></h2>
   <div class="list" id="focus" role="radiogroup" data-i18n-aria-label="focus">
     <button class="item" role="radio" data-style="high_contrast"><span class="txt"><span data-i18n="focus_high"></span><span class="sub" data-i18n="focus_hint_high"></span></span><svg class="tick" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></button>
@@ -1390,6 +1436,55 @@ const TEXTS = {
   "Кімге"
  ]
 };
+// Keep the quick-control copy in the same language tables as the rest of the page.
+for (const [key, en, zh, ru, uk, kk] of [
+  ["qc_title","Quick controls","快速控制","Быстрое управление","Швидке керування","Жылдам басқару"],
+  ["qc_show_area","Show quick controls","显示快速控制","Показать быстрые кнопки","Показати швидкі кнопки","Жылдам түймелерді көрсету"],
+  ["qc_add","Add control","添加控制","Добавить кнопку","Додати кнопку","Түйме қосу"],
+  ["qc_edit","Edit control","编辑控制","Изменить кнопку","Змінити кнопку","Түймені өңдеу"],
+  ["qc_hide","Hide control","隐藏控制","Скрыть кнопку","Приховати кнопку","Түймені жасыру"],
+  ["qc_show","Show control","显示控制","Показать кнопку","Показати кнопку","Түймені көрсету"],
+  ["qc_up","Move up","上移","Выше","Вище","Жоғары"],
+  ["qc_down","Move down","下移","Ниже","Нижче","Төмен"],
+  ["qc_name","Name","名称","Название","Назва","Атауы"],
+  ["qc_sent","Request sent to the app.","请求已发送给应用。","Запрос отправлен приложению.","Запит надіслано застосунку.","Сұрау қолданбаға жіберілді."],
+  ["qc_unavailable","This control is unavailable. Check the app and its settings.","此控制不可用，请检查目标应用及其设置。","Кнопка недоступна. Проверьте приложение и его настройки.","Кнопка недоступна. Перевірте застосунок і його налаштування.","Бұл түйме қолжетімсіз. Қолданба мен баптауларын тексеріңіз."],
+  ["qc_invalid","Check the name, target and parameters.","请检查名称、目标和参数。","Проверьте название, цель и параметры.","Перевірте назву, ціль і параметри.","Атауын, нысанын және параметрлерін тексеріңіз."],
+  ["qc_failed","The TV could not run this control.","电视无法执行此控制。","Телевизор не смог выполнить команду.","Телевізор не зміг виконати команду.","Теледидар бұл пәрменді орындай алмады."],
+  ["qc_limit","You can add up to 12 controls.","最多可添加 12 个控制。","Можно добавить до 12 кнопок.","Можна додати до 12 кнопок.","12 түймеге дейін қосуға болады."],
+  ["qc_conflict","Controls changed. Refresh and try again.","控制列表已更新，请刷新后重试。","Список изменился. Обновите его и повторите.","Список змінився. Оновіть його й повторіть.","Тізім өзгерді. Жаңартып, қайта көріңіз."],
+  ["qc_background","Open Aerial on the TV before running this control.","请先在电视上打开 Aerial，再执行此控制。","Откройте Aerial на телевизоре перед запуском.","Відкрийте Aerial на телевізорі перед запуском.","Іске қоспас бұрын теледидарда Aerial ашыңыз."],
+  ["qc_restricted","Quick controls are disabled in Kids and Elders mode.","儿童与长辈模式下不能执行快捷控制。","В детском и пожилом режимах быстрые кнопки отключены.","У дитячому й літньому режимах швидкі кнопки вимкнено.","Балалар мен қарттар режимінде жылдам түймелер өшірулі."],
+  ["qc_locked","Enter the parental PIN first.","请先输入家长密码。","Сначала введите родительский PIN.","Спочатку введіть батьківський PIN.","Алдымен ата-ана PIN кодын енгізіңіз."],
+  ["qc_phone_hint","Tap a tile to control the TV. Tap Edit to drag and arrange. Changes sync to the TV.","点图标控制电视；点“编辑”可拖动排序。改动同步到电视。","Нажмите плитку для управления. В режиме правки перетаскивайте плитки. Изменения синхронизируются с ТВ.","Натисніть плитку для керування. У режимі редагування перетягуйте плитки. Зміни синхронізуються з ТВ.","Теледидарды басқару үшін түймені басыңыз. Өңдеу режимінде сүйреп реттеңіз. Өзгерістер ТВ-мен синхрондалады."],
+  ["qc_pin","Parental PIN","家长密码","Родительский PIN","Батьківський PIN","Ата-ана PIN коды"],
+  ["qc_group_system","Available controls","可用控制","Доступные кнопки","Доступні кнопки","Қолжетімді түймелер"],
+  ["qc_manual_add","Add manually","手动添加操作","Добавить вручную","Додати вручну","Қолмен қосу"],
+  ["qc_manual_edit","Edit action","编辑操作","Изменить действие","Змінити дію","Әрекетті өңдеу"],
+  ["qc_manual_type","Action type","操作类型","Тип действия","Тип дії","Әрекет түрі"],
+  ["qc_manual_activity","Open screen (Activity)","打开界面（Activity）","Открыть экран (Activity)","Відкрити екран (Activity)","Экранды ашу (Activity)"],
+  ["qc_manual_broadcast","Send broadcast","发送广播","Отправить широковещательное сообщение","Надіслати широкомовне повідомлення","Таратылым жіберу"],
+  ["qc_manual_name","Control name","按钮名称","Название кнопки","Назва кнопки","Түйме атауы"],
+  ["qc_manual_package","App package name","应用包名","Имя пакета приложения","Назва пакета застосунку","Қолданба пакетінің атауы"],
+  ["qc_manual_component","Component class name","组件类名","Имя класса компонента","Назва класу компонента","Компонент класының атауы"],
+  ["qc_manual_action","Intent action","Intent 动作","Действие Intent","Дія Intent","Intent әрекеті"],
+  ["qc_manual_optional_action","Intent action (optional)","Intent 动作（选填）","Действие Intent (необязательно)","Дія Intent (необов’язково)","Intent әрекеті (міндетті емес)"],
+  ["qc_manual_uri","Data URI (optional)","数据 URI（选填）","URI данных (необязательно)","URI даних (необов’язково)","Деректер URI (міндетті емес)"],
+  ["qc_manual_extras","Extra parameters (JSON, optional)","附加参数（JSON，选填）","Дополнительные параметры (JSON, необязательно)","Додаткові параметри (JSON, необов’язково)","Қосымша параметрлер (JSON, міндетті емес)"],
+  ["qc_manual_hint","Copy a public entry point from the app documentation. A leading dot in the class name means the app package. Extra values may be strings, numbers, or booleans.","从应用文档复制公开入口。类名以 . 开头时会自动补全包名。附加参数的值可以是字符串、数字或布尔值。","Скопируйте открытый компонент из документации приложения. Точка в начале имени класса обозначает пакет приложения. Дополнительные значения могут быть строками, числами или логическими значениями.","Скопіюйте відкритий компонент із документації застосунку. Крапка на початку назви класу позначає пакет застосунку. Додаткові значення можуть бути рядками, числами або логічними значеннями.","Қолданба құжаттамасынан ашық компонентті көшіріңіз. Класс атауының басындағы нүкте қолданба пакетін білдіреді. Қосымша мәндер мәтін, сан немесе логикалық мән болуы мүмкін."],
+  ["qc_vpn_toggle","Toggle","切换","Переключить","Перемкнути","Ауыстыру"],
+  ["qc_vpn_connect","Connect","连接","Подключить","Підключити","Қосу"],
+  ["qc_vpn_disconnect","Disconnect","断开","Отключить","Відключити","Ажырату"],
+  ["qc_rename","Rename","改名","Переименовать","Перейменувати","Атауын өзгерту"],
+  ["qc_remove","Remove","移除","Убрать","Прибрати","Алып тастау"],
+  ["qc_done","Done","完成","Готово","Готово","Дайын"],
+  ["qc_reorder","Drag to reorder","拖动排序","Перетащить","Перетягнути","Ретін өзгерту үшін сүйреңіз"],
+  ["qc_added","Added","已添加","Добавлено","Додано","Қосылды"],
+  ["qc_exists","This control is already added.","已添加此控制。","Эта кнопка уже добавлена.","Цю кнопку вже додано.","Бұл түйме бұрын қосылған."],
+]) {
+  KEYS.push(key);
+  for (const [lang, value] of Object.entries({ en, zh, ru, uk, kk })) TEXTS[lang].push(value);
+}
 const LANGS = Object.keys(TEXTS);
 const LANG = (() => {
   const asked = new URLSearchParams(location.search).get('lang');
@@ -1453,8 +1548,8 @@ function toast(msg, first) {
 let kidsPin = '';
 let kidsNoticeUntil = 0;
 function pinHeaders(more) { return Object.assign({}, more || {}, kidsPin ? { 'X-Aerial-Pin': kidsPin } : {}); }
-async function api(path, body) {
-  const opts = body ? { method: 'POST', body: new URLSearchParams(body), headers: pinHeaders() } : {};
+async function api(path, body, headers) {
+  const opts = body ? { method: 'POST', body: new URLSearchParams(body), headers: pinHeaders(headers) } : {};
   const r = await fetch(base + path, opts);
   if (!r.ok) throw new Error(r.status);
   const next = await r.json();
@@ -2398,6 +2493,237 @@ function kidsSettings() {
 $('#kidsPinForm').onsubmit = e => { e.preventDefault(); const v = $('#kidsPin').value.trim(); if (v.length === 4) kidsUnlock(v); };
 $('#kidsPin').oninput = e => { const v = e.target.value.trim(); if (v.length === 4) kidsUnlock(v); };
 
+/* Quick controls use the TV's capability catalog and revision-checked shared layout. */
+let quickBusy = false, quickRendered = '', quickEditing = false, quickDrag = null;
+const quickApi = body => api('api/quick-controls', body, { 'X-Aerial-Quick-Controls': '1' });
+function quickError(next) {
+  const key = next.quickError === 'missing' ? 'conflict' : next.quickError;
+  toast(t(['locked','conflict','limit','invalid','unavailable','background','restricted','failed','exists'].includes(key) ? 'qc_' + key : 'toast_set_fail'));
+}
+async function quickRequest(op, fields = {}, revision = state?.quickControls?.revision) {
+  if (quickBusy) return false;
+  quickBusy = true;
+  try {
+    const next = await quickApi({ op, revision: String(revision ?? ''), ...fields });
+    take(next);
+    if (!next.saved) {
+      quickError(next);
+      return false;
+    }
+    toast(t(op === 'run' ? 'qc_sent' : op === 'unlock' ? 'kids_unlock' : 'toast_tv_updated'));
+    return true;
+  } catch (_) { toast(t('toast_set_fail')); return false; }
+  finally { quickBusy = false; renderQuickControls(); }
+}
+
+function quickSymbol(entry) {
+  const paths = {
+    vpn: '<path d="M12 3l8 3v6c0 5-8 9-8 9s-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/>',
+    network: '<path d="M3 8a15 15 0 0 1 18 0M6 12a10 10 0 0 1 12 0M9 16a5 5 0 0 1 6 0"/><circle cx="12" cy="20" r=".8"/>',
+    bluetooth: '<path d="M7 7l10 10-5 4V3l5 4L7 17"/>',
+    mute: '<path d="M11 4L6 8H3v8h3l5 4zM16 9l5 6m0-6l-5 6"/>',
+    inputs: '<rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 22h8M12 18v4M2 11h10m-3-3l3 3-3 3"/>',
+    settings: '<path d="M9 3h6l1 3 3 1 2 5-2 5-3 1-1 3H9l-1-3-3-1-2-5 2-5 3-1z"/><circle cx="12" cy="12" r="3"/>',
+    add: '<path d="M12 5v14M5 12h14"/>',
+    control: '<path d="M4 6h16M4 12h16M4 18h16"/><circle cx="8" cy="6" r="2"/><circle cx="16" cy="12" r="2"/><circle cx="10" cy="18" r="2"/>'
+  };
+  const svg = document.createElementNS('http://www.w3.org/2000/svg','svg');
+  for (const [key,value] of Object.entries({ viewBox:'0 0 24 24', fill:'none', stroke:'currentColor', 'stroke-width':'1.8', 'stroke-linecap':'round', 'stroke-linejoin':'round', 'aria-hidden':'true' })) svg.setAttribute(key,value);
+  svg.innerHTML = paths[entry.icon] || paths.control;
+  return svg;
+}
+
+function quickButton(title, entry, click) {
+  const button = el('button','qc-control'); button.type = 'button';
+  const icon = el('span','qc-icon'); icon.append(quickSymbol(entry));
+  button.append(icon, el('span','qc-label',title));
+  if (entry.vpnCommand) button.append(el('span','qc-action-label',t('qc_vpn_' + entry.vpnCommand)));
+  button.onclick = click;
+  return button;
+}
+
+function renderQuickControls() {
+  const q = state?.quickControls;
+  $('#quickBox').hidden = !q;
+  if (!q || quickDrag) return;
+  $('#quickShow').checked = q.enabled;
+  $('#quickPinForm').hidden = !state.kids?.pinSet;
+  $('#quickPin').inputMode = state.kids?.pinArrows ? 'text' : 'numeric';
+  $('#quickEdit').textContent = t(quickEditing ? 'qc_done' : 'qc_edit');
+  $('#quickEdit').setAttribute('aria-pressed',String(quickEditing));
+  const stamp = JSON.stringify([q, state.kids?.active, state.kids?.pinSet, !!kidsPin, quickEditing]);
+  if (stamp === quickRendered) return;
+  quickRendered = stamp;
+  const list = $('#quickRows'); list.replaceChildren();
+  list.classList.toggle('qc-editing',quickEditing);
+  (quickEditing ? q.items : q.items.filter(c => c.enabled)).forEach(control => {
+    const index = q.items.findIndex(c => c.id === control.id);
+    const card = el('div','qc-card'); card.dataset.quickId = control.id;
+    const mute = control.key === 'system:mute';
+    card.classList.toggle('qc-hidden',!control.enabled);
+    card.classList.toggle('qc-active',mute && q.muted);
+    const button = quickButton(control.title, control, () => quickEditing ? quickEditor(control,index) : quickRequest('run',{id:control.id},q.revision));
+    button.disabled = !quickEditing && (!q.enabled || state.kids?.active);
+    if (mute && !quickEditing) button.setAttribute('aria-pressed',String(q.muted));
+    card.append(button);
+    if (quickEditing) {
+      const remove = el('button','qc-remove','−'); remove.type = 'button'; remove.setAttribute('aria-label',t('qc_remove') + ': ' + control.title);
+      remove.onclick = () => quickRequest('delete',{id:control.id},q.revision);
+      const grip = el('button','qc-grip','⠿'); grip.type = 'button'; grip.setAttribute('aria-label',t('qc_reorder') + ': ' + control.title);
+      grip.onpointerdown = e => {
+        if (quickBusy || (e.pointerType === 'mouse' && e.button !== 0)) return;
+        e.preventDefault(); grip.setPointerCapture(e.pointerId);
+        quickDrag = { id:control.id, revision:q.revision, index, target:index };
+        card.classList.add('qc-lift');
+      };
+      grip.onpointermove = e => {
+        if (!quickDrag || quickDrag.id !== control.id) return;
+        const target = document.elementFromPoint(e.clientX,e.clientY)?.closest('[data-quick-id]');
+        if (!target || target.parentElement !== list) return;
+        quickDrag.target = q.items.findIndex(c => c.id === target.dataset.quickId);
+        list.querySelectorAll('.qc-drop').forEach(c => c.classList.remove('qc-drop')); target.classList.add('qc-drop');
+      };
+      const end = async e => {
+        const drag = quickDrag; if (!drag || drag.id !== control.id) return;
+        quickDrag = null; card.classList.remove('qc-lift');
+        list.querySelectorAll('.qc-drop').forEach(c => c.classList.remove('qc-drop'));
+        if (e.type === 'pointerup' && drag.target !== drag.index) await quickRequest('place',{id:drag.id,position:String(drag.target)},drag.revision);
+        quickRendered = ''; renderQuickControls();
+      };
+      grip.onpointerup = end; grip.onpointercancel = end; grip.onlostpointercapture = end;
+      card.append(remove,grip);
+    }
+    list.append(card);
+  });
+  const add = quickButton(t('qc_add'),{icon:'add'},quickCatalog);
+  add.classList.add('qc-add'); add.disabled = q.items.length >= q.limit;
+  list.append(add);
+}
+
+async function quickCatalog() {
+  if (quickBusy) return;
+  quickBusy = true;
+  let catalog;
+  try { catalog = await quickApi({op:'catalog'}); }
+  catch (_) { toast(t('toast_set_fail')); return; }
+  finally { quickBusy = false; }
+  if (!catalog.saved) { quickError(catalog); return; }
+  const q = state.quickControls, chosen = new Set(q.items.map(c => c.key));
+  openSheet(body => {
+    body.append(el('h2','big',t('qc_add')));
+    body.append(el('h4','',t('qc_group_system')));
+    const grid = el('div','qc-grid qc-catalog');
+    catalog.entries.forEach(entry => {
+      const button = quickButton(entry.title,entry,async () => {
+        if (await quickRequest('add',{key:entry.key},q.revision)) closeSheet();
+      });
+      if (chosen.has(entry.key)) {
+        button.disabled = true; button.classList.add('qc-chosen');
+        button.append(el('span','qc-check','✓'));
+        const command = entry.vpnCommand ? ' · ' + t('qc_vpn_' + entry.vpnCommand) : '';
+        button.setAttribute('aria-label',entry.title + command + ' · ' + t('qc_added'));
+      }
+      grid.append(button);
+    });
+    body.append(grid);
+    const choices = el('div','list');
+    action(choices,t('qc_manual_add'),'',() => quickManual(null,q.revision));
+    body.append(choices);
+  });
+}
+
+async function quickManual(control,revision) {
+  if (quickBusy) return;
+  let details = {};
+  if (control) {
+    quickBusy = true;
+    try {
+      const result = await quickApi({op:'details',id:control.id,revision});
+      if (!result.saved) { quickError(result); return; }
+      details = result.manual;
+    } catch (_) { toast(t('toast_set_fail')); return; }
+    finally { quickBusy = false; }
+  }
+  openSheet(body => {
+    body.append(el('h2','big',t(control ? 'qc_manual_edit' : 'qc_manual_add')));
+    body.append(el('p','foot',t('qc_manual_hint')));
+    const form = el('form','list qc-manual-form');
+    function field(label, input, name, value, maxLength, required = false) {
+      const row = el('label','item field');
+      const caption = el('span','sub',t(label));
+      input.name = name;
+      input.value = value;
+      input.required = required;
+      if (maxLength) input.maxLength = maxLength;
+      input.autocomplete = 'off';
+      input.autocapitalize = 'off';
+      input.spellcheck = false;
+      row.append(caption,input);
+      form.append(row);
+      return caption;
+    }
+    const type = el('select');
+    for (const name of ['activity','broadcast']) {
+      const option = el('option','',t('qc_manual_' + name));
+      option.value = name; type.append(option);
+    }
+    field('qc_manual_type',type,'type',details.type || 'activity');
+    field('qc_manual_name',el('input'),'title',control?.title || '',64,true);
+    field('qc_manual_package',el('input'),'pkg',details.pkg || '',200,true);
+    field('qc_manual_component',el('input'),'component',details.component || '',250,true);
+    const intentAction = el('input');
+    const actionLabel = field('qc_manual_optional_action',intentAction,'action',details.action || '',250);
+    type.onchange = () => {
+      intentAction.required = type.value === 'broadcast';
+      actionLabel.textContent = t(intentAction.required ? 'qc_manual_action' : 'qc_manual_optional_action');
+    };
+    type.onchange();
+    field('qc_manual_uri',el('input'),'uri',details.uri || '',2048);
+    const extras = el('textarea'); extras.rows = 2;
+    field('qc_manual_extras',extras,'extras',details.extras === '{}' ? '' : (details.extras || ''),8192);
+    const save = el('button','item center tint',t('save')); save.type = 'submit';
+    form.append(save); body.append(form);
+    form.onsubmit = async e => {
+      e.preventDefault();
+      const args = Object.fromEntries(new FormData(form));
+      if (control) args.id = control.id;
+      if (await quickRequest(control ? 'manual-update' : 'manual-add',args,revision)) closeSheet();
+    };
+  });
+}
+
+function quickEditor(control,index) {
+  const q = state.quickControls;
+  openSheet(body => {
+    body.append(el('h2','big',control.title));
+    const nameList = el('div','list');
+    const form = el('form','item field');
+    const input = el('input'); input.type = 'text'; input.value = control.title;
+    input.required = true; input.maxLength = 64; input.autocomplete = 'off';
+    input.setAttribute('enterkeyhint','done'); input.setAttribute('aria-label',t('qc_name'));
+    const save = el('button','link',t('save')); save.type = 'submit';
+    form.append(input,save); nameList.append(form); body.append(nameList);
+    form.onsubmit = async e => {
+      e.preventDefault();
+      if (await quickRequest('update',{id:control.id,title:input.value.trim()},q.revision)) closeSheet();
+    };
+    const choices = el('div','list');
+    const command = (op,args) => async () => { if (await quickRequest(op,{id:control.id,...args},q.revision)) closeSheet(); };
+    if (control.manual) action(choices,t('qc_manual_edit'),'',() => quickManual(control,q.revision));
+    action(choices,t(control.enabled ? 'qc_hide' : 'qc_show'),'',command('toggle',{on:control.enabled ? '0' : '1'}));
+    if (index > 0) action(choices,t('qc_up'),'',command('place',{position:String(index - 1)}));
+    if (index < q.items.length - 1) action(choices,t('qc_down'),'',command('place',{position:String(index + 1)}));
+    action(choices,t('qc_remove'),'danger',command('delete',{})); body.append(choices);
+  });
+}
+
+$('#quickShow').onchange = () => quickRequest('enabled',{on:$('#quickShow').checked ? '1' : '0'});
+$('#quickEdit').onclick = () => { quickEditing = !quickEditing; renderQuickControls(); };
+$('#quickPinForm').onsubmit = async e => {
+  e.preventDefault(); kidsPin = $('#quickPin').value.trim().toUpperCase(); $('#quickPin').value = '';
+  if (!await quickRequest('unlock')) { kidsPin = ''; renderQuickControls(); }
+};
+
 function render() {
   if (!state) return;
   // The page polls; skip the rebuild when nothing changed, so pictures do not flicker and taps are not lost.
@@ -2408,6 +2734,7 @@ function render() {
   renderWallpapers();
   renderScreensaver();
   renderMore();
+  renderQuickControls();
   renderInputs();
   renderArrange(false);
 }

@@ -97,6 +97,8 @@ import app.orchard.tv.settings.RestrictedKind
 import app.orchard.tv.ui.home.kidsTimeLine
 import app.orchard.tv.system.HisenseLaserPanel
 import app.orchard.tv.system.HomeStatus
+import app.orchard.tv.settings.QuickControls
+import app.orchard.tv.system.QuickActionRunner
 import app.orchard.tv.system.LaunchFallback
 import app.orchard.tv.system.NetKind
 import app.orchard.tv.system.SourceKind
@@ -143,7 +145,7 @@ fun ControlCenter(
             CcPage.Main -> onClose()
             CcPage.Inputs -> vm.overlay = Overlay.ControlCenter(CcPage.Main)
             CcPage.InputSettings -> vm.overlay = Overlay.ControlCenter(CcPage.Inputs)
-            CcPage.Update, CcPage.Setup -> vm.overlay = Overlay.ControlCenter(CcPage.Main)
+            CcPage.QuickControls, CcPage.Update, CcPage.Setup -> vm.overlay = Overlay.ControlCenter(CcPage.Main)
         }
     }
 
@@ -210,6 +212,7 @@ fun ControlCenter(
                             }
                             CcPage.Inputs -> InputsPage(vm, visible, onOpen)
                             CcPage.InputSettings -> InputSettingsPage(vm, visible)
+                            CcPage.QuickControls -> if (Restricted.active) KidsPage(vm, now, visible) else QuickControlsPage(vm, visible)
                             CcPage.Update -> UpdatePage(vm, visible)
                             CcPage.Setup -> SetupPage(vm, visible, onOpen)
                         }
@@ -291,7 +294,7 @@ private fun MainPage(
         runCatching { first.requestFocus() }
     }
 
-    Column {
+    Column(Modifier.heightIn(max = 460.dp).verticalScroll(rememberScrollState())) {
         Row(verticalAlignment = Alignment.Bottom) {
             Column(Modifier.weight(1f)) {
                 BasicText(timeText(now), style = Type.SmallClock.copy(fontSize = Type.LargeTitle.fontSize * 1.05f))
@@ -322,11 +325,7 @@ private fun MainPage(
                 Glyph.Input, stringResource(R.string.cc_inputs),
                 focusRequester = first,
                 modifier = Modifier.onFocusChanged { if (it.isFocused) cameFrom = first },
-            ) {
-                // TCL lists no inputs to Android; its own input panel is the next best thing.
-                vm.overlay = if (vm.sources.isEmpty() && SystemProbe.openInputPicker(context)) Overlay.None
-                else Overlay.ControlCenter(CcPage.Inputs)
-            }
+            ) { vm.showInputs() }
             RoundButton(
                 when (vm.network.kind) { NetKind.Ethernet -> Glyph.Ethernet; NetKind.Offline -> Glyph.Offline; else -> Glyph.Wifi },
                 stringResource(R.string.cc_network),
@@ -355,6 +354,25 @@ private fun MainPage(
         VolumeRow(vm, cameFrom)
         Spacer(Modifier.height(6.dp))
         BrightnessRow(vm, laser)
+
+        val quick = QuickControls.store
+        if (quick.enabled && quick.items.any { it.enabled }) {
+            Spacer(Modifier.height(8.dp))
+            BasicText(
+                stringResource(R.string.qc_title), style = Type.Caption,
+                modifier = Modifier.padding(start = 14.dp, bottom = 2.dp),
+            )
+            QuickTileGrid(quick.items.filter { it.enabled }.map { it.tile() }, muted = vm.volume.muted) { tile ->
+                vm.whenUnlocked {
+                    val result = QuickActionRunner.run(context, tile.id)
+                    vm.notify(context.getString(result.message), Glyph.Switches)
+                    vm.refreshVolume()
+                }
+            }
+        }
+        MenuRow(Glyph.Pencil, stringResource(R.string.qc_edit_area), trailing = "›", onClick = {
+            vm.whenUnlocked { vm.overlay = Overlay.ControlCenter(CcPage.QuickControls) }
+        })
 
         Spacer(Modifier.height(6.dp))
         // A parent left Kids and Elders mode: one press back into it, no PIN.

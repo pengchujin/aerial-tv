@@ -307,4 +307,57 @@
     <string name="kids_blocked">「%s」不在这个模式里</string>
     <string name="kids_warn">还能看 %d 分钟</string>
     <string name="kids_warn_break">%d 分钟后休息一下</string>
+    <!-- Optional action for an already installed Clash Meta client. -->
+    <string name="cc_shortcuts">快捷操作</string>
+    <string name="cc_clash">Clash Meta</string>
+    <string name="cc_clash_toggle">切换</string>
+    <string name="st_clash_shortcut">Clash Meta 快捷按钮</string>
+    <string name="st_clash_shortcut_hint">在控制中心显示快捷操作。请先在 Clash Meta 中选好配置并允许 VPN 连接。</string>
+    <string name="cc_clash_requested">已请求切换。如无效，请打开 Clash Meta 检查配置和 VPN 授权。</string>
+    <string name="cc_clash_unavailable">无法使用 Clash Meta 外部控制。请确认已安装并启用官方客户端。</string>
+    <string name="cc_clash_failed">无法控制 Clash Meta，请打开客户端检查设置。</string>
+
+    <!-- Editable quick controls. -->
+    <string name="qc_title">快速控制</string>
+    <string name="qc_edit_area">编辑快速控制</string>
+    <string name="qc_show_area">显示快速控制</string>
+    <string name="qc_add">添加控制</string>
+    <string name="qc_hide">隐藏控制</string>
+    <string name="qc_show">显示控制</string>
+    <string name="qc_up">上移</string>
+    <string name="qc_down">下移</string>
+    <string name="qc_save">保存</string>
+    <string name="qc_sent">请求已发送给应用。</string>
+    <string name="qc_unavailable">此控制不可用，请检查目标应用及其设置。</string>
+    <string name="qc_invalid">请检查名称、目标和参数。</string>
+    <string name="qc_failed">电视无法执行此控制。</string>
+    <string name="qc_limit">最多可添加 12 个控制。</string>
+    <string name="qc_conflict">控制列表已更新，请刷新后重试。</string>
+    <string name="qc_background">请先在电视上打开 Aerial，再执行此控制。</string>
+    <string name="qc_restricted">儿童与长辈模式下不能执行快捷控制。</string>
+    <string name="qc_hidden">已隐藏</string>
+    <string name="qc_network_settings">网络设置</string>
+    <string name="qc_bluetooth_settings">蓝牙设置</string>
+    <string name="qc_group_system">可用控制</string>
+    <string name="qc_manual_add">手动添加操作</string>
+    <string name="qc_manual_edit">编辑操作</string>
+    <string name="qc_manual_type">操作类型</string>
+    <string name="qc_manual_activity">打开界面（Activity）</string>
+    <string name="qc_manual_broadcast">发送广播</string>
+    <string name="qc_manual_name">按钮名称</string>
+    <string name="qc_manual_package">应用包名</string>
+    <string name="qc_manual_component">组件类名</string>
+    <string name="qc_manual_action">Intent 动作</string>
+    <string name="qc_manual_optional_action">Intent 动作（选填）</string>
+    <string name="qc_manual_uri">数据 URI（选填）</string>
+    <string name="qc_manual_extras">附加参数（JSON，选填）</string>
+    <string name="qc_manual_hint">从应用文档复制公开入口。类名以 . 开头时会自动补全包名。附加参数的值可以是字符串、数字或布尔值。</string>
+    <string name="qc_vpn_toggle">切换</string>
+    <string name="qc_vpn_connect">连接</string>
+    <string name="qc_vpn_disconnect">断开</string>
+    <string name="qc_arrange_hint">选择图标可改名、移动、隐藏或移除。</string>
+    <string name="qc_rename">改名</string>
+    <string name="qc_remove">移除</string>
+    <string name="qc_exists">已添加此控制。</string>
+    <string name="qc_mute">静音</string>
 </resources>
