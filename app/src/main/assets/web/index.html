@@ -357,6 +357,17 @@
     <div class="item"><span class="txt" id="cloudStatus"></span></div>
   </div>
   <p class="foot" data-i18n="cloud_hint"></p>
+
+  <h2 data-i18n="album_h"></h2>
+  <div class="list">
+    <form class="item field" id="albumForm" style="display:block">
+      <input id="albumUrl" type="url" data-i18n-placeholder="album_url_ph" enterkeyhint="done" autocomplete="off" autocapitalize="off" spellcheck="false" style="width:100%;margin-bottom:8px">
+      <button class="link" id="albumSave" data-i18n="cloud_save"></button>
+      <button class="link" id="albumClear" type="button" data-i18n="cloud_clear" hidden></button>
+    </form>
+    <div class="item"><span class="txt" id="albumStatus"></span></div>
+  </div>
+  <p class="foot" data-i18n="album_hint"></p>
 </section>
 
 <!-- More -->
@@ -420,7 +431,7 @@ let state = null, stateJson = '';
 
 // The language: ?lang=ru in the address, else the one picked under More (kept on the phone), else the
 // first of the phone's preferred languages that has a table, else English. Keys are in KEYS, one array of texts per language.
-const KEYS = ["screensaver", "screensaver_short", "ss_aerial", "ss_photos", "ss_clock", "focus", "focus_high", "focus_standard", "weather", "city_ph", "set", "upload_label", "feedback_h", "feedback_hint", "diag_show", "diag_copy", "diag_github", "hint_aerial", "hint_photos", "hint_clock", "g_live", "g_live_sub", "g_daily", "g_daily_sub", "g_photo", "g_builtin", "g_auto", "toast_wallpaper", "aria_delete", "confirm_delete", "wx_clear", "wx_partlycloudy", "wx_cloudy", "wx_fog", "wx_rain", "wx_snow", "wx_thunder", "wx_chosen", "wx_auto_btn", "toast_auto", "wx_guessed", "wx_none", "tag_source", "aria_rename", "toast_renamed", "toast_name_reset", "toast_rename_fail", "aria_reset_icon", "toast_icon_reset", "focus_hint_standard", "focus_hint_high", "daily_title", "daily_caption", "rotate_title", "rotate_caption", "empty_photos", "add_second", "toast_tv_updated", "sending_n", "toast_added", "toast_no_photos", "toast_send_fail", "toast_city_set", "toast_city_nf", "toast_set_fail", "toast_sending_icon", "toast_icon_set", "toast_icon_bad", "diag_collecting", "toast_diag_fail", "toast_copied", "toast_copy_manual", "language", "hint_follows", "ss_videos", "hint_videos", "videos_h", "videos_upload", "videos_hint", "videos_empty", "confirm_video_delete", "toast_videos_added", "toast_video_bad", "sending_video", "hint_system", "tab_home", "tab_more", "current_wp", "cancel", "save", "name_ph", "rename_hint", "change_icon", "this_tv", "folder_count", "folder_ph", "inputs_h", "inputs_hint", "rename_hint_app", "was_named", "arrange_hint", "arrange_unready", "hidden_h", "hidden_none", "hidden_locked", "show_app", "hide_app", "to_folder", "new_folder", "out_of_folder", "ungroup", "ungroup_confirm", "folder_hint", "toast_hidden", "toast_shown", "toast_in_folder", "toast_out_folder", "toast_ungrouped", "tab_looks", "looks_title", "show_on_home", "source_device", "source_plain", "source_device_hint", "tv_model", "sw_always", "sw_always_sub", "sw_weather", "sw_saver_time", "sw_saver_time_sub", "g_source_sub", "icon_h", "icon_library", "icon_own", "icon_custom", "toast_icon_picked", "drop_hint", "drop_sub", "drop_none", "toast_diag_paste", "kids_h", "elders_h", "kids_used", "kids_left", "kids_nolimit", "kids_allowed", "kids_lock_day", "kids_lock_late", "kids_lock_break", "kids_pin_ph", "kids_unlock", "kids_wrong", "kids_need_pin", "kids_locked_foot", "kids_add", "kids_day", "kids_leave_k", "kids_leave_e", "kids_paused", "kids_resume", "kids_min", "kids_hm", "kids_erase", "kids_hr", "kids_both", "kids_off_line", "kids_settings", "kids_no_pin", "kids_pin_foot", "ks_meta", "ks_on", "ks_on_sub", "ks_block", "ks_block_sub", "ks_block_noguard", "ks_time_h", "ks_weekday", "ks_weekend", "ks_minutes", "ks_nolimit", "ks_window", "ks_from", "ks_to", "ks_break", "ks_break_every", "ks_break_len", "ks_time_foot", "ks_apps", "ks_apps_sub", "ks_input", "ks_save", "ks_saved", "ks_invalid", "ks_for", "cloud_h", "cloud_url_ph", "cloud_user_ph", "cloud_pass_ph", "cloud_pass_saved", "cloud_save", "cloud_clear", "cloud_clear_confirm", "cloud_idle", "cloud_syncing", "cloud_ok", "cloud_partial", "cloud_err_auth", "cloud_err_unreachable", "cloud_err_bad_url", "cloud_err_listing", "cloud_hint", "toast_cloud_saved", "toast_cloud_cleared"];
+const KEYS = ["screensaver", "screensaver_short", "ss_aerial", "ss_photos", "ss_clock", "focus", "focus_high", "focus_standard", "weather", "city_ph", "set", "upload_label", "feedback_h", "feedback_hint", "diag_show", "diag_copy", "diag_github", "hint_aerial", "hint_photos", "hint_clock", "g_live", "g_live_sub", "g_daily", "g_daily_sub", "g_photo", "g_builtin", "g_auto", "toast_wallpaper", "aria_delete", "confirm_delete", "wx_clear", "wx_partlycloudy", "wx_cloudy", "wx_fog", "wx_rain", "wx_snow", "wx_thunder", "wx_chosen", "wx_auto_btn", "toast_auto", "wx_guessed", "wx_none", "tag_source", "aria_rename", "toast_renamed", "toast_name_reset", "toast_rename_fail", "aria_reset_icon", "toast_icon_reset", "focus_hint_standard", "focus_hint_high", "daily_title", "daily_caption", "rotate_title", "rotate_caption", "empty_photos", "add_second", "toast_tv_updated", "sending_n", "toast_added", "toast_no_photos", "toast_send_fail", "toast_city_set", "toast_city_nf", "toast_set_fail", "toast_sending_icon", "toast_icon_set", "toast_icon_bad", "diag_collecting", "toast_diag_fail", "toast_copied", "toast_copy_manual", "language", "hint_follows", "ss_videos", "hint_videos", "videos_h", "videos_upload", "videos_hint", "videos_empty", "confirm_video_delete", "toast_videos_added", "toast_video_bad", "sending_video", "hint_system", "tab_home", "tab_more", "current_wp", "cancel", "save", "name_ph", "rename_hint", "change_icon", "this_tv", "folder_count", "folder_ph", "inputs_h", "inputs_hint", "rename_hint_app", "was_named", "arrange_hint", "arrange_unready", "hidden_h", "hidden_none", "hidden_locked", "show_app", "hide_app", "to_folder", "new_folder", "out_of_folder", "ungroup", "ungroup_confirm", "folder_hint", "toast_hidden", "toast_shown", "toast_in_folder", "toast_out_folder", "toast_ungrouped", "tab_looks", "looks_title", "show_on_home", "source_device", "source_plain", "source_device_hint", "tv_model", "sw_always", "sw_always_sub", "sw_weather", "sw_saver_time", "sw_saver_time_sub", "g_source_sub", "icon_h", "icon_library", "icon_own", "icon_custom", "toast_icon_picked", "drop_hint", "drop_sub", "drop_none", "toast_diag_paste", "kids_h", "elders_h", "kids_used", "kids_left", "kids_nolimit", "kids_allowed", "kids_lock_day", "kids_lock_late", "kids_lock_break", "kids_pin_ph", "kids_unlock", "kids_wrong", "kids_need_pin", "kids_locked_foot", "kids_add", "kids_day", "kids_leave_k", "kids_leave_e", "kids_paused", "kids_resume", "kids_min", "kids_hm", "kids_erase", "kids_hr", "kids_both", "kids_off_line", "kids_settings", "kids_no_pin", "kids_pin_foot", "ks_meta", "ks_on", "ks_on_sub", "ks_block", "ks_block_sub", "ks_block_noguard", "ks_time_h", "ks_weekday", "ks_weekend", "ks_minutes", "ks_nolimit", "ks_window", "ks_from", "ks_to", "ks_break", "ks_break_every", "ks_break_len", "ks_time_foot", "ks_apps", "ks_apps_sub", "ks_input", "ks_save", "ks_saved", "ks_invalid", "ks_for", "cloud_h", "cloud_url_ph", "cloud_user_ph", "cloud_pass_ph", "cloud_pass_saved", "cloud_save", "cloud_clear", "cloud_clear_confirm", "cloud_idle", "cloud_syncing", "cloud_ok", "cloud_partial", "cloud_err_auth", "cloud_err_unreachable", "cloud_err_bad_url", "cloud_err_listing", "cloud_hint", "toast_cloud_saved", "toast_cloud_cleared", "album_h", "album_url_ph", "album_err_bad_url", "album_err_unreachable", "album_err_no_pictures", "album_hint"];
 const TEXTS = {
  "zh": [
   "屏幕保护程序",
@@ -633,9 +644,15 @@ const TEXTS = {
   "电视连不上这个地址",
   "这不是有效的网址",
   "地址有响应，但不是 WebDAV 文件夹",
-  "支持 NAS、Nextcloud，以及 Alist / OpenList（可把百度网盘、阿里云盘、Google Drive 等转成 WebDAV 文件夹）。文件夹及其子文件夹里的图片（最多 150 张）会加入「我的照片」，在照片屏保里循环播放，每 6 小时重新检查一次。Google Photos 不能直接读取：把照片放进 Google Drive 文件夹，再用 Alist 连接。密码按输入原样保存在电视上。",
+  "支持 NAS、Nextcloud，以及 Alist / OpenList（可把百度网盘、阿里云盘、Google Drive 等转成 WebDAV 文件夹）。文件夹及其子文件夹里的图片（最多 150 张）会加入「我的照片」，在照片屏保里循环播放，每 6 小时重新检查一次。密码按输入原样保存在电视上。",
   "已保存，正在同步",
-  "已移除"
+  "已移除",
+  "Google Photos 共享相册",
+  "共享相册链接，例如 https://photos.app.goo.gl/…",
+  "这不是 Google Photos 共享相册的链接",
+  "电视打不开相册页面（Google 可能要求登录，或链接不对）",
+  "这个页面里没找到照片：相册可能是空的，或者 Google 改了页面格式。电视上已有的照片没有动",
+  "在 Google Photos 手机应用里建一个相册，点「分享」复制链接。要按人像：创建 > 动态相册，选好人物或宠物再分享，之后他们的新照片会自动加进来。电视读取的是相册的公开页面（不是 Google 的官方接口，Google 改版后可能失效），最多读到几百张，每 6 小时同步一次。拿到链接的人都能看到这个相册。"
  ],
  "en": [
   "Screensaver",
@@ -848,9 +865,15 @@ const TEXTS = {
   "The TV cannot reach that address",
   "That is not a web address",
   "The address answered, but it is not a WebDAV folder",
-  "Works with a NAS, Nextcloud, or Alist/OpenList (which turns Baidu, Aliyun, Google Drive and others into a WebDAV folder). Pictures in the folder and its subfolders (up to 150) join your photos and play in the photo screensaver, and the folder is checked again every 6 hours. Google Photos cannot be read directly: put the pictures in a Google Drive folder and use Alist. The password is stored on the TV as typed.",
+  "Works with a NAS, Nextcloud, or Alist/OpenList (which turns Baidu, Aliyun, Google Drive and others into a WebDAV folder). Pictures in the folder and its subfolders (up to 150) join your photos and play in the photo screensaver, and the folder is checked again every 6 hours. The password is stored on the TV as typed.",
   "Saved, syncing",
-  "Removed"
+  "Removed",
+  "Google Photos album",
+  "Shared album link, e.g. https://photos.app.goo.gl/…",
+  "That is not a Google Photos shared album link",
+  "The TV could not open the album page (Google may ask to sign in, or the link is wrong)",
+  "No pictures found on that page. The album may be empty, or Google changed the page; the photos already on the TV were kept",
+  "In the Google Photos app, make an album, tap Share and copy the link. For people and pets: Create > Live album, pick the people, then share it, and new photos of them are added on their own. The TV reads the album’s public page (not an official Google interface, so it may stop working if Google changes it), up to a few hundred pictures, every 6 hours. Anyone with the link can see the album."
  ],
  "ru": [
   "Заставка",
@@ -1063,9 +1086,15 @@ const TEXTS = {
   "Телевизор не может подключиться к этому адресу",
   "Это не веб-адрес",
   "Адрес отвечает, но это не папка WebDAV",
-  "Работает с NAS, Nextcloud и Alist/OpenList (превращает Baidu, Aliyun, Google Drive и другие в папку WebDAV). Картинки из папки и подпапок (до 150) добавляются к вашим фото и показываются в фото-заставке; папка проверяется каждые 6 часов. Google Фото напрямую прочитать нельзя: положите снимки в папку Google Drive и подключите через Alist. Пароль хранится на телевизоре как введён.",
+  "Работает с NAS, Nextcloud и Alist/OpenList (превращает Baidu, Aliyun, Google Drive и другие в папку WebDAV). Картинки из папки и подпапок (до 150) добавляются к вашим фото и показываются в фото-заставке; папка проверяется каждые 6 часов. Пароль хранится на телевизоре как введён.",
   "Сохранено, синхронизация",
-  "Убрано"
+  "Убрано",
+  "Альбом Google Фото",
+  "Ссылка на общий альбом, например https://photos.app.goo.gl/…",
+  "Это не ссылка на общий альбом Google Фото",
+  "Телевизор не смог открыть страницу альбома (Google может требовать вход, либо ссылка неверна)",
+  "На странице не найдено снимков: альбом пуст или Google изменил страницу. Уже загруженные фото сохранены",
+  "В приложении Google Фото создайте альбом, нажмите «Поделиться» и скопируйте ссылку. Для людей и питомцев: Создать > Динамический альбом, выберите людей и поделитесь: новые их фото добавятся сами. Телевизор читает публичную страницу альбома (это не официальный интерфейс Google, он может перестать работать после изменений), до нескольких сотен снимков, раз в 6 часов. Альбом виден всем, у кого есть ссылка."
  ],
  "uk": [
   "Заставка",
@@ -1278,9 +1307,15 @@ const TEXTS = {
   "Телевізор не може підключитися до цієї адреси",
   "Це не веб-адреса",
   "Адреса відповідає, але це не тека WebDAV",
-  "Працює з NAS, Nextcloud та Alist/OpenList (перетворює Baidu, Aliyun, Google Drive та інші на теку WebDAV). Зображення з теки та підтек (до 150) додаються до ваших фото й показуються у фото-заставці; теку перевіряють кожні 6 годин. Google Фото напряму прочитати не можна: покладіть знімки в теку Google Drive й підключіть через Alist. Пароль зберігається на телевізорі як введено.",
+  "Працює з NAS, Nextcloud та Alist/OpenList (перетворює Baidu, Aliyun, Google Drive та інші на теку WebDAV). Зображення з теки та підтек (до 150) додаються до ваших фото й показуються у фото-заставці; теку перевіряють кожні 6 годин. Пароль зберігається на телевізорі як введено.",
   "Збережено, синхронізація",
-  "Прибрано"
+  "Прибрано",
+  "Альбом Google Фото",
+  "Посилання на спільний альбом, наприклад https://photos.app.goo.gl/…",
+  "Це не посилання на спільний альбом Google Фото",
+  "Телевізор не зміг відкрити сторінку альбому (Google може вимагати вхід, або посилання хибне)",
+  "На сторінці не знайдено знімків: альбом порожній або Google змінив сторінку. Уже завантажені фото збережено",
+  "У застосунку Google Фото створіть альбом, натисніть «Поділитися» й скопіюйте посилання. Для людей і улюбленців: Створити > Динамічний альбом, виберіть людей і поділіться: їхні нові фото додаватимуться самі. Телевізор читає публічну сторінку альбому (це не офіційний інтерфейс Google, він може перестати працювати після змін), до кількох сотень знімків, раз на 6 годин. Альбом бачить кожен, хто має посилання."
  ],
  "kk": [
   "Экран қорғаушы",
@@ -1493,9 +1528,15 @@ const TEXTS = {
   "Теледидар бұл мекенжайға қосыла алмады",
   "Бұл жарамды веб-мекенжай емес",
   "Мекенжай жауап береді, бірақ бұл WebDAV қалтасы емес",
-  "NAS, Nextcloud және Alist/OpenList (Baidu, Aliyun, Google Drive және басқаларын WebDAV қалтасына айналдырады) қолданылады. Қалта мен ішкі қалталардағы суреттер (150-ге дейін) фотоларыңызға қосылып, фото экран қорғағышында ойнатылады; қалта әр 6 сағат сайын тексеріледі. Google Photos-ты тікелей оқу мүмкін емес: суреттерді Google Drive қалтасына салып, Alist арқылы қосыңыз. Құпиясөз теледидарда енгізілгендей сақталады.",
+  "NAS, Nextcloud және Alist/OpenList (Baidu, Aliyun, Google Drive және басқаларын WebDAV қалтасына айналдырады) қолданылады. Қалта мен ішкі қалталардағы суреттер (150-ге дейін) фотоларыңызға қосылып, фото экран қорғағышында ойнатылады; қалта әр 6 сағат сайын тексеріледі. Құпиясөз теледидарда енгізілгендей сақталады.",
   "Сақталды, синхрондалуда",
-  "Жойылды"
+  "Жойылды",
+  "Google Photos альбомы",
+  "Ортақ альбом сілтемесі, мысалы https://photos.app.goo.gl/…",
+  "Бұл Google Photos ортақ альбомының сілтемесі емес",
+  "Теледидар альбом бетін аша алмады (Google кіруді сұрауы мүмкін, не сілтеме қате)",
+  "Бетте сурет табылмады: альбом бос немесе Google бетті өзгерткен. Теледидардағы фотолар сақталды",
+  "Google Photos қолданбасында альбом жасап, «Бөлісу» түймесін басып, сілтемені көшіріңіз. Адамдар мен үй жануарлары үшін: Жасау > Динамикалық альбом, адамдарды таңдап, бөлісіңіз: олардың жаңа фотолары өздігінен қосылады. Теледидар альбомның жалпыға ашық бетін оқиды (Google-дің ресми интерфейсі емес, Google өзгертсе жұмыс істемеуі мүмкін), бірнеше жүз суретке дейін, әр 6 сағат сайын. Сілтемесі бар кез келген адам альбомды көре алады."
  ]
 };
 const LANGS = Object.keys(TEXTS);
@@ -1899,6 +1940,35 @@ $('#cloudForm').onsubmit = async e => {
 $('#cloudClear').onclick = async () => {
   if (!confirm(t('cloud_clear_confirm'))) return;
   try { take(await api('api/cloud', { url: '', user: '', password: '' })); toast(t('toast_cloud_cleared')); } catch (err) { toast(t('toast_set_fail')); }
+};
+
+/* Google Photos shared album: its link, read as the web page it is (AlbumPhotos). */
+function renderAlbum() {
+  const a = state.album || {};
+  if (!$('#albumForm').contains(document.activeElement)) $('#albumUrl').value = a.url || '';
+  $('#albumClear').hidden = !a.url;
+  const d = a.detail || '';
+  let msg;
+  if (a.state === 'syncing') msg = t('cloud_syncing');
+  else if (a.state === 'ok') msg = t('cloud_ok', { n: a.count }) + (d.startsWith('partial:') ? ' ' + t('cloud_partial', { n: d.slice(8) }) : '');
+  else if (a.state === 'error') msg = t('album_err_' + d) || t('cloud_err_unreachable');
+  else msg = t('cloud_idle');
+  $('#albumStatus').textContent = msg;
+}
+$('#albumForm').onsubmit = async e => {
+  e.preventDefault();
+  const url = $('#albumUrl').value.trim(); if (!url) return;
+  const btn = $('#albumSave'); btn.disabled = true;
+  try {
+    const next = await api('api/album', { url });
+    if (next.albumRejected) toast(t('album_err_bad_url'), true);
+    else { take(next); toast(t('toast_cloud_saved')); }
+  } catch (err) { toast(t('toast_set_fail')); }
+  btn.disabled = false;
+};
+$('#albumClear').onclick = async () => {
+  if (!confirm(t('cloud_clear_confirm'))) return;
+  try { take(await api('api/album', { url: '' })); toast(t('toast_cloud_cleared')); } catch (err) { toast(t('toast_set_fail')); }
 };
 /* On/off settings: data-setting is the key the TV knows it by. */
 async function setting(sw) {
@@ -2549,6 +2619,7 @@ function render() {
   renderScreensaver();
   renderMore();
   renderCloud();
+  renderAlbum();
   renderInputs();
   renderArrange(false);
 }

@@ -37,6 +37,7 @@ app/src/main/java/app/orchard/tv/
 │   ├── Images.kt            解码裁剪、首页压暗烘焙、抖动、box blur
 │   ├── Aerials.kt           读取 assets/aerials.json（Apple 航拍目录）；AerialFormats：这台电视能播哪档画质
 │   ├── CloudPhotos.kt       网盘照片：读一个 WebDAV 文件夹（PROPFIND 走 Socket，图片走 GET），把里面的图片存成 files/photos/dav-<id>.jpg，和手机上传的照片一起进照片屏保 / 「每天换一张」；每 6 小时同步，只会删自己存的 dav-* 文件；Google Photos 没有读相册的接口，要经 Google Drive + Alist 接入。因为地址是户主输入的（局域网 http 居多），`network_security_config.xml` 的 base-config 放开了明文 http
+│   ├── AlbumPhotos.kt       Google Photos 共享相册：读相册链接的公开网页，从里面取 lh3.googleusercontent.com/pw/… 的图片地址（非官方接口，Google 改版会失效；读不到图片时不删电视上已有的 gp-* 照片），存成 files/photos/gp-<id>.jpg；「动态相册」（按人物自动加入）经它带来人像分类
 │   └── PhoneServer.kt       NanoHTTPD 手机配置页 + 二维码生成
 ├── settings/
 │   ├── Restricted.kt        儿童与长辈模式（Kids and Elders，SharedPreferences "restricted"）：给谁用、显示的 App、其他 App 拦不拦、时间规则 `KidsTime`、今天的用量（见「儿童与长辈模式」）

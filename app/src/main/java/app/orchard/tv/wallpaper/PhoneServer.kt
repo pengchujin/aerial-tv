@@ -124,6 +124,20 @@ class PhoneServer private constructor(private val context: Context, private val 
                     }
                     json(state())
                 }
+                session.method == Method.POST && path == "/api/album" -> {
+                    // A Google Photos shared album's link (AlbumPhotos).
+                    val link = form(session)["url"].orEmpty().trim()
+                    if (link.isNotEmpty() && !AlbumPhotos.isAlbumLink(link)) {
+                        json(state().put("albumRejected", true))
+                    } else {
+                        onMain {
+                            AlbumPhotos.save(context, link)
+                            if (link.isEmpty()) { Wallpapers.removeCloudPhotos(Wallpapers.cloudPhotoIds(AlbumPhotos.PREFIX)); Wallpapers.cloudChanged() }
+                            else Wallpapers.syncCloudIfDue(force = true)
+                        }
+                        json(state())
+                    }
+                }
                 session.method == Method.POST && path == "/api/focus" -> {
                     val style = FocusStyle.of(form(session)["style"])
                     onMain { AerialSettings.chooseFocusStyle(style) }
@@ -251,6 +265,8 @@ class PhoneServer private constructor(private val context: Context, private val 
             .put("videoRoom", ScreensaverVideos.room(context))
             .put("focusStyle", AerialSettings.focusStyle.key)
             .put("kids", kidsState())
+            .put("album", JSONObject().put("url", AlbumPhotos.url(context)).put("state", AlbumPhotos.state)
+                .put("count", AlbumPhotos.count).put("detail", AlbumPhotos.detail))
             .put("cloud", CloudPhotos.config(context).let {
                 // The password is never sent back to the page.
                 JSONObject().put("url", it.url).put("user", it.user).put("hasPassword", it.password.isNotEmpty())

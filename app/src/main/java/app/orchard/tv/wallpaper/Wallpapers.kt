@@ -905,8 +905,8 @@ object Wallpapers {
     // ---- photos from a cloud folder (CloudPhotos) ----
 
     /** Ids (file names) of the photos CloudPhotos has stored; phone uploads never start with its prefix. */
-    fun cloudPhotoIds(): Set<String> =
-        (photoDir.listFiles { f -> f.extension == "jpg" && f.name.startsWith(CloudPhotos.PREFIX) } ?: emptyArray())
+    fun cloudPhotoIds(prefix: String = CloudPhotos.PREFIX): Set<String> =
+        (photoDir.listFiles { f -> f.extension == "jpg" && f.name.startsWith(prefix) } ?: emptyArray())
             .map { it.nameWithoutExtension }.toSet()
 
     /** Stores one picture from the cloud folder; the list is rebuilt by [cloudChanged] once all are in. */
@@ -916,7 +916,7 @@ object Wallpapers {
 
     fun removeCloudPhotos(ids: Collection<String>) {
         // Only ones that are CloudPhotos': a phone upload is never named for removal here.
-        ids.filter { it.startsWith(CloudPhotos.PREFIX) && !it.contains('/') && !it.contains("..") }
+        ids.filter { (it.startsWith(CloudPhotos.PREFIX) || it.startsWith(AlbumPhotos.PREFIX)) && !it.contains('/') && !it.contains("..") }
             .forEach { File(photoDir, "$it.jpg").delete(); synchronized(thumbs) { thumbs.remove("photo:$it") } }
     }
 
@@ -934,11 +934,11 @@ object Wallpapers {
     /** Syncs the cloud folder when it is set up and 6 hours (or [force]) have passed since the last. */
     fun syncCloudIfDue(force: Boolean = false) {
         if (!started) return
-        if (!CloudPhotos.config(app).on) return
+        if (!CloudPhotos.config(app).on && AlbumPhotos.url(app).isBlank()) return
         val now = System.currentTimeMillis()
         if (!force && now - lastCloudSync < 6 * 60 * 60 * 1000L) return
         lastCloudSync = now
-        scope.launch { CloudPhotos.sync(app) }
+        scope.launch { CloudPhotos.sync(app); AlbumPhotos.sync(app) }
     }
 
     fun deletePhoto(id: String) {
