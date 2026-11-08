@@ -345,6 +345,11 @@ class HomeGuardService : AccessibilityService() {
      */
     private fun aerialCoveredUnseen(window: Pair<String, String>): Boolean {
         if (window.first != packageName || !window.second.endsWith(".MainActivity") || aerialResumed) return false
+        // Left for an app Aerial opened itself, such as what the TV starts on: that app is meant to
+        // cover Home at once. MiTV-MFTR0 (Android 14) woke with Aerial's process gone; the revived
+        // guard brought Home back, Home opened the boot app 0.3 s later, and the guard's recheck took
+        // the app for a cover and pulled Aerial over it 1.7 s after (PR #1366's test, 2026-11-08).
+        if (MainActivity.leftForAnApp) return false
         if (aerialResumedAt < broughtBackAt || aerialPausedAt - aerialResumedAt !in 0 until COVERED_UNSEEN_MS) return false
         Log.i(TAG, "Aerial's Home was covered ${aerialPausedAt - aerialResumedAt} ms after it showed, with no window change")
         return true
