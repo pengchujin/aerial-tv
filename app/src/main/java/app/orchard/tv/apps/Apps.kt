@@ -134,15 +134,19 @@ object AppCatalog {
     private const val CATEGORY_APPSTORE_LAUNCHER = "android.intent.category.APPSTORE_LAUNCHER"
 
     /**
-     * Firmware apps that the maker's own launcher shows but that declare no launcher category at
-     * all, so no query finds them. Verified on Xiaomi MiTV-MFTR0.
+     * Apps that declare no launcher category at all, so no query finds them; most are firmware apps
+     * the maker's own launcher shows. Each entry names the TV it was found on.
      */
     private val UNLISTED_ENTRIES = listOf(
+        // Xiaomi MiTV-MFTR0
         ComponentName("com.xiaomi.mitv.mediaexplorer", "com.xiaomi.mitv.mediaexplorer.NewScraperMainEntryActivity"), // 高清播放器
         ComponentName("com.xiaomi.smarthome.tv", "com.xiaomi.smarthome.tv.ui.MainActivity"), // 米家
         // 小微畅聊, Tencent's video calls inside Sony's search app; MAIN only, no category
         // (BRAVIA XR-75X91L, Android 12, issue #1074, found by the reporter).
         ComponentName("com.sony.dtv.searchapp", "com.ktcp.aiagent.xwability.activity.VoipHomeActivity"),
+        // 宽带电视, GITV's live TV; MAIN only, no category, not on PatchWall either
+        // (MiTV4-ANSM0, Android 6.0.1, issue #1378, found by the reporter).
+        ComponentName("com.gitv.dvb.live", "com.gitv.dvb.live.activity.PlayActivity"),
     )
 
     /**
