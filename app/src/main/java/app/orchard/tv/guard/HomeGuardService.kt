@@ -1295,7 +1295,7 @@ class HomeGuardService : AccessibilityService() {
         }
         // Any key that is done: whatever it did to the volume (Control Center's slider) is in.
         if (event.action == KeyEvent.ACTION_UP) volumeSeen = volumeNow()
-        if (event.keyCode != KeyEvent.KEYCODE_HOME) return false
+        if (event.keyCode != KeyEvent.KEYCODE_HOME && !isStrayHome(event)) return false
         if (takeCecHome(event)) return true
         if (isDefaultHome() && !defaultHomeNeedsHomeFilter) return false
         // Held, Home is the firmware's task center, which taking the key hid (Xiaomi, issue #185):
@@ -1327,6 +1327,23 @@ class HomeGuardService : AccessibilityService() {
             }
         }
         return true
+    }
+
+    /**
+     * A remote's Home key the firmware's key layout gets wrong, which then never reached the system
+     * as Home either: Xiaomi's Bluetooth remote 2717:32b8 has no layout of its own on MiTV4A
+     * (Android 6.0.1, issue #1396), and Generic.kl makes its KEY_HOME (102) MOVE_HOME; Haier's
+     * HaierTV-RC (LRH812_ALI7G_A, Android 12, issue #1388) sends KEY_HOMEPAGE (172), which its own
+     * layout leaves out, so it comes as UNKNOWN. Not from a keyboard with letters, where MOVE_HOME
+     * is the key that moves the cursor to the start of the line.
+     */
+    private fun isStrayHome(event: KeyEvent): Boolean {
+        if (event.keyCode != KeyEvent.KEYCODE_MOVE_HOME && event.keyCode != KeyEvent.KEYCODE_UNKNOWN) return false
+        val stray = strayHome(event.keyCode, event.scanCode, event.device?.keyboardType == InputDevice.KEYBOARD_TYPE_ALPHABETIC)
+        if (stray && event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
+            DiagLog.i("guard: ${KeyEvent.keyCodeToString(event.keyCode)} (scan code ${event.scanCode}) from ${event.device?.name} taken as Home")
+        }
+        return stray
     }
 
     private var cecHomeDown = false
@@ -2025,6 +2042,16 @@ class HomeGuardService : AccessibilityService() {
         /** Xiaomi's UI boost; see uiBoostChanged. */
         private const val UI_BOOST = "mitv_fast_cur_anim_scale"
         private const val XGIMI_FRAMEWORK = "com.xgimi.xgimiframeworkui"
+        /** Linux input codes of a remote's Home key: KEY_HOME and KEY_HOMEPAGE; see isStrayHome. */
+        private const val SCAN_KEY_HOME = 102
+        private const val SCAN_KEY_HOMEPAGE = 172
+
+        /** See isStrayHome; [lettered] is a keyboard with letters. */
+        internal fun strayHome(keyCode: Int, scanCode: Int, lettered: Boolean): Boolean = when (keyCode) {
+            KeyEvent.KEYCODE_MOVE_HOME -> scanCode == SCAN_KEY_HOME && !lettered
+            KeyEvent.KEYCODE_UNKNOWN -> scanCode == SCAN_KEY_HOME || scanCode == SCAN_KEY_HOMEPAGE
+            else -> false
+        }
 
         /** The system's chooser asking which Home to use: XGIMI's own, or Android's (see takeOver). */
         internal fun isHomeChooser(pkg: String, cls: String): Boolean =
