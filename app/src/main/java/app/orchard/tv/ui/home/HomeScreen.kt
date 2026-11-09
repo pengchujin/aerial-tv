@@ -297,6 +297,9 @@ fun HomeScreen(
     val requesters = remember { HashMap<String, FocusRequester>() }
     fun requester(key: String) = requesters.getOrPut(key) { FocusRequester() }
     val pillRequester = remember { FocusRequester() }
+    val cleanerRequester = remember { FocusRequester() }
+    var statusHasFocus by remember { mutableStateOf(false) }
+    var cleanerHasFocus by remember { mutableStateOf(false) }
     val appContext = LocalContext.current
     val firmwareInputPanel = remember {
         SystemProbe.tclInputPanel(appContext) != null || SystemProbe.coocaaInputPanel(appContext)
@@ -894,6 +897,20 @@ fun HomeScreen(
                     saving = vm.screensaverVisible,
                 )
             }
+            RocketCleaner(
+                visible = (statusHasFocus || cleanerHasFocus) && gridEnabled && moving == null && !vm.screensaverVisible,
+                enabled = gridEnabled && moving == null,
+                focusRequester = cleanerRequester,
+                modifier = Modifier.focusProperties {
+                    right = pillRequester
+                    val key = focusedKey
+                    if (key != null) down = requester(key)
+                },
+                onFocused = { gained ->
+                    cleanerHasFocus = gained
+                    if (gained) pillFocused = true
+                },
+            )
             StatusPill(
                 now = now,
                 network = vm.network,
@@ -907,6 +924,7 @@ fun HomeScreen(
                     // too: an elder who strayed up here pressed them and nothing moved (#1215).
                     // Without that tile, left is the row's last and right its first.
                     .focusProperties {
+                        if (statusHasFocus || cleanerHasFocus) left = cleanerRequester
                         val key = focusedKey
                         val rowEnd = minOf(apps.size, columns) - 1
                         if (key != null && apps.indexOfFirst { it.key == key } in 0..rowEnd) {
@@ -921,6 +939,7 @@ fun HomeScreen(
                         compositingStrategy = CompositingStrategy.ModulateAlpha
                     },
                 onFocused = { gained ->
+                    statusHasFocus = gained && focusedKey != null
                     // The window hands its first focus to the top-most control; the top row is where Home starts.
                     if (gained) {
                         if (focusedKey == null) {
