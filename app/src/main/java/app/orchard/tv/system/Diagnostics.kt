@@ -213,7 +213,10 @@ object Diagnostics {
         val display = context.getSystemService<WindowManager>()?.defaultDisplay ?: return "-"
         val m = DisplayMetrics().also { display.getRealMetrics(it) }
         val modes = if (Build.VERSION.SDK_INT >= 23) display.supportedModes.joinToString { "${it.physicalWidth}x${it.physicalHeight}@${"%.0f".format(it.refreshRate)}" } else "-"
-        return "${m.widthPixels}x${m.heightPixels} ${m.densityDpi}dpi ${"%.0f".format(display.refreshRate)}Hz; modes $modes"
+        // The window can be turned where the display reads landscape: a box set to portrait (#1416).
+        val win = context.resources.displayMetrics
+        return "${m.widthPixels}x${m.heightPixels} ${m.densityDpi}dpi ${"%.0f".format(display.refreshRate)}Hz; modes $modes\n" +
+            "            window ${win.widthPixels}x${win.heightPixels}, pictures ${Wallpapers.screenW}x${Wallpapers.screenH}"
     }
 
     private fun memory(context: Context): String {

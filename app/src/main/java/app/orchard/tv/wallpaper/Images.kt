@@ -25,13 +25,14 @@ object Images {
     }
 
     /**
-     * For the photo screensaver: a landscape picture as [decodeCover]; a portrait one whole, on a
-     * blurred and darkened copy of itself, instead of cut to its middle third (issue #647). It
-     * fits [SAVER_ZOOM] times inside the frame, so the slow push in never cuts it either.
+     * For the photo screensaver: a picture turned the way the frame is as [decodeCover]; one turned
+     * the other way whole, on a blurred and darkened copy of itself, instead of cut to its middle
+     * third (issue #647; a landscape one on a screen turned to portrait, #1416). It fits
+     * [SAVER_ZOOM] times inside the frame, so the slow push in never cuts it either.
      */
     fun decodeWhole(file: File, w: Int, h: Int): Bitmap? {
         val src = decodeUpright(file, w, h) ?: return null
-        if (src.height <= src.width) return cover(src, w, h).also { if (it !== src) src.recycle() }
+        if ((src.height <= src.width) == (h <= w)) return cover(src, w, h).also { if (it !== src) src.recycle() }
         return fitWhole(src, w, h).also { src.recycle() }
     }
 
@@ -159,8 +160,10 @@ object Images {
      * on purpose; it is only ever seen blurred, and it is drawn stretched in a single pass.
      */
     fun frost(b: Bitmap): Bitmap {
-        val w = 320
-        val h = 180
+        // Turned with [b], so the blur stays round on a portrait screen (#1416).
+        val upright = b.height > b.width
+        val w = if (upright) 180 else 320
+        val h = if (upright) 320 else 180
         val small = Bitmap.createScaledBitmap(b, w, h, true)
         val px = IntArray(w * h)
         small.getPixels(px, 0, w, 0, 0, w, h)

@@ -18,6 +18,7 @@ import android.media.AudioManager
 import android.os.Build
 import android.net.NetworkCapabilities
 import android.net.Uri
+import android.content.res.Configuration
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -271,6 +272,8 @@ class MainActivity : ComponentActivity() {
         FontWarmup.start(this)
         val uhd = UhdCanvas.scale(this)
         Wallpapers.init(this)
+        // A receiver may have started the wallpapers with the app's size; Home's window is the one.
+        Wallpapers.fitScreen(this)
         Weather.init(this)
         Updates.init(this)
         lifecycleScope.launch(Dispatchers.IO) { SelfCompile.init(this@MainActivity) }
@@ -991,6 +994,12 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         if (locked) return
         resumeWork()
+    }
+
+    /** The screen turned (to portrait, #1416) or resized: pictures follow the window's new shape. */
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        if (realStarted) Wallpapers.fitScreen(this)
     }
 
     /** What onResume does once the user is unlocked; also run by a start that was locked before. */

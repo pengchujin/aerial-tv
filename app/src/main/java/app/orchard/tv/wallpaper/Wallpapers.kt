@@ -188,7 +188,12 @@ object Wallpapers {
     private var backdropJob: Job? = null
     private var started = false
 
-    /** The UI's size in pixels. Pictures are decoded to it: 1080p on most TVs, 4K where the UI is. */
+    /**
+     * The UI's size in pixels. Pictures are decoded to it: 1080p on most TVs, 4K where the UI is.
+     * Portrait where the window is: a monitor stood on end, its box turned to portrait, gives Aerial
+     * a 1080×1920 window though it asks for landscape, and a 16:9 picture drawn into it was
+     * stretched to three times its height (HK1RBOX-X50, Android 14, #1416 #1255).
+     */
     var screenW = 1920; private set
     var screenH = 1080; private set
 
@@ -196,12 +201,7 @@ object Wallpapers {
         if (started) return
         started = true
         app = context.applicationContext
-        // Home drawn at the panel's size (UhdCanvas) gets pictures of that size.
-        val scale = UhdCanvas.scale(context)
-        context.resources.displayMetrics.let {
-            screenW = (maxOf(it.widthPixels, it.heightPixels) * scale).roundToInt()
-            screenH = (minOf(it.widthPixels, it.heightPixels) * scale).roundToInt()
-        }
+        measure(context).let { (w, h) -> screenW = w; screenH = h }
         selectedId = (prefs.getString("selected", LATEST_DAILY) ?: LATEST_DAILY)
             // A built-in wallpaper from before the Mac-style set: its nearest one now.
             .let { if (it.startsWith("grad:")) "grad:" + Gradients.currentKey(it.removePrefix("grad:")) else it }
@@ -218,6 +218,28 @@ object Wallpapers {
         scope.launch(Dispatchers.IO) { clearStaleUploads() }
         // Installs from before 1.42 have a baked picture but no copy yet.
         scope.launch(Dispatchers.IO) { keepForLockedBoot() }
+    }
+
+    /** [context]'s window in pixels, times the panel's scale where Home is drawn at 4K (UhdCanvas). */
+    private fun measure(context: Context): Pair<Int, Int> {
+        val scale = UhdCanvas.scale(context)
+        val m = context.resources.displayMetrics
+        return (m.widthPixels * scale).roundToInt() to (m.heightPixels * scale).roundToInt()
+    }
+
+    /**
+     * Pictures sized for [context]'s window, which is Home's or the screensaver's: [init] may have
+     * come from a receiver first, and the box may be turned while Aerial runs. A new size bakes
+     * the backdrop again (its key has the size in it).
+     */
+    fun fitScreen(context: Context) {
+        if (!started) return
+        val (w, h) = measure(context)
+        if (w <= 0 || h <= 0 || (w == screenW && h == screenH)) return
+        DiagLog.i("wallpaper size ${screenW}x$screenH -> ${w}x$h")
+        screenW = w
+        screenH = h
+        rebuildBackdrop()
     }
 
     /**
@@ -855,8 +877,9 @@ object Wallpapers {
                     val date = img.getString("startdate")
                     val file = File(dailyDir, "$date.jpg")
                     if (!file.exists()) {
-                        // url is the 1920×1080 picture; a UI drawn above 1080p gets the UHD one.
-                        val path = if (screenW > 1920) img.getString("urlbase") + "_UHD.jpg" else img.getString("url")
+                        // url is the 1920×1080 picture; a UI drawn above 1080p gets the UHD one, and
+                        // so does a portrait one, which shows only its middle, 1080 px tall in the small one.
+                        val path = if (screenW > 1920 || screenH > 1080) img.getString("urlbase") + "_UHD.jpg" else img.getString("url")
                         val bytes = get("https://cn.bing.com" + path)
                         file.writeBytes(bytes)
                     }
