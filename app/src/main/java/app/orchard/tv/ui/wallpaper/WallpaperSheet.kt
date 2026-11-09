@@ -215,6 +215,11 @@ fun WallpaperSheet(
                         listOf(true to R.string.st_plate_glass, false to R.string.st_plate_none),
                         AerialSettings.homePlate, AerialSettings::chooseHomePlate,
                     )
+                    if (AerialSettings.homePlate) Choices(
+                        R.string.st_plate_strength, stringResource(R.string.st_plate_strength_hint), note,
+                        listOf(50, 75, 100).map { it to it.toString().plus("%") },
+                        AerialSettings.homePlateStrength, AerialSettings::chooseHomePlateStrength,
+                    )
                     Choices(
                         R.string.st_names, stringResource(R.string.st_names_hint), note,
                         listOf(false to R.string.st_names_focused, true to R.string.st_names_all),
