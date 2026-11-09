@@ -257,6 +257,9 @@ object SystemProbe {
                 "com.android.settings", "com.asu.settings.TvMainActivity")),
             // TCL MT5879 (China): nothing answers ACTION_SETTINGS; MAIN opens TCL's full settings panel.
             Intent(Intent.ACTION_MAIN).setComponent(ComponentName("com.tcl.settings", "com.tcl.settings.ui.MainActivity")),
+            // TCL 50P8 (sugarcane_mi, MStar m7221, Android 8): neither of those; its settings app's
+            // main activity sits in the package root (issue #1405, the reporter's dumpsys).
+            Intent(Intent.ACTION_MAIN).setComponent(ComponentName("com.tcl.settings", "com.tcl.settings.MainActivity")),
             // PPTV K55U27 (MStar, Android 6): its settings app answers no standard action (issue #264).
             Intent(Intent.ACTION_MAIN).setComponent(ComponentName("com.pptv.setting", "com.pptv.setting.root.SettingsActivity")),
             // XGIMI GMUI (Z7X, Android 9) neither; its settings open by link (issue #241).
@@ -310,6 +313,9 @@ object SystemProbe {
             Intent(Settings.ACTION_SETTINGS),
             // TCL tcl_m7642 (Android 9) answers neither Wi-Fi nor settings actions (issue #15).
             Intent(Intent.ACTION_MAIN).setComponent(ComponentName("com.tcl.settings", "com.tcl.settings.ui.MainActivity")),
+            // TCL 50P8 (sugarcane_mi, Android 8) answers only its own Wi-Fi action (issue #1405).
+            Intent("android.intent.action.WIFISETTING").setPackage("com.tcl.settings"),
+            Intent(Intent.ACTION_MAIN).setComponent(ComponentName("com.tcl.settings", "com.tcl.settings.MainActivity")),
             WHALEY_SETTINGS,
         )
     }
