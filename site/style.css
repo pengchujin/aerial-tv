@@ -38,6 +38,10 @@ nav .links { display: flex; gap: 24px; margin-left: auto; font-size: 14px; }
 nav .links a { color: var(--muted); }
 nav .links a:hover { color: var(--text); text-decoration: none; }
 .stars { margin-left: .45em; font-variant-numeric: tabular-nums; opacity: .75; }
+/* Phones hide the links, so the GitHub link with its stars moves beside the language switch. */
+nav .gh { display: none; align-items: center; font-size: 14px; color: var(--muted); }
+nav .gh:hover { color: var(--text); text-decoration: none; }
+nav .gh .stars { opacity: 1; }
 nav .lang { font-size: 14px; color: var(--muted); }
 nav .lang:hover { color: var(--text); text-decoration: none; }
 nav .cta { font-size: 14px; padding: 6px 14px; border-radius: 980px; background: var(--accent); color: #fff; }
@@ -217,7 +221,9 @@ footer a { color: var(--muted); }
 
 @media (max-width: 860px) {
   nav .links { display: none; }
-  nav .lang { margin-left: auto; }
+  nav .wrap { gap: 18px; }
+  nav .gh { display: flex; margin-left: auto; }
+  nav .gh, nav .lang, nav .cta { white-space: nowrap; }
   .hero { padding-top: 64px; }
   section { padding: 80px 0; }
   .feature, .feature.flip, .phone-row { grid-template-columns: 1fr; gap: 28px; }
@@ -230,6 +236,12 @@ footer a { color: var(--muted); }
   .tabs[data-tabs="brand"] button { flex: 1 1 auto; justify-content: center; padding: 8px; }
   .compare-legend { margin-top: 18px; }
   .compare .knob { width: 34px; height: 34px; margin: -17px 0 0 -17px; }
+}
+/* The narrowest phones (320 px) fit the stars only without the GitHub mark. */
+@media (max-width: 380px) {
+  nav .wrap { gap: 12px; }
+  nav .gh svg { display: none; }
+  nav .gh .stars { margin-left: 0; }
 }
 @media (max-width: 480px) {
   .tabs .logo.xiaomi, .tabs .logo.android { display: none; }
