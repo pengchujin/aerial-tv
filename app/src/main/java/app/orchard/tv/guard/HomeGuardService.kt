@@ -1550,6 +1550,9 @@ class HomeGuardService : AccessibilityService() {
      * remote's D-pad and leaves SystemUI's in place behind it, so the global action still opens the one
      * the remote cannot drive: start the vendor activity when the set has one, else the system's.
      */
+    /** When Home held sent TCL's task manager broadcast, in uptime; see the stock launcher check. */
+    private var tclTaskCentreAt = Long.MIN_VALUE / 2
+
     private fun openRecents() {
         // Xiaomi's task centre is a system overlay, not an exported RecentsActivity.
         // Its normal-permission service initializes the overlay before toggling it.
@@ -1570,7 +1573,10 @@ class HomeGuardService : AccessibilityService() {
             val sent = runCatching {
                 sendBroadcast(Intent(TCL_TASK_CENTRE).setComponent(tcl).addFlags(Intent.FLAG_INCLUDE_STOPPED_PACKAGES))
             }.isSuccess
-            if (sent) return
+            if (sent) {
+                tclTaskCentreAt = SystemClock.uptimeMillis()
+                return
+            }
         }
         for (action in TASK_CENTRE_ACTIONS) {
             val intent = Intent(action)
@@ -1651,6 +1657,17 @@ class HomeGuardService : AccessibilityService() {
                 bootStockShown = true
                 handler.removeCallbacks(endBootStockHold)
                 handler.postDelayed(endBootStockHold, DeviceProfile.current(this).bootStockMs.toLong())
+            }
+            // The task manager opened for Home held: on TCL T966D5 (Android 14, issue #1402) and
+            // Q9L Pro (#1369) the launcher's broadcast brings up its MainActivity, the task manager
+            // inside it, and the guard took it away a second later. On TCL 65Q9K (MT5879) the same
+            // broadcast opens TaskManagerActivity, a screen of its own, and this never comes up.
+            if (!allowed && cls in stockHomes.getValue(pkg) &&
+                SystemClock.uptimeMillis() - tclTaskCentreAt < TCL_TASK_CENTRE_MS) {
+                tclTaskCentreAt = Long.MIN_VALUE / 2
+                Log.i(TAG, "$pkg came up for its task manager after Home was held; leaving it in front")
+                allowStockLauncher()
+                return
             }
             // Only the stock launcher's home activity itself, not its dialogs or other screens.
             // Not gated on isDefaultHome(): see takeOverIfStockHomeInFront.
@@ -2029,6 +2046,8 @@ class HomeGuardService : AccessibilityService() {
         /** Actions the firmware's own task centre answers, tried in order before SystemUI's recents. */
         private const val JAMDEO_LAUNCHER = "com.jamdeo.launcher"
         private const val TCL_TASK_CENTRE ="com.tcl.action.OPEN_GLOBAL_HISTORY"
+        /** How long after that broadcast TCL's launcher coming up is its task manager (1 s seen, #1402). */
+        private const val TCL_TASK_CENTRE_MS = 4_000L
         private val TASK_CENTRE_ACTIONS = listOf("com.dangbei.recentstask.action.SHOW_RECENTS_FOR_USER")
         private const val VOLUME_REPEAT_MAX_MS = 8_000L
         private const val HOME_PAUSE_MS = 400L
