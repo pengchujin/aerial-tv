@@ -6,7 +6,7 @@
 |---|---|---|---|
 | 65G60 / 酷开 9S60 | Android 8.0，MStar MSD6A848 | 主页键能回 Aerial；开机一定进酷开桌面：`sky_launcher`（在 system_server 里）读 `/system/pcfg/9S60_G60/config/general_config.xml` 的 `DEFAULT_HOMEPAGE` 按组件启动，不走 HOME 解析；守护在开机时的 `startActivity` 被 `CooCaaCheckDialogPermission` 丢掉（调用方没有可见 Activity）；`skyRMService` 切前台时会 force-stop 上一个第三方 App；开机把第三方 App 置成 stopped。报告人用 root 改 `DEFAULT_HOMEPAGE` 为 `app.orchard.tv/app.orchard.tv.MainActivity` 才开机直达。开机广告是 `com.tianci.ad`，`pm uninstall --user 0` 就没了 | #316 |
 | 7T641（mt9633） | Android 13 | 冷启动约 60 秒黑屏：Aerial 早已画完，但 SurfaceFlinger 里它的窗口 `crop=[0,0,0,0]`；遥控器「播放」键在这台上发的是 Home，看视频时按到会被守护拉回 Aerial，然后又是 60 秒黑屏 | #321、#326 |
-| 7T634_P3H（mt9633 / mt9952，K3） | Android 13 | 1.57 黑屏：首页已画完，`focus false`，两次「没有焦点窗口」ANR；改包名也一样。同一台上 FreeTV 能显示，原因还没找到。报告人发现这台的按应用自启动 / 后台保留在 `skyresource` 服务里（`service call skyresource 5 s16 <包名> i32 0 i32 1` 允许自启动，`i32 1 i32 2` 后台保留，只在这台固件上核对过），还没对 Aerial 试 | [#864](https://github.com/pengchujin/aerial-tv/issues/864) |
+| K3 / 7T634_P3H（mt9633 / mt9952） | Android 13 | **1.87 standard（120）复测显示正常**，记录到 HOME 方式重开、`window focus true`、输入焦点 `OK`；放行 Aerial 自启动和后台保留后，实体 Home 与音量减短按正常。HDMI 接入时，仅 Aerial 的系统重启测试仍停在 HDMI，见下方 K3 小节 | [#864](https://github.com/pengchujin/aerial-tv/issues/864)、[PR #1206](https://github.com/pengchujin/aerial-tv/pull/1206) |
 | 8R721_A6FP（titanite，RTD2885P） | Android 13 | 1.67-guard 首页先显示出来，约 30 秒后两次「没有焦点窗口」ANR，回到 `com.skyworth.officehomepage`，和 8R710 / 8R734 一样 | [#839](https://github.com/pengchujin/aerial-tv/issues/839) |
 | 75A6E（8R710_A6E，Realtek RTD2885P） | Android 13 | standard 版是唯一的 HOME 候选，按主页键整机卡死；创维电视应用 `com.skyworth.tv` 一直占着输入焦点，Aerial 的窗口 `NOT_VISIBLE`、`focus false`，guard 版也一样。目前没有办法 | #365 |
 | 75A7D（8R134_A7D，Realtek RTD2885N） | Android 11，酷开 CCOS 9.0 | `TvInputManager` 一个信号源都没有；改为从 `com.skyworth.tv.sdk.provider` 读列表、用 `com.skyworth.tv` 的 `SkyTVMainActivity` 切换，报告人在真机上验证通过，接口见下（1.45 起用上） | #444 |
@@ -14,6 +14,47 @@
 | 8R734_A7HP（titanite，RTD2885P） | Android 13，SELinux permissive | 画面在、没有焦点、反复 ANR：守护按组件拉起的 standard 任务在 SurfaceFlinger 里一直隐藏，见下「titanite 的 standard 任务」；以 HOME 方式拉起后正常。开机和主页键由固件按组件选，见下 | 户主实测，2026-10-30 |
 | 松下 TH-55HX560C（创维代工，天赐系统，GX580C，m7221） | Android 8.0 | 主页键、返回都能回 Aerial；`TvInputManager` 一个信号源都没有，控制中心显示「没有可用的信号源」。还不知道天赐切信号源的接口 | #370 |
 | 8R134 / 8R145、K3 Pro 等 | Android 11 | 见 #43、#155：开机先进自家桌面，切信号源时经过 `com.tianci.tv/.SkyLauncher` | #43、#155 |
+
+## 创维 / 酷开 K3 7T634_P3H（mt9633 / mt9952，Android 13）：1.87 复测（2026-11-08，#864）
+
+同一台创维 / 酷开 K3，固件 `TP1A.220624.021.A1 / eng.www-da.20260902.162554`，官方 `aerial-standard.apk`，Aerial **1.87（120）**，包名 `app.orchard.tv`，设为 Android 默认 HOME。没有改包名、重签 APK 或修改应用源码。以下不扩展到其他创维机型；1.88 未在本机复测。
+
+### 显示和焦点
+
+1.57、1.69 的历史黑屏在本轮没有再现。电视实际出现完整壁纸、时间天气和应用图标，截图与现场观察一致。诊断记录：
+
+```text
+started as null in task <运行时编号>; reopening as Home
+window focus true
+Home loaded: 20 tiles, 4 inputs
+InputDispatcher: FocusRequests ... result='OK'
+```
+
+SurfaceFlinger 当前输出存在 Aerial 的 Output Layer 和非空可见区域。日志确认走到了 #1206 引入的 HOME 方式重开路径，显示结果符合该修复的预期；没有回退旧版作单变量对照，不据此认定旧黑屏只有一个原因。历史正常桌面的 `crop=[0,0,0,0]` 也可能相同，不能单靠这个字段判断黑屏。
+
+### 自启动和后台保留是独立条件
+
+切到其他应用后，第一次实体 Home 回到酷开；当时 Aerial 的厂商策略为自启动 0、后台策略 0，守护未继续保持运行。记录原值后，仅对 Aerial 设置：
+
+```sh
+adb shell service call skyresource 4 s16 app.orchard.tv i32 0
+adb shell service call skyresource 4 s16 app.orchard.tv i32 1
+adb shell service call skyresource 5 s16 app.orchard.tv i32 0 i32 1
+adb shell service call skyresource 5 s16 app.orchard.tv i32 1 i32 2
+adb shell dumpsys skyresource app_strategy
+```
+
+该固件中 option 0 / value 1 为允许自启动，option 1 / value 2 为后台保留；读回为 `autoUser:true, autoallow:1, backuser:true, backstrate:2`，重启后仍保留。查询或设置若返回 `-1`（Parcel 第二个整数为 `ffffffff`），不表示放行成功；应在策略项可查询后再设置、读回核实，不能只看命令退出码。这组 transaction 编号和取值仅在上述固件核对过。
+
+放行后守护保持绑定；从天气页面按实体 Home，现场确认回到 Aerial。轻按一次音量减并松手，只降一点就停止；没有测试长按。此时启用的无障碍服务只有 Aerial 自带的 `app.orchard.tv/app.orchard.tv.guard.HomeGuardService`，没有并行使用另一套 Home 接管服务。
+
+### HDMI 接入时，系统重启仍可能停在输入画面
+
+电脑保持 HDMI 接入，Aerial 已是 Android 默认 HOME、守护保持绑定时，系统重启仍停在 `com.skyworth.tv/.activity.SkyTVMainActivity`。将原生「开机启动」从「记忆」改为「主页」并确认重启后仍保存，另一次重启持续观察约 110 秒，期间未发送 Home，也仍停在 HDMI。手动按实体 Home 则正常回 Aerial。
+
+这不是旧黑屏的复现：当时前台是输入播放器。1.87 的守护在开机接管检查中会保留已在前台的信号源；仅凭这一现象不能确认是 HDMI-CEC 导致。默认 HOME 解析正确、守护已绑定，与「重启后自动进入 Aerial」应分别验收；仅 Aerial 的这项重启测试尚未通过。
+
+本轮保持原生酷开桌面启用，未改写 `persist.service.homepage.*` 或 `persist.service.model.*`，未卸载、停用系统应用。待机唤醒、断电冷启动、长按音量、HDMI 端口映射和长期稳定性未验证。
 
 ## sky848_9s60 机芯（MStar m7221 / MSD6A848，Android 8.0）：看固件版本号
 

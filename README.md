@@ -242,7 +242,8 @@ curl -fsSL https://aerial.qust.me/install.sh | TV=192.168.1.20 bash -s restore
 | 创维 | 1AA46_D4（T963） | Android 9 | ✅（[#796](https://github.com/pengchujin/aerial-tv/issues/796)） |
 | 创维 | 43H30（1MC02，MT5862） | Android 9 | ✅ 冷开机先出原厂桌面 1–2 秒；背光只能在电视自己的图像设置里调（[#1192](https://github.com/pengchujin/aerial-tv/issues/1192)） |
 | 创维 | 55A5F Pro（8R702_A5FP） | Android 13 | ✅ 要用 standard 版、按主页键的方式打开（guard 版在这台黑屏）（[#1349](https://github.com/pengchujin/aerial-tv/issues/1349)） |
-| 创维 | 7T641、7T634_P3H、75A6E、8R721_A6FP | Android 13 | ❌ 黑屏，或拿不到焦点被系统结束（[#864](https://github.com/pengchujin/aerial-tv/issues/864)、[#839](https://github.com/pengchujin/aerial-tv/issues/839)） |
+| 创维 / 酷开 | K3（7T634_P3H） | Android 13 | ⚠️ 1.87 standard 显示、实体 Home 和音量减短按正常；需放行自启动和后台保留；HDMI 接入时仅 Aerial 的重启测试仍停在输入画面，待机未测（[笔记](docs/devices/skyworth-coocaa.md)、[#864](https://github.com/pengchujin/aerial-tv/issues/864)） |
+| 创维 | 7T641、75A6E、8R721_A6FP | Android 13 | ❌ 黑屏，或拿不到焦点被系统结束（[#839](https://github.com/pengchujin/aerial-tv/issues/839)） |
 | 创维 | 小湃 P3（Q5001 / cupid-p2）盒子 | Android 10 | ⚠️ 要改包名才能接管 HOME；开机广播全被拦（[笔记](docs/devices/skyworth-p3-box.md)） |
 | 松下 | TH-55HX560C（创维代工） | Android 8 | ⚠️ 信号源列不出来 |
 | 康佳 | KKTV U86V9、2861 | Android 9 | ✅ U86V9 亮度调不了（[笔记](docs/devices/konka-kktv-u86v9.md)） |

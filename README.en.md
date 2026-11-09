@@ -244,7 +244,8 @@ Most TVs sold in China only accept their own home screen and clear third-party a
 | Skyworth | 1AA46_D4 (T963) | Android 9 | ✅ ([#796](https://github.com/pengchujin/aerial-tv/issues/796)) |
 | Skyworth | 43H30 (1MC02, MT5862) | Android 9 | ✅ On a cold boot the stock launcher shows for 1–2 s; the backlight is set only in the TV's own picture settings ([#1192](https://github.com/pengchujin/aerial-tv/issues/1192)) |
 | Skyworth | 55A5F Pro (8R702_A5FP) | Android 13 | ✅ Use the standard build, opened the way Home opens it (the guard build is black there) ([#1349](https://github.com/pengchujin/aerial-tv/issues/1349)) |
-| Skyworth | 7T641, 7T634_P3H, 75A6E, 8R721_A6FP | Android 13 | ❌ Black screen, or no window focus and stopped by the system ([#864](https://github.com/pengchujin/aerial-tv/issues/864), [#839](https://github.com/pengchujin/aerial-tv/issues/839)) |
+| Skyworth / Coocaa | K3 (7T634_P3H) | Android 13 | ⚠️ 1.87 standard: picture, physical Home and a short Volume Down press work after allowing auto-start and background retention. With HDMI connected, reboot tests with Aerial alone still stayed on the input; standby untested ([notes](docs/devices/skyworth-coocaa.md), [#864](https://github.com/pengchujin/aerial-tv/issues/864)) |
+| Skyworth | 7T641, 75A6E, 8R721_A6FP | Android 13 | ❌ Black screen, or no window focus and stopped by the system ([#839](https://github.com/pengchujin/aerial-tv/issues/839)) |
 | Skyworth | Xiaopai P3 (Q5001 / cupid-p2) box | Android 10 | ⚠️ Needs a renamed package to take over Home; boot broadcasts are all blocked ([notes](docs/devices/skyworth-p3-box.md)) |
 | Panasonic | TH-55HX560C (built by Skyworth) | Android 8 | ⚠️ No inputs listed |
 | Konka | KKTV U86V9, 2861 | Android 9 | ✅ U86V9 brightness does not work ([notes](docs/devices/konka-kktv-u86v9.md)) |
