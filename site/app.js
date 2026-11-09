@@ -130,6 +130,29 @@ adb shell am start -n app.orchard.tv/.MainActivity`;
     seen.observe(box);
   })();
 
+  // GitHub stars beside the GitHub links. The API allows 60 anonymous calls an hour per IP and is
+  // slow or blocked in China, so the count is kept for an hour, and when the API fails the copy
+  // tools/deploy-site.sh saved with the site is used. With neither, the links stay plain.
+  (() => {
+    const spans = document.querySelectorAll('.stars');
+    const show = n => {
+      if (!(n > 0)) return;
+      const short = n < 1000 ? String(n) : (n / 1000).toFixed(1).replace(/\.0$/, '') + 'k';
+      spans.forEach(s => { s.textContent = '★ ' + short; s.title = T.stars(n); s.setAttribute('aria-label', T.stars(n)); s.hidden = false; });
+    };
+    let cached = null;
+    try { cached = JSON.parse(store.get('aerial-stars')); } catch (e) {}
+    if (cached) show(cached.n);
+    if (cached && Date.now() - cached.t < 3600e3) return;
+    const get = (url, pick) => fetch(url, { signal: AbortSignal.timeout ? AbortSignal.timeout(5000) : undefined })
+      .then(r => r.ok ? r.json() : Promise.reject(r.status)).then(pick)
+      .then(n => n > 0 ? n : Promise.reject('no count'));
+    get('https://api.github.com/repos/pengchujin/aerial-tv', j => j.stargazers_count)
+      .then(n => { store.set('aerial-stars', JSON.stringify({ n, t: Date.now() })); return n; })
+      .catch(() => get('/download/stars.json', j => j.stars))
+      .then(show, () => {});
+  })();
+
   const io = 'IntersectionObserver' in window ? new IntersectionObserver(es => es.forEach(e => {
     if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
   }), { rootMargin: '0px 0px -10% 0px' }) : null;

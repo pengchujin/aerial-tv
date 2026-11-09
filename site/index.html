@@ -22,7 +22,7 @@
 <link rel="alternate" hreflang="en" href="https://aerial.qust.me/en/">
 <link rel="alternate" hreflang="x-default" href="https://aerial.qust.me/en/">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="style.css?v=12">
+<link rel="stylesheet" href="style.css?v=13">
 </head>
 <body>
 
@@ -36,7 +36,7 @@
       <a href="#adapt">适配</a>
       <a href="#faq">常见问题</a>
       <a href="voices/">用户评价</a>
-      <a href="https://github.com/pengchujin/aerial-tv">GitHub</a>
+      <a href="https://github.com/pengchujin/aerial-tv">GitHub<span class="stars" hidden></span></a>
     </div>
     <a class="lang" href="en/" data-lang="en" hreflang="en" lang="en">English</a>
     <a class="cta" href="#install">安装</a>
@@ -50,7 +50,7 @@
     <p class="lede">给国产电视的一块干净桌面。<strong>没有广告，没有推荐流</strong>，只有你的 App、壁纸和 Apple TV 航拍屏保。</p>
     <div class="actions">
       <a class="btn primary" href="#install">开始安装</a>
-      <a class="btn ghost" href="https://github.com/pengchujin/aerial-tv">在 GitHub 查看 ›</a>
+      <a class="btn ghost" href="https://github.com/pengchujin/aerial-tv">在 GitHub 查看<span class="stars" hidden></span> ›</a>
     </div>
     <div class="tv reveal">
       <div class="glow"></div>
@@ -384,6 +384,7 @@
   window.T = {
     ip: '<电视IP>',
     copy: '复制',
+    stars: n => `${n} 个 GitHub 星标`,
     copied: '已复制',
     tclOnly: '仅 TCL：允许开机自启',
     guide: '/agent.md',
@@ -418,6 +419,6 @@
 - 按主页键后的 adb shell "dumpsys window | grep mCurrentFocus"（应该回到电视原来的桌面）`,
   };
 </script>
-<script src="app.js?v=5"></script>
+<script src="app.js?v=6"></script>
 </body>
 </html>

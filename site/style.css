@@ -37,6 +37,7 @@ nav .brand:hover { text-decoration: none; }
 nav .links { display: flex; gap: 24px; margin-left: auto; font-size: 14px; }
 nav .links a { color: var(--muted); }
 nav .links a:hover { color: var(--text); text-decoration: none; }
+.stars { margin-left: .45em; font-variant-numeric: tabular-nums; opacity: .75; }
 nav .lang { font-size: 14px; color: var(--muted); }
 nav .lang:hover { color: var(--text); text-decoration: none; }
 nav .cta { font-size: 14px; padding: 6px 14px; border-radius: 980px; background: var(--accent); color: #fff; }
