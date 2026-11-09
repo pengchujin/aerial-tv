@@ -2,6 +2,23 @@
 
 写给接手 Aerial 的人或 AI。先读这份，再读 [ARCHITECTURE.md](ARCHITECTURE.md) 和 [devices/](devices/)。
 
+## 现状（2026-11-09）
+
+- **2026-11-09 巡检（没发版，改在 main 上）**，记录 `local/triage/2026-11-09-full.md`（原始 `raw-2026-11-09/`），回复 `replies-2026-11-09.py`，发出 `posted-2026-11-09.txt`。348 issue / 66 PR，用户最后发言 58（14 个定了不回）。在 worktree `.claude/worktrees/triage-1109`（分支 `claude/triage-2026-11-09`）上做。主目录当时在别的会话的 `claude/feature-round`（PR #1393，含 #1378 宽带电视、SourceDropouts），没碰。
+  - 改了（每个单独提交）：
+    - #1402 #1369 TCL 鹤 6 Plus（T966D5）/ Q9L Pro 长按主页键：TCL 的多任务广播在这两台上打开的是 cyberui 的 MainActivity（多任务在里面），守护 1 秒后当原桌面拉回。现在广播后 4 秒内出现的 cyberui 主界面 `allowStockLauncher`。
+    - #1401 大眼橙 C3 Ultra：开机时 FallbackHome 加进 HOME 候选，系统作废默认记录、弹安卓自己的 `android/…ResolverActivity`，守护当普通 App 留着。现在和极米的选择框一样当原桌面（`isHomeChooser`）。
+    - #1396 #1388 遥控器主页键被按键表弄错：MOVE_HOME（扫描码 102，只认没有字母键的设备）和 UNKNOWN（102 / 172）当主页键（`isStrayHome`，单测 `StrayHomeTest`）。#1388 是安卓 12，别的 App 里要 `filterHomeAlways` 才看得到。
+    - #1399 keep_adb：守护一看到 ADB 被关就写回 1，TCL 98Q10M Pro（安卓 14）隐藏菜单关再开 ADB 一直「获取失败」，keep_adb 又只能用 ADB 关。现在亮屏使用中（开机 3 分钟后、亮屏 1 分钟后）关 ADB 就认、keep_adb 关掉（`adbSwitchedOffInUse`）。Agent 引用的 #1099「0→1 切换」只在安卓 6–10 做，不是这台的原因。
+    - #1405 TCL 50P8（m7221 安卓 8）：设置 `com.tcl.settings/.MainActivity`、网络 `android.intent.action.WIFISETTING`。Lite 同步。
+    - #1023 乐视 X50：复活后只靠用量统计认出的前台 App，每 2 秒再查，2 分钟内它退到后台且后面没有 App 就拉回（`watchUnseenApp`）。
+    - #1267 雷鸟 65S545C Pro（tcl_m7642 安卓 9）原生崩溃：`FilmKeyFrame` 要 `c2.android.avc.decoder`，这台在 JMediaCodec 构造里空指针崩掉整个进程。现在只试 `MediaCodecList` 列出的解码器。
+    - #1386 旧海信 VIDAA 4.1（安卓 5.1，Hi3751V551）信号源：新增 `VidaaSiloSources`（参考报告人补丁，报告人用普通 App 身份实测过广播）。
+    - README 两份：TCL 85T7L Pro（#1398）、长虹 65D7H Ultra（#1409）；`docs/devices/tcl-mt9655-cn.md` 加 85T7L Pro（有线 adb、4K 画布实测看不出更清楚）。
+  - 验证：standard、guard 单元测试 514 个通过，Lite lint，三个 release 包编译通过，签名 e089…。测试包 **versionCode 124（1.89-test，没提交）**。**小米 MFTR0** `install-multiple` standard + 31.dm（speed-profile / install-dm）：`selftest.sh` 守护、主页键（从设置 0.5 秒）、`INPUTS=1` 8 个信号源通过。**TCL MT5879** 用 `tcast-push.py` 推 guard（截图确认焦点在「同意」再按确定），compile speed：`selftest.sh` 守护、主页键（从酷控 0.2 秒）、`INPUTS=1` 7 个信号源通过；`hid` 遥控器按住主页键照样打开 `TaskManagerActivity`、短按回 Aerial；按住主页键后 4 秒内用 shell 拉起 cyberui MainActivity（模拟 T966D5）→ 日志 `came up for its task manager after Home was held; leaving it in front`，再短按回 Aerial；不按住直接拉起 → 照常拉回。壁纸关键帧用 `OMX.google.h264.decoder` 正常解出。**安卓 9 模拟器（aerial28）**：`hid` 造的没有字母键的遥控器发 HID Home（Generic.kl 映射成 MOVE_HOME）从设置回到 Aerial，日志 `KEYCODE_MOVE_HOME (scan code 102) … taken as Home`；带字母键的键盘发同一个键留在设置。**临时模拟器**（安卓 9，测完删了）：开机 3 分钟后亮屏时 `settings put global adb_enabled 0` → `ADB debugging switched off with the TV in use; keep_adb is off now`，ADB 保持关闭。TCL 的 Generic.kl 被改过（102、172 都是 HOME），模拟不了；UNKNOWN 172 这条路径没在设备上验证。屏保：两台按返回进、按上键出，录屏都只有约 1 帧/秒（TCL 上 shell 按键 4 秒多才到），前后帧没有变黑（小米最暗 107、TCL 73），过渡中间的帧录不到。两台测完 keep_adb、无障碍列表、屏保组件都没变，前台回到 Aerial。
+  - 没有真机验证（我们没有这些电视）：#1402 #1369 #1401 #1396 #1388 #1405 #1023 #1267 #1386。**下次发版 versionCode ≥ 125（TCL 装了 124），Lite ≥ 25（Lite 改了）。**
+  - 等户主定：#1316 TCL tc8000 待机唤醒被拦——报告人对照出守护只要在无障碍列表里（哪怕停了按键过滤）第一次唤醒就被拦，下一步是 `guard_off_in_standby` 时待机把守护整个移出列表、亮屏放回，会动所有电视的待机流程。PR #1375 仍等户主。PR #1400 #1389 功能，留功能轮次。
+
 ## 现状（2026-11-08）
 
 - **1.88（versionCode 123）+ Aerial Lite 1.22（24），2026-11-08 下午发布**（[v1.88](https://github.com/pengchujin/aerial-tv/releases/tag/v1.88)）：下面巡检的全部内容，加上 b44711e「我的视频」屏保接力 / 竖拍视频，加上 PR #1366 和实测时发现的三处修复（#1229 待机唤醒打开开机 App）：① `BootOpen` 的写入改成 commit（MFTR0 息屏 1.3 秒后强停 Aerial，apply 的「屏幕关过」没写进去，唤醒后以为已打开过）；② `MainActivity.onResume` 不清 1 秒内刚设的 `openedAppSinceHome`（开机 App 在 onResume 里同步打开，随即被清，`leftForAnApp` 成了 false），守护的 `aerialCoveredUnseen` 也排除 `leftForAnApp`；③ `bootTargetCovered` 开机窗口外也认 15 秒内刚打开的目标（`WAKE_TARGET_COVER_MS`，唤醒后 PatchWall 约 2 秒后盖上来）。**MFTR0 实测**（户主用遥控器待机 1 分钟以上再开机，开机 App 临时设成云视听小电视）：前三版分别卡在上面三处，最后一版唤醒后打开、被 PatchWall 盖住后重开、留在云视听小电视；按主页键回 Aerial、不再打开；测完开机 App 改回不打开（boot_app=null）。注意小米待机后网络 ADB 会断，`KEYCODE_SLEEP` 之后只能等遥控器开机。三个包签名 e089…；小米 `install-multiple` standard + 31.dm（speed-profile / install-dm），`selftest.sh` 守护、主页键（从设置 0.4 秒）、`INPUTS=1` 8 个信号源通过；TCL `APK_FILE=… KEEP_ADB=1 tools/install.sh guard`（多屏互动，截图确认焦点在「同意」再按确定），compile speed，`selftest.sh` 守护、主页键（从酷控 5.2 秒）、`INPUTS=1` 7 个信号源、hid 主页键通过，两个 walleve 服务、屏保 AerialDream 保留。官网已部署：version.txt = v1.88，notes.json 有 1.88，三个 APK md5 与 Release 一致，`/diag/aerial-710.apk` 还在。#1367 #1283 #1348 #1229 和 PR #1366 #1372 #1248 #1373 贴了发布链接（`local/triage/release-1.88-posts.py`）。**下次发版 versionCode ≥ 124，Lite ≥ 25。** PR #1375 仍等户主定。
