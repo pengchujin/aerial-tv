@@ -135,6 +135,14 @@ private val ShadowDrop = 12.dp
 private val RingWidth = 3.dp
 
 /**
+ * The jiggle of an app being moved, as tvOS leans its icons: [JIGGLE_DEGREES] either way, and one
+ * swing each way takes [JIGGLE_SWING_MS]. The 130 ms swing Aerial used before read as a buzz on
+ * the grid rather than a lean (the owner, A95X F4).
+ */
+private const val JIGGLE_DEGREES = 1.6f
+private const val JIGGLE_SWING_MS = 450
+
+/**
  * One app on the home screen, drawn the tvOS way: it lifts toward you when focused, a soft light
  * lies across its top edge, its name appears beneath it, and it leans and springs back when you
  * push against the edge of the grid. Adaptive icons keep their two layers, so the logo shifts
@@ -220,12 +228,18 @@ fun AppTile(
     val showShadow by remember { derivedStateOf { liftState.value > 0.01f } }
     val showFrame by remember { derivedStateOf { ringState.value > 0.01f && ringInState.value > 0.01f } }
 
-    // tvOS "jiggle" while the app is being moved.
+    // tvOS "jiggle" while the app is being moved: it leans in, and reaches its lean as the mode
+    // settles instead of snapping straight to full tilt.
+    val jiggleIn by animateFloatAsState(
+        targetValue = if (moving && !reduced) 1f else 0f,
+        animationSpec = tween(320, easing = Motion.EaseOut),
+        label = "jiggle-in",
+    )
     val wobble = if (moving && !reduced) {
         rememberInfiniteTransition(label = "jiggle").animateFloat(
-            initialValue = -1.3f, targetValue = 1.3f,
+            initialValue = -JIGGLE_DEGREES, targetValue = JIGGLE_DEGREES,
             // A sine, not a triangle: linear turned back hard at each end and read as a buzz.
-            animationSpec = infiniteRepeatable(tween(130, easing = SineEasing), RepeatMode.Reverse),
+            animationSpec = infiniteRepeatable(tween(JIGGLE_SWING_MS, easing = SineEasing), RepeatMode.Reverse),
             label = "jiggle-angle",
         )
     } else null
@@ -259,7 +273,7 @@ fun AppTile(
                         zoom(scale)
                         rotationY = leanY.value
                         rotationX = leanX.value
-                        rotationZ = wobble?.value ?: 0f
+                        rotationZ = (wobble?.value ?: 0f) * jiggleIn
                         translationX = push.value.x
                         translationY = push.value.y + ShadowDrop.toPx() * lift
                         cameraDistance = 14f * density
@@ -285,7 +299,7 @@ fun AppTile(
                     zoom(scale)
                     rotationY = leanY.value
                     rotationX = leanX.value
-                    rotationZ = wobble?.value ?: 0f
+                    rotationZ = (wobble?.value ?: 0f) * jiggleIn
                     translationX = push.value.x
                     translationY = push.value.y
                     cameraDistance = 14f * density
@@ -482,7 +496,7 @@ fun AppTile(
                         zoom(scale)
                         rotationY = leanY.value
                         rotationX = leanX.value
-                        rotationZ = wobble?.value ?: 0f
+                        rotationZ = (wobble?.value ?: 0f) * jiggleIn
                         translationX = push.value.x
                         translationY = push.value.y
                         cameraDistance = 14f * density
