@@ -4,6 +4,8 @@
 
 ## 现状（2026-11-09）
 
+- **1.89（versionCode 126）+ Aerial Lite 1.23（25），2026-11-09 中午发布**（[v1.89](https://github.com/pengchujin/aerial-tv/releases/tag/v1.89)）：下面巡检的全部修复，加上 PR #1393（功能轮次 + #1378）。#1316、#1375 户主定暂不改。三个包签名 e089…。小米 MFTR0 `install-multiple` standard + 31.dm（speed-profile / install-dm）：`selftest.sh` 守护、主页键（从设置 0.3 秒）、`INPUTS=1` 8 个信号源通过。TCL MT5879 `APK_FILE=… KEEP_ADB=1 tools/install.sh guard`（adb 装被拒，走多屏互动，截图确认焦点在「同意」再按确定），compile speed：两个 walleve 服务、屏保 AerialDream 保留，`selftest.sh` 守护、`INPUTS=1` 7 个信号源通过（shell 主页键 5.0 秒，和之前一样），`hid` 遥控器从 AIDA64 按主页键回 Aerial。官网已部署（先复制了 `ATV/site/diag/`）：version.txt = v1.89，notes.json 有 1.89，三个 APK 大小和 md5 与 Release 一致，`/diag/aerial-710.apk` 还在。12 个修复 issue 和 17 个功能 issue 贴了发布链接（`local/triage/release-1.89-posts.py`）。**下次发版 versionCode ≥ 127，Lite ≥ 26。** 没处理：`OutputDevice` 按 `mbx` 隐藏亮度条会误伤雷鸟 32F165C 这类 Amlogic 电视（#1287）；`claude/feature-round` 上没推的 cacbf41（SourceDropouts）不在 1.89 里。
+
 - **2026-11-09 巡检（没发版，改在 main 上）**，记录 `local/triage/2026-11-09-full.md`（原始 `raw-2026-11-09/`），回复 `replies-2026-11-09.py`，发出 `posted-2026-11-09.txt`。348 issue / 66 PR，用户最后发言 58（14 个定了不回）。在 worktree `.claude/worktrees/triage-1109`（分支 `claude/triage-2026-11-09`）上做。主目录当时在别的会话的 `claude/feature-round`（PR #1393，含 #1378 宽带电视、SourceDropouts），没碰。
   - 改了（每个单独提交）：
     - #1402 #1369 TCL 鹤 6 Plus（T966D5）/ Q9L Pro 长按主页键：TCL 的多任务广播在这两台上打开的是 cyberui 的 MainActivity（多任务在里面），守护 1 秒后当原桌面拉回。现在广播后 4 秒内出现的 cyberui 主界面 `allowStockLauncher`。
