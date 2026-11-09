@@ -39,6 +39,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -55,10 +57,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.graphicsLayer
@@ -66,6 +70,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
@@ -90,6 +95,7 @@ import app.orchard.tv.ui.theme.GlyphIcon
 import app.orchard.tv.ui.theme.Motion
 import app.orchard.tv.ui.theme.Palette
 import app.orchard.tv.ui.theme.Type
+import app.orchard.tv.wallpaper.DailySource
 import app.orchard.tv.wallpaper.PhoneServer
 import app.orchard.tv.wallpaper.AerialFormats
 import app.orchard.tv.wallpaper.AerialQuality
@@ -132,6 +138,7 @@ fun WallpaperSheet(
     val context = LocalContext.current
     var phoneUrl by remember { mutableStateOf<String?>(null) }
     var qr by remember { mutableStateOf<ImageBitmap?>(null) }
+    var showDaily by remember { mutableStateOf(false) }
 
     BackHandler(enabled = visible, onBack = onDismiss)
 
@@ -204,6 +211,14 @@ fun WallpaperSheet(
                         },
                         AerialSettings.photoMinutes, { AerialSettings.choosePhotoMinutes(it); Wallpapers.rotateIfDue() }, first = true,
                     )
+                }
+
+                Spacer(Modifier.height(18.dp))
+                SectionTitle(R.string.ds_section)
+                Group { note ->
+                    SettingRow(R.string.ds_source, stringResource(R.string.ds_note), note, first = true) {
+                        ActionChip(DailySource.label(context), Glyph.ChevronRight) { showDaily = true }
+                    }
                 }
 
                 Spacer(Modifier.height(6.dp))
@@ -413,6 +428,14 @@ fun WallpaperSheet(
             exit = fadeOut(tween(160, easing = Motion.EaseOut)) + slideOutVertically(tween(200, easing = Motion.EaseOut)) { it / 4 },
         ) {
             sheet(true)
+        }
+        if (showDaily) {
+            Box(
+                Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.45f)).dismissOnTap { showDaily = false },
+                contentAlignment = Alignment.Center,
+            ) {
+                DailySourceDialog(onClose = { showDaily = false })
+            }
         }
     }
 }
@@ -706,7 +729,7 @@ private fun Chip(label: String, on: Boolean, onFocused: (() -> Unit)? = null, on
 
 /** A pill that does something rather than choosing a value: white when focused, a glyph after its label. */
 @Composable
-private fun ActionChip(label: String, glyph: Glyph, onClick: () -> Unit) {
+internal fun ActionChip(label: String, glyph: Glyph, onClick: () -> Unit) {
     Pressable(onClick = onClick, focusedScale = 1.06f) { state ->
         val bg by animateColorAsState(if (state.focused) Palette.Focus else Palette.FillStrong, tween(140, easing = Motion.EaseOut), label = "action-bg")
         val fg = if (state.focused) Palette.OnFocus else Palette.Label

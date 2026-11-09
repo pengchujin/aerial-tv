@@ -324,4 +324,27 @@
     <string name="kids_blocked">%s is not allowed here</string>
     <string name="kids_warn">%d min of TV left</string>
     <string name="kids_warn_break">A break in %d min</string>
+    <string name="ds_section">Daily Source</string>
+    <string name="ds_source">Source</string>
+    <string name="ds_note">Bing by default. A LAN server can be used instead; set its address, port and optional token.</string>
+    <string name="ds_title">Daily Source</string>
+    <string name="ds_current">Current: %1$s</string>
+    <string name="ds_host">Address</string>
+    <string name="ds_host_hint">192.168.1.10 or nas.local</string>
+    <string name="ds_port">Port</string>
+    <string name="ds_port_hint">8899</string>
+    <string name="ds_token">Token</string>
+    <string name="ds_token_hint">Optional</string>
+    <string name="ds_probe">Discover</string>
+    <string name="ds_probing">Searching…</string>
+    <string name="ds_save">Save</string>
+    <string name="ds_bing">Use Bing</string>
+    <string name="ds_cancel">Cancel</string>
+    <string name="ds_found">Found %1$s</string>
+    <string name="ds_saved">Saved</string>
+    <string name="ds_invalid_host">Address must be a private IPv4 or a .local name.</string>
+    <string name="ds_invalid_port">Port must be 1–65535.</string>
+    <string name="ds_unreachable">Server unreachable, or the token is wrong.</string>
+    <string name="ds_probe_failed">No LAN daily server found.</string>
+    <string name="ds_bing_now">Bing restored.</string>
 </resources>
