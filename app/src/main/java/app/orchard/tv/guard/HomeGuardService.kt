@@ -537,8 +537,8 @@ class HomeGuardService : AccessibilityService() {
         // XGIMI (Android 9, m7642) answers Home with its own Home chooser when set-home-activity did
         // not take; it was never drawn and the remote went dead over it (issue #44). Only right
         // after Home: the same chooser also serves apps' "open with".
-        lastWindow?.takeIf { it.first == XGIMI_FRAMEWORK && it.second.endsWith(".resolver.ResolverActivity") }?.let {
-            Log.i(TAG, "Home pressed and XGIMI's Home chooser came up; bringing Aerial back")
+        lastWindow?.takeIf { isHomeChooser(it.first, it.second) }?.let {
+            Log.i(TAG, "Home pressed and the Home chooser (${it.first}) came up; bringing Aerial back")
             goHome()
             return@Runnable
         }
@@ -1024,7 +1024,11 @@ class HomeGuardService : AccessibilityService() {
         // chooser like a stock launcher so the take-over covers boot and wake, the same condition
         // frontAfterHome already accepts right after a Home press (issue #44). The same chooser
         // also serves "open with", but only right after a revival or a wake, which is rarer than a
-        // boot and was already accepted there.
+        // boot and was already accepted there. Android's own chooser likewise: on OBE C3 Ultra
+        // (MT9669, Android 9, issue #1401) the firmware's FallbackHome joins the Home candidates
+        // during the boot, the system drops the preferred Home for the changed set and asks, and
+        // the guard left android/ResolverActivity there for good ("user unlocked with android in
+        // front; leaving it there").
         // JMGO S60 (Amlogic T968, Android 5.1): its TV app declares Home, so the guard counted it as
         // the stock launcher by package alone and pulled Aerial back over the input
         // AmlogicTvActivity had just opened, leaving Aerial's Home on screen. That activity is the
@@ -1041,7 +1045,7 @@ class HomeGuardService : AccessibilityService() {
             GuardSetup.rebindForJmgoKeys(this)
         }
         val stockInFront = last == null || (last.first in stockHomes && !jmgoPlayer) ||
-            (last.first == XGIMI_FRAMEWORK && last.second.endsWith(".resolver.ResolverActivity")) ||
+            isHomeChooser(last.first, last.second) ||
             firmwarePushedAtBoot(last.first) ||
             (coveredSilently && aerialCoveredUnseen(last))
         // Aerial is in front after a wake because the guard already brought it back when the stock
@@ -2021,6 +2025,11 @@ class HomeGuardService : AccessibilityService() {
         /** Xiaomi's UI boost; see uiBoostChanged. */
         private const val UI_BOOST = "mitv_fast_cur_anim_scale"
         private const val XGIMI_FRAMEWORK = "com.xgimi.xgimiframeworkui"
+
+        /** The system's chooser asking which Home to use: XGIMI's own, or Android's (see takeOver). */
+        internal fun isHomeChooser(pkg: String, cls: String): Boolean =
+            (pkg == XGIMI_FRAMEWORK && cls.endsWith(".resolver.ResolverActivity")) ||
+                (pkg == "android" && cls == "com.android.internal.app.ResolverActivity")
         private const val JMGO_TV = "com.jmgo.tv"
         private const val FOREGROUND_POLL_MS = 1_000L
         private const val FOREGROUND_LOOKBACK_MS = 10_000L
