@@ -305,6 +305,43 @@ class HomeGuardService : AccessibilityService() {
     }
 
     /** Whether usage stats say the app in front went to the back with nothing after it (UsageFront, issue #1023). */
+    /**
+     * An app left in front that only usage stats named, no window change seen since the binding:
+     * backed out of, it may raise none either. LeTV X4-50 (eUI, Android 6.0, issue #1023) force-
+     * stops Aerial 2 s after an app opens; revived and bound again, the guard left the app (a
+     * NativeActivity), whose exit then sent no window change, and the screen stayed black for
+     * 10-23 s, until the deaf check's restart read usage stats again. Asked every few seconds
+     * instead, for a while, until a window change comes.
+     */
+    private fun watchUnseenApp(pkg: String) {
+        handler.removeCallbacks(unseenAppCheck)
+        unseenApp = pkg
+        unseenAppWindows = windowsSeen
+        unseenAppUntil = SystemClock.uptimeMillis() + UNSEEN_APP_WATCH_MS
+        handler.postDelayed(unseenAppCheck, UNSEEN_APP_POLL_MS)
+    }
+
+    private var unseenApp: String? = null
+    private var unseenAppWindows = 0L
+    private var unseenAppUntil = 0L
+    private val unseenAppCheck: Runnable = object : Runnable {
+        override fun run() {
+            val pkg = unseenApp ?: return
+            if (windowsSeen != unseenAppWindows || screenOff || SystemClock.uptimeMillis() > unseenAppUntil) {
+                unseenApp = null
+                return
+            }
+            if (nothingInFrontByUsage()) {
+                unseenApp = null
+                Log.i(TAG, "$pkg went to the back with no window change and nothing came up; bringing Aerial back")
+                DiagLog.i("guard: $pkg left with no window change and nothing came up; bringing Aerial back")
+                goHome()
+                return
+            }
+            handler.postDelayed(this, UNSEEN_APP_POLL_MS)
+        }
+    }
+
     private fun nothingInFrontByUsage(): Boolean =
         usageStatsAllowed(this) && usageFront(UNKNOWN_FRONT_LOOKBACK_MS)?.closed == true
 
@@ -1061,6 +1098,7 @@ class HomeGuardService : AccessibilityService() {
             return
         }
         if (!stockInFront && last != null) Log.i(TAG, "$reason with ${last.first} in front; leaving it there")
+        if (!stockInFront && last != null && seen == null && !jmgoPlayer) watchUnseenApp(last.first)
         if (!stockInFront || SystemClock.uptimeMillis() < allowStockUntil) return
         // What the TV starts on was opened and then covered: it is what the viewer is waiting for,
         // not Aerial's Home. Reached at the boot rechecks and by a process started again in the boot
@@ -2032,6 +2070,9 @@ class HomeGuardService : AccessibilityService() {
         private val BOOT_RECHECKS_MS = listOf(30_000L, 45_000L)
         private const val COVERED_UNSEEN_MS = 3_000L
         private const val DEAF_AFTER_MS = 20_000L
+        /** See watchUnseenApp. */
+        private const val UNSEEN_APP_POLL_MS = 2_000L
+        private const val UNSEEN_APP_WATCH_MS = 2 * 60_000L
         /** How long a stock launcher's window change may take to arrive after Home (see frontAfterHome). */
         private const val FRONT_AFTER_HOME_MS = 1_500L
         /** How often usage stats are read after Home once the guard has been found deaf. */
