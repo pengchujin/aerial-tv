@@ -40,6 +40,7 @@ class RevivalListenerTest {
     fun enabledButUnboundGuard() {
         shadowOf(RuntimeEnvironment.getApplication()).grantPermissions(Manifest.permission.WRITE_SECURE_SETTINGS)
         shadowOf(user).setUserUnlocked(true)
+        GuardSetup.resetRebindsForTest()
         Settings.Secure.putString(context.contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES, "$peer:$guard")
         context.packageManager.setComponentEnabledSetting(
             boot, PackageManager.COMPONENT_ENABLED_STATE_DISABLED, PackageManager.DONT_KILL_APP,
@@ -81,15 +82,35 @@ class RevivalListenerTest {
         }
     }
 
+    // Checks at 5, 10, 20, 35, 65, 125 s. Up to Android 10 a put-back is given 25 s to bind, so the
+    // second take-out waits for the check at 35 s (GuardSetup.rebindIfStalled spacing).
     @Test
     fun retriesWhenAndroidDoesNotBindAfterFirstRepair() {
         val controller = Robolectric.buildService(RevivalListener::class.java).create()
         try {
             advance(6_500)
             assertEquals("$peer:$guard", enabled)
-            advance(3_500)
+            advance(28_000) // 34.5 s: the checks at 10 and 20 s left the list alone
+            assertEquals("$peer:$guard", enabled)
+            advance(500)
             assertEquals(peer, enabled)
             advance(1_500)
+            assertEquals("$peer:$guard", enabled)
+        } finally {
+            controller.destroy()
+        }
+    }
+
+    // MiTV-AZFP0 (Android 9): two put-backs Android never answered mark the binding as wedged, and
+    // later checks stop taking the guard out (and Xiaoai with it) for nothing.
+    @Test
+    fun stopsRebindingOnceAndroidNineKeepsTheBindingWedged() {
+        val controller = Robolectric.buildService(RevivalListener::class.java).create()
+        try {
+            advance(62_000)
+            assertTrue(GuardSetup.bindingWedged)
+            assertEquals("$peer:$guard", enabled)
+            advance(64_000) // past the checks at 65 and 125 s
             assertEquals("$peer:$guard", enabled)
         } finally {
             controller.destroy()

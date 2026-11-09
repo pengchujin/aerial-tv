@@ -103,7 +103,8 @@ object Diagnostics {
         appendLine("**Takeover**")
         appendLine("```")
         val accessibility = secure(context, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES)
-        appendLine("Home Guard  enabled=${accessibility?.contains("${context.packageName}/") == true} running=${HomeGuardService.isRunning}")
+        appendLine("Home Guard  enabled=${accessibility?.contains("${context.packageName}/") == true} running=${HomeGuardService.isRunning}" +
+            if (GuardSetup.bindingWedged) " binding_wedged=true (Android 9/10 kept a binding cut short by a force-stop; restart the TV once)" else "")
         appendLine("  accessibility services: ${accessibility ?: "-"}")
         appendLine("Revival     notification listener allowed=${NotificationManagerCompat.getEnabledListenerPackages(context).contains(context.packageName)}, revivals in 10 min=${GuardSetup.revivedOften(context).let { if (it) "3 or more" else "fewer than 3" }}")
         appendLine("Grants      WRITE_SECURE_SETTINGS=${granted(context, Manifest.permission.WRITE_SECURE_SETTINGS)}" +
