@@ -708,6 +708,7 @@ object SystemProbe {
         .let { listed -> (listed + xiaomiSources(context, listed)).sortedWith(compareBy({ it.kind.ordinal }, { it.label })) }
         .ifEmpty { XgimiMstarSources.load(context) }
         .ifEmpty { HisenseSources.load(context) }
+        .ifEmpty { VidaaSiloSources.load(context) }
         .ifEmpty { KonkaSources.load(context) }
         .ifEmpty { tclSources(context) }
         .ifEmpty { whaleySources(context) }
