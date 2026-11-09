@@ -654,7 +654,10 @@ class HomeGuardService : AccessibilityService() {
 
     private val adbObserver by lazy {
         object : ContentObserver(handler) {
-            override fun onChange(selfChange: Boolean) = GuardSetup.ensureAdb(this@HomeGuardService)
+            override fun onChange(selfChange: Boolean) {
+                if (GuardSetup.adbSwitchedOffInUse(this@HomeGuardService, SystemClock.elapsedRealtime() - screenOnAt)) return
+                GuardSetup.ensureAdb(this@HomeGuardService)
+            }
         }
     }
 

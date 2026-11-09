@@ -53,6 +53,8 @@ object GuardSetup {
 
     /** When [ensureAdbListening] may still act: only boot shows the lying setting (issue #454). */
     private const val ADB_BOOT_WINDOW_MS = 3 * 60_000L
+    /** After the screen lights, a while in which ADB switched off is the firmware's; see adbSwitchedOffInUse. */
+    private const val ADB_WAKE_SLACK_MS = 60_000L
     private val adbDanceLock = Any()
     @Volatile private var adbDancing = false
     /** Once per process, which within the boot window is once or twice per boot. */
@@ -283,6 +285,25 @@ object GuardSetup {
     fun setKeepAdb(context: Context, keep: Boolean) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(KEY_KEEP_ADB, keep).apply()
         if (keep) ensureAdb(context)
+    }
+
+    /**
+     * ADB switched off with the TV in use: the viewer did it, or a settings page does it on its
+     * way to switching it on again. keep_adb putting it back at once fought both: on TCL 98Q10M
+     * Pro (MT9655, Android 14, issue #1399) the hidden ADB page then failed every time ("获取失败"),
+     * and the setting could not be switched off without the ADB it kept from working. So the
+     * switch-off is taken as meant and keep_adb ends. Not in standby, nor in the first minutes
+     * of a boot or a wake, where firmware switches it off on its own (keep_adb's reason to be).
+     */
+    fun adbSwitchedOffInUse(context: Context, screenOnForMs: Long): Boolean {
+        if (adbDancing || !isUserUnlocked(context) || !keepAdb(context)) return false
+        if (Settings.Global.getInt(context.contentResolver, Settings.Global.ADB_ENABLED, 1) != 0) return false
+        if (SystemClock.elapsedRealtime() < ADB_BOOT_WINDOW_MS || screenOnForMs < ADB_WAKE_SLACK_MS) return false
+        if ((context.getSystemService(Context.POWER_SERVICE) as? PowerManager)?.isInteractive != true) return false
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(KEY_KEEP_ADB, false).apply()
+        Log.i(TAG, "ADB debugging switched off with the TV in use; keep_adb is off now")
+        DiagLog.i("guard: ADB switched off with the TV in use; keep_adb switched off, not turning it back on")
+        return true
     }
 
     /**
