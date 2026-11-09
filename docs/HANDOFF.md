@@ -14,9 +14,10 @@
     - #1023 乐视 X50：复活后只靠用量统计认出的前台 App，每 2 秒再查，2 分钟内它退到后台且后面没有 App 就拉回（`watchUnseenApp`）。
     - #1267 雷鸟 65S545C Pro（tcl_m7642 安卓 9）原生崩溃：`FilmKeyFrame` 要 `c2.android.avc.decoder`，这台在 JMediaCodec 构造里空指针崩掉整个进程。现在只试 `MediaCodecList` 列出的解码器。
     - #1386 旧海信 VIDAA 4.1（安卓 5.1，Hi3751V551）信号源：新增 `VidaaSiloSources`（参考报告人补丁，报告人用普通 App 身份实测过广播）。
+    - #1380 NVIDIA SHIELD（安卓 11）开机后第一次按主页键：守护还没见过窗口时在按键广播里立刻拉 Aerial，被固件 3 ms 后指名启动的 tvlauncher 盖住、完整画了 1.1 秒。现在前台未知时等 0.4 秒，原桌面的窗口事件走正常路径；没等到再拉回。小米上回归主页键正常（走 backOnPause，不经过这里），SHIELD 这种场景手上复现不了，没验证。
     - README 两份：TCL 85T7L Pro（#1398）、长虹 65D7H Ultra（#1409）；`docs/devices/tcl-mt9655-cn.md` 加 85T7L Pro（有线 adb、4K 画布实测看不出更清楚）。
   - 验证：standard、guard 单元测试 514 个通过，Lite lint，三个 release 包编译通过，签名 e089…。测试包 **versionCode 124（1.89-test，没提交）**。**小米 MFTR0** `install-multiple` standard + 31.dm（speed-profile / install-dm）：`selftest.sh` 守护、主页键（从设置 0.5 秒）、`INPUTS=1` 8 个信号源通过。**TCL MT5879** 用 `tcast-push.py` 推 guard（截图确认焦点在「同意」再按确定），compile speed：`selftest.sh` 守护、主页键（从酷控 0.2 秒）、`INPUTS=1` 7 个信号源通过；`hid` 遥控器按住主页键照样打开 `TaskManagerActivity`、短按回 Aerial；按住主页键后 4 秒内用 shell 拉起 cyberui MainActivity（模拟 T966D5）→ 日志 `came up for its task manager after Home was held; leaving it in front`，再短按回 Aerial；不按住直接拉起 → 照常拉回。壁纸关键帧用 `OMX.google.h264.decoder` 正常解出。**安卓 9 模拟器（aerial28）**：`hid` 造的没有字母键的遥控器发 HID Home（Generic.kl 映射成 MOVE_HOME）从设置回到 Aerial，日志 `KEYCODE_MOVE_HOME (scan code 102) … taken as Home`；带字母键的键盘发同一个键留在设置。**临时模拟器**（安卓 9，测完删了）：开机 3 分钟后亮屏时 `settings put global adb_enabled 0` → `ADB debugging switched off with the TV in use; keep_adb is off now`，ADB 保持关闭。TCL 的 Generic.kl 被改过（102、172 都是 HOME），模拟不了；UNKNOWN 172 这条路径没在设备上验证。屏保：两台按返回进、按上键出，录屏都只有约 1 帧/秒（TCL 上 shell 按键 4 秒多才到），前后帧没有变黑（小米最暗 107、TCL 73），过渡中间的帧录不到。两台测完 keep_adb、无障碍列表、屏保组件都没变，前台回到 Aerial。
-  - 没有真机验证（我们没有这些电视）：#1402 #1369 #1401 #1396 #1388 #1405 #1023 #1267 #1386。**下次发版 versionCode ≥ 125（TCL 装了 124），Lite ≥ 25（Lite 改了）。**
+  - 没有真机验证（我们没有这些电视）：#1402 #1369 #1401 #1396 #1388 #1405 #1023 #1267 #1386 #1380。**下次发版 versionCode ≥ 125（TCL 装了 124），Lite ≥ 25（Lite 改了）。**
   - 等户主定：#1316 TCL tc8000 待机唤醒被拦——报告人对照出守护只要在无障碍列表里（哪怕停了按键过滤）第一次唤醒就被拦，下一步是 `guard_off_in_standby` 时待机把守护整个移出列表、亮屏放回，会动所有电视的待机流程。PR #1375 仍等户主。PR #1400 #1389 功能，留功能轮次。
 
 ## 现状（2026-11-08）
