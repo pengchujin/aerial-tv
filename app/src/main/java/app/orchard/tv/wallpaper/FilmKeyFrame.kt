@@ -204,6 +204,14 @@ internal object FilmKeyFrame {
 
     private class Decoded(val bitmap: Bitmap, val codec: String, val decodeMs: Long, val convertMs: Long)
 
+    /** The names of the TV's decoders, or null where the list cannot be read (then all are tried). */
+    private val installedCodecs: Set<String>? by lazy {
+        runCatching {
+            android.media.MediaCodecList(android.media.MediaCodecList.ALL_CODECS).codecInfos
+                .filter { !it.isEncoder }.map { it.name }.toSet()
+        }.getOrNull()
+    }
+
     /** [sample] decoded by a software decoder, at [w]×[h], with that decoder's name and the time each step took. */
     private fun decodeSample(sample: Sample, w: Int, h: Int): Decoded {
         val started = SystemClock.elapsedRealtime()
@@ -212,7 +220,11 @@ internal object FilmKeyFrame {
         else listOf("c2.android.hevc.decoder", "OMX.google.hevc.decoder")
         var codec: MediaCodec? = null
         var name = ""
-        for (n in names) {
+        // Only decoders the TV lists: asked for one it lacks, TCL tcl_m7642 (Android 9, which has no
+        // c2 decoders) crashed the process in JMediaCodec's constructor instead of throwing, every
+        // time a frame was read (issue #1267, three dropbox records, SIGSEGV on a null pointer).
+        val listed = installedCodecs
+        for (n in names.filter { listed == null || it in listed }) {
             codec = runCatching { MediaCodec.createByCodecName(n) }.getOrNull()
             if (codec != null) { name = n; break }
         }
