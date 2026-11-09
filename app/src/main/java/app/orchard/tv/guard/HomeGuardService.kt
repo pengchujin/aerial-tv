@@ -549,10 +549,26 @@ class HomeGuardService : AccessibilityService() {
             // The stock launcher's window change usually comes first and already brought Aerial
             // back; starting it again redid Home's resume (MiTV-MFTR0: 0.2 s apart).
             if (SystemClock.uptimeMillis() - broughtBackAt < 1_000) return
-            Log.i(TAG, "Home pressed with ${front ?: "an unknown app"} in front; bringing Aerial back")
+            // Nothing seen yet: the stock launcher's window change, a moment away, brings Aerial
+            // back before it is drawn. Started at once, Aerial lost to the launcher the firmware
+            // started by component 3 ms later, which then drew in full for 1.1 s (NVIDIA SHIELD
+            // TV, Android 11, the first Home after a boot, issue #1380). If none comes, Aerial anyway.
+            if (front == null) {
+                handler.removeCallbacks(unknownFrontHome)
+                handler.postDelayed(unknownFrontHome, UNKNOWN_FRONT_HOME_MS)
+                return
+            }
+            Log.i(TAG, "Home pressed with $front in front; bringing Aerial back")
             endStockVisit("Home pressed")
             goHome()
         }
+    }
+
+    private val unknownFrontHome = Runnable {
+        if (SystemClock.uptimeMillis() - broughtBackAt < 1_000 || aerialResumed) return@Runnable
+        Log.i(TAG, "Home pressed with an unknown app in front and nothing came up; bringing Aerial back")
+        endStockVisit("Home pressed")
+        goHome()
     }
 
     private var windowsSeen = 0L
@@ -2070,6 +2086,8 @@ class HomeGuardService : AccessibilityService() {
         private val BOOT_RECHECKS_MS = listOf(30_000L, 45_000L)
         private const val COVERED_UNSEEN_MS = 3_000L
         private const val DEAF_AFTER_MS = 20_000L
+        /** How long Home with no front seen yet waits for a window change; see homeKey. */
+        private const val UNKNOWN_FRONT_HOME_MS = 400L
         /** See watchUnseenApp. */
         private const val UNSEEN_APP_POLL_MS = 2_000L
         private const val UNSEEN_APP_WATCH_MS = 2 * 60_000L
