@@ -222,6 +222,7 @@ Most TVs sold in China only accept their own home screen and clear third-party a
 | Xiaomi (Fengmi) | Ultraman series projector | Android 9 | ✅ ([notes](docs/devices/xiaomi-ultraman-projector.md)) |
 | TCL | MT5879 (China), 98T8H | Android 11 | ✅ In daily use ([notes](docs/devices/tcl-mt5879-cn.md); 98T8H: [#803](https://github.com/pengchujin/aerial-tv/issues/803)) |
 | TCL | Q9L Pro | Android 14 | ⚠️ ADB over a USB cable only; allow Aerial to auto-start in the TV manager; inputs switch from 1.77 on ([#792](https://github.com/pengchujin/aerial-tv/issues/792)) |
+| TCL | 85T7L Pro (MT9655_4K_CN) | Android 14 | ⚠️ adb over a USB cable only (network adb listens on IPv6 alone and can't be reached); standard won't install, guard with `boot_app_componentname` set to Aerial boots into Aerial and the guard stays ([#1398](https://github.com/pengchujin/aerial-tv/issues/1398)) |
 | TCL | 65V8E (tc8000 ay30a2) | Android 11 | ✅ After a power cut the stock launcher shows for 6–8 s first ([#1137](https://github.com/pengchujin/aerial-tv/issues/1137)) |
 | Thunderbird | 75S78A Plus (FFALCON T966D5) | Android 14 | ❌ The firmware clears accessibility about once a minute, so Home cannot be taken over; `boot_app_componentname` boots into Aerial ([notes](docs/devices/ffalcon-t966d5.md)) |
 | Thunderbird | He 6 2027, 55" (T966D5 / AU01) | Android 14 | ⚠️ guard flavor; with `boot_app_componentname` set to Aerial it booted into Aerial with the guard running; one reboot tried ([#1185](https://github.com/pengchujin/aerial-tv/issues/1185)) |
@@ -264,6 +265,7 @@ Most TVs sold in China only accept their own home screen and clear third-party a
 | Xiaomi | MiTV-MTTP0 (low RAM) | Android 9 | ✅ Home, boot, wake and inputs pass; a few seconds back to Aerial when memory is tight ([#1285](https://github.com/pengchujin/aerial-tv/issues/1285)) |
 | Sharp | LCD-50SU671A | Android 6 | ✅ Needs QuickShortcutMaker to open ADB |
 | Changhong | CHiQ 43Q5T (ZLS70Hi5) | — | ❌ ADB connects but never asks to authorize, and there is no accessibility setting, so Home can't be taken over; installed from a USB drive it works as a plain app ([#1262](https://github.com/pengchujin/aerial-tv/issues/1262)) |
+| Changhong | 65D7H Ultra (MT9655) | Android 14 | ⚠️ ADB never asks to authorize; the reporter made Aerial the default Home through Changhong's own system interface, and Home and wake from standby work; allow Aerial to run in the background in the TV manager, or Back lands on Changhong's launcher ([#1409](https://github.com/pengchujin/aerial-tv/issues/1409)) |
 | OPPO | K9 | Android 9 | ⚠️ Needs a renamed package ([notes](docs/devices/oppo-coloros-tv.md)) |
 | XGIMI | Z7X, m7642 | Android 9 | ✅ Z7X needs a third-party tool to open ADB ([notes](docs/devices/xgimi-z7x.md)) |
 | XGIMI | Z9X 4K Bright (goat_elegant) | Android 13 | ⚠️ Limited test on 1.76: first launch, UID app-op and the front after reboot; boot screen and standby not yet ([notes](docs/devices/xgimi-z9x-4k.md)) |

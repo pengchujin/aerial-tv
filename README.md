@@ -220,6 +220,7 @@ curl -fsSL https://aerial.qust.me/install.sh | TV=192.168.1.20 bash -s restore
 | 小米（峰米） | Ultraman 系列投影仪 | Android 9 | ✅（[笔记](docs/devices/xiaomi-ultraman-projector.md)） |
 | TCL | MT5879 国行、98T8H | Android 11 | ✅ 日常使用（[笔记](docs/devices/tcl-mt5879-cn.md)；98T8H 见 [#803](https://github.com/pengchujin/aerial-tv/issues/803)） |
 | TCL | Q9L Pro | Android 14 | ⚠️ 只能 USB 线连 adb；要在电视管家里允许 Aerial 自启；信号源 1.77 起能切（[#792](https://github.com/pengchujin/aerial-tv/issues/792)） |
+| TCL | 85T7L Pro（MT9655_4K_CN） | Android 14 | ⚠️ 只能 USB 线连 adb（无线 adb 只在 IPv6 上监听，连不上）；standard 装不上，guard 版把 `boot_app_componentname` 设成 Aerial 后重启进 Aerial，守护保持（[#1398](https://github.com/pengchujin/aerial-tv/issues/1398)） |
 | TCL | 65V8E（tc8000 ay30a2） | Android 11 | ✅ 断电开机先显示原桌面 6–8 秒（[#1137](https://github.com/pengchujin/aerial-tv/issues/1137)） |
 | 雷鸟 | 75S78A Plus（FFALCON T966D5） | Android 14 | ❌ 固件约每分钟清掉无障碍，主页键接管不了；`boot_app_componentname` 能让开机进 Aerial（[笔记](docs/devices/ffalcon-t966d5.md)） |
 | 雷鸟 | 鹤 6 2027 款 55 英寸（T966D5 / AU01） | Android 14 | ⚠️ guard 版，把 `boot_app_componentname` 设成 Aerial 后重启进 Aerial，守护在；只试过一次重启（[#1185](https://github.com/pengchujin/aerial-tv/issues/1185)） |
@@ -263,6 +264,7 @@ curl -fsSL https://aerial.qust.me/install.sh | TV=192.168.1.20 bash -s restore
 | 小米 | MiTV-MTTP0（低内存） | Android 9 | ✅ 主页键、开机、待机、信号源通过；内存紧时回 Aerial 要几秒（[#1285](https://github.com/pengchujin/aerial-tv/issues/1285)） |
 | 夏普 | LCD-50SU671A | Android 6 | ✅ 要用 QuickShortcutMaker 打开 ADB |
 | 长虹 | CHiQ 43Q5T（ZLS70Hi5） | — | ❌ ADB 连上但不弹授权框，设置里没有无障碍入口，接管不了主页键；U 盘装上可以当普通 App 用（[#1262](https://github.com/pengchujin/aerial-tv/issues/1262)） |
+| 长虹 | 65D7H Ultra（MT9655） | Android 14 | ⚠️ ADB 不弹授权框；报告人用长虹自己的系统接口把 Aerial 设成默认桌面，主页键、待机唤醒正常；要在电视管家里允许 Aerial 后台运行，否则按返回会停在长虹桌面（[#1409](https://github.com/pengchujin/aerial-tv/issues/1409)） |
 | OPPO | K9 | Android 9 | ⚠️ 要改包名才能装（[笔记](docs/devices/oppo-coloros-tv.md)） |
 | 极米 | Z9X 4K 高亮版（goat_elegant） | Android 13 | ⚠️ 1.76 有限实测：初次显示、UID app-op 与重启前台恢复；启动画面和待机仍待验（[笔记](docs/devices/xgimi-z9x-4k.md)） |
 | 极米 | Z7X、m7642 | Android 9 | ✅ Z7X 要用第三方工具打开 ADB（[笔记](docs/devices/xgimi-z7x.md)） |
