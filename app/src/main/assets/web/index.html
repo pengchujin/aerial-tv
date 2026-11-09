@@ -222,6 +222,18 @@
   .sheet .list { background: var(--card); }
   @media (prefers-color-scheme: dark) { .sheet .list { background: #2c2c2e; } }
   .sheet .list + .list { margin-top: 10px; }
+  /* The icon editor: the tile as the TV shows it, and what moves the picture in it. */
+  .ied { display: block; width: 100%; aspect-ratio: 16 / 9; border-radius: 12px; background: var(--fill); touch-action: none; cursor: grab; }
+  .ied:active { cursor: grabbing; }
+  .ied-row { gap: 12px; }
+  .ied-row input[type="range"] { flex: 1; min-width: 0; accent-color: var(--tint); }
+  .ied-row .seg { display: flex; gap: 8px; margin-left: auto; }
+  .ied-row .seg button { appearance: none; border: 0; font: inherit; font-size: 15px; padding: 6px 12px; border-radius: 16px; background: var(--fill); color: var(--label); }
+  .ied-row .seg button[aria-checked="true"] { background: var(--tint); color: #fff; }
+  .swatches { display: flex; flex-wrap: wrap; gap: 10px; justify-content: flex-end; flex: 1; }
+  .swatch { appearance: none; border: 0; width: 30px; height: 30px; border-radius: 15px; padding: 0; font: inherit; font-size: 12px; font-weight: 600; box-shadow: inset 0 0 0 1px rgba(128,128,128,.4); }
+  .swatch.auto { width: auto; padding: 0 10px; }
+  .swatch[aria-checked="true"] { box-shadow: inset 0 0 0 1px rgba(128,128,128,.4), 0 0 0 2px var(--sheet), 0 0 0 4px var(--tint); }
 
   .toast {
     position: fixed; z-index: 30; left: 50%; bottom: calc(var(--tabbar) + 16px); transform: translate(-50%, 12px);
@@ -407,7 +419,7 @@ let state = null, stateJson = '';
 
 // The language: ?lang=ru in the address, else the one picked under More (kept on the phone), else the
 // first of the phone's preferred languages that has a table, else English. Keys are in KEYS, one array of texts per language.
-const KEYS = ["screensaver", "screensaver_short", "ss_aerial", "ss_photos", "ss_clock", "focus", "focus_high", "focus_standard", "weather", "city_ph", "set", "upload_label", "feedback_h", "feedback_hint", "diag_show", "diag_copy", "diag_github", "hint_aerial", "hint_photos", "hint_clock", "g_live", "g_live_sub", "g_daily", "g_daily_sub", "g_photo", "g_builtin", "g_auto", "toast_wallpaper", "aria_delete", "confirm_delete", "wx_clear", "wx_partlycloudy", "wx_cloudy", "wx_fog", "wx_rain", "wx_snow", "wx_thunder", "wx_chosen", "wx_auto_btn", "toast_auto", "wx_guessed", "wx_none", "tag_source", "aria_rename", "toast_renamed", "toast_name_reset", "toast_rename_fail", "aria_reset_icon", "toast_icon_reset", "focus_hint_standard", "focus_hint_high", "daily_title", "daily_caption", "rotate_title", "rotate_caption", "empty_photos", "add_second", "toast_tv_updated", "sending_n", "toast_added", "toast_no_photos", "toast_send_fail", "toast_city_set", "toast_city_nf", "toast_set_fail", "toast_sending_icon", "toast_icon_set", "toast_icon_bad", "diag_collecting", "toast_diag_fail", "toast_copied", "toast_copy_manual", "language", "hint_follows", "ss_videos", "hint_videos", "videos_h", "videos_upload", "videos_hint", "videos_empty", "confirm_video_delete", "toast_videos_added", "toast_video_bad", "sending_video", "hint_system", "tab_home", "tab_more", "current_wp", "cancel", "save", "name_ph", "rename_hint", "change_icon", "this_tv", "folder_count", "folder_ph", "inputs_h", "inputs_hint", "rename_hint_app", "was_named", "arrange_hint", "arrange_unready", "hidden_h", "hidden_none", "hidden_locked", "show_app", "hide_app", "to_folder", "new_folder", "out_of_folder", "ungroup", "ungroup_confirm", "folder_hint", "toast_hidden", "toast_shown", "toast_in_folder", "toast_out_folder", "toast_ungrouped", "tab_looks", "looks_title", "show_on_home", "source_device", "source_plain", "source_device_hint", "tv_model", "sw_always", "sw_always_sub", "sw_weather", "sw_saver_time", "sw_saver_time_sub", "g_source_sub", "icon_h", "icon_library", "icon_own", "icon_custom", "toast_icon_picked", "drop_hint", "drop_sub", "drop_none", "toast_diag_paste", "kids_h", "elders_h", "kids_used", "kids_left", "kids_nolimit", "kids_allowed", "kids_lock_day", "kids_lock_late", "kids_lock_break", "kids_pin_ph", "kids_unlock", "kids_wrong", "kids_need_pin", "kids_locked_foot", "kids_add", "kids_day", "kids_leave_k", "kids_leave_e", "kids_paused", "kids_resume", "kids_min", "kids_hm", "kids_erase", "kids_hr", "kids_both", "kids_off_line", "kids_settings", "kids_no_pin", "kids_pin_foot", "ks_meta", "ks_on", "ks_on_sub", "ks_block", "ks_block_sub", "ks_block_noguard", "ks_time_h", "ks_weekday", "ks_weekend", "ks_minutes", "ks_nolimit", "ks_window", "ks_from", "ks_to", "ks_break", "ks_break_every", "ks_break_len", "ks_time_foot", "ks_apps", "ks_apps_sub", "ks_input", "ks_save", "ks_saved", "ks_invalid", "ks_for"];
+const KEYS = ["screensaver", "screensaver_short", "ss_aerial", "ss_photos", "ss_clock", "focus", "focus_high", "focus_standard", "weather", "city_ph", "set", "upload_label", "feedback_h", "feedback_hint", "diag_show", "diag_copy", "diag_github", "hint_aerial", "hint_photos", "hint_clock", "g_live", "g_live_sub", "g_daily", "g_daily_sub", "g_photo", "g_builtin", "g_auto", "toast_wallpaper", "aria_delete", "confirm_delete", "wx_clear", "wx_partlycloudy", "wx_cloudy", "wx_fog", "wx_rain", "wx_snow", "wx_thunder", "wx_chosen", "wx_auto_btn", "toast_auto", "wx_guessed", "wx_none", "tag_source", "aria_rename", "toast_renamed", "toast_name_reset", "toast_rename_fail", "aria_reset_icon", "toast_icon_reset", "focus_hint_standard", "focus_hint_high", "daily_title", "daily_caption", "rotate_title", "rotate_caption", "empty_photos", "add_second", "toast_tv_updated", "sending_n", "toast_added", "toast_no_photos", "toast_send_fail", "toast_city_set", "toast_city_nf", "toast_set_fail", "toast_sending_icon", "toast_icon_set", "toast_icon_bad", "diag_collecting", "toast_diag_fail", "toast_copied", "toast_copy_manual", "language", "hint_follows", "ss_videos", "hint_videos", "videos_h", "videos_upload", "videos_hint", "videos_empty", "confirm_video_delete", "toast_videos_added", "toast_video_bad", "sending_video", "hint_system", "tab_home", "tab_more", "current_wp", "cancel", "save", "name_ph", "rename_hint", "change_icon", "this_tv", "folder_count", "folder_ph", "inputs_h", "inputs_hint", "rename_hint_app", "was_named", "arrange_hint", "arrange_unready", "hidden_h", "hidden_none", "hidden_locked", "show_app", "hide_app", "to_folder", "new_folder", "out_of_folder", "ungroup", "ungroup_confirm", "folder_hint", "toast_hidden", "toast_shown", "toast_in_folder", "toast_out_folder", "toast_ungrouped", "tab_looks", "looks_title", "show_on_home", "source_device", "source_plain", "source_device_hint", "tv_model", "sw_always", "sw_always_sub", "sw_weather", "sw_saver_time", "sw_saver_time_sub", "g_source_sub", "icon_h", "icon_library", "icon_own", "icon_custom", "toast_icon_picked", "drop_hint", "drop_sub", "drop_none", "toast_diag_paste", "kids_h", "elders_h", "kids_used", "kids_left", "kids_nolimit", "kids_allowed", "kids_lock_day", "kids_lock_late", "kids_lock_break", "kids_pin_ph", "kids_unlock", "kids_wrong", "kids_need_pin", "kids_locked_foot", "kids_add", "kids_day", "kids_leave_k", "kids_leave_e", "kids_paused", "kids_resume", "kids_min", "kids_hm", "kids_erase", "kids_hr", "kids_both", "kids_off_line", "kids_settings", "kids_no_pin", "kids_pin_foot", "ks_meta", "ks_on", "ks_on_sub", "ks_block", "ks_block_sub", "ks_block_noguard", "ks_time_h", "ks_weekday", "ks_weekend", "ks_minutes", "ks_nolimit", "ks_window", "ks_from", "ks_to", "ks_break", "ks_break_every", "ks_break_len", "ks_time_foot", "ks_apps", "ks_apps_sub", "ks_input", "ks_save", "ks_saved", "ks_invalid", "ks_for", "ied_title", "ied_hint", "ied_fill", "ied_fit", "ied_zoom", "ied_bg", "ied_auto"];
 const TEXTS = {
  "zh": [
   "屏幕保护程序",
@@ -603,7 +615,14 @@ const TEXTS = {
   "保存",
   "已保存，电视已更新",
   "保存失败：时段的结束要晚于开始，分钟数在 0–1440 之间；开启时至少选一个 App。",
-  "给谁用"
+  "给谁用",
+  "调整图标",
+  "拖动图片可以移动，双指或滑块缩放。",
+  "填满",
+  "完整显示",
+  "缩放",
+  "背景",
+  "自动"
  ],
  "en": [
   "Screensaver",
@@ -799,7 +818,14 @@ const TEXTS = {
   "Save",
   "Saved; the TV is updated",
   "Not saved: the hours must end after they start, minutes must be 0–1440, and the mode needs at least one app to be on.",
-  "For"
+  "For",
+  "Adjust Icon",
+  "Drag the picture to move it; pinch or use the slider to zoom.",
+  "Fill",
+  "Fit",
+  "Zoom",
+  "Background",
+  "Auto"
  ],
  "ru": [
   "Заставка",
@@ -995,7 +1021,14 @@ const TEXTS = {
   "Сохранить",
   "Сохранено, телевизор обновлён",
   "Не сохранено: конец должен быть позже начала, минуты — от 0 до 1440, а для включения нужно хотя бы одно приложение.",
-  "Для кого"
+  "Для кого",
+  "Настроить значок",
+  "Перетащите картинку, чтобы сдвинуть её; масштаб меняется щипком или ползунком.",
+  "Заполнить",
+  "Целиком",
+  "Масштаб",
+  "Фон",
+  "Авто"
  ],
  "uk": [
   "Заставка",
@@ -1191,7 +1224,14 @@ const TEXTS = {
   "Зберегти",
   "Збережено, телевізор оновлено",
   "Не збережено: кінець має бути пізніше за початок, хвилини — від 0 до 1440, а для ввімкнення потрібен хоча б один застосунок.",
-  "Для кого"
+  "Для кого",
+  "Налаштувати значок",
+  "Перетягніть зображення, щоб зсунути його; масштаб змінюється щипком або повзунком.",
+  "Заповнити",
+  "Повністю",
+  "Масштаб",
+  "Тло",
+  "Авто"
  ],
  "kk": [
   "Экран қорғаушы",
@@ -1387,7 +1427,14 @@ const TEXTS = {
   "Сақтау",
   "Сақталды, теледидар жаңартылды",
   "Сақталмады: соңы басынан кеш болуы керек, минуттар 0–1440 аралығында, ал қосу үшін кемінде бір қолданба керек.",
-  "Кімге"
+  "Кімге",
+  "Белгішені баптау",
+  "Суретті жылжыту үшін сүйреңіз; масштабты екі саусақпен не жүгірткімен өзгертіңіз.",
+  "Толтыру",
+  "Толық",
+  "Масштаб",
+  "Фон",
+  "Авто"
  ]
 };
 const LANGS = Object.keys(TEXTS);
@@ -1789,18 +1836,136 @@ $('#cityForm').onsubmit = async e => {
 };
 
 let iconFor = null;
-$('#iconFile').onchange = async e => {
-  const f = e.target.files[0]; const a = iconFor; e.target.value = '';
-  if (!f || !a) return;
+async function sendIcon(a, blob, name) {
   toast(t('toast_sending_icon', { label: a.label }));
   try {
-    const fd = new FormData(); fd.append('app', a.key); fd.append('picture', f, f.name);
+    const fd = new FormData(); fd.append('app', a.key); fd.append('picture', blob, name);
     const r = await fetch(base + 'api/icon', { method: 'POST', body: fd, headers: pinHeaders() });
     if (!r.ok) throw new Error(r.status);
     const next = await r.json(); kidsRefused(next); take(next);
     toast(t(next.saved ? 'toast_icon_set' : 'toast_icon_bad'));
   } catch (err) { toast(t('toast_send_fail')); }
+}
+$('#iconFile').onchange = async e => {
+  const f = e.target.files[0]; const a = iconFor; e.target.value = '';
+  if (!f || !a) return;
+  // A picture this browser cannot draw (HEIC on some phones) goes as it is; the TV crops it to fill, as before.
+  let img;
+  try { img = await loadPicture(f); } catch (err) { sendIcon(a, f, f.name); return; }
+  iconEditor(a, img);
 };
+function loadPicture(file) {
+  return new Promise((ok, fail) => {
+    const url = URL.createObjectURL(file); const img = new Image();
+    img.onload = () => { URL.revokeObjectURL(url); if (img.naturalWidth && img.naturalHeight) ok(img); else fail(new Error('empty')); };
+    img.onerror = () => { URL.revokeObjectURL(url); fail(new Error('decode')); };
+    img.src = url;
+  });
+}
+/* The average colour along a picture's edges, its transparent parts left out: a logo on it looks printed on its tile. */
+function edgeColor(img) {
+  const n = 32, c = document.createElement('canvas'); c.width = c.height = n;
+  const g = c.getContext('2d'); g.drawImage(img, 0, 0, n, n);
+  let d; try { d = g.getImageData(0, 0, n, n).data; } catch (e) { return '#000000'; }
+  let r = 0, gr = 0, b = 0, k = 0;
+  for (let i = 0; i < n; i++) for (const [x, y] of [[i, 0], [i, n - 1], [0, i], [n - 1, i]]) {
+    const o = (y * n + x) * 4; if (d[o + 3] < 200) continue;
+    r += d[o]; gr += d[o + 1]; b += d[o + 2]; k++;
+  }
+  if (!k) return '#000000';
+  const h = v => Math.round(v / k).toString(16).padStart(2, '0');
+  return '#' + h(r) + h(gr) + h(b);
+}
+const isLight = hex => { const v = parseInt(hex.slice(1), 16); return ((v >> 16) * 299 + ((v >> 8) & 255) * 587 + (v & 255) * 114) / 1000 > 150; };
+/*
+ * A picture for an app's tile, fitted on this phone before it is sent. The tile is 16:9, and a
+ * square logo cropped to fill it lost its edges: here the owner moves it (drag), zooms (pinch, the
+ * wheel or the slider) and picks what shows around it. Sent at the 1280×720 the TV keeps
+ * (CustomIcons), so the TV's own crop changes nothing.
+ */
+const IED_W = 1280, IED_H = 720;
+const IED_COLORS = ['#000000', '#ffffff', '#1c1c1e', '#8e8e93', '#0a84ff', '#30d158', '#ff9f0a', '#ff375f'];
+function iconEditor(a, img) {
+  const iw = img.naturalWidth, ih = img.naturalHeight;
+  const fit = Math.min(IED_W / iw, IED_H / ih), fill = Math.max(IED_W / iw, IED_H / ih);
+  const zMin = fit * 0.4, zMax = fill * 3;
+  const auto = edgeColor(img);
+  // A picture already about 16:9 fills the tile, as uploads always did; anything else is shown whole.
+  const s = { z: Math.abs(iw / ih / (16 / 9) - 1) < 0.12 ? fill : fit, x: IED_W / 2, y: IED_H / 2, bg: auto, autoBg: true };
+  openSheet(body => {
+    body.appendChild(el('h3', '', t('ied_title'))); body.appendChild(el('p', 'meta', a.label));
+    const cv = el('canvas', 'ied'); cv.width = IED_W; cv.height = IED_H; body.appendChild(cv);
+    const g = cv.getContext('2d');
+    body.appendChild(el('p', 'foot', t('ied_hint')));
+    const list = el('div', 'list'); body.appendChild(list);
+
+    const modeRow = el('div', 'item ied-row'); modeRow.appendChild(el('span', '', t('ied_zoom')));
+    const seg = el('div', 'seg'); seg.setAttribute('role', 'radiogroup'); seg.setAttribute('aria-label', t('ied_zoom'));
+    const fillB = el('button', '', t('ied_fill')), fitB = el('button', '', t('ied_fit'));
+    for (const b of [fillB, fitB]) { b.type = 'button'; b.setAttribute('role', 'radio'); seg.appendChild(b); }
+    modeRow.appendChild(seg); list.appendChild(modeRow);
+    const zoomRow = el('div', 'item ied-row');
+    const range = el('input'); range.type = 'range'; range.min = 0; range.max = 1000; range.setAttribute('aria-label', t('ied_zoom'));
+    zoomRow.appendChild(range); list.appendChild(zoomRow);
+    const bgRow = el('div', 'item ied-row'); bgRow.appendChild(el('span', '', t('ied_bg')));
+    const sw = el('div', 'swatches'); sw.setAttribute('role', 'radiogroup'); sw.setAttribute('aria-label', t('ied_bg'));
+    [auto, ...IED_COLORS].forEach((c, i) => {
+      const isAuto = i === 0;
+      const b = el('button', 'swatch' + (isAuto ? ' auto' : ''), isAuto ? t('ied_auto') : '');
+      b.type = 'button'; b.setAttribute('role', 'radio'); b.dataset.c = c; b.dataset.auto = isAuto ? '1' : '';
+      b.style.background = c; b.style.color = isLight(c) ? '#000' : '#fff';
+      if (!isAuto) b.setAttribute('aria-label', c);
+      b.onclick = () => { s.bg = c; s.autoBg = isAuto; draw(); };
+      sw.appendChild(b);
+    });
+    bgRow.appendChild(sw); list.appendChild(bgRow);
+
+    const toRange = z => Math.round(Math.log(z / zMin) / Math.log(zMax / zMin) * 1000);
+    const fromRange = v => zMin * Math.pow(zMax / zMin, v / 1000);
+    function draw() {
+      g.fillStyle = s.bg; g.fillRect(0, 0, IED_W, IED_H);
+      g.imageSmoothingQuality = 'high';
+      g.drawImage(img, s.x - iw * s.z / 2, s.y - ih * s.z / 2, iw * s.z, ih * s.z);
+      range.value = toRange(s.z);
+      const centred = Math.abs(s.x - IED_W / 2) < 1 && Math.abs(s.y - IED_H / 2) < 1;
+      fillB.setAttribute('aria-checked', String(centred && Math.abs(s.z / fill - 1) < 1e-6));
+      fitB.setAttribute('aria-checked', String(centred && Math.abs(s.z / fit - 1) < 1e-6));
+      for (const b of sw.children) b.setAttribute('aria-checked', String(b.dataset.auto ? s.autoBg : (!s.autoBg && b.dataset.c === s.bg)));
+    }
+    const zoomTo = z => { s.z = Math.min(zMax, Math.max(zMin, z)); draw(); };
+    fillB.onclick = () => { s.x = IED_W / 2; s.y = IED_H / 2; zoomTo(fill); };
+    fitB.onclick = () => { s.x = IED_W / 2; s.y = IED_H / 2; zoomTo(fit); };
+    range.oninput = () => zoomTo(fromRange(+range.value));
+
+    // One finger moves the picture, two pinch it; the sheet's own pull-to-close stays out of it.
+    const pts = new Map(); let pinch = 0;
+    const scale = () => IED_W / cv.getBoundingClientRect().width;
+    const spread = () => { const [p, q] = [...pts.values()]; return Math.hypot(p.x - q.x, p.y - q.y); };
+    cv.addEventListener('touchstart', e => e.stopPropagation(), { passive: true });
+    cv.addEventListener('touchmove', e => e.stopPropagation(), { passive: true });
+    cv.addEventListener('pointerdown', e => {
+      cv.setPointerCapture(e.pointerId); pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (pts.size === 2) pinch = spread();
+    });
+    cv.addEventListener('pointermove', e => {
+      const p = pts.get(e.pointerId); if (!p) return;
+      const dx = e.clientX - p.x, dy = e.clientY - p.y; p.x = e.clientX; p.y = e.clientY;
+      if (pts.size === 1) { s.x += dx * scale(); s.y += dy * scale(); draw(); }
+      else if (pts.size === 2 && pinch) { const d = spread(); zoomTo(s.z * d / pinch); pinch = d; }
+    });
+    const up = e => { pts.delete(e.pointerId); pinch = pts.size === 2 ? spread() : 0; };
+    cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
+    cv.addEventListener('wheel', e => { e.preventDefault(); zoomTo(s.z * Math.exp(-e.deltaY * 0.0015)); }, { passive: false });
+    draw();
+
+    const acts = el('div', 'list'); acts.style.marginTop = '12px'; body.appendChild(acts);
+    action(acts, t('save'), 'tint', () => {
+      closeSheet();
+      cv.toBlob(b => { if (b) sendIcon(a, b, 'icon.jpg'); else toast(t('toast_icon_bad')); }, 'image/jpeg', 0.92);
+    }).style.fontWeight = '600';
+    action(acts, t('cancel'), 'tint', closeSheet);
+  });
+}
 
 /* More tab: diagnostics. */
 $('#diagBtn').onclick = async () => {
