@@ -110,6 +110,12 @@ HTTP 服务日志里完全没有来自电视的请求（本机 macOS 防火墙�
 
 TCL Q10L（MT9655，1.67-guard，2026-10-28 报告人实测）：Aerial 的 4K 画布（`--ez uhd_canvas true`）图层形状和 TCL 桌面一样（3840×2160 缓冲、0.5 变换），但 HWC 给它 `CLIENT` 合成、`Disp Frame 0 0 1920 1080`，TCL 桌面是 `DEVICE`、`3840 2160` 1:1。`wm size 3840x2160` 运行时被静默忽略；`settings put global display_size_forced 3840x2160` 重启后也不读（已删掉还原）。不改系统的话第三方桌面在这台上只有 1080p，报告人已关回 4K 画布。
 
+## 85T7L Pro（MT9655_4K_CN，Android 14，#1398，报告人实测 1.85-guard）
+
+- 只能 USB 线连 adb：`adb tcpip 5555` 之后 adbd 只在 `[::]:5555`（IPv6）上监听，电视没有全局 IPv6，IPv4 连不上；重启后不再监听，`persist.adb.tcp.port` 被 SELinux 拒写，keep_adb 也拉不起来。隐藏菜单的 ADB 开关重启后保持开着。
+- standard 装不上（`INSTALL_FAILED_VERIFICATION_FAILURE`，关 `verifier_verify_adb_installs` 也没用）；guard 版加 `boot_app_componentname` 后重启进 Aerial，守护保持。
+- 4K：`ro.feature.graphics_4kui=true`、`panel_resolution=3840x2160`，显示模式只有 1080p60。`--ez uhd_canvas true` 后 Aerial 的窗口是 3840×2160 缓冲加 0.5 变换，和 TCL 桌面一样，但肉眼看不出更清楚，与 Q10L（#607）、#736 一致，4K 画布在 MT9655 上继续默认关。报告人已用 `--es uhd_canvas auto` 还原。
+
 ## 75T7M Pro（MT9655，Android 14）：守护开不起来（#829）
 
 诊断里 `enabled_accessibility_services = null`，`appops` 有 `ACCESS_RESTRICTED_SETTINGS: deny`（APK 是用文件装的）。先 `adb shell appops set app.orchard.tv ACCESS_RESTRICTED_SETTINGS allow` 再打开 Aerial，看守护能不能留住；留不住就和雷鸟 T966D5 一样，是固件定时清掉第三方无障碍（见 [ffalcon-t966d5.md](ffalcon-t966d5.md)）。待报告人确认。
