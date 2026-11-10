@@ -1038,7 +1038,13 @@ class HomeGuardService : AccessibilityService() {
         // the boot rechecks, on firmwares that raise no window change for the app the viewer
         // opened (Skyworth 9S52_Q4A, Android 6, issue #489). Aerial itself says nothing about what
         // it uncovered when it died, so it stays unknown.
+        // Aerial's Home resumed in this process is what is in front, whether a window change said so
+        // or not. XGIMI H3 (m7221, Android 8, issue #1383, the reporter's log): the firmware stopped
+        // Aerial while an app was open, Back started it cold, and the guard put back on the list 9 s
+        // later saw no window, took the unknown front for the stock launcher and brought Aerial back
+        // over itself, which sent the focus to the first tile every time.
         val seen = lastWindow?.takeIf { it !in fallbackHomes }?.let { (if (coveredSilently) coveredAerial(it) else null) ?: it }
+            ?: if (aerialResumed) packageName to MainActivity::class.java.name else null
         // The app in front was backed out of and nothing came up: a black screen with no window on
         // LeTV X4-50 (eUI, Android 6.0, issue #1023). That is the stock launcher's place.
         val empty = seen == null && nothingInFrontByUsage()
