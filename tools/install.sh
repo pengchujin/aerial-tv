@@ -332,9 +332,10 @@ OUT=$(install_apk "$APK") || RC=$?
 if [ "$RC" -ne 0 ] || ! printf '%s\n' "$OUT" | grep -q Success; then
   echo "$OUT" >&2
   case "$OUT" in
-    *VERIFICATION_FAILURE*)
+    *VERIFICATION_FAILURE*|*"install apk has be disabled from pm"*)
       # TCL: ADB installs are refused outright, and so is any APK that declares a home screen and is
-      # not signed by TCL. The guard build declares none.
+      # not signed by TCL. The guard build declares none. TCL's Android 5.1 firmware (AOSP on p34a5,
+      # Amlogic T960, issue #1424) says it with its own text and no Failure code.
       [ "$FLAVOR" = guard ] || APK=$(build guard)
       WANT=$(version_code "$APK")
       echo

@@ -102,7 +102,7 @@ Run these in PowerShell, with the adb from step 1. Everything inside `adb shell 
    If that fails, use `https://github.com/pengchujin/aerial-tv/releases/latest/download/aerial-standard.apk`.
 
 2. Install it: `adb install -r aerial-standard.apk`. Go on when it prints `Success`. If it fails:
-   - With **`INSTALL_FAILED_VERIFICATION_FAILURE`**: this is a TCL, which refuses every adb install. Follow "TCL" below, then continue from item 3.
+   - With **`INSTALL_FAILED_VERIFICATION_FAILURE`**, or `install apk has be disabled from pm` (TCL on Android 5.1): this is a TCL, which refuses every adb install. Follow "TCL" below, then continue from item 3.
    - With **`INSTALL_FAILED_USER_RESTRICTED`** (Skyworth and others): see the Skyworth entry under "Common cases", then install again.
    - With **`INSTALL_PARSE_FAILED_INCONSISTENT_CERTIFICATES`** or `INSTALL_FAILED_UPDATE_INCOMPATIBLE`: the Aerial on the TV was signed with someone else's key and cannot be updated in place. Ask the owner first: uninstalling it (`adb uninstall app.orchard.tv`) drops its settings, wallpapers and photos. Some firmwares (TCL, Android 5.1) exit 0 on a failed install, so go by the `Success` line only.
    - Otherwise (for example, the firmware refuses home-screen apps; OPPO TVs print `INSTALL_FAILED_DUPLICATE_PERMISSION: App installation is banned, because of launcher categories`): install `aerial-guard.apk` instead (same address with `guard` in place of `standard`).

@@ -102,7 +102,7 @@ curl -fsSL https://aerial.qust.me/install.sh | KEEP_ADB=1 TV=<IP> bash
    官网下载失败时改用 `https://github.com/pengchujin/aerial-tv/releases/latest/download/aerial-standard.apk`。
 
 2. 安装：`adb install -r aerial-standard.apk`，输出 `Success` 继续。失败时：
-   - 输出里有 **`INSTALL_FAILED_VERIFICATION_FAILURE`**：这是 TCL，它拒绝一切 adb 安装。按下面「TCL 安装」处理，装好后从第 3 条继续。
+   - 输出里有 **`INSTALL_FAILED_VERIFICATION_FAILURE`**，或者 `install apk has be disabled from pm`（TCL 安卓 5.1）：这是 TCL，它拒绝一切 adb 安装。按下面「TCL 安装」处理，装好后从第 3 条继续。
    - 输出里有 **`INSTALL_FAILED_USER_RESTRICTED`**（创维等）：见「常见情况」里的创维一条，处理后再装。
    - 输出里有 **`INSTALL_PARSE_FAILED_INCONSISTENT_CERTIFICATES`** 或 `INSTALL_FAILED_UPDATE_INCOMPATIBLE`：电视上的 Aerial 是别人用另一把钥匙签的，不能覆盖。先问户主：卸载（`adb uninstall app.orchard.tv`）会丢掉它的设置、壁纸和照片，同意后再装。有的固件（TCL 安卓 5.1）失败时 `adb` 照样返回 0，只看输出里有没有 `Success`。
    - 其他失败（比如固件不许装桌面类 App，OPPO 电视报 `INSTALL_FAILED_DUPLICATE_PERMISSION: App installation is banned, because of launcher categories`）：改用 `aerial-guard.apk`（同一个地址，把 `standard` 换成 `guard`）再装。
