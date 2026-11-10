@@ -1220,8 +1220,14 @@ class HomeGuardService : AccessibilityService() {
         // first MotionEvent threw in system_server 0.5 s after it connected (issue #1109, the
         // reporter's crash log; 1.75, which stopped filtering for any mouse, never did).
         val mouseHang = mouseAttached && (xiaomiInput || mouseDownedSystem(this))
+        // A Home press taken in Aerial stays taken until its key comes up, wherever Aerial went
+        // meanwhile: held, it opens the recent apps, and on TCL T966D5 (Android 14, issue #1402,
+        // the reporter's 1.89 log) that is the launcher's MainActivity, so Aerial paused, the filter
+        // stopped, and the lift went to the system as a Home press of its own. Its "homekey" then
+        // ended the visit and Aerial came back 0.4 s after the task manager opened.
+        val homeStillDown = SystemClock.uptimeMillis() - homeDownTakenAt < HOME_DOWN_KEEP_MS
         val wanted = !keysPassThrough && !screenOff && !padGame && !mouseHang &&
-            (Build.VERSION.SDK_INT <= Build.VERSION_CODES.R || aerialInFront || always)
+            (Build.VERSION.SDK_INT <= Build.VERSION_CODES.R || aerialInFront || always || homeStillDown)
         val homeWanted = wanted && (!isDefaultHome() || defaultHomeNeedsHomeFilter)
         val cecWanted = !screenOff && !mouseHang && CecHome.active(this, lastWindow?.first)
         filteringForCecOnly = cecWanted && !homeWanted
@@ -1368,6 +1374,9 @@ class HomeGuardService : AccessibilityService() {
         // the filter sees keys before Android makes the repeats that would say the key is held.
         if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
             homeHeld = false
+            homeDownTakenAt = SystemClock.uptimeMillis()
+            handler.removeCallbacks(homeDownLapsed)
+            handler.postDelayed(homeDownLapsed, HOME_DOWN_KEEP_MS)
             handler.removeCallbacks(homeHold)
             // Pressed twice, Home is the task center on Xiaomi too (MiTV-MFTP0, issue #335). The
             // first press already brought Aerial back; the second opens the recent apps.
@@ -1382,6 +1391,11 @@ class HomeGuardService : AccessibilityService() {
         }
         if (event.action == KeyEvent.ACTION_UP) {
             handler.removeCallbacks(homeHold)
+            if (homeDownTakenAt > Long.MIN_VALUE / 2) {
+                homeDownTakenAt = Long.MIN_VALUE / 2
+                handler.removeCallbacks(homeDownLapsed)
+                handler.post(homeDownLapsed)
+            }
             if (!event.isCanceled && !homeHeld) {
                 Log.i(TAG, "Home key taken before the system saw it")
                 // Over Aerial's screensaver, Home closes it. Not counted toward a double press: an IR
@@ -1625,6 +1639,11 @@ class HomeGuardService : AccessibilityService() {
     private var lastHomeUpAt = Long.MIN_VALUE / 2
 
     private var homeHeld = false
+
+    /** When a Home press the filter took went down, until its key comes up; see updateKeyFilter. */
+    private var homeDownTakenAt = Long.MIN_VALUE / 2
+    private val homeDownLapsed = Runnable { updateKeyFilter() }
+
     private val homeHold = Runnable {
         homeHeld = true
         Log.i(TAG, "Home held; opening recent apps")
@@ -2154,6 +2173,8 @@ class HomeGuardService : AccessibilityService() {
         private const val TCL_TASK_CENTRE ="com.tcl.action.OPEN_GLOBAL_HISTORY"
         /** How long after that broadcast TCL's launcher coming up is its task manager (1 s seen, #1402). */
         private const val TCL_TASK_CENTRE_MS = 4_000L
+        /** How long a Home press may stay down and keep the filter on for its lift; a lost lift ends it. */
+        private const val HOME_DOWN_KEEP_MS = 10_000L
         private val TASK_CENTRE_ACTIONS = listOf("com.dangbei.recentstask.action.SHOW_RECENTS_FOR_USER")
         private const val VOLUME_REPEAT_MAX_MS = 8_000L
         private const val HOME_PAUSE_MS = 400L
