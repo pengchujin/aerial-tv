@@ -455,10 +455,39 @@ class HomeGuardService : AccessibilityService() {
     private val unlockPoll = object : Runnable {
         override fun run() {
             if (!unlockPending) return
-            if (GuardSetup.isUserUnlocked(this@HomeGuardService)) onUserUnlocked("user unlocked (polled)")
-            else if (SystemClock.elapsedRealtime() - unlockPolledSince < UNLOCK_POLL_FOR_MS) handler.postDelayed(this, UNLOCK_POLL_MS)
+            if (GuardSetup.isUserUnlocked(this@HomeGuardService)) {
+                onUserUnlocked("user unlocked (polled)")
+                return
+            }
+            // Still locked with the boot animation already gone, yet not one window has ever reached
+            // this binding: the screen is on and nothing is coming. H3S (pig_chivalrous, Android 9)
+            // sits here (issues #1357, #1377): the firmware drops the HOME record, and
+            // onAccessibilityEvent returns at its unlock guard, so nothing takes over.
+            if (!screenOff && lastWindow == null && !aerialResumed && bootAnimRaw()?.trim() == "stopped") {
+                bootBlackStalls++
+                Log.i(TAG, "boot animation gone, no window ever and still locked ($bootBlackStalls/$BOOT_BLACK_STALLS); bringing Aerial back")
+                if (bootBlackStalls >= BOOT_BLACK_STALLS) {
+                    // goHome() returns at its unlock guard while locked, so start it from here.
+                    runCatching { startActivity(MainActivity.bringBackIntent(this@HomeGuardService)) }
+                        .onFailure { Log.w(TAG, "could not start Aerial on a locked boot", it) }
+                    return
+                }
+            } else {
+                bootBlackStalls = 0
+            }
+            if (SystemClock.elapsedRealtime() - unlockPolledSince < UNLOCK_POLL_FOR_MS) handler.postDelayed(this, UNLOCK_POLL_MS)
         }
     }
+
+    /** init.svc.bootanim, read through hidden SystemProperties.get; null when the call is refused. */
+    private fun bootAnimRaw(): String? = runCatching {
+        val c = Class.forName("android.os.SystemProperties")
+        val m = c.getMethod("get", String::class.java)
+        m.invoke(null, "init.svc.bootanim") as? String
+    }.onFailure { Log.w(TAG, "could not read init.svc.bootanim", it) }.getOrNull()
+
+    /** Consecutive readings of a locked boot with nothing on screen; see unlockPoll. */
+    private var bootBlackStalls = 0
 
     private fun onUserUnlocked(how: String) {
         if (!unlockPending) return
@@ -2092,6 +2121,8 @@ class HomeGuardService : AccessibilityService() {
         private const val STOPPED_OVER_STOCK_MS = 2 * 60 * 1000L
         private const val UNLOCK_POLL_MS = 2_000L
         private const val UNLOCK_POLL_FOR_MS = 10 * 60 * 1000L
+        /** Consecutive readings before bringing Aerial back; see unlockPoll. */
+        private const val BOOT_BLACK_STALLS = 2
         private const val HOME_KEY_CHECK_MS = 1500L
         /**
          * How long after what the TV starts on was opened the stock launcher may still come over it
