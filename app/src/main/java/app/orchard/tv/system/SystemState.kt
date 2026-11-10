@@ -602,6 +602,18 @@ object SystemProbe {
         if (runCatching { pm.getActivityInfo(FOXCONN_SOURCES, 0) }.getOrNull()?.exported == true &&
             runCatching { context.startActivity(sharp) }.isSuccess
         ) return true
+        // Skyworth 42X5 (8S40, Android 4.4.4, Aerial Lite's issue #1419): the framework turns the
+        // remote's input key into a "com.android.sky.SendHotKey" broadcast that ccosservice's exported
+        // HotKeyReceiver answers with the input panel, reading the key from EXTRA_KEY_EVENT (the
+        // reporter's logcat). Its HomeService below is there but ignores the key, so this goes first;
+        // sent only to an exported receiver for it, and not yet tried from an app.
+        val skyHotKey = Intent("com.android.sky.SendHotKey")
+        runCatching { pm.queryBroadcastReceivers(skyHotKey, 0) }.getOrNull().orEmpty()
+            .firstOrNull { it.activityInfo.exported && it.activityInfo.enabled }?.activityInfo?.let { r ->
+                val key = Intent(skyHotKey).setComponent(ComponentName(r.packageName, r.name))
+                    .putExtra(Intent.EXTRA_KEY_EVENT, android.view.KeyEvent(android.view.KeyEvent.ACTION_DOWN, android.view.KeyEvent.KEYCODE_TV_INPUT))
+                if (runCatching { context.sendBroadcast(key) }.isSuccess) return true
+            }
         // Older Coocaa with none of the above (Skyworth 8S61, MStar, Android 4.4.2, Aerial Lite's
         // issue #1272): the system answers the remote's input key by starting its launcher's
         // HomeService with the key, which shows the input page. The extra is read from the
