@@ -4,6 +4,8 @@
 
 ## 现状（2026-11-10）
 
+- **1.90（versionCode 128）+ Aerial Lite 1.24（26），2026-11-10 上午发布**（[v1.90](https://github.com/pengchujin/aerial-tv/releases/tag/v1.90)）：下面这轮巡检的全部修复（#1402 #1383 #1423 #1419 #1424），加上 1.89 之后的竖屏壁纸（#1416 #1255）。versionCode 跳过 127（TCL 装过 1.90-test 127）。三个包签名 e089…。小米 MFTR0 `install-multiple` standard + 31.dm（speed-profile / install-dm）：`selftest.sh` 守护、主页键（从设置 0.3 秒）、`INPUTS=1` 8 个信号源通过。TCL MT5879 `APK_FILE=… KEEP_ADB=1 tools/install.sh guard`（adb 被拒后走多屏互动，截图确认焦点在「同意」再按确定），compile speed，两个 walleve 服务、屏保 AerialDream 保留：`selftest.sh` 守护、主页键（从酷控 0.2 秒）、7 个信号源通过，`hid` 遥控器从酷控按主页键直接回 Aerial。官网已部署（先复制了 `ATV/site/diag/`）：version.txt = v1.90，notes.json 有 1.90，三个 APK 大小和 md5 与 Release 一致，`/diag/aerial-710.apk` 还在，图标库酷喵换成 `com.cibn.tv-bb640bc8.png`（#1425）。9 个 issue 贴了发布链接（`local/triage/release-1.90-posts.py`），#1424 贴后关闭。**下次发版 versionCode ≥ 129，Lite ≥ 27。**
+
 - **2026-11-10 巡检（没发版，改在 main 上）**，记录 `local/triage/2026-11-10-full.md`（原始 `raw-2026-11-10/`），回复 `replies-2026-11-10.py`，发出 `posted-2026-11-10.txt`。345 issue / 65 PR，用户最后发言 56（15 个定了不回）。在 worktree `.claude/worktrees/triage-1110`（分支 `claude/triage-2026-11-10`）上做；主目录在别的会话的 `claude/site-stars`，没碰。TCL MT5879 上午关机，后来户主开机后补测了（见验证）。
   - 改了（每个单独提交）：
     - #1402 TCL 鹤 6 Plus（T966D5，安卓 14）1.89 长按主页键仍闪回：1.89 已让多任务留在前台（`opened on purpose`），0.4 秒后 `visit over (Home pressed)`。安卓 12+ 只在 Aerial 前台时过滤，长按打开多任务后 Aerial 退后、过滤停了，主页键的**抬起**交给系统成了一次新的主页键。现在守护拦下的主页键一直拦到抬起（最多 10 秒，`homeDownTakenAt`）。#1369 Q9L Pro 多半同因。
