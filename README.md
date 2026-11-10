@@ -38,6 +38,7 @@
 - **首页**：常用的一排 App 放在屏幕下方的玻璃底板上，往下是全部 App。小米「应用中心」「米家」这类藏起来的系统 App 也在。
 - **整理**：长按 OK 键（或按菜单键）可以移动、放进文件夹、隐藏、卸载，或者设成「开机时打开」（开机、待机醒来直接进这个 App 或信号源）。固定到主屏幕的 HDMI 可以选接的是 Apple TV、PlayStation、Switch、Xbox、电脑等，换成对应的图标，也能在手机上起名字。
 - **用手机整理**：扫电视上的二维码，手机上就是和电视一样的图标网格：按住拖动排序，点一下改名、换图标、放进文件夹或隐藏，也能把 HDMI 等信号源加到主屏幕。
+- **图标库**：常用 App 直接用做好的 16:9 磁贴图，一个 App 可以有好几张，在手机上点开 App 挑，每张都写着来源。图来自 [le5inioo](https://github.com/le5inioo) 画的一套（[#706](https://github.com/pengchujin/aerial-tv/issues/706)）、App 自己的 tvOS 版图标、Aerial 自己画的系统 App 图标和当贝桌面。
 - **控制中心**：在第一排按上键到右上角打开，有信号源、网络、设置、音量、亮度和个性化。
 - **屏保**：Apple TV 的 114 段航拍影片，电视支持时播 4K 或 4K 杜比视界，也可以换成照片、时钟或从手机添加的本地视频（[说明](docs/SCREENSAVER_VIDEOS.md)）。
 - **壁纸**：必应每日精选、14 张内置壁纸、用手机扫码传的照片和视频，或者航拍：停在主屏幕 10 秒后在磁贴后面播放，按任意键停在当前画面。
@@ -329,6 +330,6 @@ BUILD=1 KEEP_ADB=1 TV=<电视IP> tools/install.sh
 
 ## 许可
 
-[MIT](LICENSE)。Inter 字体使用 [SIL Open Font License](FONT-LICENSE-OFL.txt)。天气用的国内城市表来自 [GeoNames](https://www.geonames.org)（CC BY 4.0），天气数据来自 [Open-Meteo](https://open-meteo.com)。
+[MIT](LICENSE)。Inter 字体使用 [SIL Open Font License](FONT-LICENSE-OFL.txt)。系统 App 的图标用的是 [Material Symbols](https://github.com/google/material-design-icons)（Apache 2.0）。图标库里的磁贴图归各自的作者：[le5inioo](https://github.com/le5inioo) 画的那套来自 [#706](https://github.com/pengchujin/aerial-tv/issues/706)（原图和名字见他的 [aerial-mitv-mftr0](https://github.com/le5inioo/aerial-mitv-mftr0/tree/main/docs/tile-icons)，MIT），tvOS 版图标和当贝桌面的图归各 App 和当贝，手机页上每张图都注明了来源。天气用的国内城市表来自 [GeoNames](https://www.geonames.org)（CC BY 4.0），天气数据来自 [Open-Meteo](https://open-meteo.com)。
 
 Aerial 是独立的开源项目，与 Apple、小米、TCL 等公司无关。航拍影片版权归 Apple，由 Apple 的服务器直接播放；每日精选图片来自必应。

@@ -38,6 +38,7 @@ Made for Xiaomi, TCL, Skyworth, Sony and other TVs sold in China, and runs on bo
 - **Home**: your favorite apps in one row on a glass shelf at the bottom, every app below it. Hidden system apps like Xiaomi's App Store and Mi Home show up too.
 - **Organize**: hold OK (or press Menu) to move an app, put it in a folder, hide it, uninstall it, or have the TV open it at power on and wake. An HDMI input pinned to Home can say what is plugged in (Apple TV, PlayStation, Switch, Xbox, a computer...) and take its icon, or a name you type on your phone.
 - **Arrange from your phone**: scan the code on the TV and your phone shows Home as the TV lays it out. Drag tiles into place; tap one to rename it, change its icon, put it in a folder or hide it; add HDMI and other inputs to Home.
+- **Icon library**: popular apps get ready-made 16:9 tile pictures, several for some apps, picked on your phone, each named with where it came from: a set drawn by [le5inioo](https://github.com/le5inioo) ([#706](https://github.com/pengchujin/aerial-tv/issues/706)), the apps' own tvOS icons, Aerial's own for system apps, and Dangbei Launcher's.
 - **Control Center**: press Up from the top row to the top right. Inputs, network, settings, volume, brightness and Personalize.
 - **Screensaver**: Apple TV's 114 aerial films, in 4K or 4K Dolby Vision where the TV supports it, your photos, a clock, or local videos sent from your phone ([guide, Chinese](docs/SCREENSAVER_VIDEOS.md)).
 - **Wallpaper**: Bing's photo of the day, fourteen built-ins, photos and videos you upload by scanning a code with your phone, or aerial films that play behind the apps after ten still seconds on Home and stop on the frame showing at any key.
@@ -330,6 +331,6 @@ See [ARCHITECTURE.md](docs/ARCHITECTURE.md) for the code, [HANDOFF.md](docs/HAND
 
 ## License
 
-[MIT](LICENSE). The Inter font is under the [SIL Open Font License](FONT-LICENSE-OFL.txt). The list of Chinese cities for the weather is from [GeoNames](https://www.geonames.org) (CC BY 4.0), the weather from [Open-Meteo](https://open-meteo.com).
+[MIT](LICENSE). The Inter font is under the [SIL Open Font License](FONT-LICENSE-OFL.txt). System app icons use [Material Symbols](https://github.com/google/material-design-icons) (Apache 2.0). The icon library's pictures belong to their authors: the set by [le5inioo](https://github.com/le5inioo) comes from [#706](https://github.com/pengchujin/aerial-tv/issues/706) (originals and names in his [aerial-mitv-mftr0](https://github.com/le5inioo/aerial-mitv-mftr0/tree/main/docs/tile-icons), MIT); the tvOS icons and Dangbei Launcher's pictures belong to each app and to Dangbei. The phone page names the source of every picture. The list of Chinese cities for the weather is from [GeoNames](https://www.geonames.org) (CC BY 4.0), the weather from [Open-Meteo](https://open-meteo.com).
 
 Aerial is an independent open-source project, not affiliated with Apple, Xiaomi, TCL or any other company. The aerial films belong to Apple and play from Apple's servers; the photo of the day comes from Bing.

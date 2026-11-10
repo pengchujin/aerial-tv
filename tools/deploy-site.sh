@@ -23,11 +23,10 @@ cp tools/get.sh site/install.sh
 cp tools/install.sh tools/restore.sh tools/tcast-push.py tools/report.sh tools/selftest.sh site/tools/
 echo "Publishing $(cat site/download/version.txt): $(ls site/download | tr '\n' ' ')"
 
-# The tile pictures TVs download (IconLibrary). They are not ours to put in the public repo, so
-# they come from local/ (handed over privately, like the signing key). Deploying without them
-# would take them off the site.
-ICONS=local/dangbei-icons/icons
-[ -d "$ICONS" ] || { echo "error: $ICONS is missing; the icon library would be removed from the site" >&2; exit 1; }
-python3 tools/icon-library.py "$ICONS" site/icons
+# The tile pictures TVs download (IconLibrary), from the sources in tools/icon-sources.json.
+# Most are not ours to put in the public repo, so they come from local/ (handed over privately,
+# like the signing key); icon-library.py stops when one is missing, since deploying without it
+# would take its pictures off the site.
+python3 tools/icon-library.py tools/icon-sources.json site/icons
 
 npx wrangler@4 deploy
