@@ -228,6 +228,7 @@ curl -fsSL https://aerial.qust.me/install.sh | TV=192.168.1.20 bash -s restore
 | TCL | 55Q9（X5，m7221） | Android 8 | ✅ guard 版，主页键、重启、待机、音量亮度、屏保、手机页都正常；设置里 ADB 开关是隐藏的，要用遥控器打开（[#1371](https://github.com/pengchujin/aerial-tv/issues/1371)） |
 | TCL / 雷鸟 | 60A730U、55V2 Pro（x32a0）、65Q10E 与鹤 6（m7642）、75S365C、75Q10L | Android 5.1–14 | ✅ 60A730U 只能装 guard 版；55V2 Pro 先 `setprop persist.tcl.debug.installapk 1` 才能 adb 安装（[#620](https://github.com/pengchujin/aerial-tv/issues/620)） |
 | 雷鸟 | FF55S515D-E674（tcl_m7642） | Android 9 | ✅ 多屏互动安装 guard，主页键可接管；重启亮屏后先出原桌面再切入 Aerial，待机唤醒偶尔同样短暂切换（[实测与限制](docs/devices/ffalcon-55s515d.md)） |
+| 雷鸟 | 鹤 7 Pro 65R675C（tcl_mt5879_cn） | Android 11 | ✅ standard 被拒（`INSTALL_FAILED_VERIFICATION_FAILURE`），guard 走多屏互动；装好后开机组件指向 Aerial，重启直接进 Aerial，主页键回 Aerial（[#1432](https://github.com/pengchujin/aerial-tv/issues/1432)） |
 | 雷鸟 | 55S595C Ultra、鹤 6 2025 Ultra | Android 11+ | ❌ 能装，接管不了主页键（[笔记](docs/devices/tcl-mt9655-cn.md)） |
 | 索尼 | A80J 国行、BRAVIA VH1 | Android 10 / 12 | ✅ |
 | 索尼 | BRAVIA BF1 国行（BRAVIA 3，当贝系统） | Android 12 | ✅ 亮度要在电视设置里调（[#1355](https://github.com/pengchujin/aerial-tv/issues/1355)） |
