@@ -308,7 +308,13 @@ class PhoneServer private constructor(private val context: Context, private val 
     private fun tile(key: String, own: Boolean): Response {
         val app = onMain { (ops.home() + ops.folderApps().values.flatten() + ops.hidden()).firstOrNull { it.key == key } }
             ?: return text(Response.Status.NOT_FOUND, "")
-        val art = (if (own && app.folder == null) ops.ownArt(app) else null) ?: app.tile
+        // A pick or an upload replies before Home's asynchronous reload: drawn from the saved
+        // picture or the pick, so the phone does not cache the old tile under the new URL.
+        val isApp = app.folder == null
+        val library = isApp && !own && IconLibrary.has(key)
+        val picked = if (own || !isApp) null
+            else CustomIcons.load(key) ?: if (library && AppCatalog.usesLibrary(key)) IconLibrary.load(key) else null
+        val art = picked ?: (if (isApp && (own || library)) ops.ownArt(app) else null) ?: app.tile
         // Flattened onto black: the cut corners would turn black in a JPEG anyway.
         val flat = Bitmap.createBitmap(art.width, art.height, Bitmap.Config.RGB_565)
         android.graphics.Canvas(flat).apply { drawColor(Color.BLACK); drawBitmap(art, 0f, 0f, null) }

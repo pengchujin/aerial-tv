@@ -354,11 +354,18 @@ class PhoneServer private constructor(private val context: Context, private val 
     /** The tile as Home shows it; with [own], as the app's own art would draw it. */
     private fun tile(pkg: String, own: Boolean = false): Response {
         val app = (AppCatalog.pinnedSources + AppCatalog.loaded + AppCatalog.folders).firstOrNull { it.key == pkg } ?: return text(Response.Status.NOT_FOUND, "")
-        // An upload replies before Home's asynchronous reload has finished. Read the saved picture
-        // directly, so the phone cannot cache the old tile under the new upload's versioned URL.
-        val custom = if (own) null else CustomIcons.load(pkg)
-        val bmp = custom ?: run {
-            val art = if (own && app.source == null && app.folder == null) AppCatalog.ownArt(context, app) ?: app.art else app.art
+        // An upload or a pick replies before Home's asynchronous reload has finished. Draw from the
+        // saved picture or the pick directly, so the phone cannot cache the old tile under the new
+        // versioned URL (a library pick showed the previous picture until the next change).
+        val isApp = app.source == null && app.folder == null
+        val library = isApp && !own && IconLibrary.has(pkg)
+        val picked = when {
+            own || !isApp -> null
+            else -> CustomIcons.load(pkg) ?: if (library && AppCatalog.usesLibrary(pkg)) IconLibrary.load(pkg) else null
+        }
+        val bmp = picked ?: run {
+            // The app's own art when asked for, or when the library has a picture it does not use.
+            val art = if (isApp && (own || library)) AppCatalog.ownArt(context, app) ?: app.art else app.art
             TileArtFactory.flatten(art)
         }
         val out = ByteArrayOutputStream()
