@@ -105,7 +105,11 @@ object IconLibrary {
         val prefs = picks
         val now = System.currentTimeMillis()
         var changed = false
-        if (now - prefs.getLong("checked_at", 0) > CHECK_EVERY_MS && now - lastAttempt > RETRY_MS) {
+        // Read again right after an update too, as in the full app (#706).
+        @Suppress("DEPRECATION")
+        val code = runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionCode }.getOrDefault(0)
+        val due = now - prefs.getLong("checked_at", 0) > CHECK_EVERY_MS || prefs.getInt("checked_by", 0) != code
+        if (due && now - lastAttempt > RETRY_MS) {
             lastAttempt = now
             runCatching { Net.text(BASE + "index.json") }
                 .onFailure { Log.w(TAG, "could not read the icon index", it) }
@@ -116,7 +120,7 @@ object IconLibrary {
                         changed = fresh.mapValues { e -> e.value.map { it.path } } != index.mapValues { e -> e.value.map { it.path } }
                         index = fresh
                         credits = c
-                        prefs.edit().putLong("checked_at", now).apply()
+                        prefs.edit().putLong("checked_at", now).putInt("checked_by", code).apply()
                     }
                 }
         }

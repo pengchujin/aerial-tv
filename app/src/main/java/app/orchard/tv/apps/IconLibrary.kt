@@ -155,7 +155,12 @@ object IconLibrary {
         try {
             val now = System.currentTimeMillis()
             var changed = false
-            if (now - prefs.getLong("checked_at", 0) > CHECK_EVERY_MS && now - lastAttempt > RETRY_MS) {
+            // Read again right after an update too: an index read by an older version (index v1,
+            // one picture an app) would otherwise stand for up to 12 hours, and the phone page
+            // showed no choices after updating to 1.91 (#706).
+            val due = now - prefs.getLong("checked_at", 0) > CHECK_EVERY_MS ||
+                prefs.getInt("checked_by", 0) != app.orchard.tv.BuildConfig.VERSION_CODE
+            if (due && now - lastAttempt > RETRY_MS) {
                 lastAttempt = now
                 runCatching { fetch(BASE + "index.json") }
                     .onFailure { Log.w(TAG, "could not read the icon index", it) }
@@ -166,7 +171,8 @@ object IconLibrary {
                             changed = fresh.mapValues { e -> e.value.map { it.path } } != index.mapValues { e -> e.value.map { it.path } }
                             index = fresh
                             credits = c
-                            prefs.edit { putLong("checked_at", now) }
+                            prefs.edit { putLong("checked_at", now); putInt("checked_by", app.orchard.tv.BuildConfig.VERSION_CODE) }
+                            Log.i(TAG, "icon index: ${fresh.size} apps, ${fresh.values.sumOf { it.size }} pictures")
                         }
                     }
             }
