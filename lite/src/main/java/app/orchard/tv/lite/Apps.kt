@@ -193,6 +193,13 @@ object AppCatalog {
     val faceW get() = Ui.pxi(HomeView.TILE_W * HomeView.FOCUS_SCALE)
     val faceH get() = Ui.pxi(HomeView.TILE_H * HomeView.FOCUS_SCALE)
 
+    /** Apps whose tile is Aerial's own, as in the full app's AppCatalog.drawnByAerial. */
+    private val drawnByAerial = java.util.concurrent.ConcurrentHashMap<String, SystemTile>()
+
+    /** Whether [pkg]'s tile shows the icon library's picture (when it has one). */
+    fun usesLibrary(pkg: String): Boolean =
+        IconLibrary.uses(pkg) && (!drawnByAerial.containsKey(pkg) || IconLibrary.pick(pkg) == IconLibrary.Pick.Library)
+
     private fun entry(
         pm: PackageManager, info: ActivityInfo, leanback: Boolean, byCategory: Map<String, SystemTile>, stockHome: Boolean,
         homeLabel: String, dir: File, index: android.content.SharedPreferences, quick: Boolean = false,
@@ -202,6 +209,8 @@ object AppCatalog {
         val stamp = runCatching { pm.getPackageInfo(pkg, 0).lastUpdateTime }.getOrDefault(0L) + IconLibrary.stamp(pkg) +
             CustomIcons.stamp(pkg) + if (stockHome) 1 else 0
         val system = (info.applicationInfo.flags and ApplicationInfo.FLAG_SYSTEM) != 0
+        val ownTile = if (stockHome) SystemTile.Home else if (system) SYSTEM_TILES[pkg] ?: byCategory[pkg] else null
+        if (ownTile != null) drawnByAerial[pkg] = ownTile else drawnByAerial.remove(pkg)
         val component = ComponentName(pkg, info.name)
         val fw = faceW
         val fh = faceH
@@ -283,7 +292,10 @@ object AppCatalog {
         val info = pm.getActivityInfo(app.component, 0)
         val recipe = TileRecipes.of(app.key)
         val banner = banner(pm, info, app.leanback)
+        val system = drawnByAerial[app.key]
         val art = when {
+            // A firmware app's own tile is Aerial's, as Home draws it without a library picture.
+            system != null -> TileFactory.forSystem(system)
             recipe?.glyph != null -> TileFactory.glyphTile(recipe.top ?: 0, recipe.bottom ?: 0, recipe.glyph)
             banner != null && recipe?.useIcon != true -> TileFactory.fromBanner(banner)
             else -> TileFactory.fromIcon(densest(pm, info, info.iconResource) ?: info.loadIcon(pm), recipe)

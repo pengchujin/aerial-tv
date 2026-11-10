@@ -132,7 +132,7 @@ class PhoneServer private constructor(private val context: Context, private val 
                     json(state().put("removed", removed))
                 }
                 path.startsWith("/tile/") -> tile(java.net.URLDecoder.decode(path.removePrefix("/tile/"), "UTF-8"), own = session.parameters["art"]?.firstOrNull() == "own")
-                path.startsWith("/library/") -> libraryPicture(java.net.URLDecoder.decode(path.removePrefix("/library/"), "UTF-8"))
+                path.startsWith("/library/") -> libraryPicture(java.net.URLDecoder.decode(path.removePrefix("/library/"), "UTF-8"), session.parameters["c"]?.firstOrNull())
                 session.method == Method.POST && path == "/api/icon" -> icon(session)
                 session.method == Method.POST && path == "/api/source/name" -> {
                     val f = form(session)
@@ -180,8 +180,8 @@ class PhoneServer private constructor(private val context: Context, private val 
                     json(state().put("saved", known && name.isNotEmpty() && rename != null))
                 }
                 session.method == Method.POST && path == "/api/icon/pick" -> {
-                    // The library's picture or the app's own art for one app; either replaces a
-                    // picture sent from the phone.
+                    // One of the library's pictures or the app's own art for one app; either
+                    // replaces a picture sent from the phone.
                     val f = form(session)
                     val pkg = f["app"].orEmpty()
                     val pick = when (f["pick"]) {
@@ -189,11 +189,14 @@ class PhoneServer private constructor(private val context: Context, private val 
                         "own" -> IconLibrary.Pick.Own
                         else -> null
                     }
-                    val ok = installed(pkg) && pick != null && (pick != IconLibrary.Pick.Library || IconLibrary.has(pkg))
+                    val choice = f["choice"]?.takeIf { it.isNotEmpty() }
+                    val ok = installed(pkg) && pick != null && (pick != IconLibrary.Pick.Library ||
+                        IconLibrary.choices(pkg).any { choice == null || it.id == choice })
                     if (ok) {
                         CustomIcons.clear(pkg)
-                        // The library is what every app uses anyway: kept as no pick.
-                        IconLibrary.choose(pkg, pick.takeIf { it != IconLibrary.Pick.Library })
+                        // Kept even for the library, which most apps use anyway: a firmware app
+                        // drawn as Aerial's own tile takes it only when picked.
+                        IconLibrary.choose(pkg, pick, choice)
                         runBlocking(Dispatchers.Main) { CustomIcons.changed(); IconLibrary.changed() }
                     }
                     json(state().put("saved", ok))
@@ -263,11 +266,12 @@ class PhoneServer private constructor(private val context: Context, private val 
                     // library has one for this app, which the phone can pick instead.
                     val icon = when {
                         CustomIcons.has(a.key) -> "custom"
-                        IconLibrary.has(a.key) && IconLibrary.uses(a.key) -> "library"
+                        IconLibrary.has(a.key) && AppCatalog.usesLibrary(a.key) -> "library"
                         else -> "own"
                     }
                     put(JSONObject().put("key", a.key).put("label", label).put("default", a.label).put("name", AppNames.of(a.key) ?: "")
                         .put("custom", CustomIcons.has(a.key)).put("library", IconLibrary.has(a.key)).put("icon", icon)
+                        .put("choices", libraryChoices(a.key, icon == "library"))
                         .put("stamp", CustomIcons.stamp(a.key) + IconLibrary.stamp(a.key) + icon.hashCode()))
                 }
             })
@@ -366,9 +370,22 @@ class PhoneServer private constructor(private val context: Context, private val 
         }
     }
 
-    /** The icon library's picture of an app, as downloaded. */
-    private fun libraryPicture(pkg: String): Response {
-        val f = IconLibrary.file(pkg) ?: return text(Response.Status.NOT_FOUND, "")
+    /**
+     * The icon library's pictures of an app on this TV, the default first: [id], [by] (the source's
+     * names: "name" and a name per language) and [on] for the one its tile uses ([inUse]: the tile
+     * uses the library at all).
+     */
+    private fun libraryChoices(pkg: String, inUse: Boolean) = JSONArray().apply {
+        val on = IconLibrary.chosen(pkg)?.id
+        IconLibrary.choices(pkg).forEach { c ->
+            put(JSONObject().put("id", c.id).put("by", IconLibrary.credits.optJSONObject(c.by) ?: JSONObject())
+                .put("on", inUse && c.id == on))
+        }
+    }
+
+    /** The icon library's picture of an app, as downloaded: [choice]'s, or the one its tile uses. */
+    private fun libraryPicture(pkg: String, choice: String?): Response {
+        val f = IconLibrary.file(pkg, choice) ?: return text(Response.Status.NOT_FOUND, "")
         val type = if (f.name.endsWith(".png")) "image/png" else "image/jpeg"
         return newFixedLengthResponse(Response.Status.OK, type, f.inputStream(), f.length()).apply {
             addHeader("Cache-Control", "max-age=600")

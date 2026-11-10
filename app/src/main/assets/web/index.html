@@ -2021,26 +2021,32 @@ function tileSheet(e, inFolder, hidden) {
       b.onclick = () => deviceChooser(a, e);
       il.appendChild(b);
     }
-    // Where the picture comes from, when the icon library has one for this app: its picture,
-    // the app's own art, or the one sent from this phone.
+    // Where the picture comes from, when the icon library has one for this app: one of its
+    // pictures (each named by where it came from), the app's own art, or the one sent from this phone.
     if (!a.source && a.library) {
-      const choices = [
-        { pick: 'library', label: t('icon_library'), src: `${base}library/${encodeURIComponent(a.key)}?v=${a.stamp}` },
-        { pick: 'own', label: t('icon_own'), src: `${base}tile/${encodeURIComponent(a.key)}?art=own&v=${a.stamp}` },
+      const lib = `${base}library/${encodeURIComponent(a.key)}`;
+      const from = by => (by && (by[LANG] || by.name)) || '';
+      const library = (a.choices && a.choices.length ? a.choices : [{ id: '', on: a.icon === 'library' }]).map(c => ({
+        pick: 'library', choice: c.id, on: c.on, label: t('icon_library'), by: from(c.by),
+        src: c.id ? `${lib}?c=${encodeURIComponent(c.id)}&v=${a.stamp}` : `${lib}?v=${a.stamp}`,
+      }));
+      const choices = [...library,
+        { pick: 'own', on: a.icon === 'own', label: t('icon_own'), src: `${base}tile/${encodeURIComponent(a.key)}?art=own&v=${a.stamp}` },
       ];
-      if (a.custom) choices.push({ pick: 'custom', label: t('icon_custom'), src: `${base}tile/${encodeURIComponent(a.key)}?v=${a.stamp}` });
+      if (a.custom) choices.push({ pick: 'custom', on: true, label: t('icon_custom'), src: `${base}tile/${encodeURIComponent(a.key)}?v=${a.stamp}` });
       const cl = el('div', 'list'); cl.setAttribute('role', 'radiogroup'); cl.setAttribute('aria-label', t('icon_h'));
       il.before(cl); cl.style.marginBottom = '10px';
       for (const c of choices) {
-        const b = el('button', 'item'); b.setAttribute('role', 'radio'); b.setAttribute('aria-checked', String(a.icon === c.pick));
+        const b = el('button', 'item'); b.setAttribute('role', 'radio'); b.setAttribute('aria-checked', String(c.on));
         const img = el('img', 'ithumb'); img.alt = ''; img.src = c.src;
         b.append(img, el('span', 'txt', c.label));
+        if (c.by) b.append(el('span', 'val', c.by));
         b.insertAdjacentHTML('beforeend', ICON.tick);
         if (c.pick !== 'custom') b.onclick = async () => {
           closeSheet();
-          if (a.icon === c.pick) return;
+          if (c.on) return;
           try {
-            const next = await api('api/icon/pick', { app: a.key, pick: c.pick });
+            const next = await api('api/icon/pick', { app: a.key, pick: c.pick, choice: c.choice || '' });
             if (!next.saved) throw new Error('not saved');
             take(next); toast(t('toast_icon_picked'));
           } catch (err) { toast(t('toast_set_fail')); }

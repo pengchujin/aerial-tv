@@ -132,7 +132,7 @@ class PhoneServer private constructor(private val context: Context, private val 
                     json(state().put("removed", removed))
                 }
                 path.startsWith("/tile/") -> tile(java.net.URLDecoder.decode(path.removePrefix("/tile/"), "UTF-8"), own = session.parameters["art"]?.firstOrNull() == "own")
-                path.startsWith("/library/") -> libraryPicture(java.net.URLDecoder.decode(path.removePrefix("/library/"), "UTF-8"))
+                path.startsWith("/library/") -> libraryPicture(java.net.URLDecoder.decode(path.removePrefix("/library/"), "UTF-8"), session.parameters["c"]?.firstOrNull())
                 post && path == "/api/icon" -> icon(session)
                 post && path == "/api/app/name" -> {
                     val f = form(session)
@@ -158,11 +158,14 @@ class PhoneServer private constructor(private val context: Context, private val 
                         "own" -> IconLibrary.Pick.Own
                         else -> null
                     }
-                    val ok = installed(pkg) && pick != null && (pick != IconLibrary.Pick.Library || IconLibrary.has(pkg))
+                    val choice = f["choice"]?.takeIf { it.isNotEmpty() }
+                    val ok = installed(pkg) && pick != null && (pick != IconLibrary.Pick.Library ||
+                        IconLibrary.choices(pkg).any { choice == null || it.id == choice })
                     if (ok) {
                         CustomIcons.clear(pkg)
-                        // The library is what every app uses anyway: kept as no pick.
-                        IconLibrary.choose(pkg, pick.takeIf { it != IconLibrary.Pick.Library })
+                        // Kept even for the library: a firmware app drawn as Aerial's own tile
+                        // takes it only when picked, as in the full app.
+                        IconLibrary.choose(pkg, pick, choice)
                         onMain { ops.iconsChanged() }
                     }
                     json(state().put("saved", ok))
@@ -223,12 +226,13 @@ class PhoneServer private constructor(private val context: Context, private val 
                     val own = AppNames.of(a.key)
                     val icon = when {
                         CustomIcons.has(a.key) -> "custom"
-                        IconLibrary.has(a.key) && IconLibrary.uses(a.key) -> "library"
+                        IconLibrary.has(a.key) && AppCatalog.usesLibrary(a.key) -> "library"
                         else -> "own"
                     }
                     put(JSONObject().put("key", a.key).put("label", a.label).put("default", if (own != null) appLabel(a.key) ?: a.label else a.label)
                         .put("name", own ?: "")
                         .put("custom", CustomIcons.has(a.key)).put("library", IconLibrary.has(a.key)).put("icon", icon)
+                        .put("choices", libraryChoices(a.key, icon == "library"))
                         .put("stamp", CustomIcons.stamp(a.key) + IconLibrary.stamp(a.key) + icon.hashCode()))
                 }
             })
@@ -311,8 +315,17 @@ class PhoneServer private constructor(private val context: Context, private val 
         return jpeg(flat, 85).also { flat.recycle() }
     }
 
-    private fun libraryPicture(pkg: String): Response {
-        val f = IconLibrary.file(pkg) ?: return text(Response.Status.NOT_FOUND, "")
+    /** The library's pictures of an app on this TV, as the full app's PhoneServer.libraryChoices. */
+    private fun libraryChoices(pkg: String, inUse: Boolean) = JSONArray().apply {
+        val on = IconLibrary.chosen(pkg)?.id
+        IconLibrary.choices(pkg).forEach { c ->
+            put(JSONObject().put("id", c.id).put("by", IconLibrary.credits.optJSONObject(c.by) ?: JSONObject())
+                .put("on", inUse && c.id == on))
+        }
+    }
+
+    private fun libraryPicture(pkg: String, choice: String?): Response {
+        val f = IconLibrary.file(pkg, choice) ?: return text(Response.Status.NOT_FOUND, "")
         val type = if (f.name.endsWith(".png")) "image/png" else "image/jpeg"
         return newFixedLengthResponse(Response.Status.OK, type, f.inputStream(), f.length()).apply { addHeader("Cache-Control", "max-age=600") }
     }
