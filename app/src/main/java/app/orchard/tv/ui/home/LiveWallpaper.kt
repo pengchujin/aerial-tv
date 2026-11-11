@@ -745,7 +745,7 @@ internal fun fileFramesJam(context: android.content.Context): Boolean {
  */
 internal fun filmGlassReport(context: android.content.Context): String {
     FilmFrames.load(context)
-    return "copy=${pixelCopy ?: "untried"} copy_slow=$copySlow tcl_extractor=${FilmFrames.tclExtractor(context)} " +
+    return "copy=${pixelCopy ?: "untried"} copy_slow=$copySlow copy_crashed=${FilmFrames.copyCrashed} tcl_extractor=${FilmFrames.tclExtractor(context)} " +
         "file_stuck=${FileFramesStuck.now(context)} glassless=${Wallpapers.filmGlassless}"
 }
 
@@ -886,12 +886,23 @@ private suspend fun captureOnce(view: SurfaceView, w: Int = view.width, h: Int =
     // 4K film held it 0.5-1 s (TCL MT5879), and the keys pressed meanwhile all landed at once:
     // a Down that stopped the film moved focus down several rows.
     val started = android.os.SystemClock.elapsedRealtime()
-    val result = withContext(Dispatchers.IO) {
-        suspendCancellableCoroutine { done ->
-            runCatching {
-                PixelCopy.request(surface, bitmap, { done.resume(it) }, copyCallbacks)
-            }.onFailure { done.resume(-1) }
+    val result: Int = withContext(Dispatchers.IO) {
+        // A copy that once took the whole process down is not asked again (FilmFrames.copyCrashed).
+        FilmFrames.load(view.context)
+        if (FilmFrames.copyCrashed) return@withContext null
+        FilmFrames.copyStarting()
+        try {
+            suspendCancellableCoroutine<Int> { done ->
+                runCatching {
+                    PixelCopy.request(surface, bitmap, { done.resume(it) }, copyCallbacks)
+                }.onFailure { done.resume(-1) }
+            }
+        } finally {
+            FilmFrames.copyEnded()
         }
+    } ?: run {
+        pixelCopy = false
+        return null
     }
     // The copy is made on the render thread, which the main thread waits on to draw: asked from
     // another thread, a 4K copy still held keys up 0.6 s (TCL MT5879). A copy this slow is the
@@ -1179,11 +1190,41 @@ private object FilmFrames {
         if (app != null) return
         val c = context.applicationContext
         app = c
-        if (prefs(c).getString(SLOW_KEY, null) == Build.FINGERPRINT) {
+        val prefs = prefs(c)
+        if (prefs.getString(SLOW_KEY, null) == Build.FINGERPRINT) {
             copySlow = true
             pixelCopy = false
         }
+        // A copy was under way when the last process ended: it died in the copy itself.
+        if (prefs.getString(COPYING_KEY, null) == Build.FINGERPRINT) {
+            prefs.edit().remove(COPYING_KEY).putString(CRASHED_KEY, Build.FINGERPRINT).commit()
+            DiagLog.i("wallpaper frame copy: the last process ended inside a copy; not copied again on this firmware")
+        }
+        if (prefs.getString(CRASHED_KEY, null) == Build.FINGERPRINT) {
+            copyCrashed = true
+            pixelCopy = false
+        }
         update()
+    }
+
+    /**
+     * Whether a PixelCopy of the film ended this process on this firmware: Hisense VIDAA_TV MTK9632
+     * (m7332, Android 9) crashes in its own YUV detiling (libstagefrighthw_yuv.so, SIGSEGV on the
+     * render thread) copying the film, after one copy that came back green; Aerial died every 30 s
+     * and Android put its guard's restart off for 4 hours (issue #1447). A native crash cannot be
+     * caught, so each copy is marked on disk while under way ([copyStarting]), and a mark found by
+     * the next process means it died there.
+     */
+    @Volatile var copyCrashed = false
+        private set
+
+    /** Before a copy: written at once, as the process may not live to write anything after it. */
+    fun copyStarting() {
+        app?.let { prefs(it).edit().putString(COPYING_KEY, Build.FINGERPRINT).commit() }
+    }
+
+    fun copyEnded() {
+        app?.let { prefs(it).edit().remove(COPYING_KEY).apply() }
     }
 
     fun copyWasSlow() {
@@ -1228,6 +1269,8 @@ private object FilmFrames {
     // A new key: "copy_slow" also took slow copies that read black (captureOnce), so each TV tries
     // PixelCopy once more. Where it is truly slow (TCL MT5879) that is one more held copy, then kept.
     private const val SLOW_KEY = "copy_slow_read"
+    private const val COPYING_KEY = "copy_under_way"
+    private const val CRASHED_KEY = "copy_crashed"
     private const val TCL_KEY = "tcl_extractor"
 }
 
