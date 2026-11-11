@@ -4,29 +4,31 @@
 # (aapt) for 红果 (aston314/hongguo-tv-releases, N3urda/hongguoTV, jackherex/duanjuzhijia-down-tv), 飞牛音乐
 # (QiaoKes/liangleionline fn-music-tv, kunjingdi/fn-music-tv, wbc389561407/fnmusic-apk), Songloft TV, 小草助手TV版
 # (yecao.app); from download sites only: 看客 (kanke.tv.com, com.kanke.tv), 一起看TV; 抖音: the phone package, which the
-# TV builds on download sites reuse, and mulin.tvdy (Jie009/DouYin-TV). Not matched: CHILD/CHILD2/MITUTU (Home's 儿童
-# tile, not a package), HOME/ANDRTV/ANDRTV2 (the stock launcher tile?), ANGRYBIRDDS and GOUGOU (TV package not found),
-# SHADOWROCKET (no Android version; the Android "小火箭" apps are other people's).
+# TV builds on download sites reuse, and mulin.tvdy (Jie009/DouYin-TV). Not matched: HOME/ANDRTV/ANDRTV2 (the stock
+# launcher tile, not a package), SHADOWROCKET (no Android version; the Android "小火箭" apps are other people's).
+# 2026-11-11, packages from le5inioo himself (#706): GOUGOU 狗狗助手, ANGRYBIRDDS 愤怒的小鸟TV版, and CHILD/CHILD2/MITUTU
+# (drawn for Xiaomi's kids' mode) for the OK兔儿童 Dangbei build he uses. Apple Music (red) and Edge drawn on request in
+# #706, for the Android apps' packages (com.apple.android.music, com.microsoft.emmx).
 https://github.com/user-attachments/assets/8dae9fbf-9653-4cbb-88a7-d0e70a083dc7	com.finalwire.aida64	AIDA64
 https://github.com/user-attachments/assets/e071c75f-9317-4c89-952d-ae6a79c716ce	com.mitv.gallery com.tcl.tvsmartalbum	ALBUM
 https://github.com/user-attachments/assets/46f1244f-3b96-4366-a56c-cd279b2e01e4	com.mitv.gallery com.tcl.tvsmartalbum	ALBUM2
-https://github.com/user-attachments/assets/0609428a-5698-4397-8cd7-a866f54131fe	-	ANGRYBIRDDS
+https://github.com/user-attachments/assets/0609428a-5698-4397-8cd7-a866f54131fe	com.hihex.game.angrybirds.android	ANGRYBIRDDS
 https://github.com/user-attachments/assets/da843fba-8edd-48d8-8cb3-48161aaaa00d	com.xiaomi.mitv.appstore com.tcl.appmarket2	APPSTORE
 https://github.com/user-attachments/assets/88c045b2-867a-4ec1-bb96-aef1d1cddb98	net.froemling.bombsquad	BOMBSQUAD
 https://github.com/user-attachments/assets/49696f51-3cd1-48f9-8176-7e2d8574fb6d	com.xiaomi.mitv.calendar	CALENDAR
-https://github.com/user-attachments/assets/b3295dda-4672-4d57-81c9-53e1e48d1846	-	CHILD
-https://github.com/user-attachments/assets/e88f57e0-b018-4bdf-8540-d054a9a2c481	-	CHILD2
+https://github.com/user-attachments/assets/b3295dda-4672-4d57-81c9-53e1e48d1846	com.mitv.tvhome.othertv.dbsc	CHILD
+https://github.com/user-attachments/assets/e88f57e0-b018-4bdf-8540-d054a9a2c481	com.mitv.tvhome.othertv.dbsc	CHILD2
 https://github.com/user-attachments/assets/3e71ddab-3711-4977-98ee-448e8b4771d4	com.ss.android.ugc.aweme mulin.tvdy	DOUYIN
 https://github.com/user-attachments/assets/eaea4c08-0597-4154-b5fb-4a8fce74e37f	tv.emby.embyatv	EMBY
 https://github.com/user-attachments/assets/19fd1015-d50c-4647-9afe-922352a7d7c8	tv.emby.embyatv	EMBY2
 https://github.com/user-attachments/assets/66cd0b7c-eec4-4528-bedd-dbb5e4adc315	com.xiaomi.mitv.mediaexplorer com.tcl.ui_mediaCenter	FILEMAN
-https://github.com/user-attachments/assets/46de01ec-3e90-4205-a422-61a440f49ea3	-	GOUGOU
+https://github.com/user-attachments/assets/46de01ec-3e90-4205-a422-61a440f49ea3	com.gougou.gjservicevw	GOUGOU
 https://github.com/user-attachments/assets/2d51dfd4-4119-454e-b634-056bd341f973	-	HOME
 https://github.com/user-attachments/assets/2fa77282-d4d1-4f7b-98e8-b35ace57a642	com.lizongying.mytv	IPTV
 https://github.com/user-attachments/assets/21397549-f572-481b-8309-743b665f76e4	kanke.tv.com com.kanke.tv	KANKEAPP
 https://github.com/user-attachments/assets/42611406-4bab-4405-8304-49150ec8ca85	com.mitv.tvhome	MIHOME
 https://github.com/user-attachments/assets/99fecf05-047c-41ca-8c05-ee67ed5cf1f4	com.xiaomi.smarthome.tv	MIJIA
-https://github.com/user-attachments/assets/76ce1dab-2850-4f37-9226-a26b75e67d8f	-	MITUTU
+https://github.com/user-attachments/assets/76ce1dab-2850-4f37-9226-a26b75e67d8f	com.mitv.tvhome.othertv.dbsc	MITUTU
 https://github.com/user-attachments/assets/8ab9f167-b86d-465b-9511-0861a448071b	com.netflix.ninja	NETFLIX
 https://github.com/user-attachments/assets/94d0aec7-fa20-46b7-8e32-03955e84e3a4	com.netflix.ninja	NETFLIX2
 https://github.com/user-attachments/assets/8723e962-30d8-441e-b73e-a16f20642a77	com.netflix.ninja	NETFLIX3
@@ -78,3 +80,6 @@ https://github.com/user-attachments/assets/12035f7d-e0ae-4977-8b33-1c96585b3738	
 https://raw.githubusercontent.com/le5inioo/aerial-mitv-mftr0/main/docs/tile-icons/HONGGUO2.png	rocks.aston.hongguotv com.hongguotv.nativeapp com.duanju.duanju_app.tv com.phoenix.read	HONGGUO2
 https://raw.githubusercontent.com/le5inioo/aerial-mitv-mftr0/main/docs/tile-icons/YIQIKANTV.png	com.yiqikan.tv.television.all	YIQIKANTV
 https://raw.githubusercontent.com/le5inioo/aerial-mitv-mftr0/main/docs/tile-icons/YIQIKANTV2.png	com.yiqikan.tv.television.all	YIQIKANTV2
+https://github.com/user-attachments/assets/dd00815e-33b3-4bd6-8ace-05d81c076c41	com.apple.android.music	APPLEMUSIC
+https://github.com/user-attachments/assets/e128bed1-c184-4146-b001-c48a6d7cae0f	com.apple.android.music	APPLEMUSIC2
+https://github.com/user-attachments/assets/c2a4a9f2-4677-4ac8-98b0-8324581e7166	com.microsoft.emmx	EDGE
