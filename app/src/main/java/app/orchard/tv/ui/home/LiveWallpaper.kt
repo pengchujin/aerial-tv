@@ -1084,10 +1084,11 @@ private class FrameReader(private val context: android.content.Context) {
         val mmr = open(url, ranged = urlRefused) ?: run {
             // TCL x32a0 (Android 9): the retriever fails at once on Apple's https address that
             // ExoPlayer plays from (issue #567); fetch the file in the app and hand it over.
-            if (urlRefused || Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return null
+            if (urlRefused || Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return null.also { openFailed() }
             urlRefused = true
-            open(url, ranged = true) ?: return null
+            open(url, ranged = true) ?: return null.also { openFailed() }
         }
+        openFailures = 0
         DiagLog.i("wallpaper film file opened${if (urlRefused) " through the app" else ""} in ${android.os.SystemClock.elapsedRealtime() - started} ms")
         // Left behind while it opened: this one goes too, as nothing will use it.
         if (w.abandoned) {
@@ -1097,6 +1098,22 @@ private class FrameReader(private val context: android.content.Context) {
         w.retriever = mmr
         w.openFor = id
         return mmr
+    }
+
+    /** The film's file not opened either way, this many times in a row. */
+    @Volatile private var openFailures = 0
+
+    /**
+     * Neither way opens the file, twice running, while the film itself plays from it: the retriever
+     * will not read it here. TCL sugarcane (MStar m7221, Android 8.0) refused both with a
+     * RuntimeException at every stop, each try 0.2-7.6 s of the TV's time, and the picture fell
+     * back to the last one every time (issue #1456). For the rest of the process the frames are
+     * read and decoded in the app instead, as where the file is shut (fileFramesShut).
+     */
+    private fun openFailed() {
+        if (++openFailures < 2 || FilmFrames.retrieverRefused) return
+        FilmFrames.refuseRetriever()
+        DiagLog.i("wallpaper film file: the retriever opened it neither way, twice running; frames decoded in the app from now on")
     }
 
     private fun open(url: String, ranged: Boolean): MediaMetadataRetriever? {
@@ -1218,6 +1235,15 @@ private object FilmFrames {
     @Volatile var copyCrashed = false
         private set
 
+    /** Whether the media server's retriever has opened the film's file neither way (FrameReader.openFailed), in this process. */
+    @Volatile var retrieverRefused = false
+        private set
+
+    fun refuseRetriever() {
+        retrieverRefused = true
+        android.os.Handler(android.os.Looper.getMainLooper()).post { update() }
+    }
+
     /** Before a copy: written at once, as the process may not live to write anything after it. */
     fun copyStarting() {
         app?.let { prefs(it).edit().putString(COPYING_KEY, Build.FINGERPRINT).commit() }
@@ -1281,7 +1307,7 @@ private object FilmFrames {
  * (Wallpapers.filmGlassless).
  */
 private fun fileFramesShut(context: android.content.Context): Boolean =
-    (copySlow && FilmFrames.tclExtractor(context)) || FileFramesStuck.now(context)
+    (copySlow && FilmFrames.tclExtractor(context)) || FileFramesStuck.now(context) || FilmFrames.retrieverRefused
 
 /** Whether [file] holds the ASCII text [text], read in pieces. */
 private fun containsAscii(file: java.io.File, text: String): Boolean {
