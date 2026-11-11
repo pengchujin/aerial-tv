@@ -257,6 +257,9 @@ object SystemProbe {
     private fun settingsActivityIntent(context: Context): Intent =
         firstResolvable(
             context,
+            // LeTV X3-50 (EUI, Android 5.0.1) has no com.android.settings at all; its own
+            // settings app is com.stv.globalsetting, and SettingActivity is exported.
+            Intent(Intent.ACTION_MAIN).setComponent(ComponentName("com.stv.globalsetting", "com.stv.globalsetting.activity.SettingActivity")),
             Intent("com.xiaomi.mitv.settings.SETTINGS").setComponent(ComponentName("com.xiaomi.mitv.settings", "com.xiaomi.mitv.settings.entry.MainActivity")),
             // Haier 65U2 (YunOS 9, Android 9) answers ACTION_SETTINGS with a Bluetooth page that
             // crashes as it opens; its own settings are here (the reporter opened them, issue #458).
@@ -342,6 +345,9 @@ object SystemProbe {
         val wired = listOfNotNull(Intent("com.xiaomi.mitv.settings.ETHERNET_SETTINGS").setPackage("com.xiaomi.mitv.settings").takeIf { ethernet })
         return allResolvable(
             context,
+            // LeTV X3-50 (EUI, Android 5.0.1): its own network page, action
+            // com.letv.setting.NETWORK, exported and verified on the TV.
+            Intent("com.letv.setting.NETWORK").setComponent(ComponentName("com.stv.globalsetting", "com.stv.globalsetting.activity.NetworkActivity")),
             *listOfNotNull(hisenseNetworkSettingsIntent(context)).toTypedArray(),
             *wired.toTypedArray(),
             Intent("com.xiaomi.mitv.settings.WIFI_SETTINGS").setComponent(ComponentName("com.xiaomi.mitv.settings", "com.xiaomi.mitv.settings.wifi.MitvWifiActivity")),
@@ -515,6 +521,18 @@ object SystemProbe {
      * found in PR #85; MiTV-MFTP0, Mi TV 4A, #23, #130, #185), and MiTV-MFTR0 has the receiver too.
      */
     fun openPictureSettings(context: Context): Boolean {
+        // LeTV X3-50 (EUI, Android 5.0.1): no com.android.settings, and its DisplayActivity
+        // is not exported; picture settings live in its own SettingActivity.
+        if (isInstalled(context, "com.stv.globalsetting")) {
+            val shown = runCatching {
+                context.startActivity(
+                    Intent(Intent.ACTION_MAIN).setComponent(
+                        ComponentName("com.stv.globalsetting", "com.stv.globalsetting.activity.SettingActivity"),
+                    ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                )
+            }.isSuccess
+            if (shown) return true
+        }
         ChanghongSettings.intent(context, ChanghongSettings.PICTURE)?.let {
             if (ChanghongSettings.open(context, it)) return true
         }
