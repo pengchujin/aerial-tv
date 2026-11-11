@@ -199,6 +199,7 @@ object SystemProbe {
 
     fun settingsIntent(context: Context): Intent =
         ChanghongSettings.intent(context)
+            ?: fengOsSettingsIntent(context)
             ?: xgimiSettingsIntent(context, "Settings://com.xgimi.misckey.main/mainPage")
             ?: konkaSettingsIntent(context)
             ?: settingsActivityIntent(context)
@@ -227,6 +228,25 @@ object SystemProbe {
                 runCatching { context.packageManager.queryBroadcastReceivers(i, 0).any { it.activityInfo.exported } }.getOrDefault(false)
             }?.let(::Intent),
         )
+
+    /**
+     * FengOS (Formovie / Xiaomi projectors) keeps its own settings panel, the one its remote and
+     * launcher open for 设置, while android.settings.SETTINGS lands in the AOSP pages left in the
+     * firmware (Xiaomi Q3 Pro, device peppa, Android 9; issue #1438, the reporter's patch, tried on
+     * that projector). Known by the panel being there.
+     */
+    private val FENGOS_SETTINGS = ComponentName("cn.formovie.fengos.settings", "cn.formovie.fengos.settings.ui.activity.MainActivity")
+
+    private fun fengOsSettingsIntent(context: Context): Intent? =
+        resolvable(context, Intent(Intent.ACTION_MAIN).setComponent(FENGOS_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+
+    /**
+     * FengOS's own network page is the floating panel its settings open with the Wi-Fi action; the
+     * AOSP NetworkActivity, which networkSettingsActivityIntents tries first, is a leftover there
+     * (Q3 Pro, issue #1438). Only where FengOS's settings panel is.
+     */
+    private fun fengOsNetworkIntent(context: Context): Intent? =
+        if (fengOsSettingsIntent(context) == null) null else resolvable(context, Intent(Settings.ACTION_WIFI_SETTINGS))
 
     private fun konkaSettingsIntent(context: Context): Intent? {
         val intent = Intent("com.konka.settings.action.SETTING_MAIN_VIEW").setComponent(KONKA_SETTINGS)
@@ -295,7 +315,7 @@ object SystemProbe {
      * MiTV-MFTP0 (Android 9) viewer saw "crash" (issue #369); MiTV-MFTR0 has the page too.
      */
     fun networkSettingsIntents(context: Context, ethernet: Boolean = false): List<Intent> =
-        listOfNotNull(ChanghongSettings.intent(context, ChanghongSettings.NETWORK), xgimiSettingsIntent(context, XGIMI_NETWORK_PAGE)) +
+        listOfNotNull(fengOsNetworkIntent(context), ChanghongSettings.intent(context, ChanghongSettings.NETWORK), xgimiSettingsIntent(context, XGIMI_NETWORK_PAGE)) +
             networkSettingsActivityIntents(context, ethernet)
 
     private fun networkSettingsActivityIntents(context: Context, ethernet: Boolean = false): List<Intent> {
