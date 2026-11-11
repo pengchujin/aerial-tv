@@ -424,6 +424,15 @@ class HomeGuardService : AccessibilityService() {
     private val deafCheck = Runnable {
         if (stockHomes.isEmpty()) refreshStockHomes()
         if (sawEvent || deafRetried) return@Runnable
+        // An app usage stats name as in front since before the binding sends no window change
+        // while it stays: no sign of a deaf guard, and that app's exit is watched anyway
+        // (watchUnseenApp). Switched off here, LeTV X50 (eUI, Android 6.0) force-stopped Aerial
+        // between off and on, and accessibility stayed off with no Home at all until a revival
+        // 35 s later turned it back on (issue #1023, the reporter's log).
+        if (unseenApp != null) {
+            Log.i(TAG, "no window change since bound, with $unseenApp in front; not switching accessibility off and on")
+            return@Runnable
+        }
         deafRetried = true
         Log.i(TAG, "no window change since bound; switching accessibility off and on")
         GuardSetup.restartAccessibility(this)
@@ -833,7 +842,13 @@ class HomeGuardService : AccessibilityService() {
             GuardSetup.homeInFrontThisBoot(this) == false && !GuardSetup.stockHomeSinceHomeLeft(this) &&
             (Build.VERSION.SDK_INT < 24 || SystemClock.elapsedRealtime() - Process.getStartElapsedRealtime() < 60_000) &&
             !stockLauncherByUsageStats()
-        if (appLeftInFront) DiagLog.i("guard: bound again soon after boot with an app in front when Aerial died; leaving it")
+        if (appLeftInFront) {
+            DiagLog.i("guard: bound again soon after boot with an app in front when Aerial died; leaving it")
+            // Watched as an app left in front after a revival is (watchUnseenApp): on LeTV X50
+            // (eUI, Android 6.0) a NativeActivity left this way exited with no window change, and
+            // the screen stayed black 10 s, until the deaf check (issue #1023, the reporter's log).
+            frontByUsage()?.let { watchUnseenApp(it.first) }
+        }
         val fastBootTakeOver = !appLeftInFront && GuardSetup.isUserUnlocked(this) &&
             SystemClock.elapsedRealtime() < BOOT_WINDOW_MS &&
             getSystemService<PowerManager>()?.isInteractive == true
