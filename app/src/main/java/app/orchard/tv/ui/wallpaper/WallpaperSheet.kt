@@ -183,12 +183,21 @@ fun WallpaperSheet(
                 Spacer(Modifier.height(16.dp))
                 SectionTitle(R.string.wp_wallpaper)
                 WallpaperRows(takeFocus)
-                // Only for the owner's videos: whether keys stop them. The aerial films always move.
+                // Only for the owner's videos: whether keys stop them, and what the picture under
+                // them is. The aerial films always move.
                 if (Wallpapers.isVideo()) Group { note ->
                     Choices(
                         R.string.st_play, stringResource(R.string.st_play_hint), note,
                         listOf(false to R.string.st_play_still, true to R.string.st_play_always),
                         AerialSettings.wallpaperAlwaysMoves, AerialSettings::chooseWallpaperAlwaysMoves, first = true,
+                    )
+                    // The film's frame, as it has been (issues #410 #583), or the still picture the
+                    // owner chose before the videos, which also shows where no frame can be read.
+                    Choices(
+                        R.string.st_under, stringResource(R.string.st_under_hint), note,
+                        listOf(false to R.string.st_under_frame, true to R.string.st_under_still),
+                        AerialSettings.videoUnderStill,
+                        { on -> AerialSettings.chooseVideoUnderStill(on); Wallpapers.rebuildPicture() },
                     )
                 }
                 // Only for "My Photos, in turn": how often the next photo comes (issue #1314).

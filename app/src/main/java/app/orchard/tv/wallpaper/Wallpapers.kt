@@ -93,6 +93,8 @@ object Wallpapers {
     private const val SOURCE_PICTURE = "hills_night"
     private const val FOLLOW = "follow"
     private const val DEFAULT_FALLBACK = "grad:aurora"
+    /** Where the last still wallpaper chosen is kept, for [AerialSettings.videoUnderStill]. */
+    private const val STILL_KEY = "still_picture"
 
     /** Let go this close to where the picture was taken: the film did not move on from it. */
     private const val SAME_SPOT_MS = 2_000L
@@ -168,6 +170,13 @@ object Wallpapers {
     var backdrop by mutableStateOf<ImageBitmap?>(null); private set
 
     /**
+     * The last still wallpaper chosen — a built-in picture, Bing's day or one of the owner's photos —
+     * kept for [AerialSettings.videoUnderStill]: under the owner's videos that picture rather than the
+     * frame a film stopped on ([stillPictureFor] falls back to [DEFAULT_FALLBACK] while it is null).
+     */
+    var lastStillId by mutableStateOf<String?>(null); private set
+
+    /**
      * The same picture frosted: blurred small. The glass under the top row, the grid and the
      * panels sample it.
      */
@@ -212,6 +221,8 @@ object Wallpapers {
             else -> ScreensaverMode.of(key)
         }
         rebuildList()
+        // An install from before [lastStillId] was kept has none: the picture it shows now is that.
+        lastStillId = prefs.getString(STILL_KEY, null) ?: selectedId.takeIf { isStill(it) }
         loadBaked()
         rebuildBackdrop()
         scope.launch { refreshDaily() }
@@ -259,8 +270,16 @@ object Wallpapers {
     fun select(id: String) {
         selectedId = id
         prefs.edit { putString("selected", id) }
+        // Kept for [AerialSettings.videoUnderStill]: the picture chosen before the owner's videos.
+        if (isStill(id)) {
+            lastStillId = id
+            prefs.edit { putString(STILL_KEY, id) }
+        }
         rebuildBackdrop()
     }
+
+    /** The owner changed how a video wallpaper's picture is had ([AerialSettings.videoUnderStill]): bake it again. */
+    fun rebuildPicture() = rebuildBackdrop()
 
     /**
      * A new install's screensaver follows the wallpaper. One that was already in use when that came
@@ -351,6 +370,29 @@ object Wallpapers {
     private fun videoPicture(id: String, w: Int, h: Int): Bitmap? =
         videoFrame.takeIf { videoFrameIsOf(id) }?.let { Images.decodeCover(it, w, h) } ?: firstVideoFrame(id, w, h)
 
+    /**
+     * The still picture that stands under the videos when the owner asked for one
+     * ([AerialSettings.videoUnderStill]): the last still wallpaper chosen, while it is still there,
+     * else the built-in Aerial falls back to (an install from before [lastStillId] was kept, or a
+     * photo since deleted, has none of its own). Null otherwise, and the frames the films stop on are
+     * the picture, as before (issues #410, #583).
+     */
+    private fun stillPictureFor(wp: Wallpaper?): Wallpaper? {
+        if (wp?.kind != WallpaperKind.Video || !AerialSettings.videoUnderStill) return null
+        val still = lastStillId?.let(::resolve)?.takeIf { isStill(it.kind) } ?: resolve(DEFAULT_FALLBACK)
+        return still?.takeIf { isStill(it.kind) }
+    }
+
+    /** The video wallpaper shows a still picture instead of its films' frames. */
+    private val stillUnderVideo: Boolean
+        get() = stillPictureFor(resolve()) != null
+
+    /** A wallpaper that does not move: a built-in picture, Bing's day or one of the owner's photos. */
+    private fun isStill(id: String): Boolean = resolve(id)?.kind?.let { isStill(it) } == true
+
+    private fun isStill(kind: WallpaperKind): Boolean =
+        kind == WallpaperKind.Builtin || kind == WallpaperKind.Daily || kind == WallpaperKind.Photo
+
     /** A film's own picture for its card, kept beside it, so it goes when the film is deleted. */
     private fun posterOf(film: ScreensaverVideo) = File(film.file.parentFile, "poster.jpg")
 
@@ -423,13 +465,17 @@ object Wallpapers {
             val wp = resolve(id) ?: resolve(DEFAULT_FALLBACK)
             val key = wp?.let(::bakedKey)
             if (key != null && key == bakedKey && backdrop != null) return@launch
+            // Under the owner's videos a still picture may stand in for the film's frame
+            // (stillPictureFor); being a still one, Home shades it as it always has.
+            val under = stillPictureFor(wp)
             val (bmp, frost) = withContext(Dispatchers.Default) {
-                val picture = wp?.let { picture(it, screenW, screenH) }
+                val source = under ?: wp
+                val picture = source?.let { picture(it, screenW, screenH) }
                 // Frosted from the picture before the home shading: the glass sits low on the
                 // screen, where the shading is darkest, and would read as a grey slab.
                 val frost = picture?.let(Images::frost)
                 // A film's picture is its frame as it was, as the film is not shaded (HomeBackground).
-                if (wp?.kind == WallpaperKind.Live || wp?.kind == WallpaperKind.Video) picture to frost
+                if (under == null && (wp?.kind == WallpaperKind.Live || wp?.kind == WallpaperKind.Video)) picture to frost
                 else picture?.let(Images::shadeForHome) to frost
             }
             backdrop = bmp?.asImageBitmap()
@@ -450,15 +496,18 @@ object Wallpapers {
 
     /** Changes with the picture behind [wp], the screen size, and Aerial's version (the baking may change). */
     private fun bakedKey(wp: Wallpaper): String {
-        val stamp = when (wp.kind) {
-            WallpaperKind.Daily, WallpaperKind.Photo -> fileFor(wp)?.lastModified() ?: 0L
+        // Under the owner's videos a still picture stands in (stillPictureFor): the pair baked is
+        // that picture's, so another one chosen after it bakes again.
+        val shown = stillPictureFor(wp) ?: wp
+        val stamp = when (shown.kind) {
+            WallpaperKind.Daily, WallpaperKind.Photo -> fileFor(shown)?.lastModified() ?: 0L
             WallpaperKind.Live -> liveFrame.lastModified()
-            WallpaperKind.Video -> if (videoFrameIsOf(wp.id)) videoFrame.lastModified() else 0L
+            WallpaperKind.Video -> if (videoFrameIsOf(shown.id)) videoFrame.lastModified() else 0L
             else -> 0L
         }
         // "clear": a film's picture baked unshaded, not one kept from when it was shaded.
-        val film = if (wp.kind == WallpaperKind.Live || wp.kind == WallpaperKind.Video) "|clear" else ""
-        return "${wp.id}|$stamp|${screenW}x$screenH|${BuildConfig.VERSION_CODE}$film"
+        val film = if (shown.kind == WallpaperKind.Live || shown.kind == WallpaperKind.Video) "|clear" else ""
+        return "${shown.id}|$stamp|${screenW}x$screenH|${BuildConfig.VERSION_CODE}$film"
     }
 
     /**
@@ -525,6 +574,8 @@ object Wallpapers {
      */
     fun showLiveFrame(frame: Bitmap) {
         if (!moves()) return
+        // The still picture asked for stays under the videos; the film's frame does not take it.
+        if (stillUnderVideo) return
         backdropJob?.cancel()
         backdrop = frame.asImageBitmap()
     }
@@ -547,14 +598,20 @@ object Wallpapers {
         if (!moves()) return false
         val video = isVideo(id)
         if (id.startsWith(VIDEO_PREFIX) && film != id.removePrefix(VIDEO_PREFIX)) return false
-        backdropJob?.cancel()
+        // Under a still picture asked for, the frame is still kept for the film's card and for where
+        // the film goes on, but Home's picture stays the still one — the baking under way, if any,
+        // is the one that picture comes from and is left to finish.
+        val still = stillUnderVideo
+        if (!still) backdropJob?.cancel()
         if (video) videoLeftHere = null else leftHere = null
         val key = if (video) "video" else "live"
         prefs.edit { putString("${key}_film", film).putLong("${key}_at", atMs).remove("${key}_left_film").remove("${key}_left_at") }
         // The frame is both the film's own card and the card that plays them all in turn (useLiveFrame).
         synchronized(thumbs) { thumbs.remove(id); if (video) { thumbs.remove(VIDEOS); thumbs.remove(VIDEO_PREFIX + film) } }
-        backdrop = prepared.frame.asImageBitmap()
-        frosted = prepared.frost.asImageBitmap()
+        if (!still) {
+            backdrop = prepared.frame.asImageBitmap()
+            frosted = prepared.frost.asImageBitmap()
+        }
         pictureVersion++
         val target = if (video) videoFrame else liveFrame
         scope.launch(Dispatchers.IO) {
@@ -563,7 +620,7 @@ object Wallpapers {
                 .onFailure { Log.w(TAG, "could not keep the film's frame", it) }
             if (part.exists() && !part.renameTo(target)) part.delete()
             if (video) videoFilms(VIDEOS).firstOrNull { it.id == film }?.let { keepPoster(it, prepared.frame) }
-            if (selectedId == id) resolve(id)?.let { saveBaked(bakedKey(it), prepared.frame, prepared.frost) }
+            if (!still && selectedId == id) resolve(id)?.let { saveBaked(bakedKey(it), prepared.frame, prepared.frost) }
         }
         return true
     }
@@ -587,7 +644,10 @@ object Wallpapers {
             part.delete()
             return false
         }
-        backdropJob?.cancel()
+        // Under a still picture asked for, the frame is still kept for the film's card and for where
+        // the film goes on, but Home's picture stays the still one.
+        val still = stillUnderVideo
+        if (!still) backdropJob?.cancel()
         if (part.exists() && !part.renameTo(target)) part.delete()
         if (isVideo(id)) videoLeftHere = null else leftHere = null
         prefs.edit { putString("${key}_film", film).putLong("${key}_at", atMs).remove("${key}_left_film").remove("${key}_left_at") }
@@ -595,10 +655,12 @@ object Wallpapers {
         if (isVideo(id)) withContext(Dispatchers.IO) { videoFilms(VIDEOS).firstOrNull { it.id == film }?.let { keepPoster(it, frame) } }
         // The frame is both the film's own card and the card that plays them all in turn.
         synchronized(thumbs) { thumbs.remove(id); if (isVideo(id)) { thumbs.remove(VIDEOS); thumbs.remove(VIDEO_PREFIX + film) } }
-        backdrop = bmp.asImageBitmap()
-        frosted = frost.asImageBitmap()
+        if (!still) {
+            backdrop = bmp.asImageBitmap()
+            frosted = frost.asImageBitmap()
+        }
         pictureVersion++
-        resolve(id)?.let { saveBaked(bakedKey(it), bmp, frost) }
+        if (!still) resolve(id)?.let { saveBaked(bakedKey(it), bmp, frost) }
         return true
     }
 
