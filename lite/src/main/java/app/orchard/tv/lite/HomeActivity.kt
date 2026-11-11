@@ -222,12 +222,22 @@ class HomeActivity : Activity(), HomeView.Host {
 
     private var dailyCheckedAt = 0L
 
-    /** Bing's photo of the day: looked at again when Home is back, at most every three hours. */
-    private fun refreshDaily() {
-        if (SystemClock.elapsedRealtime() - dailyCheckedAt < 3 * 60 * 60 * 1000L && dailyCheckedAt != 0L) return
+    /**
+     * Bing's photo of the day: looked at again when Home is back, at most every three hours, and
+     * after a failed fetch as soon as a network comes up ([networkUp]) or half an hour on. Home
+     * started at boot before Wi-Fi joined failed once and stayed in front, so it never looked
+     * again (Lite in /system, ZTE W152D, Android 11, issue #1443).
+     */
+    private fun refreshDaily(networkUp: Boolean = false) {
+        val retry = Wallpapers.dailyFailed && (networkUp || SystemClock.elapsedRealtime() - dailyCheckedAt >= DAILY_RETRY_MS)
+        if (!retry && SystemClock.elapsedRealtime() - dailyCheckedAt < 3 * 60 * 60 * 1000L && dailyCheckedAt != 0L) return
         dailyCheckedAt = SystemClock.elapsedRealtime()
+        handler.removeCallbacks(dailyRetry)
         work.execute {
-            if (!Wallpapers.refreshDaily()) return@execute
+            if (!Wallpapers.refreshDaily()) {
+                if (Wallpapers.dailyFailed) handler.post { if (!isFinishing) handler.postDelayed(dailyRetry, DAILY_RETRY_MS) }
+                return@execute
+            }
             handler.post {
                 Wallpapers.rebuildList()
                 if (Wallpapers.selectedId.startsWith("daily:") || Wallpapers.resolve()?.kind == WallpaperKind.Daily) loadBackdrop()
@@ -279,8 +289,19 @@ class HomeActivity : Activity(), HomeView.Host {
      * showed Wi-Fi whatever the network until it took the VPN badge (issue #809).
      */
     private val connectivity = object : BroadcastReceiver() {
-        override fun onReceive(context: Context, intent: Intent) = showNetwork()
+        override fun onReceive(context: Context, intent: Intent) {
+            showNetwork()
+            val connected = runCatching {
+                (getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager).activeNetworkInfo?.isConnected == true
+            }.getOrDefault(false)
+            if (!connected) return
+            // What failed before the network was there (issue #1443).
+            if (Wallpapers.dailyFailed) refreshDaily(networkUp = true)
+            Weather.refreshIfStale({ work.execute(it) }, networkUp = true) { handler.post { showWeather() } }
+        }
     }
+
+    private val dailyRetry = Runnable { refreshDaily() }
 
     private fun showNetwork() {
         work.execute {
@@ -843,6 +864,7 @@ class HomeActivity : Activity(), HomeView.Host {
     companion object {
         private const val TAG = "AerialLite"
         private const val SCREENSAVER_HOLD_MS = 4 * 60 * 60 * 1000L
+        private const val DAILY_RETRY_MS = 30 * 60 * 1000L
         private const val HOME_LAYER = 1
         private const val GRID_LAYER = 2
         /** The TVs' settings apps, kept behind the PIN (the full app's SystemProbe.isSettingsApp). */

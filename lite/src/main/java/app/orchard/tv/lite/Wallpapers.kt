@@ -251,9 +251,17 @@ object Wallpapers {
             dailyDir.listFiles { f -> f.name.endsWith(".jpg") && f.name !in keep }?.forEach { it.delete() }
             prefs.edit().putLong("daily_checked", now).apply()
             if (added) synchronized(thumbs) { thumbs.remove(LATEST_DAILY) }
+            dailyFailed = false
             added
-        }.onFailure { Log.w(TAG, "daily photos unavailable", it) }.getOrDefault(false)
+        }.onFailure { dailyFailed = true; Log.w(TAG, "daily photos unavailable", it) }.getOrDefault(false)
     }
+
+    /**
+     * Whether the last fetch of Bing's photos failed: tried again as soon as a network comes up,
+     * not hours later. Lite in /system, Home at boot before Wi-Fi joined, never had the day's photo
+     * until restarted (ZTE W152D, Android 11, issue #1443), as the full app before #129.
+     */
+    @Volatile var dailyFailed = false; private set
 
     private fun open(url: String): java.net.HttpURLConnection = try {
         Net.open(url).also { it.responseCode }
