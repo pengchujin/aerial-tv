@@ -724,6 +724,7 @@ class MainActivity : ComponentActivity() {
         }
         DiagLog.i("screensaver starts (${Wallpapers.screensaver})")
         vm.screensaverVisible = true
+        SelfCompile.onScreensaver { vm.screensaverVisible }
         // Holding the screen on keeps the firmware's screensaver from starting over ours. After a
         // long stretch, let go so the TV's own power policy can still turn the panel off. Not
         // where the screen never goes off: letting go only handed it to the firmware's
