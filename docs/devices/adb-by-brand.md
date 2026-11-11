@@ -37,7 +37,7 @@ ColorOS TV 的更多限制（比如只认三个固定包名当桌面）见 [oppo
 普通设置里看不到开发者选项，要先进工厂菜单把 **To Fac** 从 `U` 改成 `M`，再到原生设置里打开调试。
 路径来自 [#120](https://github.com/pengchujin/aerial-tv/issues/120) 和抖音教程
 [全网最详细的海信Vidda电视打开adb教学](https://www.douyin.com/video/7595643369897860968)。
-用户在海信 E3-Pro（`VIDAA_TV`，MT9653，Android 11）上按这个方法打开过 ADB；不同机型的菜单名和位置可能不同。
+用户在海信 E3-Pro（`VIDAA_TV`，MT9653，Android 11）和 27GX 显示器（MT9655，Android 14，[#1466](https://github.com/pengchujin/aerial-tv/issues/1466)：从 设置 → 全部设置 → 声音平衡 交替按菜单和确认，原生设置从 关于 → 本机信息 连按菜单进）上按这个方法打开过 ADB；不同机型的菜单名和位置可能不同。
 
 **工厂菜单里还有清空数据、调屏幕参数、写密钥的选项。只改 To Fac，别动其他选项。**
 
