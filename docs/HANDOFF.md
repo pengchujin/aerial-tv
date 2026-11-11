@@ -4,6 +4,7 @@
 
 ## 现状（2026-11-11）
 
+- **1.94（versionCode 133）+ Aerial Lite 1.28（30），2026-11-11 发布**（[v1.94](https://github.com/pengchujin/aerial-tv/releases/tag/v1.94)）：下面这轮巡检的全部修复（#1447 #1456 #1444 #1462 #1419 #1225 #1443 #1023 #1430 #891 #1438、PR #1449）。versionCode 跳过 132（两台装过 132 测试包）。standard、guard 单元测试各 263 个通过，Lite lint，三个包签名 e089…。小米 MFTR0 `install-multiple` standard + 31.dm（speed-profile / install-dm）：`selftest.sh` 守护、主页键（从设置 0.3 秒）、`INPUTS=1` 8 个信号源通过。TCL MT5879 `tcast-push.py` 推 guard（截图确认焦点在「同意」），compile speed：守护、主页键（从酷控 0.2 秒）、7 个信号源通过，两个 walleve 服务、屏保 AerialDream 保留。官网已部署：version.txt = v1.94，notes.json 有 1.94，三个 APK md5 与 Release 一致，`/diag/aerial-710.apk` 还在。12 个 issue 和 PR #1449 贴了发布链接（`local/triage/release-1.94-posts.py`）。**下次发版 versionCode ≥ 134，Lite ≥ 31。**
 - **2026-11-11 巡检（没发版，改在 main 上）**，记录 `local/triage/2026-11-11-full.md`（原始 `raw-2026-11-11/`），回复 `replies-2026-11-11.py`，发出 `posted-2026-11-11.txt`。342 issue / 66 PR，用户最后发言 64（14 个上轮定了不回、没有新内容）。在主目录分支 `claude/triage-2026-11-11` 上做，合回 main。
   - 改了（每个单独提交）：
     - #1447 海信 VIDAA_TV MTK9632（安卓 9）：1.92 起航拍壁纸的 PixelCopy 取帧在厂商 `libstagefrighthw_yuv.so` 里 SIGSEGV，每 30 秒崩一次，守护被系统推迟 4 小时重启。现在取帧前在磁盘记一笔，下个进程看到就说明死在取帧里，这个固件以后不用 PixelCopy（诊断 `copy_crashed=`）。
