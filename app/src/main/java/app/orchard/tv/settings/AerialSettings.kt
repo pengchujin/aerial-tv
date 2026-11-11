@@ -30,6 +30,18 @@ enum class FocusStyle(val key: String) {
 }
 
 /**
+ * What is behind Home while a video wallpaper is chosen: the film's own frame where it stopped, the
+ * still picture chosen before the videos, or the light of the app in hand, as "Follow App" has it.
+ */
+enum class VideoUnder(val key: String) {
+    Frame("frame"), Still("still"), App("app");
+
+    companion object {
+        fun of(key: String?) = entries.firstOrNull { it.key == key } ?: Frame
+    }
+}
+
+/**
  * Where interface sounds come from. The TV's own are silent wherever its key sound setting is off,
  * which many TVs ship with (Sony, issue #160; #169), so that is not the default there.
  */
@@ -173,13 +185,17 @@ object AerialSettings {
     var wallpaperAlwaysMoves by mutableStateOf(false); private set
 
     /**
-     * Under the owner's own videos, the still picture chosen before them rather than the frame the
-     * film stopped on (Wallpapers.lastStillId). Off, as it has been since issues #410 #583: the frame
-     * is the picture, so the glass and the grid match what the film showed. On, a video wallpaper
-     * still moves, but a still Home keeps the picture the owner picked, and so does a TV where the
-     * film's frame cannot be read at all (TCL's own MP4 extractor, issues #1188, #1238).
+     * What is under Home while the owner's own videos are the wallpaper: the frame the film stopped
+     * on, the still picture chosen before them (Wallpapers.lastStillId), or the light of the app in
+     * hand as "Follow App" has it.
+     *
+     * Frame is what it has been since issues #410 #583: the picture is the film's, so the glass and
+     * the grid match what it showed. Still keeps the picture the owner picked, which is also what a
+     * TV shows where the film's frame cannot be read at all (TCL's own MP4 extractor, issues #1188,
+     * #1238). App leaves the picture to the focused app, so a video wallpaper that cannot produce a
+     * frame behind Home does not fall back to one fixed picture. The videos keep moving either way.
      */
-    var videoUnderStill by mutableStateOf(false); private set
+    var videoUnder by mutableStateOf(VideoUnder.Frame); private set
 
     /** The weather beside the clock; off for those who want the time alone (issue #472). */
     var showWeather by mutableStateOf(true); private set
@@ -266,7 +282,7 @@ object AerialSettings {
         homePlate = prefs.getBoolean("home_plate", true)
         chosenAllNames = prefs.getBoolean("show_all_names", false)
         wallpaperAlwaysMoves = prefs.getBoolean("wallpaper_always_moves", false)
-        videoUnderStill = prefs.getBoolean("video_under_still", false)
+        videoUnder = VideoUnder.of(prefs.getString("video_under", null))
         showWeather = prefs.getBoolean("show_weather", true)
         screensaverClock = prefs.getBoolean("screensaver_clock", true)
         // Before 1.28 this was on or off; on meant whichever sounds Aerial played.
@@ -386,9 +402,9 @@ object AerialSettings {
         app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit { putBoolean("wallpaper_always_moves", on) }
     }
 
-    fun chooseVideoUnderStill(on: Boolean) {
-        videoUnderStill = on
-        app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit { putBoolean("video_under_still", on) }
+    fun chooseVideoUnder(under: VideoUnder) {
+        videoUnder = under
+        app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit { putString("video_under", under.key) }
     }
 
     fun chooseShowWeather(on: Boolean) {

@@ -272,7 +272,7 @@ class MainActivity : ComponentActivity() {
         FontWarmup.start(this)
         val uhd = UhdCanvas.scale(this)
         // Before the wallpapers: they bake their first picture at start, and with a video wallpaper
-        // that picture is the still kept for it (AerialSettings.videoUnderStill), read there.
+        // that picture follows the setting for it (AerialSettings.videoUnder), read there.
         AerialSettings.init(this)
         Wallpapers.init(this)
         // A receiver may have started the wallpapers with the app's size; Home's window is the one.

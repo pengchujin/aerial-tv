@@ -270,7 +270,8 @@
     <string name="st_under">Picture under</string>
     <string name="st_under_frame">The film\'s frame</string>
     <string name="st_under_still">Last still picture</string>
-    <string name="st_under_hint">The film\'s frame: what the videos show when they stop, so the glass and the grid match them. Last still picture: the built-in, Bing or photo wallpaper you chose before the videos; it also shows where the TV cannot read a frame at all.</string>
+    <string name="st_under_app">Follow App</string>
+    <string name="st_under_hint">The film\'s frame: what the videos show when they stop, so the glass and the grid match them. Last still picture: the built-in, Bing or photo wallpaper you chose before the videos; it also shows where the TV cannot read a frame at all. Follow App: the light of the app in hand, as that wallpaper has it.</string>
     <string name="ss_show_time">Time</string>
     <string name="ss_show_time_hint">The time over the aerial and photo screensavers. The time and place name move a little now and then, so nothing stays on the same pixels.</string>
 

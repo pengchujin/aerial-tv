@@ -17,6 +17,7 @@ import app.orchard.tv.ui.components.UhdCanvas
 import app.orchard.tv.BuildConfig
 import app.orchard.tv.guard.GuardSetup
 import app.orchard.tv.settings.AerialSettings
+import app.orchard.tv.settings.VideoUnder
 import app.orchard.tv.system.DiagLog
 import app.orchard.tv.ui.home.fileFramesJam
 import kotlinx.coroutines.CoroutineScope
@@ -93,7 +94,7 @@ object Wallpapers {
     private const val SOURCE_PICTURE = "hills_night"
     private const val FOLLOW = "follow"
     private const val DEFAULT_FALLBACK = "grad:aurora"
-    /** Where the last still wallpaper chosen is kept, for [AerialSettings.videoUnderStill]. */
+    /** Where the last still wallpaper chosen is kept, for [AerialSettings.videoUnder]. */
     private const val STILL_KEY = "still_picture"
 
     /** Let go this close to where the picture was taken: the film did not move on from it. */
@@ -171,7 +172,7 @@ object Wallpapers {
 
     /**
      * The last still wallpaper chosen — a built-in picture, Bing's day or one of the owner's photos —
-     * kept for [AerialSettings.videoUnderStill]: under the owner's videos that picture rather than the
+     * kept for [AerialSettings.videoUnder]: under the owner's videos that picture rather than the
      * frame a film stopped on ([stillPictureFor] falls back to [DEFAULT_FALLBACK] while it is null).
      */
     var lastStillId by mutableStateOf<String?>(null); private set
@@ -270,7 +271,7 @@ object Wallpapers {
     fun select(id: String) {
         selectedId = id
         prefs.edit { putString("selected", id) }
-        // Kept for [AerialSettings.videoUnderStill]: the picture chosen before the owner's videos.
+        // Kept for [AerialSettings.videoUnder]: the picture chosen before the owner's videos.
         if (isStill(id)) {
             lastStillId = id
             prefs.edit { putString(STILL_KEY, id) }
@@ -278,7 +279,7 @@ object Wallpapers {
         rebuildBackdrop()
     }
 
-    /** The owner changed how a video wallpaper's picture is had ([AerialSettings.videoUnderStill]): bake it again. */
+    /** The owner changed how a video wallpaper's picture is had ([AerialSettings.videoUnder]): show it. */
     fun rebuildPicture() = rebuildBackdrop()
 
     /**
@@ -372,20 +373,31 @@ object Wallpapers {
 
     /**
      * The still picture that stands under the videos when the owner asked for one
-     * ([AerialSettings.videoUnderStill]): the last still wallpaper chosen, while it is still there,
-     * else the built-in Aerial falls back to (an install from before [lastStillId] was kept, or a
-     * photo since deleted, has none of its own). Null otherwise, and the frames the films stop on are
-     * the picture, as before (issues #410, #583).
+     * ([VideoUnder.Still]): the last still wallpaper chosen, while it is still there, else the
+     * built-in Aerial falls back to (an install from before [lastStillId] was kept, or a photo
+     * since deleted, has none of its own). Null otherwise, and the frames the films stop on are the
+     * picture, as before (issues #410, #583).
      */
     private fun stillPictureFor(wp: Wallpaper?): Wallpaper? {
-        if (wp?.kind != WallpaperKind.Video || !AerialSettings.videoUnderStill) return null
+        if (wp?.kind != WallpaperKind.Video || AerialSettings.videoUnder != VideoUnder.Still) return null
         val still = lastStillId?.let(::resolve)?.takeIf { isStill(it.kind) } ?: resolve(DEFAULT_FALLBACK)
         return still?.takeIf { isStill(it.kind) }
     }
 
-    /** The video wallpaper shows a still picture instead of its films' frames. */
-    private val stillUnderVideo: Boolean
-        get() = stillPictureFor(resolve()) != null
+    /** The owner's videos are the wallpaper, but the app in hand lights Home, as "Follow App" does. */
+    private fun videoUnderApp(id: String = selectedId): Boolean =
+        isVideo(id) && AerialSettings.videoUnder == VideoUnder.App
+
+    /** Neither the film's frame nor the app: the still picture the owner chose stands under the videos. */
+    private fun videoUnderStill(id: String = selectedId): Boolean =
+        isVideo(id) && AerialSettings.videoUnder == VideoUnder.Still
+
+    /** The picture under the videos is not the film's frame, so a frame must not take it. */
+    private val pictureNotFrame: Boolean
+        get() = videoUnderStill() || videoUnderApp()
+
+    /** The app in hand lights Home under the owner's videos: panels and plates have a picture to read. */
+    val videoLitByApp: Boolean get() = videoUnderApp()
 
     /** A wallpaper that does not move: a built-in picture, Bing's day or one of the owner's photos. */
     private fun isStill(id: String): Boolean = resolve(id)?.kind?.let { isStill(it) } == true
@@ -456,7 +468,9 @@ object Wallpapers {
         backdropJob?.cancel()
         val id = selectedId
         backdropJob = scope.launch {
-            if (id == AUTO) {
+            // "Follow App", and a video wallpaper lit by the app in hand, have no baked picture:
+            // Home takes the focused app's light, and the videos move over it.
+            if (id == AUTO || videoUnderApp(id)) {
                 backdrop = null
                 frosted = null
                 return@launch
@@ -513,10 +527,11 @@ object Wallpapers {
     /**
      * Puts the last baked backdrop up at once, on the main thread, so Home's first frame has it. Even
      * one that is out of date (a new day's photo): it is the picture Home last showed, and the fresh
-     * one crossfades in once baked. Not in "Follow App", which has no backdrop.
+     * one crossfades in once baked. Not in "Follow App", which has no backdrop, nor under a video
+     * wallpaper the app lights.
      */
     private fun loadBaked() {
-        if (selectedId == AUTO) return
+        if (selectedId == AUTO || videoUnderApp()) return
         runCatching {
             val key = File(bakedDir, "key").takeIf { it.exists() }?.readText() ?: return
             val home = BitmapFactory.decodeFile(File(bakedDir, "home.jpg").path) ?: return
@@ -574,8 +589,8 @@ object Wallpapers {
      */
     fun showLiveFrame(frame: Bitmap) {
         if (!moves()) return
-        // The still picture asked for stays under the videos; the film's frame does not take it.
-        if (stillUnderVideo) return
+        // The still picture or the app asked for stays under the videos; the film's frame does not take it.
+        if (pictureNotFrame) return
         backdropJob?.cancel()
         backdrop = frame.asImageBitmap()
     }
@@ -598,10 +613,10 @@ object Wallpapers {
         if (!moves()) return false
         val video = isVideo(id)
         if (id.startsWith(VIDEO_PREFIX) && film != id.removePrefix(VIDEO_PREFIX)) return false
-        // Under a still picture asked for, the frame is still kept for the film's card and for where
-        // the film goes on, but Home's picture stays the still one — the baking under way, if any,
-        // is the one that picture comes from and is left to finish.
-        val still = stillUnderVideo
+        // Under a still picture or the app asked for, the frame is still kept for the film's card and
+        // for where the film goes on, but Home's picture stays theirs — the baking under way, if
+        // any, is the one that picture comes from and is left to finish.
+        val still = pictureNotFrame
         if (!still) backdropJob?.cancel()
         if (video) videoLeftHere = null else leftHere = null
         val key = if (video) "video" else "live"
@@ -644,9 +659,9 @@ object Wallpapers {
             part.delete()
             return false
         }
-        // Under a still picture asked for, the frame is still kept for the film's card and for where
-        // the film goes on, but Home's picture stays the still one.
-        val still = stillUnderVideo
+        // Under a still picture or the app asked for, the frame is still kept for the film's card and
+        // for where the film goes on, but Home's picture stays theirs.
+        val still = pictureNotFrame
         if (!still) backdropJob?.cancel()
         if (part.exists() && !part.renameTo(target)) part.delete()
         if (isVideo(id)) videoLeftHere = null else leftHere = null
