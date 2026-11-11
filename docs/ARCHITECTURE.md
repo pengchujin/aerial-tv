@@ -299,7 +299,7 @@ NanoHTTPD 监听 8790 端口，路径前缀是 8 位随机令牌（每次打开�
   → MainActivity.onStart → GuardSetup.ensureEnabled()（把守护写进 enabled_accessibility_services）
   → 5 秒后 rebindIfStalled()（已启用但没运行 → 先移除、1.5 秒后加回，触发重绑）
 开机：守护、RevivalListener、BootReceiver 都声明了 directBootAware（#45），用户解锁之前就绑定
-  - 锁定期间只记窗口，不启动界面、不拦 HOME；凭据加密存储里的偏好（keep_adb、屏保）解锁后再读
+  - 锁定期间只记窗口，不启动界面、不拦 HOME；凭据加密存储里的偏好（keep_adb、屏保）解锁后再读。例外（PR #1449，极米 H3S）：仍锁定、开机动画已结束（`init.svc.bootanim=stopped`）、亮屏、这次绑定一个事件都没收到，连续两次轮询（约 4 秒）都这样，就启动一次 Aerial（固件作废了 HOME 首选、选择框画不出来，整屏黑）；解锁轮询照常继续
   - ACTION_USER_UNLOCKED → 1.5 秒后按下面的规则接管。TCL 75S365C 上从解锁到 Aerial 7.6 秒 → 约 2 秒。解锁不受 3 分钟开机窗口限制（极米 Play 6 low-RAM 开机 5 分 35 秒才解锁，#1126）；极米 GMUI 的「选择桌面」`xgimiframeworkui/.resolver.ResolverActivity` 在前台时按原桌面处理（PR #1115）
 运行：HomeGuardService
   - 按键表弄错的遥控器主页键也当 HOME（`isStrayHome`）：扫描码 102 被通用表映射成 MOVE_HOME（只认没有字母键的设备，小米 4A 蓝牙遥控 2717:32b8，#1396），或 102 / 172 成了 UNKNOWN（海尔 HaierTV-RC，#1388）。安卓 9 模拟器上用 `hid` 造的遥控器验证过 MOVE_HOME，带字母的键盘不受影响

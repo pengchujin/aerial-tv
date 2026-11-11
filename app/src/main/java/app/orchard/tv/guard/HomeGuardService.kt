@@ -468,18 +468,26 @@ class HomeGuardService : AccessibilityService() {
                 onUserUnlocked("user unlocked (polled)")
                 return
             }
-            // Still locked with the boot animation already gone, yet not one window has ever reached
-            // this binding: the screen is on and nothing is coming. H3S (pig_chivalrous, Android 9)
-            // sits here (issues #1357, #1377): the firmware drops the HOME record, and
-            // onAccessibilityEvent returns at its unlock guard, so nothing takes over.
-            if (!screenOff && lastWindow == null && !aerialResumed && bootAnimRaw()?.trim() == "stopped") {
+            // Still locked with the boot animation already gone, yet not one event has ever reached
+            // this binding: the screen is on and nothing is coming. XGIMI H3S (pig_chivalrous,
+            // Android 9) sits here (issues #942 #1377; PR #1449, verified by its author on an H3S):
+            // the firmware drops the HOME record, the resolver it falls to never draws, and
+            // onAccessibilityEvent returns at its unlock guard, so nothing takes over. Not on any
+            // event at all (sawEvent): a window that came while locked, from an activity not found
+            // before unlock, leaves lastWindow empty though the screen shows something.
+            if (!bootBlackStarted && !screenOff && !sawEvent && lastWindow == null && !aerialResumed &&
+                bootAnimRaw()?.trim() == "stopped"
+            ) {
                 bootBlackStalls++
                 Log.i(TAG, "boot animation gone, no window ever and still locked ($bootBlackStalls/$BOOT_BLACK_STALLS); bringing Aerial back")
                 if (bootBlackStalls >= BOOT_BLACK_STALLS) {
                     // goHome() returns at its unlock guard while locked, so start it from here.
+                    // Once; the poll goes on, so an unlock that sends no broadcast is still found
+                    // (issue #1213).
+                    bootBlackStarted = true
+                    DiagLog.i("guard: still locked, boot animation gone and no window ever; starting Aerial")
                     runCatching { startActivity(MainActivity.bringBackIntent(this@HomeGuardService)) }
                         .onFailure { Log.w(TAG, "could not start Aerial on a locked boot", it) }
-                    return
                 }
             } else {
                 bootBlackStalls = 0
@@ -497,6 +505,9 @@ class HomeGuardService : AccessibilityService() {
 
     /** Consecutive readings of a locked boot with nothing on screen; see unlockPoll. */
     private var bootBlackStalls = 0
+
+    /** Aerial was started once over a locked boot with nothing on screen; see unlockPoll. */
+    private var bootBlackStarted = false
 
     private fun onUserUnlocked(how: String) {
         if (!unlockPending) return
