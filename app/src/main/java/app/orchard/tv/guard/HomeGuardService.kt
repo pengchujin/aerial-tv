@@ -1228,7 +1228,11 @@ class HomeGuardService : AccessibilityService() {
         val homeStillDown = SystemClock.uptimeMillis() - homeDownTakenAt < HOME_DOWN_KEEP_MS
         val wanted = !keysPassThrough && !screenOff && !padGame && !mouseHang &&
             (Build.VERSION.SDK_INT <= Build.VERSION_CODES.R || aerialInFront || always || homeStillDown)
-        val homeWanted = wanted && (!isDefaultHome() || defaultHomeNeedsHomeFilter)
+        // A profile asking for the filter has it with Aerial the default Home too. Coocaa firmware
+        // starts its own launcher on Home through a category of its own whatever Home resolves
+        // to, and on 8R39_K5C (Android 8) filterHomeAlways written over ADB changed nothing, a
+        // held volume key still repeating, so the filter never came on (issue #1462).
+        val homeWanted = wanted && (!isDefaultHome() || defaultHomeNeedsHomeFilter || always)
         val cecWanted = !screenOff && !mouseHang && CecHome.active(this, lastWindow?.first)
         filteringForCecOnly = cecWanted && !homeWanted
         var want = if (homeWanted || cecWanted) info.flags or flag else info.flags and flag.inv()
