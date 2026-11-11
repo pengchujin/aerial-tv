@@ -174,3 +174,44 @@
 - 小米显示器 MFFU1（安卓 14）和这台不同：PixelCopy 读得到影片，但 4K 时一次 0.7 秒、有时读出绿色。1.77 里一次慢复制按固件指纹记成慢（`copy_slow_read`），连带不读文件，户主切成杜比视界画质（壁纸随之换成 4K）后底板和面板的磨砂都没了，日志 `copy false, file frames stuck false`。现在慢复制只在有 TCL 解析器的电视上关文件（ARCHITECTURE 同一条 ⑦），这台日志 `TCL's extractor false`，从文件解帧，控制中心是磨砂玻璃。
 
 - 杜比视界屏保回首页（2026-11-04，#1238）：以前黑约 1.1 秒等壁纸影片；现在屏保期间在进程内用 `c2.android.avc.decoder` 解屏保影片的关键帧（不走 mediaserver，不碰屏保占着的那条视频通道），回来先显示它，影片从它接着放。实测按键进屏保时屏保第一帧有时从约 0.8 秒晚到 1.9 秒。这台现在是安卓 14（SDK 34），装包用 `31.dm`。
+
+## 待机唤醒后漏接原桌面窗口事件
+
+MiTV-MFTR0（Android 14）待机时会停止 Aerial，通知监听和同步框架随后恢复进程。
+如果守护晚于 SCREEN_ON 和 PatchWall 窗口事件绑定，`lastWindow` 为空；
+多次恢复又触发 `revivedOften`，日志出现
+`Aerial keeps being stopped and the front is unknown; leaving it`，于是停留在小米首页。
+
+最初修复在缺少窗口记录时查询最近 60 秒的 UsageEvents（后续合并沿用上游的查询窗口），补认前台后再走原有判断。
+已经退到后台的 Activity 不作为前台依据；缺少授权或记录时保留频繁复活保护，
+避免把其他应用或 HDMI 输入拉回首页。没有增加持续轮询。
+
+需要 GET_USAGE_STATS app-op（安装脚本已授予）。授权修改存在延迟写盘，
+本机连续两次立即通过 ADB 重启后授权恢复为 default；执行
+`adb shell appops write-settings` 后再次重启，授权保持 allow。安装脚本增加
+这一步；旧系统不支持该命令时忽略错误。
+
+验证：上述守护代码在本地 Fork 的 release 构建上完成三次重启、两次遥控器
+待机唤醒，并通过强停后重绑复现了漏接事件的路径；日志确认由 UsageEvents
+识别原桌面并自动回到 Aerial，无需主页键。两次唤醒均由电视使用者确认。
+原生小米首页仍会短暂显示，然后进入 Aerial，尚未消除这一闪现。
+未停用原桌面，未修改固件。新增回归测试覆盖重复复活、HDMI 前台、Activity
+暂停、授权缺失、记录缺失及过期记录。
+
+## 本机另行验证的广告设置（不自动应用）
+
+在 MiTV-MFTR0 / OS3.0.106.0.UFTMATV 的已安装 PatchWall 中核对：
+`BootUpADManager.canPlayBootAd()` 在 Global `mitv.settings.advertise.state` 为 1
+时返回 false；否则读取 System `boot_ad_switch`，为 0 时也不播放开机广告。
+`boot_ad` 是播放状态，不应当当作永久开关修改。
+
+本机在使用者要求下将上述两个开关分别设为 1、0，并对用户 0 禁用
+`com.xiaomi.mitv.hyper.screensaver`，保留其数据。重启和唤醒后设置仍保留，
+原生屏保组件不能再启动。完整开机广告画面没有获得使用者确认，不能仅凭
+设置值宣称所有固件和所有开机阶段的广告均已消除。
+
+这属于单台设备的可逆配置，不加入通用安装脚本：禁用原生屏保也会关闭它的
+壁纸/时钟界面，Aerial 自己的屏保不受影响。应用前保存两项原始设置和组件
+启用状态；恢复时写回原值（原值不存在时删除该 key），并恢复原包启用状态。
+本机两项原值均不存在，屏保原状态为 default，因此回退是删除这两个 key
+并对该屏保包执行 `pm default-state --user 0`。不要停用 `com.mitv.tvhome`。

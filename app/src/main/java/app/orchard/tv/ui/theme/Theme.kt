@@ -42,6 +42,9 @@ object Palette {
 }
 
 object Motion {
+    /** One critically damped response across tiles, menus and Control Center. */
+    fun focusSpring() = androidx.compose.animation.core.spring<Float>(dampingRatio = 1f, stiffness = 520f)
+
     /** Strong ease-out: entrances, anything that answers the user. */
     val EaseOut = CubicBezierEasing(0.23f, 1f, 0.32f, 1f)
 

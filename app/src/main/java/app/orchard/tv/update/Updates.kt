@@ -82,6 +82,7 @@ object Updates {
     private var checker: UpdateCheck? = null
 
     fun init(context: Context) {
+        if (BuildConfig.MANAGED_FORK) return
         if (started) return
         started = true
         appContext = context.applicationContext
@@ -220,6 +221,7 @@ object Updates {
      * with this copy's key and no older, or the installer would only fail with a less clear message.
      */
     fun install(context: Context) {
+        if (BuildConfig.MANAGED_FORK) return
         if (install is Install.Downloading || install == Install.Opened) return
         // A second press while the first session's confirmation is awaited (#1004: two sessions).
         if (awaiting != null) return

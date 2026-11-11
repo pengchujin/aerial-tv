@@ -1,0 +1,10 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">
+    <!-- This sandbox cannot take HOME, bind a guard, or create the upstream sync account. -->
+    <application>
+        <receiver android:name="app.orchard.tv.guard.BootReceiver" tools:node="remove" />
+        <service android:name="app.orchard.tv.guard.HomeGuardService" tools:node="remove" />
+        <service android:name="app.orchard.tv.guard.RevivalListener" tools:node="remove" />
+        <service android:name="app.orchard.tv.guard.RevivalSyncService" tools:node="remove" />
+        <service android:name="app.orchard.tv.guard.RevivalAccountService" tools:node="remove" />
+    </application>
+</manifest>

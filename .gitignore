@@ -17,3 +17,6 @@ site/icons/
 
 # Wrangler state and the account cache (account id, e-mail).
 .wrangler/
+
+# Python benchmark helpers.
+__pycache__/

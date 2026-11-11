@@ -311,7 +311,15 @@ class MainActivity : ComponentActivity() {
         FrameStats.attach(window)
         logWindow()
 
+        val launchStarted = android.os.SystemClock.uptimeMillis()
         val home: @Composable () -> Unit = {
+            androidx.compose.runtime.LaunchedEffect(vm.loaded) {
+                if (vm.loaded) {
+                    androidx.compose.runtime.withFrameNanos { }
+                    reportFullyDrawn()
+                    DiagLog.i("Home interactive after content setup: ${android.os.SystemClock.uptimeMillis() - launchStarted} ms")
+                }
+            }
             // TVs ship at different densities for the same 1080p panel (Xiaomi 320dpi, TCL 240dpi),
             // which would make the same layout bigger on one and smaller on the other. Aerial is
             // designed on a 960×540 canvas, so it scales that canvas to whatever the panel is.
