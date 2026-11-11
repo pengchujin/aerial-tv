@@ -1279,7 +1279,11 @@ private object FilmFrames {
         val known = prefs.getString(TCL_KEY, null)
         val found = if (known?.substringBeforeLast('|') == Build.FINGERPRINT) known.endsWith("|true") else {
             val dirs = listOf("/apex/com.android.media/lib64", "/apex/com.android.media/lib", "/system/lib64", "/system/lib")
-            val libs = dirs.map { java.io.File("$it/extractors/libmp4extractor.so") }.filter { it.exists() }
+            // Extractors are plugins of their own from Android 9; before, they are built into
+            // libstagefright. Looked for only in the plugins, Android 6-8 found none and counted
+            // as TCL's, and a LeTV X4-55 (Android 6) read "no MP4 extractor found" (issue #1444).
+            val name = if (Build.VERSION.SDK_INT >= 28) "extractors/libmp4extractor.so" else "libstagefright.so"
+            val libs = dirs.map { java.io.File("$it/$name") }.filter { it.exists() }
             val tclFound = libs.isEmpty() || libs.any { lib -> runCatching { containsAscii(lib, "TclMPEG4Extractor") }.getOrDefault(true) }
             prefs.edit().putString(TCL_KEY, "${Build.FINGERPRINT}|$tclFound").apply()
             DiagLog.i("wallpaper film file: ${libs.joinToString { it.path }.ifEmpty { "no MP4 extractor found" }}, TCL's extractor $tclFound")
@@ -1297,7 +1301,8 @@ private object FilmFrames {
     private const val SLOW_KEY = "copy_slow_read"
     private const val COPYING_KEY = "copy_under_way"
     private const val CRASHED_KEY = "copy_crashed"
-    private const val TCL_KEY = "tcl_extractor"
+    // A new key: before 1.94 Android 6-8 were read in the wrong place and kept as TCL's.
+    private const val TCL_KEY = "tcl_extractor_lib"
 }
 
 /**
