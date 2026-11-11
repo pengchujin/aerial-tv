@@ -12,6 +12,7 @@ import android.media.ExifInterface
 import androidx.core.graphics.createBitmap
 import java.io.File
 import kotlin.math.max
+import kotlin.math.min
 import kotlin.math.roundToInt
 import kotlin.random.Random
 
@@ -19,7 +20,47 @@ import kotlin.random.Random
 object Images {
 
     /** Decodes [file] no larger than needed for [w]×[h], upright, then centre-crops it to exactly that size. */
-    fun decodeCover(file: File, w: Int, h: Int): Bitmap? {
+    fun decodeCover(file: File, w: Int, h: Int): Bitmap? = decodeUpright(file, w, h)?.let { src ->
+        cover(src, w, h).also { if (it !== src) src.recycle() }
+    }
+
+    /**
+     * For the photo screensaver: a picture turned the way the frame is as [decodeCover]; one turned
+     * the other way whole, on a blurred and darkened copy of itself, instead of cut to its middle
+     * third (issue #647; a landscape one on a screen turned to portrait, #1416). It fits
+     * [SAVER_ZOOM] times inside the frame, so the slow push in never cuts it either.
+     */
+    fun decodeWhole(file: File, w: Int, h: Int): Bitmap? {
+        val src = decodeUpright(file, w, h) ?: return null
+        if ((src.height <= src.width) == (h <= w)) return cover(src, w, h).also { if (it !== src) src.recycle() }
+        return fitWhole(src, w, h).also { src.recycle() }
+    }
+
+    /** How far the photo screensaver pushes in at most (Screensaver's Ken Burns: 1.04 to 1.12). */
+    const val SAVER_ZOOM = 1.12f
+
+    /** [src] whole and centred on [w]×[h], over itself frosted and darkened to fill the sides. */
+    fun fitWhole(src: Bitmap, w: Int, h: Int): Bitmap {
+        val out = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(out)
+        val filter = Paint(Paint.FILTER_BITMAP_FLAG)
+        val back = cover(src, w, h)
+        val frosted = frost(back)
+        if (back !== src) back.recycle()
+        canvas.drawBitmap(frosted, null, Rect(0, 0, w, h), filter)
+        frosted.recycle()
+        canvas.drawColor(0x66000000)
+        val scale = min(w / src.width.toFloat(), h / src.height.toFloat()) / SAVER_ZOOM
+        val fw = (src.width * scale).roundToInt()
+        val fh = (src.height * scale).roundToInt()
+        val left = (w - fw) / 2
+        val top = (h - fh) / 2
+        canvas.drawBitmap(src, null, Rect(left, top, left + fw, top + fh), filter)
+        return out
+    }
+
+    /** [file] decoded no larger than needed for [w]×[h], and turned upright. */
+    private fun decodeUpright(file: File, w: Int, h: Int): Bitmap? {
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         BitmapFactory.decodeFile(file.path, bounds)
         if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
@@ -30,8 +71,7 @@ object Images {
         var sample = 1
         while (bw / (sample * 2) >= w && bh / (sample * 2) >= h) sample *= 2
         val decoded = BitmapFactory.decodeFile(file.path, BitmapFactory.Options().apply { inSampleSize = sample }) ?: return null
-        val src = upright(decoded, orientation)
-        return cover(src, w, h).also { if (it !== src) src.recycle() }
+        return upright(decoded, orientation)
     }
 
     /**
@@ -120,8 +160,10 @@ object Images {
      * on purpose; it is only ever seen blurred, and it is drawn stretched in a single pass.
      */
     fun frost(b: Bitmap): Bitmap {
-        val w = 320
-        val h = 180
+        // Turned with [b], so the blur stays round on a portrait screen (#1416).
+        val upright = b.height > b.width
+        val w = if (upright) 180 else 320
+        val h = if (upright) 320 else 180
         val small = Bitmap.createScaledBitmap(b, w, h, true)
         val px = IntArray(w * h)
         small.getPixels(px, 0, w, 0, 0, w, h)

@@ -12,8 +12,10 @@
 | Vidda 85V7N-Ultra | 未说 | 装得上，信号源扫不到（同 #84）；开 ADB：声音平衡里连按菜单、确定进工厂模式，To Fac 从 U 改 M 后重启 | #120 |
 | 较老的海信（`com.jamdeo.launcher`，`BaseTileActivity`） | 日志里有 `TaskRecord`，系统应在 Android 7 以前 | 开机先显示海信桌面（智汇中心），过很久才到 Aerial；海信的 `AppManagerHelper` 把 `app.orchard.tv` 列为 `Black package` | #119（只有日志，型号待补） |
 | VIDAA_TV（老款） | Android 5.1.1（SDK 22），MStar MSD6A828 | 装得上；没有 `cmd`；每次开机固件把 `accessibility_enabled` 清成 0，直接写 1 会被静默丢弃，先 `pm unhide` 任一个包触发包变更后再写才生效；GlobalPanel 吃掉主页键，只有守护能接管；设置里没有无障碍入口，每次开机都要用电脑恢复 | #285 |
+| VIDAA_TV（老款，2016） | Android 5.1.1（SDK 22），Hi3751v620 | 1.87 起智汇键（F12）可以当主页键用：固件照样先弹 GlobalPanel，守护用一次返回键收掉再回 Aerial，在 Aerial、别的 App、HDMI 里都回到 Aerial，面板闪 0.4–0.7 秒；代价是聚好看面板不能再停留。报告人 1.88 实测 | #808 |
 | VIDAA C1 投影 | Android 9，MT9669 | 没有 role 服务，也没有 `persist.vt.use_home_pkg`；聚好看 HOME priority=50，守护拉起 Aerial 后 2–5 秒系统（uid 1000）又切回聚好看；`SYSTEM_ALERT_WINDOW` 被改回 ignore；暂时接管不了 | #323 |
 | 海信会议室触屏电视、海信投影 | 未说 | 投影打不开 ADB；会议室机只问了能否保留触屏（能，1.20 起支持触屏） | 微博 |
+| VIDAA_TV | Android 9，MTK9652（`m7642`），1080p，armeabi-v7a | 1.83 我的视频壁纸：打开控制中心或在里面按上下键后背景变黑，几秒后恢复；PixelCopy 太慢被停用（`copy=false copy_slow=true`），每次暂停都用 MediaMetadataRetriever 读帧，视频随后恢复时 `DECODING_FAILED`。下个版本起控制中心里不读帧、在 App 里软件解码关键帧、出错重试同一部（见下面「我的视频壁纸黑屏」） | #1251 |
 | VIDAA_TV | Android 9，Amlogic T963（`t5fl`），1080p | 1.72 起应用内升级不弹安装界面：安装会话提交后没有回复也没有确认页（1.71 及以前用 `ACTION_VIEW` 正常）；下个版本起会话 8 秒没回复就退回系统安装器（见 ARCHITECTURE「升级」），已在 1.72–1.74 的要手动升一次 | #1004 |
 
 Vidda C1S 激光投影（VIDAA_TV，MT9669，Android 9，PR #545）：聚好看（`com.jamdeo.tv.vod`）不向第三方无障碍服务发窗口事件，别的 App 的事件照常；`set-home-activity` 写了 preferred 也不生效；用量统计里有聚好看的 `MOVE_TO_FOREGROUND`。1.49 起原桌面里有聚好看就每秒查一次用量统计（要 `GET_USAGE_STATS`，安装命令会给），报告人实测从 B 站按主页键 1–2 秒回到 Aerial。
@@ -163,3 +165,79 @@ main 上（未发版）亮度行先试 `android.settings.IMAGE_SETTINGS`（非�
 
 1.71 起「网络」先开海信自己的网络页（#760 H55E9A 安卓 8 上原生 `NetworkActivity` 的子页会崩，#826 也要海信的新界面）。海信页里没有代理；#1095 的 VIDAA_TV（MT9603 / mt5873，安卓 11）上原生页 `com.android.tv.settings/.connectivity.NetworkActivity` 能打开、能设代理、不崩。按机型选哪一页属于偏好，留到功能轮次；变通办法是 `adb shell am start -n com.android.tv.settings/.connectivity.NetworkActivity`。
 
+## 开机直达：`persist.sys.boot.source_pkg`（#1274 #1227，未进安装脚本）
+
+VIDAA_TV（MT9655，Android 14，固件 07.02.70.202605110330）上，报告人反编译 `TileTransition` 发现 `AppSwitchManager.switchToAppForSTR` 读 `persist.sys.boot.source_pkg`，按包名启动固定应用。只设它：待机唤醒进 Aerial，冷启动仍回聚好看；和 `persist.vt.use_home_pkg` 一起设（两项原值都是空）：完整重启后 `sys.boot_completed=1` 时前台已是 Aerial，60 秒无操作后是 VIDAA 自带氛围屏保 `com.vt.ambiencelife`，按键回 Aerial。两项都只能由 ADB（shell）写，Aerial 自己写不了，固件改回后 App 补不回来（#1227 在 E7Q 上见过 `use_home_pkg` 被改回）。目前只有这一台的实测，要不要进安装脚本、限定在哪些固件上，等更多 VIDAA / MT9655 机器确认。
+
+## 我的视频壁纸黑屏（MTK9652，#1251）
+
+2026-11-04，VIDAA_TV（`MTK9652` / `m7642` / `hisense_m7642_cn`，Android 9，armeabi-v7a，2.4 GB），Aerial 1.83 standard，壁纸 `videos:mine`、一直动，画质 `dolby_vision`。
+
+- 现象：控制中心盖上来后背景变黑，按上下键时也黑，等几秒或退出后恢复。报告人说航拍也一样，但诊断里只有视频壁纸的记录。
+- 诊断：`film glass copy=false copy_slow=true`，这台 PixelCopy 读得到但太慢，停用后每次暂停都走 `MediaMetadataRetriever`；日志里 4 次都是 `stops` 后 0.6–1 秒 `starts`，50–100 ms 内 `video wallpaper failed (ERROR_CODE_DECODING_FAILED)`。推测是读帧还占着硬件解码器时暂停的播放器恢复，解码失败；当时出错就删掉这部片子、换下一部，下一部出画面前一直黑。
+- 改法（`VideoWallpaper`）：不模糊首页的面板下只暂停不取帧；取帧优先在 App 里软件解码关键帧，MediaMetadataRetriever 只在播放器放开后用；出错先重试同一部、遮罩收起露出图片。
+- **没在海信上验证**：维护者手上没有这台。小米 MFTR0 上回归过：控制中心里暂停、恢复从原位置接着放；从控制中心进设置再回来，App 内解关键帧 0.5–0.7 秒，视频从那一帧的时间接着放；屏保来回不黑。
+
+## 海信 E8H（m7642，安卓 9，#1227）
+
+只读信息：`wm size` 1920x1080，唯一显示模式 1920x1080@60，面板和输出时序是 3840x2160（显示引擎在 SurfaceFlinger 之后放大 2 倍），`ro.his.tv.osd_video_separated=0`；4K 只走视频平面（侧带）。App 层改不了，不开 4K 画布。
+
+## U8E（HISIV810，安卓 8）冷启动紫屏（#1305，报告人实测，没有修）
+
+2019 款 ULED U8E：standard 版设成默认桌面、接着机顶盒 HDMI 时，冷启动后整屏紫色，显示驱动卡住；只有拔掉机顶盒 HDMI 并卸载 Aerial 才恢复（缺一不可），恢复出厂后再接管、冷启动又出现。共同因素是「第三方桌面参与开机时的显示初始化」+ HDMI 信号，具体原因不明，维护者没有这台。报告人之后只把 Aerial 当普通 App 用（不开无障碍、不给通知使用权、主页键不选 Aerial）。这台不要设默认桌面；guard 版有没有同样的问题没人试过。
+
+## 激光机型的亮度（Vidda M2 Pro 高亮版，MT9653，Android 11）
+
+2026-11-01，在 Vidda M2 Pro 高亮版（型号代码 `VL5R-PRO`；`ro.product.model` 报 `VIDAA_TV`，
+MT9653，Android 11，Aerial 1.76）上实测。这台是激光超短焦投影，
+此前控制中心的亮度行对它不起作用：`screen_brightness` 写得进去，画面完全不变（216 → 30 与前一张截图
+逐像素无差别），和 #1025 在 75E8H 上报的现象一致。
+
+- **真实控光在固件的 `PictureManager` 里**，不在 Android 的设置里。`com.jamdeo.tv.*` 位于
+  `/system/framework/com.jamdeo.flow.jar`（boot class path），任何 App 都能直接反射调用，
+  不需要权限、root 或系统签名：`TvManager.getInstance().getPictureManager(context)` 之后，
+  `setCustomBacklight(0..10)` / `getCustomBacklight()` 就是原生设置「图像 → 亮度」的那 0–10 档。
+  验证方式：让户主在原生设置里反复拖亮度，同时由探针每 400 ms 采样全部画质字段，只有
+  `getCustomBacklight` 跟随变化、其余全程不动；写入侧同一字段同一量程，闭环成立。
+- **判定激光机型用 `getLaserOverLapOrCL0Mode`**（CL0 是激光光源），普通海信没有这个方法。
+  没有按 `VIDAA_TV` 判断（所有海信都报这个名字），也没有写进 `devices.json`。
+- **亮度模式共 7 个，与 `getBacklightMode` 的对照**（逐个提交后回读）：
+
+  | 模式 | `getBacklightMode` | `getCustomBacklight` | `getLaserOverLapOrCL0Mode` |
+  |---|---|---|---|
+  | 明亮 | 16384 | 10 | 0 |
+  | 标准 | 8192 | 8 | 0 |
+  | 柔和 | 2 | 4 | 0 |
+  | 动态 | 4096 | 不固定（随画面，实测 7 / 3 / 5） | 0 |
+  | 超新 | 131072 | 10 | 2 |
+  | 超频 | 65536 | 10 | 1 |
+  | 自定义 | 0 | 用户上次档位 | 0 |
+
+- **只有「自定义」的档位归用户管**：明亮 / 标准 / 柔和 / 超新 / 超频 都写死自己的档位（动态不写死，
+  它自己会动，见下一节），并且**丢弃**对 `setCustomBacklight` 的写入（回读纹丝不动，但值会记进
+  自定义槽位）。所以 Aerial 写入前先 `setBacklightMode(0)`，这正是原生设置在户主拖动亮度滑杆时
+  自己做的事——效果就是「一拖亮度，模式变成自定义」。切回「自定义」时系统自动恢复上次档位，
+  Aerial 不需要自己记。
+- 切模式只要一条 `setBacklightMode(...)`，预设档位和 `getLaserOverLapOrCL0Mode` 由系统联动写入，
+  不用再单独调 `setLaserOverLapOrCL0Mode`。
+- 「超新 / 超频」偏黄来自激光叠加（CL0Mode 2/1）改变合成白点，不是亮度也不是色温
+  （`getColorTemperature` 七个模式恒为 4）。
+- 无用的通道（勿再试）：`screen_brightness`（激光机不控光源）、`setBrightness`（只改画质黑位，
+  肉眼无感）、`setLightModeStatus`（第三方关不掉，恒为 true）、`setLightModeValue` /
+  `setMinBackLight` / `setLaserCL0Index`（空操作）、`setBacklightMode(8192 | v)`（被归一化，
+  BacklightMode 是离散枚举而不是标志位）。
+
+Aerial 的处理：`system/HisenseLaserPanel.kt`；`Brightness.level` / `adjust` 最前面分派，
+控制中心 `steps = 10`（11 档，其余电视仍是 20 步 5%），行里显示档位而不是百分比
+（`4`，不是 `40`；原生设置那一栏也是 0–10），亮度行在屏幕上时每 700 ms 轮询一次
+（系统改亮度不发广播，和极米同一个理由）。面板关着时一次都不读：控制中心为首次打开
+做的那个 1% 透明预热副本会把这一页也组合一遍，它的轮询被 `poll` 参数挡掉。
+验证范围见 HANDOFF 里 2026-11-01 那一条。
+
+## 海信 GX27 显示器（MT9655，mt5877，安卓 14，#1461，报告人 Agent 只读实测）
+
+`vendor.display-size = 3840x2160`、`ro.vtf.4kui.mtk = 1`、`ro.vt.4k_whitelist_support = 0`、`ro.surface_flinger.max_graphics_width/height = 3840/2160`，`dumpsys display` 只有 1920x1080@60。SurfaceFlinger / MStar 记录 Timing、Panel 3840x2160，Display Region 1920x1080，Aerial 那一层 1920x1080 缓冲放大送显。`/vendor/etc/uhd_keeping_packages.xml` 是空名单；`vt-extensions` 有 `set4KUIEnabled`（要 `SET_SCREEN_COMPATIBILITY`）。`wm size 3840x2160` 不生效。还没试 `uhd_canvas`。
+
+## 海信 VIDAA_TV MTK9632（m7332，安卓 9，#1447）
+
+1.92 的壁纸取帧（PixelCopy 读视频平面）在厂商 `libstagefrighthw_yuv.so` 的 detile 里 SIGSEGV（RenderThread），每 30 秒崩一次，系统把守护的重启推迟 4 小时，主页键回聚好看。之前有一次取帧返回绿色。1.94 起取帧前在磁盘记一笔，下个进程发现就不再在这个固件上用 PixelCopy。1.76 没有这条取帧，连跑 9 天正常。

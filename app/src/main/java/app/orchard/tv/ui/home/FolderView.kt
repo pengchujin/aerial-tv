@@ -48,6 +48,8 @@ fun FolderView(
     /** Open; the folder may still be on screen under its app's menu without taking keys. */
     visible: Boolean,
     enabled: Boolean,
+    /** The app being moved inside this folder, which follows the remote; null when none is. */
+    movingKey: String? = null,
     tileW: Dp,
     tileH: Dp,
     gap: Dp,
@@ -72,6 +74,12 @@ fun FolderView(
         val wanted = menuKey ?: focusedKey
         menuKey = null
         val key = wanted?.takeIf { k -> shownApps.any { it.key == k } } ?: shownApps.first().key
+        runCatching { requester(key).requestFocus() }
+    }
+    // While moving, focus follows the app to its new slot (Home takes the keys, as on Home).
+    LaunchedEffect(movingKey, shownApps) {
+        val key = movingKey?.takeIf { k -> shownApps.any { it.key == k } } ?: return@LaunchedEffect
+        withFrameNanos { }
         runCatching { requester(key).requestFocus() }
     }
 
@@ -102,10 +110,11 @@ fun FolderView(
                                 height = tileH,
                                 focusRequester = requester(app.key),
                                 enabled = enabled,
-                                moving = false,
+                                moving = app.key == movingKey,
                                 onFocused = { focusedKey = app.key },
-                                onClick = { bounds -> onLaunch(app, bounds) },
-                                onLongPress = { bounds -> menuKey = app.key; onLongPress(app, bounds) },
+                                // While an app moves, a tap opens nothing (OK ends the move on Home's keys).
+                                onClick = { bounds -> if (movingKey == null) onLaunch(app, bounds) },
+                                onLongPress = { bounds -> if (movingKey == null) { menuKey = app.key; onLongPress(app, bounds) } },
                             )
                         }
                     }

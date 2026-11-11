@@ -36,7 +36,12 @@ class GamepadDevicesTest {
 
     @Test fun keepsSameNamedKeypadWithOtherIds() {
         assertTrue(GamepadDevices.isPhysicalGamepad("aml_keypad", false, true, 0x045e, 0x028e))
-        assertTrue(GamepadDevices.isPhysicalGamepad("aml_keypad pro", false, true, 0x0001, 0x0001))
+    }
+
+    @Test fun filtersAnyBuiltInInputWithTheDefaultIds() {
+        // MiTV-AETP0's IR receiver (#1423).
+        assertFalse(GamepadDevices.isPhysicalGamepad("ir_keypad", false, true, 0x0001, 0x0001))
+        assertFalse(GamepadDevices.isPhysicalGamepad("aml_keypad pro", false, true, 0x0001, 0x0001))
     }
 
     @Test fun filtersRedmiProjectorBluetoothRemote() {

@@ -1,0 +1,15 @@
+# The apps' own tvOS icons (tools/icon-tvos.py): App Store storefront, app id, and the Android TV
+# package(s) each is used for. Most Chinese TV apps have no tvOS version (checked 2026-11-10:
+# 腾讯视频 cn, 爱奇艺, 哔哩哔哩, 优酷, 芒果TV, 咪咕视频, 央视频, 网易云音乐, QQ音乐, 酷狗, 抖音, 快手, 虎牙, 斗鱼, 百度网盘, 阿里云盘, 夸克, Emby, Kodi, Keep).
+us	363590051	com.netflix.ninja
+cn	544007664	com.google.android.youtube.tv com.amazon.firetv.youtube
+cn	383457673	com.plexapp.android
+cn	1604098728	org.jellyfin.androidtv
+cn	650377962	org.videolan.vlc
+us	1446075923	com.disney.disneyplus
+hk	545519333	com.amazon.amazonvideo.livingroom
+us	324684580	com.spotify.tv.android
+us	460177396	tv.twitch.android.app
+us	1666653815	com.wbd.stream
+us	376510438	com.hulu.livingroomplus
+us	1492898204	com.ktcp.video com.tencent.qqlivei18n

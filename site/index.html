@@ -16,13 +16,13 @@
 <meta name="description" content="参照 tvOS 设计的开源 Android TV 桌面。没有广告，没有推荐流，只有你的 App、你的壁纸和航拍屏保。支持小米、TCL、创维、索尼等国产电视和盒子，开机自动接管。">
 <meta property="og:title" content="Aerial · 给国产电视的一块干净桌面">
 <meta property="og:description" content="参照 tvOS 设计的开源电视桌面，没有广告，开机自动接管。">
-<meta property="og:image" content="img/home.jpg?v=165">
+<meta property="og:image" content="img/home.jpg?v=183">
 <meta name="theme-color" content="#000000">
 <link rel="alternate" hreflang="zh" href="https://aerial.qust.me/">
 <link rel="alternate" hreflang="en" href="https://aerial.qust.me/en/">
 <link rel="alternate" hreflang="x-default" href="https://aerial.qust.me/en/">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="style.css?v=12">
+<link rel="stylesheet" href="style.css?v=15">
 </head>
 <body>
 
@@ -36,8 +36,9 @@
       <a href="#adapt">适配</a>
       <a href="#faq">常见问题</a>
       <a href="voices/">用户评价</a>
-      <a href="https://github.com/pengchujin/aerial-tv">GitHub</a>
+      <a href="https://github.com/pengchujin/aerial-tv">GitHub<span class="stars" hidden></span></a>
     </div>
+    <a class="gh" href="https://github.com/pengchujin/aerial-tv" aria-label="GitHub"><svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg><span class="stars" hidden></span></a>
     <a class="lang" href="en/" data-lang="en" hreflang="en" lang="en">English</a>
     <a class="cta" href="#install">安装</a>
   </div>
@@ -56,7 +57,7 @@
       <div class="glow"></div>
       <div class="screen compare" id="compare" role="slider" tabindex="0" aria-label="电视自带的桌面和 Aerial 的对比，左右移动查看" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
         <img class="before" src="img/stock-xiaomi.jpg?v=3" alt="电视自带的桌面：满屏剧集推荐、会员和限免角标" width="1600" height="900">
-        <div class="after"><img src="img/home.jpg?v=165" alt="Aerial 首页：夏威夷威马努山谷的航拍壁纸，玻璃底板上一排六个 App" width="1600" height="900"></div>
+        <div class="after"><img src="img/home.jpg?v=183" alt="Aerial 首页：香港维多利亚港的航拍壁纸，玻璃底板上一排五个 App" width="1600" height="900"></div>
         <div class="divider" aria-hidden="true"><span class="knob"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l-6 6 6 6M15 6l6 6-6 6"/></svg></span></div>
       </div>
       <div class="stand"></div>
@@ -76,7 +77,7 @@
     </div>
 
     <div class="feature reveal">
-      <div class="shot"><img src="img/focus.jpg?v=165" alt="冰岛兰德曼纳劳卡的航拍壁纸前，第一排选中了 Netflix" loading="lazy" width="1600" height="900"></div>
+      <div class="shot"><img src="img/focus.jpg?v=183" alt="夏威夷岛云海的航拍壁纸前，第一排选中了 Netflix" loading="lazy" width="1600" height="900"></div>
       <div>
         <p class="kicker">首页</p>
         <h3>像 Apple TV<br>一样顺手。</h3>
@@ -86,7 +87,7 @@
     </div>
 
     <div class="feature flip reveal">
-      <div class="shot"><img src="img/menu.jpg?v=165" alt="长按菜单：移动、移到文件夹、从主屏幕隐藏、应用信息、开机时打开、卸载" loading="lazy" width="1600" height="900"></div>
+      <div class="shot"><img src="img/menu.jpg?v=183" alt="长按菜单：移动、移到文件夹、从主屏幕隐藏、应用信息、开机时打开、卸载" loading="lazy" width="1600" height="900"></div>
       <div>
         <p class="kicker">整理</p>
         <h3>长按一下，<br>想怎么排就怎么排。</h3>
@@ -96,7 +97,7 @@
     </div>
 
     <div class="feature reveal">
-      <div class="shot"><img src="img/folder.jpg?v=165" alt="打开的文件夹：系统应用" loading="lazy" width="1600" height="900"></div>
+      <div class="shot"><img src="img/folder.jpg?v=183" alt="打开的文件夹：系统应用" loading="lazy" width="1600" height="900"></div>
       <div>
         <p class="kicker">文件夹</p>
         <h3>系统自带的 App，<br>收进一个文件夹。</h3>
@@ -105,7 +106,7 @@
     </div>
 
     <div class="feature flip reveal">
-      <div class="shot"><img src="img/control-center.jpg?v=165" alt="控制中心：信号源、网络、设置、音量和亮度" loading="lazy" width="1600" height="900"></div>
+      <div class="shot"><img src="img/control-center.jpg?v=183" alt="控制中心：信号源、网络、设置、音量和亮度" loading="lazy" width="1600" height="900"></div>
       <div>
         <p class="kicker">控制中心</p>
         <h3>常用开关，<br>一键就到。</h3>
@@ -114,7 +115,7 @@
     </div>
 
     <div class="feature reveal">
-      <div class="shot"><img src="img/columns.jpg?v=165" alt="个性化的主屏幕设置：每排 App 选了 6 个" loading="lazy" width="1600" height="900"></div>
+      <div class="shot"><img src="img/columns.jpg?v=183" alt="个性化的主屏幕设置：每排 App 可选 4、5、6 个" loading="lazy" width="1600" height="900"></div>
       <div>
         <p class="kicker">布局</p>
         <h3>一排放几个，<br>你说了算。</h3>
@@ -132,12 +133,12 @@
     </div>
     <div class="gallery reveal">
       <figure>
-        <div class="shot"><img src="img/screensaver-aerial.jpg?v=165" alt="航拍屏保：途经美国优胜美地谷的半穹顶" loading="lazy" width="1600" height="900"></div>
-        <figcaption>美国优胜美地谷的半穹顶</figcaption>
+        <div class="shot"><img src="img/screensaver-aerial.jpg?v=183" alt="航拍屏保：俯瞰广西龙脊梯田" loading="lazy" width="1600" height="900"></div>
+        <figcaption>广西龙脊梯田</figcaption>
       </figure>
       <figure>
-        <div class="shot"><img src="img/screensaver-aerial-2.jpg?v=165" alt="航拍屏保：中国北京怀柔区慕田峪长城" loading="lazy" width="1600" height="900"></div>
-        <figcaption>北京怀柔慕田峪长城</figcaption>
+        <div class="shot"><img src="img/screensaver-aerial-2.jpg?v=183" alt="航拍屏保：俯瞰洛杉矶附近的圣莫尼卡海滩" loading="lazy" width="1600" height="900"></div>
+        <figcaption>洛杉矶圣莫尼卡海滩</figcaption>
       </figure>
     </div>
   </div>
@@ -146,7 +147,7 @@
 <section>
   <div class="wrap">
     <div class="feature reveal">
-      <div class="shot"><img src="img/wallpaper.jpg?v=165" alt="个性化面板：壁纸选了航拍" loading="lazy" width="1600" height="900"></div>
+      <div class="shot"><img src="img/wallpaper.jpg?v=183" alt="个性化面板：壁纸选了航拍，背后是旧金山金门大桥" loading="lazy" width="1600" height="900"></div>
       <div>
         <p class="kicker">壁纸</p>
         <h3>会动的风景，<br>或者你的照片。</h3>
@@ -384,6 +385,7 @@
   window.T = {
     ip: '<电视IP>',
     copy: '复制',
+    stars: n => `${n} 个 GitHub 星标`,
     copied: '已复制',
     tclOnly: '仅 TCL：允许开机自启',
     guide: '/agent.md',
@@ -418,6 +420,6 @@
 - 按主页键后的 adb shell "dumpsys window | grep mCurrentFocus"（应该回到电视原来的桌面）`,
   };
 </script>
-<script src="app.js?v=5"></script>
+<script src="app.js?v=6"></script>
 </body>
 </html>

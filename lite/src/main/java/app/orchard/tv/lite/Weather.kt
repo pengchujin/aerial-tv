@@ -51,10 +51,12 @@ object Weather {
     }
 
     /** Fetches on [run] (a background executor) when due; [done] on the main thread when it changed. */
-    fun refreshIfStale(run: (Runnable) -> Unit, force: Boolean = false, done: () -> Unit) {
+    fun refreshIfStale(run: (Runnable) -> Unit, force: Boolean = false, networkUp: Boolean = false, done: () -> Unit) {
         if (!::prefs.isInitialized) return
         val since = System.currentTimeMillis() - lastAttempt
-        if (!force && since < REFRESH_MS && !(failed && since >= RETRY_MS)) return
+        // A network come up after a failed try is tried at once: Home started at boot before Wi-Fi
+        // joined kept the weather of the day before (ZTE W152D, issue #1443).
+        if (!force && since < REFRESH_MS && !(failed && (since >= RETRY_MS || networkUp))) return
         lastAttempt = System.currentTimeMillis()
         run(Runnable {
             val reading = runCatching { fetch() }.onFailure { Log.w(TAG, "weather unavailable", it) }.getOrNull()

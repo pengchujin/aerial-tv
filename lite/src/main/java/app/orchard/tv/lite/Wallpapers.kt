@@ -88,12 +88,28 @@ object Wallpapers {
     fun resolve(id: String = selectedId): Wallpaper? = when (id) {
         LATEST_DAILY -> items.firstOrNull { it.kind == WallpaperKind.Daily }
         ROTATE_PHOTOS -> items.filter { it.kind == WallpaperKind.Photo }.sortedBy { it.id }.let { photos ->
-            if (photos.isEmpty()) resolve(LATEST_DAILY) else photos[(today() % photos.size).toInt()]
+            if (photos.isEmpty()) resolve(LATEST_DAILY) else photos[(photoSlot() % photos.size).toInt()]
         }
         else -> items.firstOrNull { it.id == id }
     }
 
-    private fun today(): Long = (System.currentTimeMillis() + TimeZone.getDefault().getOffset(System.currentTimeMillis())) / 86_400_000L
+    /** Which turn "My Photos, in turn" is on: the local day, or the count of the chosen minutes (#1314). */
+    private fun photoSlot(): Long {
+        val now = System.currentTimeMillis()
+        return (now + TimeZone.getDefault().getOffset(now)) / 60_000L / LiteSettings.photoMinutes.coerceAtLeast(1)
+    }
+
+    /** The turn the backdrop was last baked for, as [photoSlot]. */
+    private var bakedSlot = Long.MIN_VALUE
+
+    /** Whether "My Photos, in turn" is due for its next photo; notes the turn as baked when so. */
+    fun rotationDue(): Boolean {
+        if (selectedId != ROTATE_PHOTOS) return false
+        val slot = photoSlot()
+        if (slot == bakedSlot) return false
+        bakedSlot = slot
+        return true
+    }
 
     /** The key the baked backdrop is kept under: the picture, and its file's age. */
     private fun bakeKey(): String {
@@ -118,9 +134,9 @@ object Wallpapers {
     }
 
     /** The full picture at [w]×[h], unshaded. Off the main thread. */
-    fun picture(wp: Wallpaper, w: Int, h: Int): Bitmap? = when (wp.kind) {
+    fun picture(wp: Wallpaper, w: Int, h: Int, whole: Boolean = false): Bitmap? = when (wp.kind) {
         WallpaperKind.Builtin -> Gradients.byKey(wp.id.removePrefix("grad:"))?.let { Gradients.render(it, w, h) }
-        else -> fileFor(wp)?.takeIf { it.exists() }?.let { Images.decodeCover(it, w, h) }
+        else -> fileFor(wp)?.takeIf { it.exists() }?.let { Images.decodeCover(it, w, h, whole = whole && wp.kind == WallpaperKind.Photo) }
     }
 
     private val thumbs = HashMap<String, Bitmap>()
@@ -150,6 +166,7 @@ object Wallpapers {
 
     /** The backdrop of the current choice. Off the main thread. */
     fun load(): Backdrop {
+        bakedSlot = photoSlot()
         val key = bakeKey() + "@${Ui.screenW}x${Ui.screenH}"
         val f = homeFile()
         val ff = frostFile()
@@ -234,9 +251,17 @@ object Wallpapers {
             dailyDir.listFiles { f -> f.name.endsWith(".jpg") && f.name !in keep }?.forEach { it.delete() }
             prefs.edit().putLong("daily_checked", now).apply()
             if (added) synchronized(thumbs) { thumbs.remove(LATEST_DAILY) }
+            dailyFailed = false
             added
-        }.onFailure { Log.w(TAG, "daily photos unavailable", it) }.getOrDefault(false)
+        }.onFailure { dailyFailed = true; Log.w(TAG, "daily photos unavailable", it) }.getOrDefault(false)
     }
+
+    /**
+     * Whether the last fetch of Bing's photos failed: tried again as soon as a network comes up,
+     * not hours later. Lite in /system, Home at boot before Wi-Fi joined, never had the day's photo
+     * until restarted (ZTE W152D, Android 11, issue #1443), as the full app before #129.
+     */
+    @Volatile var dailyFailed = false; private set
 
     private fun open(url: String): java.net.HttpURLConnection = try {
         Net.open(url).also { it.responseCode }

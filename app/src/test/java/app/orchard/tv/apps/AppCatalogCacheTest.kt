@@ -19,6 +19,17 @@ import java.util.Locale
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [28])
 class AppCatalogCacheTest {
+    // Robolectric reuses the SDK sandbox across test classes, while each test gets new files.
+    // Leave IconLibrary uninitialized so the next test can load its own on-disk index.
+    @org.junit.Before
+    @org.junit.After
+    fun resetIconLibrary() {
+        IconLibrary::class.java.getDeclaredField("index").apply { isAccessible = true }.set(null, emptyMap<String, List<IconLibrary.Choice>>())
+        for (name in listOf("dir", "prefs")) {
+            IconLibrary::class.java.getDeclaredField(name).apply { isAccessible = true }.set(null, null)
+        }
+    }
+
     @Test fun offlineLibraryChoiceInvalidatesCachedArtwork() = runBlocking {
         val context: Context = RuntimeEnvironment.getApplication()
         IconLibrary.init(context)

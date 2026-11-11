@@ -128,6 +128,28 @@ object SelfCompile {
         if (Build.VERSION.SDK_INT >= 24) main.postDelayed(auto, AUTO_DELAY_MS)
     }
 
+    /**
+     * Aerial's own screensaver has begun: on Android 7 to 11 the package manager is asked behind
+     * it too, once it has run a while ([still] still true), as it is behind another app. A TV left
+     * on Home never had another app in front, so an update stayed uncompiled until someone
+     * compiled it with ADB: TCL sugarcane (Android 8.0), 19.7 s to load Home's apps after 1.93
+     * came, 0.9 s compiled (issue #1456). The compile is tens of seconds of the CPU; nobody is
+     * using Home then.
+     */
+    fun onScreensaver(still: () -> Boolean) {
+        if (Build.VERSION.SDK_INT !in 24..30) return
+        main.removeCallbacks(saverCompile)
+        saverStill = still
+        main.postDelayed(saverCompile, AUTO_DELAY_MS)
+    }
+
+    private var saverStill: () -> Boolean = { false }
+
+    private val saverCompile = Runnable {
+        val context = app ?: return@Runnable
+        if (saverStill() && systemWorthIt(context)) Thread({ askSystem(context) }, "self-compile").start()
+    }
+
     private val auto = Runnable {
         val context = app ?: return@Runnable
         if (inFront) return@Runnable

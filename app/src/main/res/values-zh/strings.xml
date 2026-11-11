@@ -87,9 +87,12 @@
     <string name="wx_thunder">雷雨</string>
     <string name="wp_daily_latest">每日一图</string>
     <string name="wp_live">动态航拍。在主屏幕第一排（双排时前两排）一直播放，再往下进入其余 App 时停在当前画面并留作壁纸，下次从这一帧接着播。</string>
-    <string name="wp_photos_rotate">我的照片 · 每天换</string>
+    <string name="wp_photos_rotate">我的照片 · 轮换</string>
     <string name="wp_daily_note">必应每日一图，每天自动换成当天的。</string>
-    <string name="wp_photos_rotate_note">从你的照片里每天换一张。</string>
+    <string name="wp_photos_rotate_note">从你的照片里轮流换一张，默认每天一张，也可以在下面选得更勤。</string>
+    <string name="st_photo_every">换照片</string>
+    <string name="st_photo_every_day">每天</string>
+    <string name="st_photo_every_hint">主屏幕多久换成下一张照片。</string>
     <string name="wp_photo_note">你的照片。用手机扫右边的二维码可以继续添加。</string>
     <string name="wp_auto_note">取所选 App 图片里的颜色做背景。</string>
     <string name="wp_screensaver">屏幕保护程序</string>
@@ -130,6 +133,11 @@
     <string name="st_clock_small">小</string>
     <string name="st_clock_large">大</string>
     <string name="st_clock_size_hint">小：时间和天气在角上一行小字。大：屏幕上方一个大时钟，上面是日期，下面是天气。</string>
+    <string name="st_clock_hours">时间格式</string>
+    <string name="st_clock_hours_system">跟随电视</string>
+    <string name="st_clock_hours_24">24 小时</string>
+    <string name="st_clock_hours_12">12 小时</string>
+    <string name="st_clock_hours_hint">跟随电视：按电视设置里的时间格式，没有设置时用 24 小时。</string>
     <string name="st_names">App 名称</string>
     <string name="st_names_focused">只显示选中的</string>
     <string name="st_names_all">全部显示</string>
@@ -152,6 +160,9 @@
     <string name="st_off">关</string>
     <string name="st_hidden_apps">隐藏的 App</string>
     <string name="st_hidden_apps_hint">从主屏幕隐藏的 App 在这里，可以放回主屏幕。设了家长密码时要先输入密码。</string>
+    <string name="st_home_lock">锁定主屏幕</string>
+    <string name="st_home_lock_hint">开启后，长按 App 或按菜单键不再弹出整理菜单，App 不会被误移动、隐藏或卸载。设了家长密码时，关闭要输入密码。</string>
+    <string name="home_locked_notice">主屏幕已锁定。要整理 App，在个性化里关闭「锁定主屏幕」。</string>
     <string name="st_hidden_none">没有</string>
     <string name="st_hidden_count">%d 个</string>
     <string name="st_focus_high">高对比度</string>
@@ -165,6 +176,10 @@
     <string name="st_effects_hint">流畅：面板用纯色，选中的 App 不加高光和视差，屏幕保持 60Hz，给会卡顿的电视用。</string>
     <string name="st_effects_auto_lite_hint">这台电视内存较小或系统较旧，「自动」用的是流畅。</string>
     <string name="cc_inputs_settings">信号源设置</string>
+    <string name="cc_inputs_list">在列表里显示</string>
+    <string name="cc_inputs_list_hint">电视列出了实际没有的接口，或者用不到的，可以去掉勾，它们就不再出现在信号源列表和主屏幕上。</string>
+    <string name="cc_inputs_cec">外接设备开机时切过去</string>
+    <string name="cc_inputs_cec_hint">游戏机、盒子通过 HDMI-CEC 开机（一键播放）时，电视切到它所在的信号源，和电视原来的桌面一样。不是每台电视都会通知，Amlogic 芯片的电视（很多小米机型）会。</string>
     <string name="cc_inputs_pin">显示在主屏幕（可多选）</string>
     <string name="cc_inputs_boot">开机时打开（选一个）</string>
     <string name="cc_inputs_boot_none">不打开，停在 Aerial</string>
@@ -222,7 +237,8 @@
     <string name="weather_rain">雨</string>
     <string name="weather_snow">雪</string>
     <string name="weather_thunder">雷雨</string>
-    <string name="weather_high_low">最高 %1$d°  最低 %2$d°</string>
+    <string name="weather_temperature">%1$d℃</string>
+    <string name="weather_high_low">最高 %1$d℃  最低 %2$d℃</string>
     <string name="st_columns">每排 App</string>
     <string name="st_columns_hint">主屏幕和文件夹里每排放几个 App。6 个一眼看到更多；4 个图标更大，离得远也看得清。</string>
     <string name="st_peek">第二排</string>

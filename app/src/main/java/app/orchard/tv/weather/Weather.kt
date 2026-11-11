@@ -222,8 +222,11 @@ object Weather {
                     val results = JSONObject(get("https://geocoding-api.open-meteo.com/v1/search?name=$q&count=10&language=zh&format=json"))
                         .optJSONArray("results")
                     val all = (0 until (results?.length() ?: 0)).map { results!!.getJSONObject(it) }
-                    // Towns before villages of the same name.
-                    val best = all.firstOrNull { it.optString("feature_code").startsWith("PPLA") || it.optString("feature_code") == "PPLC" } ?: all.firstOrNull()
+                    // The most populous of the name, a seat before a village where neither says: GeoNames
+                    // codes some cities as plain places, so "jinzhou" took 晋州, a county seat in Hebei
+                    // (PPLA3, no population), over 锦州 in Liaoning (PPL, 1.5 million; issue #1367).
+                    fun seat(it: JSONObject) = it.optString("feature_code").let { c -> c.startsWith("PPLA") || c == "PPLC" }
+                    val best = all.maxWithOrNull(compareBy<JSONObject>({ it.optLong("population") }, { seat(it) }, { -all.indexOf(it) }))
                     best?.let { Triple(it.getDouble("latitude"), it.getDouble("longitude"), it.optString("name").ifBlank { name.trim() }) }
                 }.onFailure { Log.w(TAG, "could not look up $name", it) }.getOrNull()
         } ?: return false

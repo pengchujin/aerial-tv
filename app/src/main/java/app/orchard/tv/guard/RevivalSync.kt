@@ -15,6 +15,7 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import android.os.SystemClock
 import android.util.Log
 
 /**
@@ -67,11 +68,28 @@ class RevivalSyncService : Service() {
             // Runs after every settings write, mostly while the guard is fine (or not bound yet, right
             // after Aerial is opened). Only a guard Android had switched off counts as a revival, or
             // the LeTV check (GuardSetup.revivedOften) trips after a few writes.
-            if (HomeGuardService.isRunning || !GuardSetup.ensureEnabled(context)) return
-            Log.i(RevivalSync.TAG, "revived by the sync framework")
-            GuardSetup.noteRevival(context)
+            val turnedOn = GuardSetup.ensureEnabled(context)
+            if (HomeGuardService.isRunning) return
+            val now = SystemClock.elapsedRealtime()
+            if (turnedOn) {
+                Log.i(RevivalSync.TAG, "revived by the sync framework")
+                GuardSetup.noteRevival(context)
+            } else {
+                // Still enabled but not bound: XGIMI Z6X 4th gen (Android 8, low-RAM) kills Aerial's
+                // whole process and Android keeps the setting without binding the guard again
+                // (issue #1326). Not counted as a revival, and once a minute at most: the rebind's own
+                // writes start this sync again.
+                if (now - lastStalledRebindAt < STALLED_REBIND_GAP_MS) return
+                lastStalledRebindAt = now
+                Log.i(RevivalSync.TAG, "sync framework: Home Guard enabled but not bound")
+            }
             Handler(Looper.getMainLooper()).postDelayed({ GuardSetup.rebindIfStalled(context) }, 5_000)
         }
+    }
+
+    private companion object {
+        const val STALLED_REBIND_GAP_MS = 60_000L
+        @Volatile var lastStalledRebindAt = Long.MIN_VALUE / 2
     }
 }
 

@@ -64,6 +64,16 @@
       "models": ["WTV43K1J"],
       "note": "Whaley (Helios, Android 5.0.2): the power light breathes after a cold boot until the stock launcher has been on screen once (#902, the reporter's adb test).",
       "bootStockMs": 1000
+    },
+    {
+      "models": ["NL5H00X"],
+      "note": "Tencent Aurora D2 Pro projector (Hi3751V350, Android 9): writing screen_brightness leaves the picture as it was (#1331, the reporter's adb test).",
+      "ignoresScreenBrightness": true
+    },
+    {
+      "models": ["KONKA Android TV V810"],
+      "note": "Konka (Hi3751V810, Android 8): the slider from 1 to 100 left the panel as it was (#1338, the owner watched the TV; #1327 the same model).",
+      "ignoresScreenBrightness": true
     }
   ]
 }

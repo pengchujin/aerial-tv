@@ -132,7 +132,7 @@ class PhoneServer private constructor(private val context: Context, private val 
                     json(state().put("removed", removed))
                 }
                 path.startsWith("/tile/") -> tile(java.net.URLDecoder.decode(path.removePrefix("/tile/"), "UTF-8"), own = session.parameters["art"]?.firstOrNull() == "own")
-                path.startsWith("/library/") -> libraryPicture(java.net.URLDecoder.decode(path.removePrefix("/library/"), "UTF-8"))
+                path.startsWith("/library/") -> libraryPicture(java.net.URLDecoder.decode(path.removePrefix("/library/"), "UTF-8"), session.parameters["c"]?.firstOrNull())
                 post && path == "/api/icon" -> icon(session)
                 post && path == "/api/app/name" -> {
                     val f = form(session)
@@ -158,11 +158,14 @@ class PhoneServer private constructor(private val context: Context, private val 
                         "own" -> IconLibrary.Pick.Own
                         else -> null
                     }
-                    val ok = installed(pkg) && pick != null && (pick != IconLibrary.Pick.Library || IconLibrary.has(pkg))
+                    val choice = f["choice"]?.takeIf { it.isNotEmpty() }
+                    val ok = installed(pkg) && pick != null && (pick != IconLibrary.Pick.Library ||
+                        IconLibrary.choices(pkg).any { choice == null || it.id == choice })
                     if (ok) {
                         CustomIcons.clear(pkg)
-                        // The library is what every app uses anyway: kept as no pick.
-                        IconLibrary.choose(pkg, pick.takeIf { it != IconLibrary.Pick.Library })
+                        // Kept even for the library: a firmware app drawn as Aerial's own tile
+                        // takes it only when picked, as in the full app.
+                        IconLibrary.choose(pkg, pick, choice)
                         onMain { ops.iconsChanged() }
                     }
                     json(state().put("saved", ok))
@@ -223,12 +226,13 @@ class PhoneServer private constructor(private val context: Context, private val 
                     val own = AppNames.of(a.key)
                     val icon = when {
                         CustomIcons.has(a.key) -> "custom"
-                        IconLibrary.has(a.key) && IconLibrary.uses(a.key) -> "library"
+                        IconLibrary.has(a.key) && AppCatalog.usesLibrary(a.key) -> "library"
                         else -> "own"
                     }
                     put(JSONObject().put("key", a.key).put("label", a.label).put("default", if (own != null) appLabel(a.key) ?: a.label else a.label)
                         .put("name", own ?: "")
                         .put("custom", CustomIcons.has(a.key)).put("library", IconLibrary.has(a.key)).put("icon", icon)
+                        .put("choices", libraryChoices(a.key, icon == "library"))
                         .put("stamp", CustomIcons.stamp(a.key) + IconLibrary.stamp(a.key) + icon.hashCode()))
                 }
             })
@@ -304,15 +308,30 @@ class PhoneServer private constructor(private val context: Context, private val 
     private fun tile(key: String, own: Boolean): Response {
         val app = onMain { (ops.home() + ops.folderApps().values.flatten() + ops.hidden()).firstOrNull { it.key == key } }
             ?: return text(Response.Status.NOT_FOUND, "")
-        val art = (if (own && app.folder == null) ops.ownArt(app) else null) ?: app.tile
+        // A pick or an upload replies before Home's asynchronous reload: drawn from the saved
+        // picture or the pick, so the phone does not cache the old tile under the new URL.
+        val isApp = app.folder == null
+        val library = isApp && !own && IconLibrary.has(key)
+        val picked = if (own || !isApp) null
+            else CustomIcons.load(key) ?: if (library && AppCatalog.usesLibrary(key)) IconLibrary.load(key) else null
+        val art = picked ?: (if (isApp && (own || library)) ops.ownArt(app) else null) ?: app.tile
         // Flattened onto black: the cut corners would turn black in a JPEG anyway.
         val flat = Bitmap.createBitmap(art.width, art.height, Bitmap.Config.RGB_565)
         android.graphics.Canvas(flat).apply { drawColor(Color.BLACK); drawBitmap(art, 0f, 0f, null) }
         return jpeg(flat, 85).also { flat.recycle() }
     }
 
-    private fun libraryPicture(pkg: String): Response {
-        val f = IconLibrary.file(pkg) ?: return text(Response.Status.NOT_FOUND, "")
+    /** The library's pictures of an app on this TV, as the full app's PhoneServer.libraryChoices. */
+    private fun libraryChoices(pkg: String, inUse: Boolean) = JSONArray().apply {
+        val on = IconLibrary.chosen(pkg)?.id
+        IconLibrary.choices(pkg).forEach { c ->
+            put(JSONObject().put("id", c.id).put("by", IconLibrary.credits.optJSONObject(c.by) ?: JSONObject())
+                .put("on", inUse && c.id == on))
+        }
+    }
+
+    private fun libraryPicture(pkg: String, choice: String?): Response {
+        val f = IconLibrary.file(pkg, choice) ?: return text(Response.Status.NOT_FOUND, "")
         val type = if (f.name.endsWith(".png")) "image/png" else "image/jpeg"
         return newFixedLengthResponse(Response.Status.OK, type, f.inputStream(), f.length()).apply { addHeader("Cache-Control", "max-age=600") }
     }

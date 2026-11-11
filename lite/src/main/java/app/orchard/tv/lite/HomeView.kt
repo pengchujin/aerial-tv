@@ -41,6 +41,8 @@ class HomeView(context: Context, private val host: Host) : FrameLayout(context) 
         fun moved(key: String, target: String)
         /** Home went down into the grid (the frosted background) or back to the top row. */
         fun inGrid(grid: Boolean)
+        /** A minute has turned while Home is up. */
+        fun minute() {}
     }
 
     private val layer = FrameLayout(context)
@@ -73,6 +75,9 @@ class HomeView(context: Context, private val host: Host) : FrameLayout(context) 
         super.dispatchDraw(canvas)
         canvas.restoreToCount(saved)
     }
+
+    /** The top-row tile Up left for the pill, to go back to; -1 for none. */
+    private var pillFrom = -1
 
     /** The focused tile; [PILL] for the status pill. */
     private var focus = 0
@@ -140,6 +145,7 @@ class HomeView(context: Context, private val host: Host) : FrameLayout(context) 
     fun applySettings() {
         clock.large = LiteSettings.largeClock
         clock.alignEnd = LiteSettings.clockRight
+        clock.refresh()
         (clock.parent as? android.view.ViewGroup)?.removeView(clock)
         if (!LiteSettings.largeClock && LiteSettings.clockRight) {
             // Just left of the pill, level with it.
@@ -419,7 +425,17 @@ class HomeView(context: Context, private val host: Host) : FrameLayout(context) 
     private fun step(dir: Int) {
         if (apps.isEmpty()) return
         if (focus == PILL) {
-            if (dir == COLS) { focus = minOf(COLS - 1, apps.size - 1); showFocus(animate = true) }
+            // Down, left and right go back to the top-row tile Up came from (issues #703, #1215);
+            // without one, down and left go to the row's last tile and right to its first.
+            val rowEnd = minOf(COLS, apps.size) - 1
+            val to = when {
+                dir == -COLS -> return
+                pillFrom in 0..rowEnd -> pillFrom
+                dir == 1 -> 0
+                else -> rowEnd
+            }
+            focus = to
+            showFocus(animate = true)
             return
         }
         // Left and right stay in the row, as on tvOS.
@@ -427,6 +443,7 @@ class HomeView(context: Context, private val host: Host) : FrameLayout(context) 
         var to = focus + dir
         if (dir == -COLS && to < 0) {
             if (moving) return
+            pillFrom = focus
             focus = PILL
             showFocus(animate = true)
             return
@@ -470,6 +487,7 @@ class HomeView(context: Context, private val host: Host) : FrameLayout(context) 
     private val tick = object : Runnable {
         override fun run() {
             clock.refresh()
+            host.minute()
             pill.requestLayout()
             pill.invalidate()
             val now = System.currentTimeMillis()

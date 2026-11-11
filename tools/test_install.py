@@ -92,6 +92,13 @@ esac
         self.assertIn('Home Guard is running', result.stdout)
         self.assertIn('push ', calls)
 
+    def test_tcl_51_pm_refusal_reaches_tcl_fallback(self):
+        # Issue #1424: TCL's Android 5.1 firmware prints its own message and no Failure code.
+        result, calls = self.run_install('install apk has be disabled from pm by system default!', 0, 'guard')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('now in Download', result.stdout)
+        self.assertIn('push ', calls)
+
 
 if __name__ == '__main__':
     unittest.main()
