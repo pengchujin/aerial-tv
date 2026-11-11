@@ -68,3 +68,7 @@ adb shell appops set app.orchard.tv REQUEST_INSTALL_PACKAGES allow
 - 系统未报告光感能力。临时关闭动态背光、保持面板开启并设为 40 的另一轮对照，底层 `PictureImpl.setBacklight(40, true, true)` 返回 0；用户随后反馈“无法判断”，不能据此认定有效或无效。
 - 已恢复并读回背光 100、动态背光开启、面板开启；Android 亮度/模式仍为 47/0，图像亮度/模式仍为 50/`SOFT`（原生界面为“自然”）。调用成功或保存值改变不等于面板实际生效；未用图像黑电平或软件遮罩代替背光。
 - 本信号源补丁不包含失败的亮度后端，不宣称修复亮度。未修改工厂校准、PWM、固件、root 或系统应用，已按用户要求停止继续测试电视。
+
+## 康佳 Konka Android TV 9652（锤子 Smartisan TNT，m7642，安卓 9，#1452，报告人 Agent 实测）
+
+和上面这台不同：这套固件开机后把 `accessibility_enabled` 写回 0、`dumpsys accessibility` 是 `services:{}`，`enabled_accessibility_services` 的字符串还在，守护不绑定；无障碍设置页和应用详情页都被删了（`ACCESSIBILITY_SETTINGS` 解析不到），通知监听也是 `0 mentions`（`ro.config.low_ram=true`）。`set-home-activity` 返回 Success 但不生效：主页键由 `gnt-services` 的 `InfiniteLauncher` / `startHomeNewStrategy` 按组件直接打开 `com.konka.livelauncher/.TrueLauncher`，不走 HOME 解析。开机组件在 `custom_boot_app` / `sys_direct_boot_app` / `persist.sys.app.launch`（组件名格式）。报告人的 adb 恰好是 root，组件级停用了 TrueLauncher 才让主页键回 Aerial，这违反「不停用系统应用」，不进安装说明；这台主页键回 Aerial 目前 App 这边做不到。

@@ -79,3 +79,7 @@
     adb shell settings put secure accessibility_enabled 0
 
 本机额外隐藏的广告包与 Aerial 无关，不在这份还原步骤里。
+
+## 修改版固件 V2401RCN02C060057B06021S（#1444，报告人实测 1.89）
+
+机主自刷、已 root 的固件：官方包直接装上、主页键 0.9 秒回 Aerial、`adb reboot` 后 3 秒进 Aerial（首选桌面是 root 写的）。没有 TIF（`Can't find service: tv_input`），信号源列不出来，只能走 MStar 的 `TvCommonManager.setInputSource`。重启后 `screensaver_components` 被改回 `com.stv.screenflyter`。日志 `no MP4 extractor found, TCL's extractor true` 是 Aerial 在安卓 6 上找错了地方（插件目录是安卓 9 才有的），1.94 改为查 libstagefright.so；系统 MediaExtractor 本身能用。

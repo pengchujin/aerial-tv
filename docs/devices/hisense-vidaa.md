@@ -233,3 +233,11 @@ Aerial 的处理：`system/HisenseLaserPanel.kt`；`Brightness.level` / `adjust`
 （系统改亮度不发广播，和极米同一个理由）。面板关着时一次都不读：控制中心为首次打开
 做的那个 1% 透明预热副本会把这一页也组合一遍，它的轮询被 `poll` 参数挡掉。
 验证范围见 HANDOFF 里 2026-11-01 那一条。
+
+## 海信 GX27 显示器（MT9655，mt5877，安卓 14，#1461，报告人 Agent 只读实测）
+
+`vendor.display-size = 3840x2160`、`ro.vtf.4kui.mtk = 1`、`ro.vt.4k_whitelist_support = 0`、`ro.surface_flinger.max_graphics_width/height = 3840/2160`，`dumpsys display` 只有 1920x1080@60。SurfaceFlinger / MStar 记录 Timing、Panel 3840x2160，Display Region 1920x1080，Aerial 那一层 1920x1080 缓冲放大送显。`/vendor/etc/uhd_keeping_packages.xml` 是空名单；`vt-extensions` 有 `set4KUIEnabled`（要 `SET_SCREEN_COMPATIBILITY`）。`wm size 3840x2160` 不生效。还没试 `uhd_canvas`。
+
+## 海信 VIDAA_TV MTK9632（m7332，安卓 9，#1447）
+
+1.92 的壁纸取帧（PixelCopy 读视频平面）在厂商 `libstagefrighthw_yuv.so` 的 detile 里 SIGSEGV（RenderThread），每 30 秒崩一次，系统把守护的重启推迟 4 小时，主页键回聚好看。之前有一次取帧返回绿色。1.94 起取帧前在磁盘记一笔，下个进程发现就不再在这个固件上用 PixelCopy。1.76 没有这条取帧，连跑 9 天正常。

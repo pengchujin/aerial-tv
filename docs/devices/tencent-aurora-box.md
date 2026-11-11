@@ -12,3 +12,7 @@
 报告人 Agent 实测（1.69 / 1.70）：原桌面 `com.ktcp.launcher`（平台签名，uid 1000），来到前台时**不发任何窗口事件**：开机约 6 秒静默盖住 Aerial、睡眠时固件自己拉起它、按主页键后 1.5 秒内守护零事件，只能靠用量统计。按键过滤开着时主页键仍由系统（uid 0）处理。无人干预时重启和待机唤醒都一直停在原桌面。
 
 1.71 起：原桌面有 `com.ktcp.launcher` 时守护每秒查用量统计（同海信聚好看）；唤醒后的接管也查「Aerial 被原桌面静默盖住」。没有真机验证。机身插北通手柄接收器时守护在别的 App 里不过滤按键（#774 的设计），与本问题无关。
+
+## 极光盒子 5S（创维 A4141，Amlogic，安卓 9，#1463，报告人 Agent 实测 1.93）
+
+开机和主页键都进 Aerial（守护接管）。固件对第三方桌面打印 `block home apk`，`set-home-activity` 报 `User no Permission`，没有 `cmd role`。`/system/bin/settings` 权限是 `rwxr-x--- root system`，shell 执行不了（报 `error: closed` 或 Permission denied），读设置用 `content query --uri content://settings/secure/<名字>`，写交给 Aerial 的 CONFIG 广播。只有 USB 调试，要先插线 `adb tcpip 5555`，之后 `keep_adb` 能保住。长按主页键调不出后台，原因待查。

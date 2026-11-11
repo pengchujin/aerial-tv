@@ -181,3 +181,8 @@ Tianci 的 `HotKeyHandler` 按 `persist.service.homepage.*`（`com.cos.launcher/
 
 创维 7S77_A20、7S72_G25（m7221，安卓 8）：`persist.service.homepage.pkg` / `.cls`（原值 `com.tianci.movieplatform` / `com.coocaa.homepage.vast.HomePageActivity`，`persist.service.starthomepage=1`）shell 能写，写成 Aerial 后按主页键由 `ccSystem` 以 uid 1000 打开 Aerial（`< SLauncher >, startHomePage`），绕过 `sky_dialog` 对 App uid 的拦截；重启或待机后被改回原值。8S38_Q30 上有 root 进程 `/vendor/bin/coocaa_guard`，但二进制里没有这两个属性名，不能确定是它改回的。App 写不了 `persist.*`，安装脚本也不写；做实验要先记原值，卸载 Aerial 前改回去（#992 的 8R734 没改回就卸载，主页键黑屏到重启）。
 1.86 起守护认 `com.cos.launcher/com.dangbei.tvlauncher.IndexActivity` 为原桌面（7S72_G25 开机 0.5 秒拉回）；低内存（`ro.config.low_ram=true`）时 Aerial 一到后台就被回收，从 App 按返回会落到固件开机时拉起的当贝任务，等复活后才回来。App 不能强停别的 App（要 `FORCE_STOP_PACKAGES`），这一步做不了。
+
+## 无障碍被固件关掉的两台（#1361 #1462）
+
+- 9S89_S8A：`settings put secure accessibility_enabled 1` 连续三次读回 0，`enabled_accessibility_services` 写得进去；唤醒后守护根本没复活（`services:{}`，那几分钟 AerialGuard 零输出），前台是 `com.skyworth.tv/.activity.SkyTVMainActivity`。主页键先出酷开桌面是固件在守护之前处理的。这台 `logcat -d` 不带 `-b main -b system` 返回 0 字节，缓冲只留 20–40 秒。
+- 8R39_K5C（Realtek rtd285x，安卓 8）：主页键走私有类别 `android.intent.category.HOME.CC`、主页由 `persist.service.homepage.pkg` 派发，先闪酷开桌面约 0.34 秒再被守护拉回。1.93 写 `filterHomeAlways` 无效（按住音量照样连续加），1.94 改成 profile 要求时 Aerial 是默认桌面也过滤，待报告人复测。
