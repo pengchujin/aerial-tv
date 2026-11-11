@@ -789,7 +789,7 @@ private const val SAVER_COVERS_MS = 1_400L
  * The longest the film holds its decoder past Home's pause, stopped on its frame, for that frame
  * to become the picture: the key frame took 0.96-1.44 s with Xiaomi's settings opening (MiTV-MFTR0).
  */
-private const val LEAVE_FRAME_MS = 2_500L
+internal const val LEAVE_FRAME_MS = 2_500L
 
 /**
  * Under a screensaver in another format (saverPictures): how often a picture of its film is made,

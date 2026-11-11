@@ -658,6 +658,7 @@ fun HomeScreen(
                     standIn = filmStandsIn,
                     lastInputAt = vm.lastInputAt,
                     cover = filmCover,
+                    behindApp = !vm.filmFront,
                 )
             }
             sourceInput != null -> SourceWallpaper(sourceInput, show = vm.resumed && !vm.screensaverVisible, cover = filmCover)

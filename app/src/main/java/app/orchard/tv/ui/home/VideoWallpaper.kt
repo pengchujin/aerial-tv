@@ -120,6 +120,8 @@ fun VideoWallpaper(
     standIn: Boolean,
     lastInputAt: Long,
     cover: Animatable<Float, *>,
+    /** Home has gone behind an app (not a screensaver): the frame may hold the decoder a moment (leaveOnPicture). */
+    behindApp: Boolean = false,
 ) {
     val context = LocalContext.current
     var player by remember { mutableStateOf<ExoPlayer?>(null) }
@@ -136,6 +138,7 @@ fun VideoWallpaper(
     }
     val play = moving && (idle || AerialSettings.wallpaperAlwaysMoves) || hold
     val keepNow by rememberUpdatedState(keep)
+    val behindAppNow by rememberUpdatedState(behindApp)
     val standInNow by rememberUpdatedState(standIn)
     val lastInputNow by rememberUpdatedState(lastInputAt)
     val scope = rememberCoroutineScope()
@@ -275,6 +278,29 @@ fun VideoWallpaper(
         }
     }
 
+    /**
+     * Into an app: stopped on its frame, that frame becomes the picture before the video goes, as
+     * the aerial film does (LiveWallpaper.leaveOnPicture). Let go at once, the picture under it was
+     * one from an earlier stop, which showed through the app's opening as a flash, and came back
+     * on return before this moment's caught up (Xiaomi MiTV-MFFU0, Android 14, one of the owner's
+     * videos; issue #891, the reporter's log: the frame of where it was came 0.4-0.6 s after the
+     * pause, behind the app). False when no frame came within LEAVE_FRAME_MS: let go as before.
+     */
+    suspend fun leaveOnPicture(p: ExoPlayer): Boolean {
+        p.pause()
+        val film = p.currentMediaItem?.mediaId ?: return false
+        val at = p.currentPosition
+        val started = android.os.SystemClock.elapsedRealtime()
+        val frame = withTimeoutOrNull(LEAVE_FRAME_MS) { frameOf(film, at, held = true) } ?: return false
+        Wallpapers.showLiveFrame(frame.first)
+        cover.snapTo(0f)
+        release()
+        Wallpapers.leaveVideo(film, at)
+        DiagLog.i("video wallpaper left on its frame in ${android.os.SystemClock.elapsedRealtime() - started} ms")
+        Wallpapers.useLiveFrame(frame.first, film, frame.second)
+        return true
+    }
+
     // The plate's glass over the moving video, where PixelCopy reads it. Not from the file: an
     // owner's video may be 4K HEVC, and a second decoder beside the player's may not be there.
     LaunchedEffect(play, showing) {
@@ -312,6 +338,7 @@ fun VideoWallpaper(
         } else {
             val p = player ?: return@LaunchedEffect
             if (!keepNow) {
+                if (cover.value > 0f && behindAppNow && leaveOnPicture(p)) return@LaunchedEffect
                 cover.snapTo(0f)
                 letGo()
                 return@LaunchedEffect
@@ -327,7 +354,9 @@ fun VideoWallpaper(
                 // under a frosted panel, into an app, or once no key has come for KEEP_STOPPED_MS.
                 val quiet = if (standInNow && film != null) untilQuietOrLeft({ standInNow && keepNow }, { lastInputNow }) else false
                 if (!keepNow) {
-                    // Into an app: let go at once, the picture caught up behind it.
+                    // Into an app: on its frame if one comes in time, else let go at once and the
+                    // picture catches up behind it.
+                    if (behindAppNow && leaveOnPicture(p)) return@LaunchedEffect
                     cover.snapTo(0f)
                     letGo()
                     return@LaunchedEffect
