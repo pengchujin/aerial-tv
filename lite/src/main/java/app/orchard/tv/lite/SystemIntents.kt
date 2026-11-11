@@ -142,6 +142,15 @@ object SystemIntents {
         // KeyEvent in EXTRA_KEY_EVENT reached the receiver and was ignored). Its HomeService below
         // is there but ignores the key, so this goes first; sent only to an exported receiver.
         if (sendSkyHotKey(context)) return true
+        // Baofeng TV (Android 4.4, issue #1225): the remote's source key is the broadcast
+        // "baofengtv.action.SOURCE_SWITCH", which the system app BFTVSourceSwitch's exported
+        // TVEventReceiver answers with its source overlay (read from the APK the reporter sent;
+        // its own launcher entry sends just this). Only where that receiver is there and exported.
+        val baofeng = Intent("baofengtv.action.SOURCE_SWITCH")
+            .setComponent(ComponentName("com.baofengtv.sourceswitch", "com.baofengtv.sourceswitch.receiver.TVEventReceiver"))
+        if (runCatching { pm.queryBroadcastReceivers(baofeng, 0) }.getOrNull().orEmpty().any { it.activityInfo.exported } &&
+            runCatching { context.sendBroadcast(baofeng) }.isSuccess
+        ) return true
         // Older Coocaa (Skyworth 8S61, MStar, Android 4.4.2) has none of the above: on the remote's
         // input key the system starts its launcher's HomeService with the key, which shows the
         // input page ("HomeService onStartCommand ##, keyCode=178"; issue #1272, the reporter's

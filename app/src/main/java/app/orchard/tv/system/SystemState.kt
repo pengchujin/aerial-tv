@@ -616,6 +616,15 @@ object SystemProbe {
                     .putExtra("specialKey", android.view.KeyEvent.KEYCODE_TV_INPUT)
                 if (runCatching { context.sendBroadcast(key) }.isSuccess) return true
             }
+        // Baofeng TV (Android 4.4, Aerial Lite's issue #1225): the remote's source key is the
+        // broadcast "baofengtv.action.SOURCE_SWITCH", which the system app BFTVSourceSwitch's
+        // exported TVEventReceiver answers with its source overlay (read from the APK the reporter
+        // sent). Only where that receiver is there and exported; not seen on a full-app Baofeng yet.
+        val baofeng = Intent("baofengtv.action.SOURCE_SWITCH")
+            .setComponent(ComponentName("com.baofengtv.sourceswitch", "com.baofengtv.sourceswitch.receiver.TVEventReceiver"))
+        if (runCatching { pm.queryBroadcastReceivers(baofeng, 0) }.getOrNull().orEmpty().any { it.activityInfo.exported } &&
+            runCatching { context.sendBroadcast(baofeng) }.isSuccess
+        ) return true
         // Older Coocaa with none of the above (Skyworth 8S61, MStar, Android 4.4.2, Aerial Lite's
         // issue #1272): the system answers the remote's input key by starting its launcher's
         // HomeService with the key, which shows the input page. The extra is read from the
