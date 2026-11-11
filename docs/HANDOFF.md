@@ -2,6 +2,27 @@
 
 写给接手 Aerial 的人或 AI。先读这份，再读 [ARCHITECTURE.md](ARCHITECTURE.md) 和 [devices/](devices/)。
 
+## 现状（2026-11-11）
+
+- **2026-11-11 巡检（没发版，改在 main 上）**，记录 `local/triage/2026-11-11-full.md`（原始 `raw-2026-11-11/`），回复 `replies-2026-11-11.py`，发出 `posted-2026-11-11.txt`。342 issue / 66 PR，用户最后发言 64（14 个上轮定了不回、没有新内容）。在主目录分支 `claude/triage-2026-11-11` 上做，合回 main。
+  - 改了（每个单独提交）：
+    - #1447 海信 VIDAA_TV MTK9632（安卓 9）：1.92 起航拍壁纸的 PixelCopy 取帧在厂商 `libstagefrighthw_yuv.so` 里 SIGSEGV，每 30 秒崩一次，守护被系统推迟 4 小时重启。现在取帧前在磁盘记一笔，下个进程看到就说明死在取帧里，这个固件以后不用 PixelCopy（诊断 `copy_crashed=`）。
+    - #1456 TCL sugarcane（安卓 8）：retriever 两种方式都打不开影片文件、每次停下重试 → 连续两次打不开本进程改在 App 内解码；安卓 7–11 在 Aerial 自己的屏保开 20 秒后也请包管理器编译（原来只在别的 App 在前台 20 秒后）；诊断 Settings 行加 `plate=`。
+    - #1444 乐视 X4-55（安卓 6）：TCL MP4 解析器的检测在安卓 9 以前查 `libstagefright.so`（原来安卓 6–8 一律被当成 TCL 的）。
+    - #1462 酷开 8R39_K5C：`filterHomeAlways` 在 Aerial 是默认桌面时也生效。
+    - #1419 创维 42X5：SendHotKey 用 int extra `specialKey`（Lite + 完整版）。#1225 暴风 Lite：信号源发 `baofengtv.action.SOURCE_SWITCH`（从报告人传的 APK 读出，Lite + 完整版，按接收器存在检测）。
+    - #1443 Lite：每日一图和天气开机比网络早失败后，网络连上时重试，每日一图失败时每半小时再试。
+    - #1023 乐视 X50：开机窗口内复活、App 在前台时也盯住它（`watchUnseenApp`）；有 App 在前台时 deaf check 不再关开无障碍（被固件杀在中间会留下无障碍关闭）。
+    - #1430 酷开 5S21：「主页离开 / 原桌面出现」两条记录改用内核 boot id 判断同一次开机（开机后才对时的电视原来判断失效，守护把 Aerial 拉到 App 前面、又把开机 App 重开）；开机窗口外前台未知、Aerial 是离开主页去 App 的、之后没见原桌面也没熄屏时不动。
+    - PR #1449（极米 H3S 解锁前黑屏兜底）合入 + 跟进：只在这次绑定一个事件都没收到时、只拉一次、不停解锁轮询。
+    - #1438 小明 Q3 Pro（FengOS）：设置、网络按包存在走 FengOS 自己的面板；报告人补丁里按机型写死的信号源 / 亮度 / 音量刻度没收。
+    - #891 小米 MFFU0 我的视频壁纸：进 App 时先停在当前帧、变成图片再放手。
+    - 文档：README 两份加当贝 DBX5S Pro；机型笔记（康佳 9652、酷开 9S89 / 8R39、极光 5S、海信 GX27 / MTK9632、乐视 X4-55 改版固件、极米 H3S）；ARCHITECTURE 几处。
+  - 验证：standard、guard 单元测试各 263 个通过，Lite lint，三个 release 包签名 e089…。**小米 MFTR0** `install-multiple` standard 测试包 132（1.94-test）+ 31.dm（speed-profile / install-dm）：`selftest.sh` 守护、主页键（从设置 0.3 秒）、`INPUTS=1` 8 个信号源通过；诊断新字段 `plate=`、`copy_crashed=false`、`tcl_extractor=false`（安卓 14 查到 apex 里的插件）；按返回进屏保、按上键回来，录屏逐帧看没有黑帧。**TCL MT5879** `tcast-push.py` 推 guard 测试包 132（截图确认焦点在「同意」），装完 odex 93 KB，Aerial 屏保开 20 秒后包管理器 14 秒编完、9.2 MB（#1456 的新路径）；`selftest.sh` 守护、主页键（从酷控 0.2 秒）、7 个信号源通过，两个 walleve 服务、屏保 AerialDream 保留；屏保回首页录屏逐帧看接力顺滑、没有黑帧。两台现在装的都是测试包 132，**下次发版 versionCode ≥ 133**，Lite ≥ 30（Lite 改过）。
+  - 没有真机验证：#1447 #1456（取帧部分）#1444 #1462 #1419 #1225 #1443 #1023 #1430 #1449 #1438 #891。没做重启测试（PR #1449 只在锁定期间生效，两台正常开机都很快解锁）。
+  - 关闭：用户确认的 #1380 #1386 #1434，README 加行后关 #1453，原则冲突 #1457 #1446，重复 #1458，已知限制 / 固件限制 #1451 #1452 #1361 #1431 #1441，十天以上没回音 20 个（#776 #984 #998 #1006 #1009 #1022 #1026 #1031 #1032 #1034 #1035 #1037 #1041 #1055 #1062 #1064 #1076 #977 #976 #898）。enhancement：#1465 #1464 #1450。
+  - 等户主：PR #1315（海信开 ADB 教程）、PR #1375；#1081（TCL 是否给「不过滤按键」选项）；#706 le5inioo 新给的包名和图（GOUGOU、愤怒的小鸟、Apple Music 红、Edge）下一轮收进图标库（`local/dangbei-icons` + `tools/icon-sources.json`，`deploy-site.sh` 上线）。
+
 ## 现状（2026-11-10）
 
 - **1.93（versionCode 131）+ Aerial Lite 1.27（29），2026-11-10 晚上发布**（[v1.93](https://github.com/pengchujin/aerial-tv/releases/tag/v1.93)）：户主反馈有用户升级到最新版后手机页看不到可选的图。原因：图标索引最多 12 小时读一次，升级不重置；1.90 在官网换 v2 之前读到的 v1 索引（每个 App 一张、没有来源）会一直用到 12 小时满。现在 `icon_library` 偏好多记 `checked_by`（读索引时的 versionCode），版本变了马上重读，并打日志 `icon index: N apps, M pictures`。Lite 同步。验证：standard、guard 单元测试，Lite lint，三个包签名 e089…。小米 MFTR0 `install-multiple` standard + 同名 .dm（speed-profile / install-dm），装完几秒内日志 `icon index: 203 apps, 254 pictures`，手机页 Netflix 有 le5inioo ×3 + tvOS；`selftest.sh` 守护、主页键（从设置 0.4 秒）、`INPUTS=1` 8 个信号源通过。TCL MT5879 `tcast-push.py` 推 guard（截图确认焦点在「同意」），compile speed，同样马上读到索引；`selftest.sh` 守护、主页键（从酷控 0.2 秒）、7 个信号源通过，两个 walleve 服务、屏保 AerialDream 保留。官网已部署：version.txt = v1.93，notes.json 有 1.93，三个 APK md5 与 Release 一致，`/diag/aerial-710.apk` 还在，图标索引 v2。**下次发版 versionCode ≥ 132，Lite ≥ 30。**
