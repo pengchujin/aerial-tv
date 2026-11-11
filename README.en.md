@@ -283,6 +283,7 @@ Most TVs sold in China only accept their own home screen and clear third-party a
 | Dangbei | Box Max1, H5, HAQU K2 (Dangbei OS) | Android 9 | ✅ |
 | Dangbei | H3S box (RK3566) | Android 11 | ⚠️ The firmware stops third-party apps on Home; Aerial comes back after 7–12 s ([#849](https://github.com/pengchujin/aerial-tv/issues/849)) |
 | Dangbei | Box Max1 (DBBOX5C) | Android 11 | ⚠️ Like the H3S, the firmware stops third-party apps on Home; Aerial comes back after about 10 s ([#1245](https://github.com/pengchujin/aerial-tv/issues/1245)) |
+| Dangbei | DBX5S Pro projector (MT5879) | Android 11 | ⚠️ The network goes down in standby; a cold boot stops on the TV input screen until Home is pressed ([#1453](https://github.com/pengchujin/aerial-tv/issues/1453) [#1454](https://github.com/pengchujin/aerial-tv/issues/1454)) |
 | Dangbei | F3 projector | Android 6 | ⚠️ Everything works on firmware V2.1.5.2 ([#1145](https://github.com/pengchujin/aerial-tv/issues/1145)); later firmware refuses third-party launchers and has no accessibility service ([#789](https://github.com/pengchujin/aerial-tv/issues/789)) |
 | China Mobile | CM101s box (Hi3798MV100) | Android 4.4.2 | ✅ Aerial Lite, installed with the one-line command ([#1052](https://github.com/pengchujin/aerial-tv/issues/1052)) |
 | JMGO | S621 | Android 13 | ❌ The firmware refuses writes to the accessibility setting; Home cannot be taken over ([#793](https://github.com/pengchujin/aerial-tv/issues/793)) |

@@ -282,6 +282,7 @@ curl -fsSL https://aerial.qust.me/install.sh | TV=192.168.1.20 bash -s restore
 | 当贝 | 盒子 Max1、H5，哈趣 K2（当贝 OS） | Android 9 | ✅ |
 | 当贝 | H3S 盒子（RK3566） | Android 11 | ⚠️ 固件按主页键时强停第三方 App，Aerial 要 7–12 秒才回来（[#849](https://github.com/pengchujin/aerial-tv/issues/849)） |
 | 当贝 | 盒子 Max1（DBBOX5C） | Android 11 | ⚠️ 和 H3S 一样，固件按主页键时强停第三方 App，Aerial 约 10 秒才回来（[#1245](https://github.com/pengchujin/aerial-tv/issues/1245)） |
+| 当贝 | DBX5S Pro 投影（MT5879） | Android 11 | ⚠️ 待机后整机断网；冷启动先停在电视信号源界面，按主页键回 Aerial（[#1453](https://github.com/pengchujin/aerial-tv/issues/1453) [#1454](https://github.com/pengchujin/aerial-tv/issues/1454)） |
 | 当贝 | F3 投影仪 | Android 6 | ⚠️ 固件 V2.1.5.2 上全部正常（[#1145](https://github.com/pengchujin/aerial-tv/issues/1145)）；之后的固件不让第三方当桌面，也没有无障碍服务（[#789](https://github.com/pengchujin/aerial-tv/issues/789)） |
 | 中国移动 | CM101s 盒子（Hi3798MV100） | Android 4.4.2 | ✅ Aerial Lite，一行命令安装（[#1052](https://github.com/pengchujin/aerial-tv/issues/1052)） |
 | 坚果 | S621 | Android 13 | ❌ 固件不让写无障碍设置，主页键接管不了（[#793](https://github.com/pengchujin/aerial-tv/issues/793)） |
