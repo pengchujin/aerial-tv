@@ -895,6 +895,16 @@ class MainActivity : ComponentActivity() {
             DiagLog.i("key ${KeyEvent.keyCodeToString(event.keyCode)} right after waking, ignored")
             return true
         }
+        // The remote's input/source key, for LeTV remotes that send it as
+        // KEYCODE_TV_INPUT. openInputPicker primes DesktopManager's tags
+        // first (see SystemProbe.primeDesktopTags) and covers every entry
+        // point - this key and the Control Center button - so the firmware's
+        // source picker (SignalSourceManager) opens and switches inputs
+        // through the firmware's own path (with video).
+        if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0 &&
+            event.keyCode == KeyEvent.KEYCODE_TV_INPUT) {
+            if (SystemProbe.openInputPicker(this)) return true
+        }
         return super.dispatchKeyEvent(event)
     }
 
