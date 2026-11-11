@@ -1078,6 +1078,20 @@ class HomeGuardService : AccessibilityService() {
             Log.i(TAG, "$reason, but Aerial keeps being stopped and the front is unknown; leaving it")
             return
         }
+        // Revived with the front unknown, after Aerial died away from its Home, and no stock launcher
+        // seen since Home was left: the viewer's app is what is in front, as at boot
+        // (appLeftInFront). Coocaa 5S21 (Android 5.1, 1 GB, no usage stats) stops Aerial whenever a
+        // big app opens; each revival pulled Aerial over the app a few seconds in, and within a
+        // while of the boot took that for the stock launcher over the app the TV starts on and
+        // opened it again, round and round (issue #1430). Not after a standby since Home was left:
+        // the firmware may have put its launcher up meanwhile. Home still brings Aerial back.
+        val homeLeftAt = GuardSetup.homeLeftAt(this)
+        if (last == null && !empty && homeLeftAt != null && !GuardSetup.stockHomeSinceHomeLeft(this) &&
+            !BootOpen.screenOffSince(this, homeLeftAt) && !screenOff
+        ) {
+            DiagLog.i("guard: $reason; Aerial died away from its Home and the front is unknown; leaving it")
+            return
+        }
         // Brought back a moment ago and nothing seen since: what is in front is Aerial. The boot
         // take-over in onCreate and the one at the connection are a few seconds apart, and the
         // second redid Home's resume (MiTV-MFTR0).

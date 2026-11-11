@@ -33,7 +33,7 @@ object BootOpen {
      * same 0 as the boot after it, which read as this boot (JMGO S60, Android 5.1: the boot source
      * was skipped as "already opened"). A process cannot outlive its boot, so this is read once.
      */
-    private val BOOT_ID: String? by lazy {
+    internal val BOOT_ID: String? by lazy {
         runCatching { java.io.File("/proc/sys/kernel/random/boot_id").readText().trim() }
             .getOrNull()?.takeIf { it.isNotEmpty() }
     }
@@ -126,6 +126,14 @@ object BootOpen {
         val off = prefs.getLong(SCREEN_OFF_ELAPSED, -1L)
         return off >= 0 && thisBoot(off, prefs.getLong(SCREEN_OFF_BOOT, 0L), prefs.getString(SCREEN_OFF_BOOT_ID, null)) &&
             off > opened
+    }
+
+    /** Whether the screen went off in this boot after [elapsed] (elapsedRealtime of this boot). */
+    fun screenOffSince(context: Context, elapsed: Long): Boolean {
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val off = prefs.getLong(SCREEN_OFF_ELAPSED, -1L)
+        return off >= 0 && thisBoot(off, prefs.getLong(SCREEN_OFF_BOOT, 0L), prefs.getString(SCREEN_OFF_BOOT_ID, null)) &&
+            off > elapsed
     }
 
     /** Whether the target was opened in this boot within the last [ms]. */

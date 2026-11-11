@@ -69,6 +69,8 @@ object GuardSetup {
     private const val KEY_HOME_IN_FRONT_BOOT = "home_in_front_boot"
     private const val KEY_STOCK_HOME_AT = "stock_home_at"
     private const val KEY_STOCK_HOME_BOOT = "stock_home_boot"
+    private const val KEY_HOME_IN_FRONT_BOOT_ID = "home_in_front_boot_id"
+    private const val KEY_STOCK_HOME_BOOT_ID = "stock_home_boot_id"
     private const val KEY_INSTALLER_OPENED = "installer_opened_at"
     private const val KEY_SCREENSAVER_SWITCHED_OFF = "screensaver_switched_off"
     private const val KEY_SCREENSAVER_ENABLED = "screensaver_enabled"
@@ -145,7 +147,24 @@ object GuardSetup {
     fun setHomeInFront(context: Context, inFront: Boolean) =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(KEY_HOME_IN_FRONT, inFront)
             .putLong(KEY_HOME_IN_FRONT_AT, SystemClock.elapsedRealtime())
-            .putLong(KEY_HOME_IN_FRONT_BOOT, System.currentTimeMillis() - SystemClock.elapsedRealtime()).apply()
+            .putLong(KEY_HOME_IN_FRONT_BOOT, System.currentTimeMillis() - SystemClock.elapsedRealtime())
+            .putString(KEY_HOME_IN_FRONT_BOOT_ID, app.orchard.tv.system.BootOpen.BOOT_ID).apply()
+
+    /**
+     * Whether a time saved as [at] (elapsed) was in this boot: by the kernel's boot id where both
+     * have one, else by the wall clock. TVs with no clock battery set the clock from the network a
+     * while into the boot, and a note written before that read as another boot: on Coocaa 5S21
+     * (Android 5.1) the guard, revived after Aerial was stopped in an app, no longer knew Aerial had
+     * left its Home and pulled it over the app (issue #1430). BootOpen went by the boot id already.
+     */
+    private fun thisBoot(prefs: android.content.SharedPreferences, at: Long, stampKey: String, idKey: String): Boolean {
+        if (at !in 0..SystemClock.elapsedRealtime()) return false
+        val id = prefs.getString(idKey, null)
+        val now = app.orchard.tv.system.BootOpen.BOOT_ID
+        if (id != null && now != null) return id == now
+        val bootNow = System.currentTimeMillis() - SystemClock.elapsedRealtime()
+        return kotlin.math.abs(prefs.getLong(stampKey, 0L) - bootNow) <= 2 * 60 * 1000L
+    }
 
     /**
      * [wasHomeInFront], when it was written in this boot; null when it was not (a power-on, or a
@@ -155,10 +174,16 @@ object GuardSetup {
     fun homeInFrontThisBoot(context: Context): Boolean? {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val at = prefs.getLong(KEY_HOME_IN_FRONT_AT, -1L)
-        val boot = prefs.getLong(KEY_HOME_IN_FRONT_BOOT, 0L)
-        val bootNow = System.currentTimeMillis() - SystemClock.elapsedRealtime()
-        if (at !in 0..SystemClock.elapsedRealtime() || kotlin.math.abs(boot - bootNow) > 2 * 60 * 1000L) return null
+        if (!thisBoot(prefs, at, KEY_HOME_IN_FRONT_BOOT, KEY_HOME_IN_FRONT_BOOT_ID)) return null
         return prefs.getBoolean(KEY_HOME_IN_FRONT, false)
+    }
+
+    /** When, in this boot, Aerial's home screen last left the front; null if it is in front or not known. */
+    fun homeLeftAt(context: Context): Long? {
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val at = prefs.getLong(KEY_HOME_IN_FRONT_AT, -1L)
+        if (!thisBoot(prefs, at, KEY_HOME_IN_FRONT_BOOT, KEY_HOME_IN_FRONT_BOOT_ID) || prefs.getBoolean(KEY_HOME_IN_FRONT, false)) return null
+        return at
     }
 
     /**
@@ -168,7 +193,8 @@ object GuardSetup {
     fun noteStockHomeInFront(context: Context) =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
             .putLong(KEY_STOCK_HOME_AT, SystemClock.elapsedRealtime())
-            .putLong(KEY_STOCK_HOME_BOOT, System.currentTimeMillis() - SystemClock.elapsedRealtime()).apply()
+            .putLong(KEY_STOCK_HOME_BOOT, System.currentTimeMillis() - SystemClock.elapsedRealtime())
+            .putString(KEY_STOCK_HOME_BOOT_ID, app.orchard.tv.system.BootOpen.BOOT_ID).apply()
 
     /**
      * Whether, in this boot, a stock launcher's home came to the front after Aerial's Home last left
@@ -179,8 +205,7 @@ object GuardSetup {
     fun stockHomeSinceHomeLeft(context: Context): Boolean {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val at = prefs.getLong(KEY_STOCK_HOME_AT, -1L)
-        val bootNow = System.currentTimeMillis() - SystemClock.elapsedRealtime()
-        if (at !in 0..SystemClock.elapsedRealtime() || kotlin.math.abs(prefs.getLong(KEY_STOCK_HOME_BOOT, 0L) - bootNow) > 2 * 60 * 1000L) return false
+        if (!thisBoot(prefs, at, KEY_STOCK_HOME_BOOT, KEY_STOCK_HOME_BOOT_ID)) return false
         return at >= prefs.getLong(KEY_HOME_IN_FRONT_AT, -1L)
     }
 
@@ -188,8 +213,7 @@ object GuardSetup {
     fun stockHomeSeenWithin(context: Context, ms: Long): Boolean {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val at = prefs.getLong(KEY_STOCK_HOME_AT, -1L)
-        val bootNow = System.currentTimeMillis() - SystemClock.elapsedRealtime()
-        if (at !in 0..SystemClock.elapsedRealtime() || kotlin.math.abs(prefs.getLong(KEY_STOCK_HOME_BOOT, 0L) - bootNow) > 2 * 60 * 1000L) return false
+        if (!thisBoot(prefs, at, KEY_STOCK_HOME_BOOT, KEY_STOCK_HOME_BOOT_ID)) return false
         return SystemClock.elapsedRealtime() - at < ms
     }
 
