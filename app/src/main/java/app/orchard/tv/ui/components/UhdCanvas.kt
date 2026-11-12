@@ -45,7 +45,7 @@ import kotlin.math.roundToInt
  * bought nothing. Android 10+ (a public HardwareRenderer). If Home then keeps missing frames
  * because of it, the next start draws at the UI's size again ([Pace]). ConfigReceiver
  * `--ez uhd_canvas true|false` forces it either way, `--es uhd_canvas auto` goes back to deciding;
- * TCL's panel property counts for the panel's size (75Q10L, #607, not yet tried).
+ * TCL's panel property and Hisense's vendor.display-size count for the panel's size (#607, #1461).
  * Verified on emulators: a 3840×2160 phone image with `wm size 1920x1080`, and a 3840×2160
  * Google TV image (its 1920 UI limit), both forced on. Not yet on a TV.
  */
@@ -77,7 +77,7 @@ object UhdCanvas {
         // graphics plane and only send video at 4K. Unless forced, only a chip that says it has a
         // 4K UI plane gets it.
         if (forced == null && !chipHas4kUi()) return no("auto: no 4K UI plane (mode $mode for a $ui UI)")
-        val panel = maxOf(mode, tclPanel())
+        val panel = maxOf(mode, tclPanel(), vendorDisplaySize())
         // TCL 75Q10L (MT9655) did turn it on by itself, but its HWC composes the 4K surface on the
         // GPU and sends 1080p to the panel all the same, so it was no sharper and cost about half
         // a core more (#607); another MT9655 TCL drew Home at 51 ms a frame with it on (#736).
@@ -108,6 +108,11 @@ object UhdCanvas {
 
     // TCL reports a 1920×1080 mode on its 4K panels and names the panel in a property (75Q10L, #607).
     private fun tclPanel(): Int = systemProperty("ro.odm.tcl.panel_resolution")?.substringBefore('x')?.toIntOrNull() ?: 0
+
+    // Hisense names it in another: GX27 (MT9655, Android 14) has vendor.display-size=3840x2160 under
+    // a 1920×1080 mode. Forced on with TCL's property faked to the same size, Aerial got a
+    // 3840×2160 buffer and MStar's HWC said 4K=Y (issue #1461, the reporter with root).
+    private fun vendorDisplaySize(): Int = systemProperty("vendor.display-size")?.substringBefore('x')?.trim()?.toIntOrNull() ?: 0
 
     private fun systemProperty(key: String): String? = runCatching {
         Class.forName("android.os.SystemProperties").getMethod("get", String::class.java).invoke(null, key) as String
