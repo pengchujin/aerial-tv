@@ -301,7 +301,8 @@ Android 6、7 没有 `cmd` 时，`disallow_listener` 那条改为：`settings ge
 - **极米 Android 8（Z6X 第四代等，2GB、`ro.config.low_ram=true`）**：切到别的 App 后约 15–45 秒 Aerial 会被固件整进程杀掉，守护随之消失且系统不会重新绑定（`enabled_accessibility_services` 里仍留着守护），通知监听在 low_ram 上也不生效；每次开机固件还会把极米桌面重新写成首选桌面。守护活着时主页键正常，被杀后主页键会停在极米桌面：重跑 `set-home-activity`，或从应用列表打开一次 Aerial。开机「应用优化中」（`com.xgimi.upgrade` 的 `AppBootUpdateActivity`）期间内存最紧，Aerial 会被杀掉，优化结束可能停在极米。详见 `docs/devices/xgimi-xk03u-android8.md`。
 - **TCL**：`adb install` 一定失败（`INSTALL_FAILED_VERIFICATION_FAILURE`），按「TCL 安装」走多屏互动。用户没看到电视上的提示时，重新运行一次。
 - **创维（比如 7T631_T60，Android 13）**：`adb install` 报 `INSTALL_FAILED_USER_RESTRICTED` 时，是固件在校验 adb 安装。先用 `adb shell settings get global verifier_verify_adb_installs` 记下原值，再运行 `adb shell settings put global verifier_verify_adb_installs 0`，然后重新安装（macOS / Linux 重新运行一行命令）。装好后把原值写回去（原值是 `null` 时用 `adb shell settings delete global verifier_verify_adb_installs`），以后升级时再关一次。这条来自用户反馈，没有在创维真机上验证过。
-- **雷鸟 55S595C Ultra（MT9655）等只有「无线调试」的机型**：拿不到授权，能装但接管不了主页键。
+- **雷鸟 55S595C Ultra（MT9655）等只有「无线调试」的机型**：无线连不上（回 `STLS`、没有配对码）。请用户用 **USB A 对 A 双公线**把电视的 USB 2.0 口接到电脑，电视上会弹授权（C 对 A 线在 855S595C Ultra 上不行，#1473），授权后 `adb tcpip 5555` 再走无线；重启后要再接线执行一次。拿不到授权时能装但接管不了主页键。
+- **TCL 推送前让电视停在桌面**：电视在播直播或 HDMI 画面时，多屏互动的确认框会被视频盖住看不见。
 - **海信 VIDAA**：第 7 步改了 `persist.vt.use_home_pkg` 以后，主页键直接进 Aerial；但开机仍会先进聚好看（固件在开机完成前拦截第三方 App），按一次主页键即可。
 - **Vidda 其他系统、OPPO K9、雷鸟鹤 6**：能装，但开机进不了 Aerial（固件只认自家桌面，除非删掉原桌面，这里不做）。可以把 Aerial 当普通 App 用。
 - **验收第 4 条是 0，但第 3 条里有 Aerial**：常见于升级之后，系统还在找旧的安装目录（小米 Android 9，#72）。运行 `adb shell am force-stop app.orchard.tv`，等 3 秒，再 `adb shell am start -W -n app.orchard.tv/.MainActivity`，然后重新验收。macOS / Linux 也可以直接运行 `curl -fsSL https://aerial.qust.me/install.sh | TV=<IP> bash -s repair`。
