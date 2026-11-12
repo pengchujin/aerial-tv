@@ -716,6 +716,16 @@ object SystemProbe {
         )
     }.isSuccess
 
+    /**
+     * Tianci's system service, which answers the remote's input key with the firmware's own source
+     * page and lets the key through to Aerial too: both pages came up (Panasonic TH-55HX560C, a
+     * Skyworth build, m7221, Android 8, issue #1468; older Coocaa show their SOURCE_DIALOG on the
+     * same key, #519 #582).
+     */
+    fun tianciInputPanel(context: Context): Boolean = runCatching {
+        context.packageManager.getPackageInfo("com.tianci.system", 0)
+    }.isSuccess
+
     private fun firstResolvable(context: Context, vararg intents: Intent): Intent {
         val pm = context.packageManager
         // Not Intent.resolveActivity: it returns an explicit component unchecked, so Xiaomi's

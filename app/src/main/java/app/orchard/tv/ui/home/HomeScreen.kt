@@ -299,7 +299,8 @@ fun HomeScreen(
     val pillRequester = remember { FocusRequester() }
     val appContext = LocalContext.current
     val firmwareInputPanel = remember {
-        SystemProbe.tclInputPanel(appContext) != null || SystemProbe.coocaaInputPanel(appContext)
+        SystemProbe.tclInputPanel(appContext) != null || SystemProbe.coocaaInputPanel(appContext) ||
+            SystemProbe.tianciInputPanel(appContext)
     }
 
     var focusedKey by remember { mutableStateOf<String?>(null) }
