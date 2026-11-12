@@ -2,6 +2,21 @@
 
 写给接手 Aerial 的人或 AI。先读这份，再读 [ARCHITECTURE.md](ARCHITECTURE.md) 和 [devices/](devices/)。
 
+## 现状（2026-11-12）
+
+- **2026-11-12 巡检（没发版，改在 main 上）**，记录 `local/triage/2026-11-12-full.md`（原始 `raw-2026-11-12/`），回复 `replies-2026-11-12.py`，发出 `posted-2026-11-12.txt`。329 issue / 65 PR，用户最后发言 58（18 个上轮定了不回、没有新内容）。在主目录分支 `claude/triage-2026-11-12` 上做，合回 main。
+  - 改了（每个单独提交）：
+    - #1462 酷开 8R39_K5C：1.94 只让 `filterHomeAlways` 在默认桌面时开过滤，`onKeyEvent` 照样把 Home 交还系统，酷开照样闪原桌面 → 加 `&& !filterHomeAlways()`（报告人用这一行自编 1.94 实测不闪）。
+    - #1482 大眼橙 C3 Ultra（m7642，安卓 9）：系统安装器 `InstallStart` 读会话确认页的 data 时 NPE，Aerial 把「首页 0.3 秒就回来」当成看过确认页 → 1.5 秒内回来、再 1.5 秒会话没答复就放弃会话、走 `ACTION_VIEW`（`UpdateSessionTest` 加 2 个）。
+    - #1480 应用内升级下到一半断：改成断点续传（Range），同一来源最多 3 次；`.part` 照旧总是删掉。
+    - #1481 坚果 H931（mt5889，安卓 11）：MediaTek HDMI 口 passthrough 没人接 → `com.jmgo.tv/.MainActivity` + `inputSrc=HDMIn`；它也是 HOME 候选，从磁贴 / 控制中心打开时 `allowStockLauncher`。
+    - #1483 极米 DOHKO：`open_source` 在 passthrough 打不开时也退到 `openInputPicker`；`selftest.sh` 的「别的 App」先找 LEANBACK、跳过 mock。
+    - #1461 海信 GX27：`UhdCanvas` 面板尺寸也读 `vendor.display-size`（只在 `uhd_canvas` 强制打开时有用）。
+    - #1468 松下 TH-55HX560C（天赐）：有 `com.tianci.system` 时信号源键留给固件。
+    - 文档：README 两份（雷鸟 855S595C Ultra、极米 RS20 Pro Max）、`agent.md` 两份（MT9655 用 USB A 对 A 线、TCL 推送前停在桌面）、机型笔记（MT9655、DOHKO、H931、OBE C3 Ultra、酷开 / 松下、海信 100U7S-PRO USB、98E7Q、GX27、极米首选记录作废机制）、ARCHITECTURE。
+  - 验证：standard、guard 单测各 265 个通过，Lite lint，三个包签名 e089…。TCL MT5879 用 `tcast-push.py` 推 guard 测试包 **1.95-test（versionCode 134，没提交）**，截图确认焦点在「同意」，compile speed：`selftest.sh` 守护、主页键（从 TCL 浏览器 0.3 秒）、`INPUTS=1` 7 个信号源通过，两个 walleve 服务、屏保 AerialDream 保留。系统屏保录屏两次开头都是 6–7 秒只有时钟的黑底，日志是 Apple 影片取流 `ERROR_CODE_TIMEOUT`（电视经家里路由的代理，主页影片同样超时），不是这次的改动，**屏保接力这一轮没验证到**。**小米 MFTR0 整轮 ADB 拒绝连接（待机），没装、没回归。**没在真机上验证的：#1462 #1482 #1480 #1481 #1483 的 `open_source`、#1461 #1468。**下次发版 versionCode ≥ 135（TCL 装了 134），Lite 没改（≥ 31 不变）。**
+  - 关闭 30 个（10 个确认 / 重复 / 固件限制，20 个十天无回音）；#1474 打 enhancement 等户主：sln162 写了一个另装的无障碍服务点掉极米的桌面选择框，项目不推荐另装 App，要不要把这个做法做进守护（默认关）由户主定。PR #1489（视频壁纸底层图片）功能类，没合。
+
 ## 现状（2026-11-11）
 
 - **1.94（versionCode 133）+ Aerial Lite 1.28（30），2026-11-11 发布**（[v1.94](https://github.com/pengchujin/aerial-tv/releases/tag/v1.94)）：下面这轮巡检的全部修复（#1447 #1456 #1444 #1462 #1419 #1225 #1443 #1023 #1430 #891 #1438、PR #1449）。versionCode 跳过 132（两台装过 132 测试包）。standard、guard 单元测试各 263 个通过，Lite lint，三个包签名 e089…。小米 MFTR0 `install-multiple` standard + 31.dm（speed-profile / install-dm）：`selftest.sh` 守护、主页键（从设置 0.3 秒）、`INPUTS=1` 8 个信号源通过。TCL MT5879 `tcast-push.py` 推 guard（截图确认焦点在「同意」），compile speed：守护、主页键（从酷控 0.2 秒）、7 个信号源通过，两个 walleve 服务、屏保 AerialDream 保留。官网已部署：version.txt = v1.94，notes.json 有 1.94，三个 APK md5 与 Release 一致，`/diag/aerial-710.apk` 还在。12 个 issue 和 PR #1449 贴了发布链接（`local/triage/release-1.94-posts.py`）。**下次发版 versionCode ≥ 134，Lite ≥ 31。**
