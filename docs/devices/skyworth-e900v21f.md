@@ -68,3 +68,9 @@ adb install -r aerial-guard.apk
   1. `adb reboot` 后从屏幕亮起到 Aerial 在前台的耗时，中途乐家闪现了多久；
   2. 按 Home 键是否回到 Aerial；
   3. logcat 里守护的 take-over 日志（`adb logcat -s AerialGuard`）。
+
+## E900V22C（p291_iptv，安卓 9，#1319）
+
+- 报告人实测（1.86）：开机后系统把所有无障碍服务都不绑（连固件自带的 `com.cmhi.andlink` 也没有），开机 150 秒后仍是 `services:{}`。重写 `enabled_accessibility_services`、`accessibility_enabled` 0→1、`pm disable-user` 再 `enable` 守护组件都绑不回来。
+- 只有整包替换（`adb install -r` 同一个 APK，`ACTION_PACKAGE_REPLACED`）会让系统马上重新绑定全部无障碍服务。
+- 所以这台把 Aerial（standard）设成默认桌面用，不靠守护；开机时乐家、当贝抢前台挡不住，掉了用电脑重装一次恢复。

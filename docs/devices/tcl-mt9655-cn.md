@@ -110,6 +110,12 @@ HTTP 服务日志里完全没有来自电视的请求（本机 macOS 防火墙�
 
 TCL Q10L（MT9655，1.67-guard，2026-10-28 报告人实测）：Aerial 的 4K 画布（`--ez uhd_canvas true`）图层形状和 TCL 桌面一样（3840×2160 缓冲、0.5 变换），但 HWC 给它 `CLIENT` 合成、`Disp Frame 0 0 1920 1080`，TCL 桌面是 `DEVICE`、`3840 2160` 1:1。`wm size 3840x2160` 运行时被静默忽略；`settings put global display_size_forced 3840x2160` 重启后也不读（已删掉还原）。不改系统的话第三方桌面在这台上只有 1080p，报告人已关回 4K 画布。
 
+## 85T7L Pro（MT9655_4K_CN，Android 14，#1398，报告人实测 1.85-guard）
+
+- 只能 USB 线连 adb：`adb tcpip 5555` 之后 adbd 只在 `[::]:5555`（IPv6）上监听，电视没有全局 IPv6，IPv4 连不上；重启后不再监听，`persist.adb.tcp.port` 被 SELinux 拒写，keep_adb 也拉不起来。隐藏菜单的 ADB 开关重启后保持开着。
+- standard 装不上（`INSTALL_FAILED_VERIFICATION_FAILURE`，关 `verifier_verify_adb_installs` 也没用）；guard 版加 `boot_app_componentname` 后重启进 Aerial，守护保持。
+- 4K：`ro.feature.graphics_4kui=true`、`panel_resolution=3840x2160`，显示模式只有 1080p60。`--ez uhd_canvas true` 后 Aerial 的窗口是 3840×2160 缓冲加 0.5 变换，和 TCL 桌面一样，但肉眼看不出更清楚，与 Q10L（#607）、#736 一致，4K 画布在 MT9655 上继续默认关。报告人已用 `--es uhd_canvas auto` 还原。
+
 ## 75T7M Pro（MT9655，Android 14）：守护开不起来（#829）
 
 诊断里 `enabled_accessibility_services = null`，`appops` 有 `ACCESS_RESTRICTED_SETTINGS: deny`（APK 是用文件装的）。先 `adb shell appops set app.orchard.tv ACCESS_RESTRICTED_SETTINGS allow` 再打开 Aerial，看守护能不能留住；留不住就和雷鸟 T966D5 一样，是固件定时清掉第三方无障碍（见 [ffalcon-t966d5.md](ffalcon-t966d5.md)）。待报告人确认。
@@ -123,3 +129,18 @@ TCL Q10L（MT9655，1.67-guard，2026-10-28 报告人实测）：Aerial 的 4K �
 - 屏保：`--ez own_screensaver true` 有效，否则 TCL 每次开机把屏保改回自带的。
 - 应用内更新原来被拒：`W/verifier: fetch signature info from :app.orchard.tv`，接着 `metaData is null,so return false`，`INSTALL_FAILED_VERIFICATION_FAILURE`。签名比的是当前默认桌面（Aerial 自己），能过，只差 `com.tcl.app.type = com.tcl.ui`（逻辑见 [tcl-mt5879-cn.md](tcl-mt5879-cn.md)「安装限制」）。下一版 standard 带上了它，待报告人确认更新能走通。
 
+
+## 855S595C Ultra（MT9655，Android 14，#1473，报告人 Agent 实测 1.94-guard）
+
+固件字符串 `V8-0015T11-LF1V487` 和 #50 的 55S595C Ultra 一样，但 getprop 是 Android 14（`tcl9655_cn_an64-user 14 UTT2.250416.001 AU01`），所以「这个固件 USB 也无效」（#646 #1293 的推论）不成立：
+
+- 无线：5555 拒绝，ADB 开关的动态端口回 `STLS`，没有配对入口，和上面一样连不上。
+- **USB C 对 A 线**（线和电脑口用手机验证过能传数据）：电视黑色 2.0、蓝色 3.0 两个口、ADB 开关开关、断电重启四种组合，电脑上都不出现设备。
+- **USB A 对 A 线**插电视 2.0 口：Windows 立刻识别 `USB\VID_18D1&PID_4EE7`，电视弹授权，之后 `adb tcpip 5555` 改走无线。USB 授权跨重启保留；5555 重启后不监听（`keep_adb` 也拉不起来），要再插线执行一次 `adb tcpip 5555`。
+- 工厂菜单（信源 → 模拟 → 菜单 → 设置 → 显示 → 专业设定 → 对比度 → `1950`）能进，Other 里只有 watch dog，没有 ADB。
+- standard 被拒（`INSTALL_FAILED_VERIFICATION_FAILURE`），guard 走多屏互动。**电视在播直播时推送的确认框被视频层盖住看不见**，两次超时；回到桌面再推就出来了。
+- 装好后守护保留过重启，开机组件（原值 `boot_app_mode=boot_tv_hdmi1`、`boot_app_componentname` 空）设成 Aerial 后重启第一个前台就是 Aerial，主页键回 Aerial。
+
+## 网络调试回 `STLS`（75Q9L Pro，#1293）
+
+`STLS` 不是 TCL 私有协议，是标准 ADB 的 TLS 握手（A_STLS）：无线调试的端口要先配对才接受。这类固件没有配对码入口、USB 口只出摄像头时，电脑连不上，只能走多屏互动推 guard 版，装完没有 ADB 就开不了守护。

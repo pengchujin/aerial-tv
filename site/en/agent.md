@@ -52,7 +52,8 @@ The TV is connected once `adb devices` lists it as `device`.
 | Haier / MOOKA | Press the **Input/Source button on the TV itself**; while the source menu is open, press **Left, Left, Up, Right** on the remote. In the factory menu (海尔工厂菜单) set **ADB 调试开关** (ADB debugging) to on (some models: second page, Other Option → adb debug). Change nothing else, and never pick 工厂复位 (factory reset). (User reports, e.g. MOOKA U65H3; not verified) |
 | XGIMI H3 | There is no developer-options entry. Ask the user to download the third-party ADB enabler APK on a phone, then upload and install it with the XGIMI phone app and open it once. See `docs/devices/xgimi-h3.md`. Do not download or run that tool for them. Continue only after port 5555 shows `device` |
 | XGIMI Z7X | There is no developer-options entry. Ask the user to install a third-party ADB enabler from a USB drive and open it once. See `docs/devices/xgimi-z7x.md`. Do not download or run that tool for them. Continue only after port 5555 shows `device` |
-| Android TV / Google TV, Sony, Hisense and others | Settings → Device Preferences → About → press **Build** 7 times (not Android version, which shows an Easter egg; press Back to leave it), then turn on **USB debugging** in Developer options (sometimes called Network debugging) |
+| Hisense / Vidda (VIDAA) | Developer options do not show in the normal settings, so go through the factory menu first. Settings (设置) → Sound (声音): turn off **Dolby Atmos** (杜比全景声). Then Settings → Sound → Pro audio settings (专业音响设置) → **Balance** (声音平衡): on the slider, quickly alternate **OK** and **Menu** until a green **M** shows at the top left, then press **Menu** for the factory menu. Under **Options** (选项) change **To Fac** from `U` to `M` and restart. Change nothing else. If it then stops on the channel search page, press Home, then Menu, and set the power-on source to Home (主页). Then Settings → All settings (全部设置): press **Menu** repeatedly for the stock Android settings (on some models from Settings → About → Device info). About phone → press **Build number** repeatedly, then System → **Developer options**: turn on **USB debugging** and **Wireless debugging**. Menus differ between models; see `docs/devices/adb-by-brand.md`. **Tell the owner the risk first and get their go-ahead**: the factory menu also wipes data and changes panel settings if pressed wrong, and the tutorial's author says changing To Fac repeatedly can stop USB working until a full reset of the TV (which clears its settings and data), so change it once only |
+| Android TV / Google TV, Sony and others | Settings → Device Preferences → About → press **Build** 7 times (not Android version, which shows an Easter egg; press Back to leave it), then turn on **USB debugging** in Developer options (sometimes called Network debugging) |
 
 The TV's IP address is usually under Settings → Network → the connected network (at the bottom of that page on OPPO S1).
 
@@ -102,7 +103,7 @@ Run these in PowerShell, with the adb from step 1. Everything inside `adb shell 
    If that fails, use `https://github.com/pengchujin/aerial-tv/releases/latest/download/aerial-standard.apk`.
 
 2. Install it: `adb install -r aerial-standard.apk`. Go on when it prints `Success`. If it fails:
-   - With **`INSTALL_FAILED_VERIFICATION_FAILURE`**: this is a TCL, which refuses every adb install. Follow "TCL" below, then continue from item 3.
+   - With **`INSTALL_FAILED_VERIFICATION_FAILURE`**, or `install apk has be disabled from pm` (TCL on Android 5.1): this is a TCL, which refuses every adb install. Follow "TCL" below, then continue from item 3.
    - With **`INSTALL_FAILED_USER_RESTRICTED`** (Skyworth and others): see the Skyworth entry under "Common cases", then install again.
    - With **`INSTALL_PARSE_FAILED_INCONSISTENT_CERTIFICATES`** or `INSTALL_FAILED_UPDATE_INCOMPATIBLE`: the Aerial on the TV was signed with someone else's key and cannot be updated in place. Ask the owner first: uninstalling it (`adb uninstall app.orchard.tv`) drops its settings, wallpapers and photos. Some firmwares (TCL, Android 5.1) exit 0 on a failed install, so go by the `Success` line only.
    - Otherwise (for example, the firmware refuses home-screen apps; OPPO TVs print `INSTALL_FAILED_DUPLICATE_PERMISSION: App installation is banned, because of launcher categories`): install `aerial-guard.apk` instead (same address with `guard` in place of `standard`).
@@ -123,15 +124,21 @@ Run these in PowerShell, with the adb from step 1. Everything inside `adb shell 
    adb shell appops set app.orchard.tv AUTO_START allow
    adb shell appops set app.orchard.tv ASSOC_START allow
    ```
-   Android 6 and 7 have no `cmd` (the `allow_listener` line prints `cmd: not found`): run `adb shell settings get secure enabled_notification_listeners` first. If it prints `null` or nothing, run `adb shell settings put secure enabled_notification_listeners app.orchard.tv/app.orchard.tv.guard.RevivalListener`; otherwise append `:app.orchard.tv/app.orchard.tv.guard.RevivalListener` to the value and `settings put` that, keeping what was there. Firmwares that force-stop apps in the background, LeTV's among them, rely on it to bring Aerial back (issue #1127).
+   Android 6 and 7 have no `cmd`, and some Android 8 firmwares have no `cmd notification` either (XGIMI Z6X Gen 4 prints `No shell command implementation.`): run `adb shell settings get secure enabled_notification_listeners` first. If it prints `null` or nothing, run `adb shell settings put secure enabled_notification_listeners app.orchard.tv/app.orchard.tv.guard.RevivalListener`; otherwise append `:app.orchard.tv/app.orchard.tv.guard.RevivalListener` to the value and `settings put` that, keeping what was there. Firmwares that force-stop apps in the background, LeTV's among them, rely on it to bring Aerial back (issue #1127).
    The last four app ops exist only on TCL and FFALCON (each firmware knows two of them); elsewhere they fail, which is fine.
    `ACCESS_RESTRICTED_SETTINGS` exists from Android 13 only: there an app installed from a file may not switch its accessibility service on, and Home Guard kept going off (#811 #829).
+   TCL and FFALCON (`com.tcl.ttvs` installed, or `adb shell settings get system boot_app_componentname` already has a value): tell the user the current values of `boot_app_mode` and `boot_app_componentname` and note them, then run the two lines below. Aerial is then the first screen after power-on, with no TCL launcher first (#1185). If `boot_app_mode` already has a value, run the second line only:
+   ```
+   adb shell settings put system boot_app_mode boot_launcher
+   adb shell settings put system boot_app_componentname app.orchard.tv/.MainActivity
+   ```
 
    Start Aerial once, wait 5 seconds, then compile it (takes up to a minute and makes Aerial run smoothly on the TV; on some TVs the compile only works after Aerial has started once):
    ```
    adb shell am start -W -n app.orchard.tv/.MainActivity
    adb shell cmd package compile -m speed -f app.orchard.tv
    ```
+   On Android 8, `-f` may fail with `RuntimeException: Can't create handler inside thread that has not called Looper.prepare()`; run the same line without `-f` (tested on XGIMI Z6X Gen 4, still gives `compilation_filter=speed`).
 
 4. Screensaver: run `adb shell settings get secure screensaver_enabled`. If it prints `1`, also run:
    ```
@@ -274,6 +281,7 @@ adb shell appops set app.orchard.tv ACCESS_RESTRICTED_SETTINGS default
 adb shell am force-stop app.orchard.tv
 adb shell cmd role remove-role-holder --user 0 android.app.role.HOME app.orchard.tv
 ```
+On TCL and FFALCON where the power-on app was changed, put back the values noted (`''` for an empty one): `adb shell settings put system boot_app_componentname <old value>`, and `boot_app_mode` the same way.
 
 On Android 6 and 7 without `cmd`, replace the `disallow_listener` line: `settings get secure enabled_notification_listeners`, take `app.orchard.tv/app.orchard.tv.guard.RevivalListener` (and the `:` before it) out of the value and `settings put` the rest; if it was the only one, `adb shell settings delete secure enabled_notification_listeners`.
 
@@ -290,9 +298,11 @@ Then:
 
 - **Xiaomi**: `resolve-activity` still names PatchWall (`com.mitv.tvhome`); that's expected, Home Guard takes over. Never disable `com.mitv.tvhome`. `KEEP_ADB` is recommended.
 - **Xiaomi on Android 9 with low RAM (`adb shell getprop ro.config.low_ram` prints `true`, e.g. MFTP0)**: Android allows no third-party notification listener there, so `allow_listener` prints nothing and does nothing. That is expected; don't keep retrying. Xiaomi force-stops Aerial at standby; from 1.21 Android's sync service brings Aerial back about 30-60 seconds after the stop, and Home Guard then turns ADB back on. Woken after more than a minute, the TV shows Aerial straight away; woken after a few seconds, it shows the stock launcher first and switches to Aerial within about a minute. To test standby, stay in standby for over a minute and look 30 seconds after waking, without pressing Home or opening an app meanwhile. 1.20 and earlier do not come back after standby on these TVs.
+- **XGIMI on Android 8 (Z6X Gen 4 and similar, 2 GB, `ro.config.low_ram=true`)**: about 15–45 s after another app comes to the front, the firmware kills Aerial's whole process; the guard goes with it and Android does not bind it again (`enabled_accessibility_services` still lists it), and the notification listener does not work on low-RAM. The firmware also re-registers its own Home as the preferred Home at every boot. Home works while the guard is alive; once the process is killed, Home stays on the XGIMI launcher: run `set-home-activity` again or open Aerial once from the app list. During the boot-time "app optimizing" screen (`com.xgimi.upgrade`'s `AppBootUpdateActivity`) memory is tightest, Aerial is killed, and the TV may stay on the XGIMI launcher. See `docs/devices/xgimi-xk03u-android8.md`.
 - **TCL**: `adb install` always fails (`INSTALL_FAILED_VERIFICATION_FAILURE`); use 多屏互动 as in "TCL". If the user didn't see the prompt on the TV, run it again.
 - **Skyworth (e.g. 7T631_T60, Android 13)**: when `adb install` fails with `INSTALL_FAILED_USER_RESTRICTED`, the firmware is verifying adb installs. Note the current value with `adb shell settings get global verifier_verify_adb_installs`, run `adb shell settings put global verifier_verify_adb_installs 0`, then install again (on macOS / Linux, run the one-liner again). Afterwards put the old value back (if it was `null`, `adb shell settings delete global verifier_verify_adb_installs`), and turn it off again for each update. This comes from a user's report; it has not been checked on a Skyworth here.
-- **TVs with only Wireless debugging** (FFALCON 55S595C Ultra, MT9655): adb can't be authorized there, so Aerial installs but can't take over Home.
+- **TVs with only Wireless debugging** (FFALCON 55S595C Ultra, MT9655): wireless adb can't connect (it answers `STLS` and has no pairing code). Ask the user to connect the TV's USB 2.0 port to the computer with a **USB A-to-A cable**; the TV then asks to authorize (a C-to-A cable did not work on the 855S595C Ultra, #1473). After that `adb tcpip 5555` moves to the network; after a restart, plug in and run it again. Without authorization Aerial installs but can't take over Home.
+- **On TCL, push with the TV on its home screen**: over live TV or an HDMI picture the 多屏互动 prompt is hidden under the video.
 - **Hisense VIDAA**: once item 7 has changed `persist.vt.use_home_pkg`, Home goes straight to Aerial; the TV still starts into its own launcher after a reboot (the firmware holds third-party apps back until boot completes), so press Home once.
 - **Other Vidda systems, OPPO K9, FFALCON Crane 6**: Aerial installs but the TV doesn't start into it (the firmware only accepts its own launcher unless that is removed, which this install doesn't do). Aerial still works as an app.
 - **Check line 4 is 0 but line 3 lists Aerial**: common right after an update, when the system still looks in the old install directory (Xiaomi, Android 9, #72). Run `adb shell am force-stop app.orchard.tv`, wait 3 seconds, run `adb shell am start -W -n app.orchard.tv/.MainActivity`, and check again. On macOS / Linux, `curl -fsSL https://aerial.qust.me/install.sh | TV=<IP> bash -s repair` does the same.

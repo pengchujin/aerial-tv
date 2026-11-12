@@ -200,6 +200,9 @@ class HomeActivity : Activity(), HomeView.Host {
 
     // ---- loading ----
 
+    /** "My Photos, in turn" on to its next photo when due: on coming back to Home and each minute while up. */
+    override fun minute() { if (resumed && Wallpapers.rotationDue()) loadBackdrop() }
+
     private fun loadBackdrop() {
         work.execute {
             val b = runCatching { Wallpapers.load() }
@@ -212,19 +215,29 @@ class HomeActivity : Activity(), HomeView.Host {
                 Glass.frost = b.frost
                 gridBackdrop = BitmapDrawable(resources, grid).apply { setFilterBitmap(true) }
                 home.setGlass(b.frost)
-                if (saver == null) window.setBackgroundDrawable(if (inGrid) gridBackdrop else backdrop)
+                if (saver == null) showBackdrop()
             }
         }
     }
 
     private var dailyCheckedAt = 0L
 
-    /** Bing's photo of the day: looked at again when Home is back, at most every three hours. */
-    private fun refreshDaily() {
-        if (SystemClock.elapsedRealtime() - dailyCheckedAt < 3 * 60 * 60 * 1000L && dailyCheckedAt != 0L) return
+    /**
+     * Bing's photo of the day: looked at again when Home is back, at most every three hours, and
+     * after a failed fetch as soon as a network comes up ([networkUp]) or half an hour on. Home
+     * started at boot before Wi-Fi joined failed once and stayed in front, so it never looked
+     * again (Lite in /system, ZTE W152D, Android 11, issue #1443).
+     */
+    private fun refreshDaily(networkUp: Boolean = false) {
+        val retry = Wallpapers.dailyFailed && (networkUp || SystemClock.elapsedRealtime() - dailyCheckedAt >= DAILY_RETRY_MS)
+        if (!retry && SystemClock.elapsedRealtime() - dailyCheckedAt < 3 * 60 * 60 * 1000L && dailyCheckedAt != 0L) return
         dailyCheckedAt = SystemClock.elapsedRealtime()
+        handler.removeCallbacks(dailyRetry)
         work.execute {
-            if (!Wallpapers.refreshDaily()) return@execute
+            if (!Wallpapers.refreshDaily()) {
+                if (Wallpapers.dailyFailed) handler.post { if (!isFinishing) handler.postDelayed(dailyRetry, DAILY_RETRY_MS) }
+                return@execute
+            }
             handler.post {
                 Wallpapers.rebuildList()
                 if (Wallpapers.selectedId.startsWith("daily:") || Wallpapers.resolve()?.kind == WallpaperKind.Daily) loadBackdrop()
@@ -276,8 +289,19 @@ class HomeActivity : Activity(), HomeView.Host {
      * showed Wi-Fi whatever the network until it took the VPN badge (issue #809).
      */
     private val connectivity = object : BroadcastReceiver() {
-        override fun onReceive(context: Context, intent: Intent) = showNetwork()
+        override fun onReceive(context: Context, intent: Intent) {
+            showNetwork()
+            val connected = runCatching {
+                (getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager).activeNetworkInfo?.isConnected == true
+            }.getOrDefault(false)
+            if (!connected) return
+            // What failed before the network was there (issue #1443).
+            if (Wallpapers.dailyFailed) refreshDaily(networkUp = true)
+            Weather.refreshIfStale({ work.execute(it) }, networkUp = true) { handler.post { showWeather() } }
+        }
     }
+
+    private val dailyRetry = Runnable { refreshDaily() }
 
     private fun showNetwork() {
         work.execute {
@@ -374,12 +398,15 @@ class HomeActivity : Activity(), HomeView.Host {
     override fun openFolder(folder: AppEntry) {
         val f = folder.folder ?: return
         val inside = folderApps[f.id] ?: return
-        showPanel(FolderView(this, ::closePanel, f.id, f.name, inside, launch = ::launch, menu = { app, tile -> openMenu(app, tile) }), keepBelow = false)
+        showPanel(FolderView(this, ::closePanel, f.id, f.name, inside, launch = ::launch, menu = { app, tile -> openMenu(app, tile) },
+            moveTo = { key, target -> layout.moveInFolder(key, target); arrange() }), keepBelow = false)
     }
 
     override fun openMenu(app: AppEntry, tile: android.view.View) {
-        // Nothing to rearrange in Kids and Elders mode (#1013).
-        if (!Kids.active) showMenu(app, tileRect(tile), MenuPage.Main)
+        // Nothing to rearrange in Kids and Elders mode (#1013), nor on a locked Home: say where it unlocks.
+        if (Kids.active) return
+        if (LiteSettings.homeLocked) { Toast.makeText(this, getString(R.string.home_locked_notice), Toast.LENGTH_LONG).show(); return }
+        showMenu(app, tileRect(tile), MenuPage.Main)
     }
 
     private enum class MenuPage { Main, Folders, Rename }
@@ -406,8 +433,13 @@ class HomeActivity : Activity(), HomeView.Host {
                 add(Glyph.Pencil, R.string.menu_rename_folder, "›") { showMenu(app, anchor, MenuPage.Rename) }
                 add(Glyph.Folder, R.string.menu_ungroup) { closeMenu(); layout.ungroup(folder.id); folderTiles.remove(folder.id); arrange() }
             } else {
+                // In a folder too: its apps keep an order of their own (issue #1344).
+                add(Glyph.Move, R.string.menu_move) {
+                    closeMenu()
+                    val open = panels.lastOrNull() as? FolderView
+                    if (holder != null && open != null) open.startMove(app.key) else home.startMove(app)
+                }
                 if (holder != null) add(Glyph.Folder, R.string.menu_out_of_folder) { closeMenu(); layout.takeOutOfFolder(app.key); arrange() }
-                else add(Glyph.Move, R.string.menu_move) { closeMenu(); home.startMove(app) }
                 add(Glyph.Folder, R.string.menu_to_folder, "›") { showMenu(app, anchor, MenuPage.Folders) }
                 add(Glyph.EyeSlash, R.string.menu_hide) { closeMenu(); layout.hide(app.key); arrange() }
                 // A picture chosen on the phone page; changing it is done there.
@@ -493,7 +525,8 @@ class HomeActivity : Activity(), HomeView.Host {
             bootLabel = LiteSettings.bootApp?.let { pkg -> entry(pkg)?.label ?: pkg },
             clearBoot = { LiteSettings.chooseBootApp(null); showControlCenter(CcPage.Main) },
             noInputs = { Toast.makeText(this, getString(R.string.cc_no_inputs), Toast.LENGTH_SHORT).show() },
-            kidsLeave = { whenVerified { Kids.suspend(); closeAll() } },
+            // Unlocking as well: the parent who just typed the PIN was asked again on opening Settings (#718).
+            kidsLeave = { showPanel(PinPad(this, ::closePanel, PinPad.Mode.Unlock) { closePanel(); Kids.suspend(); closeAll() }, keepBelow = true) },
             kidsBack = { closeAll(); Kids.start() },
         ))
     }
@@ -510,6 +543,11 @@ class HomeActivity : Activity(), HomeView.Host {
             },
             onLayout = { home.applySettings(); showWeather(); refaceIfResized() },
             onHidden = { whenUnlocked(::openHidden) },
+            // Locking needs nothing; unlocking, the PIN where one is set.
+            onHomeLock = { on ->
+                if (on) { LiteSettings.chooseHomeLocked(true); refreshPersonalize() }
+                else whenUnlocked { LiteSettings.chooseHomeLocked(false); refreshPersonalize() }
+            },
             onSaverNow = { closeAll(); showSaver() },
             onPin = { on ->
                 if (on) showPanel(PinPad(this, ::closePanel, PinPad.Mode.Create) { closePanel(); refreshPersonalize() }, keepBelow = true)
@@ -587,24 +625,66 @@ class HomeActivity : Activity(), HomeView.Host {
 
     /**
      * Down in the grid the background is the plate's glass over the whole screen, as in the full app.
-     * The swap fades over the window background (two full-screen draws only while it fades), then
-     * the window background itself becomes the new picture. Without hardware acceleration it jumps.
-     * The old picture stays opaque under the new one fading in: cross-faded, both were half
-     * transparent halfway and a quarter of the black window showed through, a dark blink on every
-     * row change (Letv S40 Air, MStar, Android 4.3, issues #1118 #940; the reporter's analysis).
+     * The swap fades over the window background (two full-screen draws only while it fades).
+     * Without hardware acceleration, or with effects set to smooth, it jumps. The old picture stays
+     * opaque under the new one fading in: cross-faded, both were half transparent halfway and a
+     * quarter of the black window showed through, a dark blink on every row change (Letv S40 Air,
+     * MStar, Android 4.3, issues #1118 #940; the reporter's analysis). Once it is done,
+     * cross-fading is switched on, which has a finished fade draw only the picture on top, not
+     * both: one full-screen draw again.
+     *
+     * The window background is one fade for both pictures, made with the first wallpaper and kept
+     * ([showBackdrop]): each time it was replaced, that MStar drew one dark frame. 1.16 replaced it
+     * twice a row change, 1.17 still at the first row change after a cold start, and at every one
+     * with effects set to smooth, which jumped by replacing it (#1118 #940 on Lite 1.17).
      */
     override fun inGrid(grid: Boolean) {
         if (inGrid == grid) return
         inGrid = grid
-        val to = (if (grid) gridBackdrop else backdrop) ?: return
         if (saver != null) return
-        if (!LiteSettings.full(root.isHardwareAccelerated)) { window.setBackgroundDrawable(to); return }
-        val from = (if (grid) backdrop else gridBackdrop) ?: run { window.setBackgroundDrawable(to); return }
-        val fade = android.graphics.drawable.TransitionDrawable(arrayOf(from, to))
-        window.setBackgroundDrawable(fade)
-        fade.startTransition(220)
-        handler.postDelayed({ if (inGrid == grid && saver == null) window.setBackgroundDrawable(to) }, 260)
+        val fade = rowFade?.takeIf { window.decorView.background === it } ?: run { showBackdrop(); return }
+        turnRowFade(fade, grid, if (LiteSettings.full(root.isHardwareAccelerated)) 220 else 1)
     }
+
+    /** Runs [fade] to the grid's picture or Home's, from wherever it is; see inGrid. */
+    private fun turnRowFade(fade: android.graphics.drawable.TransitionDrawable, grid: Boolean, ms: Int) {
+        if (rowFadeToGrid == grid) return
+        fade.isCrossFadeEnabled = false
+        fade.reverseTransition(ms)
+        rowFadeToGrid = grid
+        handler.removeCallbacks(rowFadeDone)
+        handler.postDelayed(rowFadeDone, ms + 40L)
+    }
+
+    /**
+     * Makes the window background the row change's fade, Home's picture under the grid's, showing
+     * the one for where the focus is. Made once and kept: a new wallpaper goes into it in place.
+     */
+    private fun showBackdrop() {
+        val home = backdrop ?: return
+        val grid = gridBackdrop ?: return
+        val fade = rowFade?.apply {
+            setDrawableByLayerId(HOME_LAYER, home)
+            setDrawableByLayerId(GRID_LAYER, grid)
+            invalidateSelf()
+        } ?: android.graphics.drawable.TransitionDrawable(arrayOf(home, grid)).apply {
+            setId(0, HOME_LAYER)
+            setId(1, GRID_LAYER)
+            isCrossFadeEnabled = true
+            rowFade = this
+            rowFadeToGrid = false
+        }
+        turnRowFade(fade, inGrid, 1)
+        if (window.decorView.background !== fade) window.setBackgroundDrawable(fade)
+    }
+
+    private val rowFadeDone = Runnable { rowFade?.takeIf { window.decorView.background === it }?.isCrossFadeEnabled = true }
+
+    /** The row change's fade, the window background once a wallpaper is in; see inGrid. */
+    private var rowFade: android.graphics.drawable.TransitionDrawable? = null
+
+    /** Whether rowFade, done or still running, ends on the grid's background. */
+    private var rowFadeToGrid = false
 
     override fun moved(key: String, target: String) {
         layout.move(key, target)
@@ -677,7 +757,7 @@ class HomeActivity : Activity(), HomeView.Host {
         handler.removeCallbacks(releaseScreen)
         window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         home.visibility = android.view.View.VISIBLE
-        (if (inGrid) gridBackdrop else backdrop)?.let { window.setBackgroundDrawable(it) }
+        showBackdrop()
         home.refreshClock()
         resetIdle()
     }
@@ -784,6 +864,9 @@ class HomeActivity : Activity(), HomeView.Host {
     companion object {
         private const val TAG = "AerialLite"
         private const val SCREENSAVER_HOLD_MS = 4 * 60 * 60 * 1000L
+        private const val DAILY_RETRY_MS = 30 * 60 * 1000L
+        private const val HOME_LAYER = 1
+        private const val GRID_LAYER = 2
         /** The TVs' settings apps, kept behind the PIN (the full app's SystemProbe.isSettingsApp). */
         val SETTINGS_APPS = setOf("com.android.settings", "com.android.tv.settings", "com.xiaomi.mitv.settings", "com.tcl.settings", "com.haier.tv.menusetting", "com.pptv.setting")
     }

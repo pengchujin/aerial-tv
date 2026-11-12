@@ -38,6 +38,7 @@ import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
@@ -234,7 +235,7 @@ private fun SmallChip(label: String, on: Boolean, focusRequester: FocusRequester
         )
         val fg = if (state.focused) Palette.OnFocus else Palette.Label
         Row(
-            Modifier.clip(RoundedCornerShape(50)).background(bg).height(36.dp).padding(horizontal = 12.dp),
+            Modifier.clip(RoundedCornerShape(50)).drawBehind { drawRect(bg) }.height(36.dp).padding(horizontal = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(5.dp),
         ) {
@@ -250,7 +251,7 @@ private fun WideButton(label: String, glyph: Glyph?, focusRequester: FocusReques
         val bg by animateColorAsState(if (state.focused) Palette.Focus else Palette.FillStrong, tween(140, easing = Motion.EaseOut), label = "kids-button")
         val fg = if (state.focused) Palette.OnFocus else Palette.Label
         Row(
-            Modifier.smoothBackground(bg, 14.dp).height(48.dp).padding(horizontal = 22.dp),
+            Modifier.smoothBackground({ bg }, 14.dp).height(48.dp).padding(horizontal = 22.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {

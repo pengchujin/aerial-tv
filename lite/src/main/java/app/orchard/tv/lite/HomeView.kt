@@ -41,6 +41,8 @@ class HomeView(context: Context, private val host: Host) : FrameLayout(context) 
         fun moved(key: String, target: String)
         /** Home went down into the grid (the frosted background) or back to the top row. */
         fun inGrid(grid: Boolean)
+        /** A minute has turned while Home is up. */
+        fun minute() {}
     }
 
     private val layer = FrameLayout(context)
@@ -73,6 +75,9 @@ class HomeView(context: Context, private val host: Host) : FrameLayout(context) 
         super.dispatchDraw(canvas)
         canvas.restoreToCount(saved)
     }
+
+    /** The top-row tile Up left for the pill, to go back to; -1 for none. */
+    private var pillFrom = -1
 
     /** The focused tile; [PILL] for the status pill. */
     private var focus = 0
@@ -114,6 +119,7 @@ class HomeView(context: Context, private val host: Host) : FrameLayout(context) 
         topRight.gravity = Gravity.CENTER_VERTICAL
         topRight.clipChildren = false
         topRight.addView(pill)
+        pill.setOnClickListener { if (!moving) { focus = PILL; showFocus(animate = true); host.openControlCenter() } }
         addView(topRight, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT, Gravity.END or Gravity.TOP).apply {
             topMargin = Ui.pxi(28f)
             rightMargin = Ui.pxi(MARGIN - 14f)
@@ -139,6 +145,7 @@ class HomeView(context: Context, private val host: Host) : FrameLayout(context) 
     fun applySettings() {
         clock.large = LiteSettings.largeClock
         clock.alignEnd = LiteSettings.clockRight
+        clock.refresh()
         (clock.parent as? android.view.ViewGroup)?.removeView(clock)
         if (!LiteSettings.largeClock && LiteSettings.clockRight) {
             // Just left of the pill, level with it.
@@ -163,6 +170,11 @@ class HomeView(context: Context, private val host: Host) : FrameLayout(context) 
             for (n in names) n.layoutParams = n.layoutParams.apply { width = Ui.pxi(TILE_W + 36f) }
         }
         val rows = (apps.size + COLS - 1) / COLS
+        // Tall enough to hold every row: Home scrolls the layer up by translation, and a click lands
+        // on a tile only within the layer's own bounds. One screen high, the third row down and
+        // below took no clicks once scrolled to (Mi TV 2, Android 4.4, issue #1094).
+        val layerH = Ui.screenH * 2 + Ui.pxi(PITCH) * rows
+        if (layer.layoutParams.height < layerH) layer.layoutParams = layer.layoutParams.apply { height = layerH }
         oneRow = LiteSettings.oneRowHome || rows <= 1
         peek = LiteSettings.peekNextRow
         hasPlate = LiteSettings.homePlate && apps.isNotEmpty()
@@ -218,6 +230,8 @@ class HomeView(context: Context, private val host: Host) : FrameLayout(context) 
             val (t, n) = old.remove(app.key) ?: (TileView(context) to nameView(context)).also { (t, n) ->
                 layer.addView(t, 1, LayoutParams(Ui.pxi(TILE_W + 2 * TILE_EXT), Ui.pxi(TILE_H + 2 * TILE_EXT)))
                 layer.addView(n, LayoutParams(Ui.pxi(TILE_W + 36f), Ui.pxi(24f)))
+                t.setOnClickListener { tapped(tiles.indexOf(t), long = false) }
+                t.setOnLongClickListener { tapped(tiles.indexOf(t), long = true); true }
             }
             t.entry = app
             t.invalidate()
@@ -363,6 +377,12 @@ class HomeView(context: Context, private val host: Host) : FrameLayout(context) 
                 if (e.action == KeyEvent.ACTION_UP && focus != PILL && app != null && !moving) host.openMenu(app, tiles[focus])
                 return true
             }
+            // The remote's gear key, which a stock launcher answers (the full app's issue #1190):
+            // Control Center, where Settings is, behind the PIN when one is set.
+            KeyEvent.KEYCODE_SETTINGS -> {
+                if (e.action == KeyEvent.ACTION_UP && !moving) host.openControlCenter()
+                return true
+            }
         }
         val dir = when (e.keyCode) {
             KeyEvent.KEYCODE_DPAD_LEFT -> -1
@@ -373,6 +393,23 @@ class HomeView(context: Context, private val host: Host) : FrameLayout(context) 
         }
         if (e.action == KeyEvent.ACTION_DOWN) step(dir)
         return true
+    }
+
+    /**
+     * A tap on a tile (a mouse or a touch screen) does what the full app's Pressable does: it takes
+     * the focus there and opens the app, or its menu when held. Lite had no touch at all, and a
+     * mouse only moved its pointer over Home (Mi TV 2, Android 4.4, issue #1094).
+     */
+    private fun tapped(i: Int, long: Boolean) {
+        val app = apps.getOrNull(i) ?: return
+        if (moving) { if (i == focus) finishMove(); return }
+        focus = i
+        showFocus(animate = true)
+        when {
+            long -> host.openMenu(app, tiles[i])
+            app.folder != null -> host.openFolder(app)
+            else -> host.launch(app)
+        }
     }
 
     /** Back: in the grid, to the top row; on the top row, the screensaver (tvOS) if chosen. */
@@ -388,7 +425,17 @@ class HomeView(context: Context, private val host: Host) : FrameLayout(context) 
     private fun step(dir: Int) {
         if (apps.isEmpty()) return
         if (focus == PILL) {
-            if (dir == COLS) { focus = minOf(COLS - 1, apps.size - 1); showFocus(animate = true) }
+            // Down, left and right go back to the top-row tile Up came from (issues #703, #1215);
+            // without one, down and left go to the row's last tile and right to its first.
+            val rowEnd = minOf(COLS, apps.size) - 1
+            val to = when {
+                dir == -COLS -> return
+                pillFrom in 0..rowEnd -> pillFrom
+                dir == 1 -> 0
+                else -> rowEnd
+            }
+            focus = to
+            showFocus(animate = true)
             return
         }
         // Left and right stay in the row, as on tvOS.
@@ -396,6 +443,7 @@ class HomeView(context: Context, private val host: Host) : FrameLayout(context) 
         var to = focus + dir
         if (dir == -COLS && to < 0) {
             if (moving) return
+            pillFrom = focus
             focus = PILL
             showFocus(animate = true)
             return
@@ -439,6 +487,7 @@ class HomeView(context: Context, private val host: Host) : FrameLayout(context) 
     private val tick = object : Runnable {
         override fun run() {
             clock.refresh()
+            host.minute()
             pill.requestLayout()
             pill.invalidate()
             val now = System.currentTimeMillis()

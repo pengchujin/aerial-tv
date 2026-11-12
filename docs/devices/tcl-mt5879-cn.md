@@ -64,7 +64,8 @@ TCL 手机 App 有一个「把手机里的 APK 推到电视」的功能。电视
 - 冷启动后，第三方 App 的服务绑定、广播接收和进程启动，都要经过 `TclAppBootManagerImpl`（在 `/apex/com.tcl.tcore/javalib/tcl-service.jar` 里，由 `ActiveServices` 调用 `getTclAppBootManagerInjector().canBindServiceGo`）。默认会拒绝，日志里是 `ActivityManager: forbid bind service app.orchard.tv/...HomeGuardService`，所以开机后停在 TCL 桌面。
 - 放行条件是两个 TCL 自定义的 AppOps：`APP_AUTO_START`（op 100，系统拉起）和 `APP_ASSOC_START`（op 101，其他 App 关联拉起）。默认分别是 `ignore` 和 `default`。`install.sh` 用 `appops set app.orchard.tv APP_AUTO_START allow`（以及 `APP_ASSOC_START`）放行，`restore.sh` 会改回 `default`。
 - 2026-10-20 实测：放行后 `adb reboot`，开机约 0.5 秒通知监听就被绑定，Aerial 被拉起，守护服务接管桌面。
-- 试过但没用的办法：`settings put system boot_app_mode boot_launcher` 加上 `boot_app_componentname app.orchard.tv/.MainActivity`（TCL「开机进入」的设置，由 `com.tcl.ttvs` 的 MMMService 管理），重启后还是进 TCL 桌面，已改回空值。
+- `system boot_app_mode boot_launcher` 加 `boot_app_componentname app.orchard.tv/.MainActivity`（TCL「开机进入」，`com.tcl.ttvs` 的 MMMService 管）：2026-10-20 试时重启后还是进 TCL 桌面；2026-11-03 在 1.81 测试包、当前固件上重测有效：两次 `adb reboot` 都是 13.7–14.1 秒第一个起来的就是 Aerial（在开机画面结束前），TCL 桌面没到过前台；守护在 20.8 秒还以为原桌面在前、多拉了一次（onPause 到 onResume 7 ms）。不设时对照两次：一次 13.8 秒 TCL 桌面、24 秒守护拉回（TCL 桌面露 10 秒），一次一直停在 TCL 桌面直到 5 分钟后屏保（那次开机日志被冲掉，原因没查到）。测完两项改回空值，户主自己再试也满意，1.81 起 `install.sh` 在装有 `com.tcl.ttvs` 或这项已有值的电视上设它，原值记在 `settings global aerial_boot_app_*`，`restore.sh` 改回。#1185 雷鸟鹤 6 2027（T966D5）也是这个设置。
+- 雷鸟鹤 6（tcl_m7642，安卓 9，#1234）上同样的两项设了没用：开机仍先出 TCL 桌面约 5 秒，等用户解锁、守护绑定后才切到 Aerial。这台 `adb reboot` 等于关机，要手动开机。
 - TCL 开机时有可能把 `screensaver_components` 写回「艺术画报」（实测出现过一次）。所以 `install.sh` 接管屏保时，会通过 ConfigReceiver 发送 `own_screensaver=true`，之后 Aerial 每次启动都会检查，被改回去就再改成 Aerial（`GuardSetup.keepScreensaver`）。
 
 ## HOME 与守护
@@ -73,6 +74,8 @@ TCL 手机 App 有一个「把手机里的 APK 推到电视」的功能。电视
 - 同样是 cyberui、多屏互动装 guard 版的 TCL tc8000_ay30a2（Amlogic，Android 11）：守护运行时，遥控器关机后再也唤不醒，只能拔电；关掉守护就正常（#371，报告人做了对照实验）。怀疑是守护的按键过滤让唤醒的电源键经过了 Aerial 的进程。1.41 起屏幕关闭时不过滤按键，亮屏后再开，等报告人复测。1.43 复测仍唤不醒，关掉应用冻结也一样（#371），同型号刷回 V472 固件正常、V745 才有（#132）。1.44 加了可选的「待机时守护退出」：`adb shell am broadcast -a app.orchard.tv.CONFIG -n app.orchard.tv/.guard.ConfigReceiver --ez guard_off_in_standby true`。息屏时守护用 `disableSelf()` 把自己移出无障碍列表（Android 7 以下改写设置），亮屏时由挂在进程上的接收器加回，加回后照常检查前台、拉回原桌面；进程在待机中被杀时，下一次启动（通知监听重绑、同步）发现还在息屏就只挂接收器，不提前加回。我们的 MT5879 上实测：按待机后 0.5 秒内守护已移出、walleve 两个服务保留；遥控器唤醒后守护加回、walleve 仍在、前台是 Aerial（2026-10-24，测完把选项关回去了）。
 - **升级 App 后，守护服务处于「已启用但没绑定」状态**。`GuardSetup.rebindIfStalled` 会先移除、1.5 秒后再加回，触发重新绑定（两次写入挨得太近会被系统合并，不起作用）。
 - TCL 自己有两个无障碍服务（`com.tcl.walleve`，「小T助手」），改 `enabled_accessibility_services` 时一定要保留。
+- **长按主页键**（#1354，2026-11-07 在这台上复现并验证）：TCL 的后台管理 `com.tcl.cyberui/.taskmanager.view.TaskManagerActivity` 不导出，系统长按时由 `TclPhoneWindowManager.launchAllAppsActionForAll` 发广播 `com.tcl.action.OPEN_GLOBAL_HISTORY` 给 cyberui 导出、无权限的 `com.tcl.global.history.receiver.GlobalHistoryReceiver`，它再打开后台管理。守护过滤主页键时长按原来走 `GLOBAL_ACTION_RECENTS`，在这台上什么都不出；现在按住主页键（长按超时后）发同一个广播。`hid` 造的 USB 遥控器按住 1.5 秒：从 Aerial 和 AIDA64 都打开后台管理，再短按回 Aerial。注意 shell 的 `input keyevent` 不经过守护的按键过滤，用它测会得到误导的结果。
+- tc8000_ay30a2 的待机唤醒（#1316，2026-11-07 报告人的日志）：第一次按电源键时 `into_wake_up ... wakeup_pkg:system_server` 后 `TclPowerManagerService: interceptStrWakeup ret = true`，电视又挂起（黑屏、断网），第二次按是 `wakeup_pkg:NotInjected` 才正常。开 `guard_off_in_standby`（息屏时 `stopped filtering keys`、守护退出）照样被拦，所以不能确定是守护注入的按键；和 #371 的现象同一台机型。等报告人完全关守护做对照。
 - 待机时网络 ADB 会断，但 adbd 不会被关；唤醒后能直接重连。
 
 ## 设置入口
@@ -110,7 +113,7 @@ TCL 手机 App 有一个「把手机里的 APK 推到电视」的功能。电视
 - 1.42：遥控器信号源键在有 TCL 信号源面板的固件上交给固件（PR #334），实测只弹 TCL 自己的面板。
 - 屏保里按主页键没反应（2026-10-29 修，未发版）：Android 11 守护一直过滤按键，主页键在系统之前被接住，守护「拉回 Aerial」，可 Aerial 本来就在屏保下面，系统又没收到这次按键，屏保就一直开着。现在守护接住主页键时，Aerial 的屏保（`AerialDream`）开着就直接 `finish()`，回到主页；这次按键不算进「连按两下」，免得红外遥控器一次按键到两次时打开最近任务。uinput 实测：单按关屏保回到主页；屏保里间隔 120ms 按两下只关屏保；没有屏保时按两下照旧打开最近任务。「系统内置」屏保（艺术画报）不是 Aerial 的，关不了，仍然没反应。
 - 主屏幕的航拍壁纸（4K SDR，SurfaceView）PixelCopy 能读到，`screencap` 也截得到（2026-10-23）。
-- 但 PixelCopy 复制一帧 4K 要 0.6–1.7 秒（渲染线程被占住，按键积压）；用 MediaMetadataRetriever 从 Apple 的 1080p 文件解帧，会卡死在 TCL 的 `TclMPEG4Extractor` 里，占住 mediaserver 的取帧锁，后面的请求全部排队。请求一多，`MediaCodecList` 也会卡，任何 App 查解码器都会挂住，只能重启（2026-10-30，bugreport 里 mediaserver 有 17 个 binder 线程卡在 `MetadataRetrieverClient::getFrameAtTime`）。所以这台电视不从文件取影片的帧，玻璃也不用帧（见 ARCHITECTURE「航拍壁纸取不到帧的电视」）。
+- 但 PixelCopy 复制一帧 4K 要 0.6–1.7 秒（渲染线程被占住，按键积压）；用 MediaMetadataRetriever 从 Apple 的 1080p 文件解帧，会卡死在 TCL 的 `TclMPEG4Extractor` 里，占住 mediaserver 的取帧锁，后面的请求全部排队。请求一多，`MediaCodecList` 也会卡，任何 App 查解码器都会挂住，只能重启（2026-10-30，bugreport 里 mediaserver 有 17 个 binder 线程卡在 `MetadataRetrieverClient::getFrameAtTime`）。所以这台电视不让 mediaserver 从文件取影片的帧（见 ARCHITECTURE「航拍壁纸取不到帧的电视」）。2026-11-04 起改在 Aerial 进程里自己解关键帧（`FilmKeyFrame`，`OMX.google.h264.decoder`，这台没有 c2 解码器）：回桌面是离开时的画面，从杜比视界屏保回来也不黑屏，玻璃每 15 秒跟上影片（#1238，见 ARCHITECTURE「进程内解关键帧」）。实测媒体服务一直正常。
 - **截图截不到视频画面**（视频走独立的硬件图层，截出来是黑的），但字幕和时钟能截到。地名字幕出现，说明视频已经在渲染。
 
 ## 视频解码器
@@ -128,3 +131,7 @@ TCL 手机 App 有一个「把手机里的 APK 推到电视」的功能。电视
 ## 按键偶尔卡 1–2 秒再一起到（#1081，2026-11-01 在这台上复现）
 
 雷鸟鹤 6 2025（同为 tcl_mt5879_cn，安卓 11）报告：每 3–5 分钟遥控器卡一下，然后连续触发好几次。在这台上用 `hid` 造的虚拟键盘、在 Aerial 首页每 1.5 秒按一次左右键共 5 分钟（守护开着按键过滤）：100 次按下里中位延迟 4 ms，有一次 1016 ms，按下和抬起一起到。同一时刻 system_server 主线程 `Slow dispatch took 2001ms ... AlarmManager$ListenerWrapper`，是 JobScheduler 的 `*job.delay*` 闹钟，旁边有 TCL 拦 Plex 后台任务的 `forbid bind service`。按键过滤后的按键要经 system_server 主线程重新注入（`AccessibilityInputFilter`，#774 也是这条路），主线程一卡按键就积压。不是 Aerial 的代码；能做的只有不过滤按键（主页键会先显示 TCL 桌面几秒），要户主决定。
+
+## 手机遥控的虚拟输入设备（#1234，雷鸟鹤6 tcl_m7642）
+
+tcl_m7642（安卓 9）上即使什么都没接，也有 `sim-kb`（classes 0x63）和 `sim-mouse`（0x6b）两个设备，带 GAMEPAD 位（0x40）和字母键位（0x2），像是 TCL 手机遥控用的；另有 `sim-TP`（0x115，带 JOYSTICK）和名字里带 virtual 的 `TCL-virtual`。1.63–1.82 把 `sim-kb` / `sim-mouse` 算成手柄，别的 App 里不过滤按键，主页键先到 TCL 桌面、5 秒后才回 Aerial。现在字母键盘不算手柄。MT5879（本机）没有这些设备，只有 MTK 键盘、IR 接收器、`gIrTouch_Mouse` 和蓝牙遥控 `FF_RC902N_C1`（都没有 GAMEPAD 位）。

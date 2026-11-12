@@ -64,9 +64,9 @@ def main():
     send(sock, ">>".join(["223", "INSTALL", package, label, url, "2", version, "20", "", "", "", path_md5]))
 
     buf = b""
-    last_beat = time.time()
-    deadline = time.time() + timeout
-    while time.time() < deadline:
+    last_beat = time.monotonic()
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
         try:
             chunk = sock.recv(65536)
             if not chunk:
@@ -103,9 +103,9 @@ def main():
                           "declares a home screen: push aerial-guard.apk.", file=sys.stderr)
                     return 1
         # The TV drops a quiet session, and with it the pending install.
-        if time.time() - last_beat > 5:
+        if time.monotonic() - last_beat > 5:
             send(sock, "150>>")
-            last_beat = time.time()
+            last_beat = time.monotonic()
     sock.close()
     print("Timed out waiting for the TV.", file=sys.stderr)
     return 1

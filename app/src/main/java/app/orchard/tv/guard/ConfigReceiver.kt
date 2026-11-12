@@ -92,7 +92,15 @@ class ConfigReceiver : BroadcastReceiver() {
                 if (!HisenseSources.open(context, source.intent)) context.startActivity(source.intent)
                 "open_source: ${source.label} -> ${source.intent.component?.flattenToShortString() ?: source.intent.data}" +
                     (source.xiaomiInput?.let { " input=$it" } ?: "")
-            }.getOrElse { "open_source: ${it.javaClass.simpleName} ${it.message}" }
+            }.getOrElse {
+                // As the tile does when nothing answers the passthrough intent: the TV's own picker
+                // (XGIMI DOHKO, Android 14: the tile switched, this said ActivityNotFoundException;
+                // issue #1483, the reporter's selftest).
+                if (it is android.content.ActivityNotFoundException && source.intent.data?.host == "android.media.tv" &&
+                    SystemProbe.openInputPicker(context)
+                ) "open_source: ${source.label} -> the TV's input picker (nothing answers ${source.intent.data})"
+                else "open_source: ${it.javaClass.simpleName} ${it.message}"
+            }
             return
         }
         if (intent.getBooleanExtra("clear_pin", false)) {
@@ -151,6 +159,8 @@ class ConfigReceiver : BroadcastReceiver() {
         if (intent.getBooleanExtra("update_test_self", false)) Updates.testApk = java.io.File(context.applicationInfo.sourceDir)
         // ... --ez self_compile true   (reinstall the running APK with its dex metadata now, SelfCompile)
         if (intent.getBooleanExtra("self_compile", false)) app.orchard.tv.update.SelfCompile.runNow(context)
+        // ... --ez system_compile true   (Android 7-11: have the package manager compile Aerial now, SelfCompile)
+        if (intent.getBooleanExtra("system_compile", false)) app.orchard.tv.update.SelfCompile.askSystemNow(context)
         if (intent.getBooleanExtra("check_update", false)) {
             Updates.init(context)
             Updates.checkIfStale(force = true)
@@ -165,6 +175,18 @@ class ConfigReceiver : BroadcastReceiver() {
         intent.getStringExtra("screensaver")?.let { key ->
             Wallpapers.init(context)
             ScreensaverMode.entries.firstOrNull { it.key == key }?.let { Wallpapers.chooseScreensaver(it) }
+        }
+        // ... --es wallpaper aerial:live   (choose a wallpaper by id, as the phone page does, for
+        //                                 measuring with a film; the reply names the one before
+        //                                 and the aerial quality, to put the owner's back. ""
+        //                                 only reports them.)
+        intent.getStringExtra("wallpaper")?.let { id ->
+            Wallpapers.init(context)
+            AerialSettings.init(context)
+            val before = Wallpapers.selectedId
+            if (id.isNotEmpty()) Wallpapers.select(id)
+            resultData = "wallpaper_before=$before aerial_quality=${AerialSettings.aerialQuality.key}"
+            return
         }
         // ... --es skip_layers picture,plate   (parts of Home left undrawn until Aerial restarts, to
         //                                 find what a slow TV's frames cost; see DiagLayers)

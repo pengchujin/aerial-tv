@@ -10,6 +10,7 @@ class DisplayManager {
     var beforeModeChange: ((Int) -> Unit)? = null
     var deferLevelWrites = false
     var rejectLevelWrites = false
+    var unavailable = false
     val calls = mutableListOf<String>()
     fun getLensDispMode() = lens
     fun setLensDispMode(mode: Int): Boolean {
@@ -19,7 +20,10 @@ class DisplayManager {
         lens = mode
         return true
     }
-    fun getDlpLumensLevel(): Byte = level.toByte()
+    fun getDlpLumensLevel(): Byte {
+        check(!unavailable)
+        return level.toByte()
+    }
     fun setDlpLumensLevel(value: Byte) {
         calls += "level:$value"
         check(!rejectLevelWrites)

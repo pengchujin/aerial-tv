@@ -1,0 +1,14 @@
+{
+  "//": "Where the icon library's pictures come from, best first (tools/icon-library.py). The pictures live in local/ (they are not ours to put in the repo, except Aerial's own, which tools/icon-make.py draws from tools/icons/aerial.json). Names are shown on the phone page next to each picture.",
+  "sources": [
+    {"key": "le5inioo", "dir": "local/icons/le5inioo", "name": "le5inioo", "url": "https://github.com/le5inioo",
+     "//": "Drawn by le5inioo and shared in #706; fetched with tools/icon-import.py tools/icons/le5inioo.tsv local/icons/le5inioo"},
+    {"key": "tvos", "dir": "local/icons/tvos", "name": "tvOS app", "names": {"zh": "tvOS 版", "ru": "Приложение tvOS", "uk": "Застосунок tvOS", "kk": "tvOS қолданбасы"},
+     "//": "The icon of the app's own Apple TV version, from the App Store; fetched with tools/icon-tvos.py"},
+    {"key": "aerial", "dir": "local/icons/aerial", "name": "Aerial",
+     "//": "tools/icon-make.py tools/icons/aerial.json local/icons/aerial"},
+    {"key": "dangbei", "dir": "local/dangbei-icons/icons", "name": "Dangbei", "names": {"zh": "当贝桌面"},
+     "//": "Dangbei Launcher 4.1.7's pictures (local/dangbei-icons/README.md)"}
+  ],
+  "defaults": {}
+}

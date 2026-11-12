@@ -77,3 +77,8 @@ ADB 没开时 `/interface?mod=screencap` 会回 `{"success":false,"message":"adb
 - 亮度、音量这两个控制中心滑块的映射。
 - 待机唤醒后是否也直达 Aerial（只测了冷启动/重启）。
 - `guard` flavor（standard 装得上，就没试 guard）。
+
+## OBE_C3Ultra（m7642，Android 9，#1482）：应用内更新不弹安装框
+
+大眼橙 C3 Ultra（报告人 Agent 反编译 + logcat）：系统 `PackageInstaller` 的 `InstallStart.onCreate` 第 111 行厂商加了统计，无条件 `intent.getData().toString()`；PackageInstaller 会话的确认页没有 data，安装器 200 ms 内 NPE 崩掉。Aerial 回到前台后当成「看过确认页又退出」，不再走 ACTION_VIEW 兜底，于是点「下载并安装」只闪一下。2026-11-12 main：确认页盖住首页后 1.5 秒内首页就回来、再过 1.5 秒会话仍没有答复，就放弃会话、用 ACTION_VIEW（带 content:// data）打开安装器（单测 `UpdateSessionTest`，没在这台上验证）。
+

@@ -18,6 +18,7 @@ import android.media.AudioManager
 import android.os.Build
 import android.net.NetworkCapabilities
 import android.net.Uri
+import android.content.res.Configuration
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -63,6 +64,7 @@ import app.orchard.tv.ui.home.FilmAfterInput
 import app.orchard.tv.ui.home.HomeScreen
 import app.orchard.tv.ui.home.AerialStart
 import app.orchard.tv.ui.home.LiveFilm
+import app.orchard.tv.ui.home.saverCarriesWallpaper
 import app.orchard.tv.ui.home.asFocusedTile
 import app.orchard.tv.ui.theme.LocalReducedMotion
 import app.orchard.tv.ui.home.TileFaces
@@ -76,6 +78,7 @@ import app.orchard.tv.apps.SOURCE_KEY_PREFIX
 import app.orchard.tv.wallpaper.PhoneServer
 import app.orchard.tv.wallpaper.Wallpapers
 import app.orchard.tv.system.BootOpen
+import app.orchard.tv.system.CecSwitch
 import app.orchard.tv.system.DiagLog
 import app.orchard.tv.system.FrameStats
 import app.orchard.tv.wallpaper.AerialFormats
@@ -87,6 +90,8 @@ import app.orchard.tv.system.Sounds
 import app.orchard.tv.system.NetKind
 import app.orchard.tv.system.SystemProbe
 import app.orchard.tv.system.HisenseSources
+import app.orchard.tv.system.KonkaSources
+import app.orchard.tv.system.HomeReopen
 import app.orchard.tv.system.LaunchFallback
 import app.orchard.tv.system.settingsLaunchIntent
 import app.orchard.tv.update.SelfCompile
@@ -119,6 +124,15 @@ class MainActivity : ComponentActivity() {
             Wallpapers.rotateIfDue()
         }
     }
+
+    /**
+     * Each minute while Home is in front: "My Photos, in turn" with a short interval moves on
+     * (issue #1314). Registered only while resumed; a check that is not due does nothing.
+     */
+    private val minuteReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) = Wallpapers.rotateIfDue()
+    }
+    private var minuteReceiverOn = false
 
     private val networkCallback = object : ConnectivityManager.NetworkCallback() {
         override fun onAvailable(network: Network) = runOnUiThread {
@@ -185,7 +199,10 @@ class MainActivity : ComponentActivity() {
             startActivity(home.setClassName(fallback.packageName, fallback.name).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         }.isSuccess
         DiagLog.i("onCreate before the user is unlocked; ${if (started) "left to" else "could not start"} ${fallback.packageName}/${fallback.name}")
-        if (started) finish()
+        if (started) {
+            finish()
+            watchHandOver(applicationContext)
+        }
         return started
     }
 
@@ -199,7 +216,38 @@ class MainActivity : ComponentActivity() {
             return
         }
         super.onCreate(savedInstanceState)
+        if (savedInstanceState == null && reopenAsHome()) return
         startReal(savedInstanceState)
+    }
+
+    /**
+     * Started fresh into a task of its own by something other than a Home intent while Aerial is the
+     * system's Home: starts itself again as Home ([bringBackIntent]) and closes this task. Coocaa's
+     * launcher opens the default Home's launcher entry at boot (Skyworth 8R734_A7HP, Android 13),
+     * which made a standard task, and on that firmware a standard task kept its surface hidden: no
+     * keys, an ANR, a kill, until the guard brought Aerial back as Home.
+     *
+     * Once in [HomeReopen.WINDOW_MS]: where the firmware answers every Home intent itself and starts
+     * the Home it was told by component, the reopened Aerial again has no Home category, and it
+     * reopened over and over, 606 times in 3 minutes, never showing a window (Skyworth 100K6,
+     * 100P6E, Android 13, with persist.service.model.* set to Aerial; issue #1278, the reporter's log).
+     */
+    private fun reopenAsHome(): Boolean {
+        val started = intent ?: return false
+        if (started.action != null && started.action != Intent.ACTION_MAIN) return false
+        if (started.hasCategory(Intent.CATEGORY_HOME) || !isTaskRoot) return false
+        val again = bringBackIntent(this)
+        if (!again.hasCategory(Intent.CATEGORY_HOME)) return false
+        if (!HomeReopen.mayReopen(SystemClock.elapsedRealtime())) {
+            DiagLog.i("started as ${started.categories} again right after reopening as Home; staying")
+            return false
+        }
+        DiagLog.i("started as ${started.categories} in task $taskId; reopening as Home")
+        return runCatching {
+            startActivity(again)
+            finishAndRemoveTask()
+            true
+        }.getOrDefault(false)
     }
 
     /**
@@ -224,6 +272,8 @@ class MainActivity : ComponentActivity() {
         FontWarmup.start(this)
         val uhd = UhdCanvas.scale(this)
         Wallpapers.init(this)
+        // A receiver may have started the wallpapers with the app's size; Home's window is the one.
+        Wallpapers.fitScreen(this)
         Weather.init(this)
         Updates.init(this)
         lifecycleScope.launch(Dispatchers.IO) { SelfCompile.init(this@MainActivity) }
@@ -435,7 +485,31 @@ class MainActivity : ComponentActivity() {
             BootOpen.noteOpened(this@MainActivity)
             openedAppSinceHome = true
             open(intent.second)
+            if (again && id != null) nudgeVolumeAfterReopen()
         }
+    }
+
+    /**
+     * Opening an input again right after the firmware did can leave Amlogic's tvserver with its
+     * pre-mute on: the picture came, but HDMI had no sound until a volume key was pressed
+     * (MiTV4-ANSM0, Android 6: 2 of 5 cold boots, the pre-mute landing after the "still stable"
+     * that would have lifted it; the reporter's logcat, issue #1337). Any volume change lifts it.
+     * A step down and back, without the volume panel, leaves the volume where it was. Only after
+     * that reopen, and never on a stream the viewer muted.
+     */
+    private fun nudgeVolumeAfterReopen() {
+        Handler(Looper.getMainLooper()).postDelayed({
+            val am = getSystemService<AudioManager>() ?: return@postDelayed
+            runCatching {
+                if (Build.VERSION.SDK_INT >= 23 && am.isStreamMute(AudioManager.STREAM_MUSIC)) return@runCatching
+                val level = am.getStreamVolume(AudioManager.STREAM_MUSIC)
+                val other = if (level > 0) level - 1 else 1
+                if (other > am.getStreamMaxVolume(AudioManager.STREAM_MUSIC)) return@runCatching
+                am.setStreamVolume(AudioManager.STREAM_MUSIC, other, 0)
+                am.setStreamVolume(AudioManager.STREAM_MUSIC, level, 0)
+                DiagLog.i("boot input opened again; volume set again at $level")
+            }
+        }, REOPEN_VOLUME_NUDGE_MS)
     }
 
     /**
@@ -631,12 +705,11 @@ class MainActivity : ComponentActivity() {
             if (asked && !SystemScreensaver.startFirmware(this)) DiagLog.i("no system screensaver to start")
             return
         }
-        // Aerials over the aerial wallpaper: Home carries the wallpaper's film on, the same player in
-        // the same format, so there is no black between them; the dream would be a new player in a
-        // new window, and showed black even in 4K (TCL MT5879). Not with Dolby Vision chosen by hand,
-        // which the wallpaper does not play (AerialFormats.screensaverCarriesWallpaper).
-        val carry = Wallpapers.selectedId == Wallpapers.LIVE && Wallpapers.screensaver == ScreensaverMode.Aerial &&
-            AerialFormats.screensaverCarriesWallpaper(this)
+        // Aerials over the aerial wallpaper, or the owner's videos over their video wallpaper: Home
+        // carries the wallpaper's film on, the same player in the same format, so there is no black
+        // between them; the dream would be a new player in a new window, and showed black even in
+        // 4K (TCL MT5879). Not with Dolby Vision chosen by hand, which the wallpaper does not play.
+        val carry = saverCarriesWallpaper(this)
         if (!carry && !dreamFails(this) && SystemScreensaver.isAerials(this)) {
             // The dream's film needs the decoder the wallpaper's holds: TCL MT5879 failed Dolby
             // Vision beside it and the dream fell back to 4K HEVC.
@@ -651,6 +724,7 @@ class MainActivity : ComponentActivity() {
         }
         DiagLog.i("screensaver starts (${Wallpapers.screensaver})")
         vm.screensaverVisible = true
+        SelfCompile.onScreensaver { vm.screensaverVisible }
         // Holding the screen on keeps the firmware's screensaver from starting over ours. After a
         // long stretch, let go so the TV's own power policy can still turn the panel off. Not
         // where the screen never goes off: letting go only handed it to the firmware's
@@ -694,6 +768,11 @@ class MainActivity : ComponentActivity() {
 
     /** An app (or the stock launcher) was opened from the grid and Home has not been pressed since. */
     private var openedAppSinceHome = false
+        set(value) {
+            field = value
+            if (value) openedAppAt = SystemClock.uptimeMillis()
+        }
+    private var openedAppAt = Long.MIN_VALUE / 2
 
     private fun restartIdleTimer() {
         vm.lastInputAt = SystemClock.uptimeMillis()
@@ -918,9 +997,21 @@ class MainActivity : ComponentActivity() {
         resumeWork()
     }
 
+    /** The screen turned (to portrait, #1416) or resized: pictures follow the window's new shape. */
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        if (realStarted) Wallpapers.fitScreen(this)
+    }
+
     /** What onResume does once the user is unlocked; also run by a start that was locked before. */
     private fun resumeWork() {
         vm.resumed = true
+        CecSwitch.register(this)
+        if (!minuteReceiverOn) {
+            // TIME_TICK is a protected system broadcast; it is only delivered to registered receivers.
+            ContextCompat.registerReceiver(this, minuteReceiver, IntentFilter(Intent.ACTION_TIME_TICK), ContextCompat.RECEIVER_NOT_EXPORTED)
+            minuteReceiverOn = true
+        }
         KidsWatch.homeInFront = true
         idleHandler.removeCallbacks(endHomeBounce)
         vm.homeBounce = false
@@ -940,9 +1031,14 @@ class MainActivity : ComponentActivity() {
             if (BootOpen.dueAfterColdWake(this, age)) openBootSource("first in front after a cold wake")
         }
         // Back in front by any route (Home was handled in onNewIntent, which runs first; Back from
-        // the app lands here directly), so the next Home press is a Home-on-Home again.
-        openedAppSinceHome = false
-        leftForAnApp = false
+        // the app lands here directly), so the next Home press is a Home-on-Home again. Not for an
+        // app opened just now, in this resume or the onCreate / onNewIntent before it (what the TV
+        // starts on opens from its own entry without suspending): cleared, the guard took that app
+        // for a cover of Home and pulled Aerial over it (MiTV-MFTR0 wake, 2026-11-08).
+        if (SystemClock.uptimeMillis() - openedAppAt > JUST_OPENED_MS) {
+            openedAppSinceHome = false
+            leftForAnApp = false
+        }
         LaunchFallback.next()?.let { page ->
             // Only where the page truly closed: Hisense's network page (85E5N, MT9653, Android 11)
             // is a panel over Aerial, which resumes beneath it without window focus, and the next
@@ -956,12 +1052,14 @@ class MainActivity : ComponentActivity() {
                 }
             }, FALLBACK_FOCUS_MS)
         }
+        GuardSetup.rebindForJmgoKeys(this)
     }
 
     override fun onPause() {
         super.onPause()
         if (locked) return
         vm.resumed = false
+        if (minuteReceiverOn) { runCatching { unregisterReceiver(minuteReceiver) }; minuteReceiverOn = false }
         KidsWatch.homeInFront = false
         Updates.onHomePaused()
         DiagLog.i("onPause")
@@ -1011,6 +1109,10 @@ class MainActivity : ComponentActivity() {
             return
         }
         openedAppSinceHome = true
+        SystemProbe.settingsTileIntent(this, app.packageName)?.let {
+            open(it)
+            return
+        }
         // The stock launcher (Xiaomi's PatchWall, with the maker's own iQIYI / Mango content) opens
         // through the system Home action where it can; see HomeGuardService.openStockLauncher.
         if (HomeGuardService.isStockHome(app.packageName) &&
@@ -1029,8 +1131,16 @@ class MainActivity : ComponentActivity() {
         }
         // Xiaomi's settings tile can close at once like Control Center's button (issue #834).
         LaunchFallback.arm(if (app.packageName == "com.xiaomi.mitv.settings") SystemProbe.settingsFallbacks(this) else emptyList())
+        // Older Konka: an input tile switches like Control Center's list, the input first and then
+        // its page; started directly it showed the input last used (Konka 828, Android 5.0.1, 1.83:
+        // the list switched, the tiles did not; issue #710, the reporter's local build).
+        if (app.source != null && KonkaSources.needsSwitch(app.launchIntent())) {
+            open(app.launchIntent())
+            return
+        }
         try {
             FilmAfterInput.noteOpened(this, app.launchIntent())
+            if (app.source != null) allowInputThroughHome(app.launchIntent())
             if (HisenseSources.open(this, app.launchIntent())) return
             startActivity(settingsLaunchIntent(this, app.launchIntent()), options)
         } catch (e: Exception) {
@@ -1039,12 +1149,26 @@ class MainActivity : ComponentActivity() {
             if (app.source != null && SystemProbe.openInputPicker(this)) return
             // PatchWall's entry needs its permission whether or not the guard runs, and with the
             // guard switched off its tile did nothing (MiTV-ANSP0, Android 9, issue #971).
-            if (e is SecurityException && startStockLauncher(app)) return
+            if (e is SecurityException && startStockLauncher(app)) {
+                // Opened on purpose all the same. In a process the firmware had just killed the
+                // guard had not bound yet, so isStockHome said no above, and once bound it took
+                // PatchWall for one the TV raised (MiTV-ANSP0, Android 9, issue #971, PR #1216).
+                if (isHomeApp(app.packageName)) HomeGuardService.allowStockLauncher()
+                return
+            }
             Toast.makeText(this, getString(R.string.launch_failed, app.label), Toast.LENGTH_SHORT).show()
         }
     }
 
-    /** The stock launcher's own entry, or one of the same page Aerial may start (StandIn, issue #971). */
+    /**
+     * The stock launcher's own entry, or one of the same page Aerial may start (StandIn, issue
+     * #971), or its component started with MAIN alone (startStockDirectly, Coocaa only).
+     */
+    private fun isHomeApp(pkg: String): Boolean = runCatching {
+        packageManager.queryIntentActivities(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME), 0)
+            .any { it.activityInfo.packageName == pkg }
+    }.getOrDefault(false)
+
     private fun startStockLauncher(app: AppEntry): Boolean {
         val intent = app.launchIntent()
         return try {
@@ -1055,14 +1179,61 @@ class MainActivity : ComponentActivity() {
             DiagLog.i("${app.component.className} needs a permission; opening ${standIn?.className ?: "nothing"} instead")
             standIn != null && runCatching {
                 startActivity(Intent(Intent.ACTION_MAIN).setComponent(standIn).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-            }.isSuccess
+            }.isSuccess || startStockDirectly(app)
         } catch (e: Exception) {
-            false
+            startStockDirectly(app)
         }
+    }
+
+    /**
+     * The stock launcher by its component, with MAIN alone and no category. From Android 13 an
+     * explicit start from an app that targets it has to match one of the target's intent filters,
+     * and Coocaa's launchers declare only their own categories: on Skyworth 8R734_A7HP the
+     * launcher-category start of the 原桌面 tile was "Access blocked" (Intent does not match
+     * component's intent filter), and the Home press after it came back to Aerial, the Home the
+     * firmware is set to. MAIN alone is what those filters take
+     * (com.coocaa.aigc.home.home.rootpage.HomeActivity: MAIN +
+     * coocaa.intent.category.MYAPP_DISMISS).
+     */
+    private fun startStockDirectly(app: AppEntry): Boolean {
+        // Coocaa firmware from Android 13 only. On every other TV a failed stock-launcher start
+        // used to end there; trying the component once more with MAIN alone would change what those
+        // TVs do, so keep the extra attempt behind the same check bringBackIntent() uses.
+        if (!hidesStandardTasks(this)) return false
+        return runCatching {
+            startActivity(
+                Intent(Intent.ACTION_MAIN).setComponent(app.component)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED),
+            )
+        }.isSuccess
+    }
+
+    /**
+     * An input opened through an activity that is also one of the TV's Homes, which the guard
+     * would take for the stock launcher and close: JMGO H931's com.jmgo.tv/.MainActivity tunes the
+     * input and is a Home candidate as well (issue #1481). Opened on purpose, like its tile.
+     */
+    private fun allowInputThroughHome(intent: Intent) {
+        val pkg = intent.component?.packageName ?: return
+        if (pkg != packageName && isHomeApp(pkg)) HomeGuardService.allowStockLauncher()
     }
 
     private fun open(intent: Intent) {
         FilmAfterInput.noteOpened(this, intent)
+        if (intent.hasExtra("inputSrc")) allowInputThroughHome(intent)
+        // Older Konka: the input first, then its page, which only shows what is on (issue #710).
+        if (KonkaSources.needsSwitch(intent)) {
+            val app = applicationContext
+            kotlin.concurrent.thread(name = "AerialKonkaInput") {
+                KonkaSources.switchTo(app, intent)
+                runOnUiThread { startPage(intent) }
+            }
+            return
+        }
+        startPage(intent)
+    }
+
+    private fun startPage(intent: Intent) {
         try {
             SystemProbe.startSettingsIntent(this, bareOnRewritingFirmware(intent))
         } catch (e: Exception) {
@@ -1148,6 +1319,8 @@ class MainActivity : ComponentActivity() {
             if (dreamFailCount(context) > 0) context.getSharedPreferences("system", MODE_PRIVATE).edit().remove(DREAM_FAILS).apply()
         }
 
+        /** An app opened this recently is still on its way to the front; see onResume. */
+        private const val JUST_OPENED_MS = 1_000L
         private const val DREAM_FAILS_ON = "dream_fails_on"
         private const val DREAM_FAILS = "dream_fails"
 
@@ -1166,13 +1339,77 @@ class MainActivity : ComponentActivity() {
 
         /** See handOverToFirmwareFallbackHome; for this process. */
         private var handedOverAtBoot = false
+
+        /**
+         * The firmware's FallbackHome Aerial left the locked boot to may never show: on XGIMI Z6X
+         * (dragon_healthy, mt5889, Android 11, low RAM; com.android.newsettings' FallbackHome) the
+         * boot sat 23 minutes with no window at all and sys.boot_completed unset, until Aerial was
+         * started by hand; then the boot finished at once (issue #1126, the reporter's 1.82 log).
+         * If the boot has not finished [HAND_OVER_WATCH_MS] after the hand-over, Aerial shows its
+         * own locked screen after all (the hand-over is once per process). Long enough not to undo
+         * the hand-over where the boot is slow but going (Redmi Projector, issues #684 #688).
+         */
+        private fun watchHandOver(context: Context) {
+            Handler(Looper.getMainLooper()).postDelayed({
+                val booted = runCatching {
+                    Class.forName("android.os.SystemProperties").getMethod("get", String::class.java)
+                        .invoke(null, "sys.boot_completed") as String
+                }.getOrNull()
+                if (booted == "1") return@postDelayed
+                DiagLog.i("boot not finished ${HAND_OVER_WATCH_MS / 1000} s after leaving it to the firmware's FallbackHome; showing Aerial")
+                runCatching {
+                    context.startActivity(Intent(context, MainActivity::class.java).setAction(Intent.ACTION_MAIN).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                }
+            }, HAND_OVER_WATCH_MS)
+        }
+
+        private const val HAND_OVER_WATCH_MS = 90_000L
         private val AOSP_FALLBACK_HOMES = setOf("com.android.settings.FallbackHome", "com.android.tv.settings.system.FallbackHome", "com.android.tv.settings.ui.activity.FallbackHome")
 
-        /** How Home Guard and the boot receiver bring Aerial back: the same task the launcher entry uses. */
-        fun bringBackIntent(context: Context): Intent =
-            Intent(context, MainActivity::class.java)
-                .setAction(Intent.ACTION_MAIN)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
+        /**
+         * How Home Guard and the boot receiver bring Aerial back: the same task the launcher entry uses,
+         * unless Aerial is the system's Home. Then it is a Home intent (CATEGORY_HOME, package only, no
+         * component), so the system makes it a home-type task. On Skyworth 8R734_A7HP (titanite,
+         * Android 13) a fresh standard task for MainActivity kept its task surface hidden in
+         * SurfaceFlinger (flags 0x1) while WindowManager had it visible and focused: input found the
+         * window NOT_VISIBLE and every key ended in an ANR, then a kill and the same again. That
+         * firmware's Task.prepareSurfaces re-applies the visibility every frame only for home-type
+         * root tasks, and Aerial started as Home showed and took keys at once. Where Aerial is not the
+         * system's Home the category stays off: it made the system open a second, home-type task with
+         * a fresh MainActivity every time (Xiaomi MiTV-MFTR0, 1.11). Only on Coocaa firmware from
+         * Android 13 ([hidesStandardTasks]): other TVs with Aerial as their Home keep the start they had.
+         */
+        fun bringBackIntent(context: Context): Intent {
+            val home = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
+            val intent = if (hidesStandardTasks(context) && isSystemHome(context)) {
+                home.setPackage(context.packageName)
+            } else {
+                Intent(context, MainActivity::class.java).setAction(Intent.ACTION_MAIN)
+            }
+            return intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
+        }
+
+        /**
+         * Coocaa firmware (com.tianci.system) from Android 13, where a standard task's surface can stay
+         * hidden (see [bringBackIntent]). Seen on Skyworth 8R734_A7HP and 8R721_A5FP (titanite, PR #992).
+         */
+        internal fun hidesStandardTasks(context: Context): Boolean =
+            Build.VERSION.SDK_INT >= 33 &&
+                runCatching { context.packageManager.getPackageInfo("com.tianci.system", 0) }.isSuccess
+
+        /**
+         * Whether the system's Home is Aerial. Also when no Home is chosen yet but Aerial is one of
+         * them (the system's resolver comes back): early in a boot, or with a second Home such as
+         * Dangbei's launcher installed next to it.
+         */
+        fun isSystemHome(context: Context): Boolean = runCatching {
+            val pm = context.packageManager
+            val home = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
+            val resolved = pm.resolveActivity(home, PackageManager.MATCH_DEFAULT_ONLY)?.activityInfo?.packageName
+            resolved == context.packageName ||
+                (resolved == "android" &&
+                    pm.queryIntentActivities(home, PackageManager.MATCH_DEFAULT_ONLY).any { it.activityInfo.packageName == context.packageName })
+        }.getOrDefault(false)
 
         const val SCREENSAVER_HOLD_MS = 4 * 60 * 60 * 1000L
 
@@ -1181,6 +1418,8 @@ class MainActivity : ComponentActivity() {
 
         /** How long the app the TV starts on waits for a network at most. */
         private const val BOOT_APP_NETWORK_WAIT_MS = 20_000L
+        /** The pre-mute came 2.4–2.8 s after the reopen on MiTV4-ANSM0 (issue #1337). */
+        private const val REOPEN_VOLUME_NUDGE_MS = 4_000L
 
         /** `adb shell am start -a app.orchard.tv.PREVIEW_SCREENSAVER -n app.orchard.tv/.MainActivity` */
         const val ACTION_PREVIEW_SCREENSAVER = "app.orchard.tv.PREVIEW_SCREENSAVER"

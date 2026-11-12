@@ -237,7 +237,7 @@ private val ARROWS = mapOf(
 private fun PinKey(onClick: () -> Unit, focusRequester: FocusRequester? = null, width: Dp = 64.dp, content: @Composable (Color) -> Unit) {
     Pressable(onClick = onClick, focusRequester = focusRequester, focusedScale = 1.08f) { state ->
         val bg by animateColorAsState(if (state.focused) Palette.Focus else Palette.Fill, tween(140, easing = Motion.EaseOut), label = "pin-key")
-        Box(Modifier.size(width, 48.dp).smoothBackground(bg, 12.dp), contentAlignment = Alignment.Center) {
+        Box(Modifier.size(width, 48.dp).smoothBackground({ bg }, 12.dp), contentAlignment = Alignment.Center) {
             content(if (state.focused) Palette.OnFocus else Palette.Label)
         }
     }

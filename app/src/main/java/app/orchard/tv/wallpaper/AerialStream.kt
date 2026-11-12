@@ -251,6 +251,47 @@ object AerialStream {
         }
     }
 
+    /**
+     * The key frame of [film]'s 1080p file nearest [atMs], at [w]×[h], read and decoded in this
+     * process (FilmKeyFrame), one at a time. From disk where the film was played in 1080p, else
+     * from Apple, about the index and the frame (0.3-0.8 MB), not kept.
+     */
+    internal suspend fun keyFrame(context: Context, film: Aerial, atMs: Long, w: Int, h: Int, overHttp: Boolean): FilmKeyFrame.Frame =
+        runInterruptible(keyFrames) {
+            // Behind whatever else wants the CPU: the screensaver starting beside it took 1.7-2.1 s
+            // to its first frame instead of 1.0 (Xiaomi MiTV-MFTR0). Given back after: the thread
+            // is one of Dispatchers.IO's.
+            val tid = android.os.Process.myTid()
+            val before = android.os.Process.getThreadPriority(tid)
+            android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_BACKGROUND)
+            try {
+                val reader = CacheDataSource.Factory().setCache(cache(context)).setUpstreamDataSourceFactory(http()).setCacheWriteDataSinkFactory(null)
+                val uri = android.net.Uri.parse(url(film, AerialQuality.Hd, overHttp))
+                FilmKeyFrame.decode(reader, uri, key(film, AerialQuality.Hd), atMs, w, h)
+            } finally {
+                android.os.Process.setThreadPriority(before)
+            }
+        }
+
+    /**
+     * The key frame of the owner's video [file] nearest [atMs], at [w]×[h], read and decoded in this
+     * process like [keyFrame]: off the hardware decoder the paused wallpaper player still holds,
+     * which the media server's retriever needed too (Hisense VIDAA_TV MTK9652, issue #1251).
+     */
+    internal suspend fun keyFrameOfFile(file: java.io.File, key: String, atMs: Long, w: Int, h: Int): FilmKeyFrame.Frame =
+        runInterruptible(keyFrames) {
+            val tid = android.os.Process.myTid()
+            val before = android.os.Process.getThreadPriority(tid)
+            android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_BACKGROUND)
+            try {
+                FilmKeyFrame.decode(androidx.media3.datasource.FileDataSource.Factory(), android.net.Uri.fromFile(file), "video:$key", atMs, w, h)
+            } finally {
+                android.os.Process.setThreadPriority(before)
+            }
+        }
+
+    private val keyFrames = Dispatchers.IO.limitedParallelism(1)
+
     /** The film's index, as the player reads it: the boxes at the start, then the index at the end. */
     private fun seekMap(factory: CacheDataSource.Factory, uri: android.net.Uri, key: String): SeekMap {
         var map: SeekMap? = null

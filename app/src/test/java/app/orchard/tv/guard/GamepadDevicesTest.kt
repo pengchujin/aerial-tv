@@ -36,7 +36,12 @@ class GamepadDevicesTest {
 
     @Test fun keepsSameNamedKeypadWithOtherIds() {
         assertTrue(GamepadDevices.isPhysicalGamepad("aml_keypad", false, true, 0x045e, 0x028e))
-        assertTrue(GamepadDevices.isPhysicalGamepad("aml_keypad pro", false, true, 0x0001, 0x0001))
+    }
+
+    @Test fun filtersAnyBuiltInInputWithTheDefaultIds() {
+        // MiTV-AETP0's IR receiver (#1423).
+        assertFalse(GamepadDevices.isPhysicalGamepad("ir_keypad", false, true, 0x0001, 0x0001))
+        assertFalse(GamepadDevices.isPhysicalGamepad("aml_keypad pro", false, true, 0x0001, 0x0001))
     }
 
     @Test fun filtersRedmiProjectorBluetoothRemote() {
@@ -48,6 +53,13 @@ class GamepadDevicesTest {
     @Test fun filtersRedmiProjectorBuiltInKeyboardWrapper() {
         assertFalse(GamepadDevices.isPhysicalGamepad("Hi keyboard", false, true, 0x0001, 0x0001))
         assertTrue(GamepadDevices.isPhysicalGamepad("Hi keyboard", false, true, 0x046d, 0xc21f))
+    }
+
+    @Test fun alphabeticKeyboardsAreNotGamepads() {
+        // TCL tcl_m7642's phone-remote stand-ins (issue #1234).
+        assertFalse(GamepadDevices.isPhysicalGamepad("sim-kb", false, true, 0, 0, alphabetic = true))
+        assertFalse(GamepadDevices.isPhysicalGamepad("sim-mouse", false, true, 0, 0, alphabetic = true))
+        assertTrue(GamepadDevices.isPhysicalGamepad("Xbox Wireless Controller", false, true, 0x045e, 0x0b13, alphabetic = false))
     }
 
     @Test fun rejectsDevicesWithoutGamepadSource() {

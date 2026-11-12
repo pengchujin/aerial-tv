@@ -63,3 +63,5 @@ Amlogic 平台、Android 6.0.x 的一批小米电视和盒子，问题基本相�
 
 - **小米电视 3S 48（MiTV3S-48 / hancock，MStar，4.4.4，#1157）**：主页键直接回 PatchWall，不弹「使用哪个应用」；PatchWall 应用信息里「清除默认设置」是灰的。`pm disable-user` 会被系统杀掉，报告人用 `pm block com.mitv.tvhome` 冻结后 Lite 成了唯一桌面，但 PatchWall 进程里的原厂信号源弹窗也跟着没了。冻结系统桌面不推荐（AGENTS.md），不写进安装说明；不冻结时 Lite 只能当普通 App 用。重启后网络 ADB 约 3 分钟才连得上。
 - **小米电视 2 49 寸（MiTV2-49，4.3，#1094）**：播放器 `com.xiaomi.mitv.tvplayer.EXTSRC_PLAY` 的 `input`：HDMI 1–3 = 23–25、AV = 2、模拟电视 = 1、VGA = 0；地面波是 `com.xiaomi.mitv.tvplayer.DTMB_PLAY` 打开 `dtmb.DTMBActivity`。Lite 1.13 起列 HDMI 1–3，main 上（未发版）加了 AV、模拟电视和（有那个页面时的）DTMB；VGA 不加，这几年的小米不是都有 VGA，又看不出来。
+
+**守护在主线程查用量统计导致 ANR**（MiTV4-ANSM0，#1284）：冷启动后 40–150 秒负载高，`queryEvents` 超过 5 秒时遥控器全部失灵，进程被杀后停在 PatchWall。1.86 起每秒一次的查询放到后台线程（`usageWorker`）。开机和接管时的单次查询还在主线程。

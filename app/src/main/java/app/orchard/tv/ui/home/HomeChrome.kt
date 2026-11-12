@@ -19,7 +19,6 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -45,6 +44,7 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.composed
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.TransformOrigin
@@ -87,6 +87,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import app.orchard.tv.R
 import app.orchard.tv.settings.AerialSettings
+import app.orchard.tv.settings.ClockHours
 import app.orchard.tv.wallpaper.Images
 import app.orchard.tv.system.NetKind
 import app.orchard.tv.system.NetworkStatus
@@ -162,14 +163,22 @@ fun rememberNow(): State<LocalDateTime> {
     return now
 }
 
+/**
+ * The time, 24- or 12-hour as chosen in Personalize ([ClockHours]). 12-hour time has no AM/PM, as on
+ * tvOS and the iPhone's lock screen: the screensaver's clock takes over from Home's, and the two
+ * must read the same.
+ */
 @Composable
 fun timeText(now: LocalDateTime): String {
-    val context = LocalContext.current
-    // 24-hour unless the owner chose 12-hour. With the setting unset, Android falls back to the
-    // locale, and zh_CN means 12-hour, which TV clocks here never show (TCL 65S515D, issue #15).
-    val twelve = runCatching { android.provider.Settings.System.getString(context.contentResolver, android.provider.Settings.System.TIME_12_24) }.getOrNull() == "12"
-    val pattern = if (twelve) "h:mm" else "H:mm"
-    return now.format(DateTimeFormatter.ofPattern(pattern))
+    val twelve = twelveHour(LocalContext.current, AerialSettings.clockHours)
+    return now.format(DateTimeFormatter.ofPattern(if (twelve) "h:mm" else "H:mm"))
+}
+
+/** Whether to show 12-hour time: as chosen, or as the TV is set (24-hour where it says nothing). */
+fun twelveHour(context: Context, hours: ClockHours): Boolean = when (hours) {
+    ClockHours.H24 -> false
+    ClockHours.H12 -> true
+    ClockHours.System -> runCatching { android.provider.Settings.System.getString(context.contentResolver, android.provider.Settings.System.TIME_12_24) }.getOrNull() == "12"
 }
 
 @Composable
@@ -267,10 +276,15 @@ fun HomeBackground(
             if (a > 0.01f) drawDrawingIn(saverImage, saverPush(), a)
         }
         Box(Modifier.fillMaxSize().diagLayer("plate")) {
-            // Where the film's frames cannot be had (Wallpapers.filmGlassless), the film's plate is
-            // the smoke and the edge alone, see-through, over the film moving or stopped.
-            val glassless = Wallpapers.filmGlassless
-            Plate(frosted ?: backdrop, filmGlass.takeUnless { glassless }, filmGlass != null, glassless, plate, scroll, collapse, cover, filmStopped, toSaver, lift)
+            // Where the film's frames cannot be had (Wallpapers.filmGlassless), the plate is the one
+            // over a still picture, of the picture's glass, over the film moving or stopped: the
+            // picture is the frame decoded where the film was let go, and the film goes on from it
+            // (LiveWallpaper.goOnFromPicture; owner, TCL MT5879, issue #1238).
+            // Its glass follows the film where frames of it are decoded in the app while it moves
+            // ([filmGlass], every 15 s), so it is not the colours of a shot long gone.
+            val still = Wallpapers.filmGlassless && Wallpapers.moves() && (frosted ?: backdrop) != null
+            val film = filmGlass.takeUnless { Wallpapers.filmGlassless }
+            Plate(if (still) filmGlass ?: frosted ?: backdrop else frosted ?: backdrop, film, film != null, Wallpapers.filmGlassless, plate, scroll, collapse, cover, filmStopped, toSaver, lift, still)
         }
     }
 }
@@ -369,13 +383,14 @@ private fun Pictures(
  * moves or a new frame fades in, every [GLASS_EVERY_MS]: the film plays with Compose all but still.
  */
 @Composable
-private fun Plate(glass: ImageBitmap?, film: ImageBitmap?, filmPlate: Boolean, deepSmoke: Boolean, plate: Rect?, scroll: () -> Float, collapse: Float, cover: () -> Float, filmStopped: () -> Float, toSaver: () -> Float, lift: () -> Float) {
+private fun Plate(glass: ImageBitmap?, film: ImageBitmap?, filmPlate: Boolean, deepSmoke: Boolean, plate: Rect?, scroll: () -> Float, collapse: Float, cover: () -> Float, filmStopped: () -> Float, toSaver: () -> Float, lift: () -> Float, stillOverFilm: Boolean = false) {
     var shown by remember { mutableStateOf(glass) }
     var under by remember { mutableStateOf<ImageBitmap?>(null) }
     val swap = remember { Animatable(1f) }
     fun visibility(): Float {
         val rest = 1f - smooth(((scroll() / collapse).coerceIn(0f, 1f) / 0.55f).coerceIn(0f, 1f))
-        return rest * (1f - cover() * (1f - filmStopped())) * (1f - toSaver())
+        // [stillOverFilm]: the still plate over the film too, moving or not.
+        return rest * (if (stillOverFilm) 1f else 1f - cover() * (1f - filmStopped())) * (1f - toSaver())
     }
     LaunchedEffect(glass) {
         if (glass === shown) return@LaunchedEffect
@@ -451,7 +466,7 @@ private fun Plate(glass: ImageBitmap?, film: ImageBitmap?, filmPlate: Boolean, d
         val base = (1f - smooth(((scroll() / collapse).coerceIn(0f, 1f) / 0.55f).coerceIn(0f, 1f))) * (1f - toSaver())
         val frame = filmTop
         val edge = smoke
-        if (edge != null && (filmPlate || cover() > 0.01f) && alpha < 0.99f && base > 0.01f) {
+        if (!stillOverFilm && edge != null && (filmPlate || cover() > 0.01f) && alpha < 0.99f && base > 0.01f) {
             val p = (scroll() / collapse).coerceIn(0f, 1f)
             val r = plate.translate(0f, -scroll() - lift()).inflate(PlateSwell.toPx() * smooth((p / 0.55f).coerceIn(0f, 1f)))
             val t = filmSwap.value
@@ -673,7 +688,7 @@ fun ShelfClock(
                 GlyphIcon(glyphFor(w), Color.White, 18.dp, Modifier.padding(end = 7.dp))
                 BasicText(
                     buildAnnotatedString {
-                        append("${w.celsius}°")
+                        append(stringResource(R.string.weather_temperature, w.celsius))
                         withStyle(second) { append("  $detail") }
                     },
                     style = Type.ClockDetail.copy(shadow = shadow),
@@ -756,25 +771,27 @@ private fun conditionName(kind: WeatherKind): Int = when (kind) {
 /**
  * The small clock: the time and the weather in one quiet line in the top left, level with the status
  * pill, so the wallpaper keeps the rest of the screen. A soft shadow keeps it readable on photos.
+ * No date: tried for issue #104, the owner found the line too busy (2026-11-08).
  */
 @Composable
 fun CornerClock(now: LocalDateTime, modifier: Modifier = Modifier, toSaver: () -> Float = { 0f }, saving: Boolean = false) {
     val drift = heldDrift(saving, now)
     val dim = Color.White.copy(alpha = 0.92f)
     val shadow = Shadow(Color.Black.copy(alpha = 0.5f), blurRadius = 8f)
+    // The weather goes as the time moves to the screensaver's place.
+    val aside = Modifier.graphicsLayer {
+        alpha = 1f - (toSaver() * 2.5f).coerceIn(0f, 1f)
+        compositingStrategy = CompositingStrategy.ModulateAlpha
+    }
     Row(modifier.height(34.dp), verticalAlignment = Alignment.CenterVertically) {
         BasicText(
             timeText(now), style = Type.SmallClock.copy(fontSize = Type.Title.fontSize, color = dim, shadow = shadow),
             modifier = Modifier.toSaverClock(toSaver, Type.Title.fontSize, Type.Title.fontSize.value.dp * CAP_TOP, drift),
         )
         Weather.now?.takeIf { AerialSettings.showWeather }?.let { w ->
-            val aside = Modifier.graphicsLayer {
-                alpha = 1f - (toSaver() * 2.5f).coerceIn(0f, 1f)
-                compositingStrategy = CompositingStrategy.ModulateAlpha
-            }
             GlyphIcon(glyphFor(w), dim, 18.dp, aside.padding(start = 16.dp, end = 6.dp))
             val place = Weather.place?.takeIf { it.length <= 12 }
-            BasicText(listOfNotNull(place, "${w.celsius}°").joinToString(" "), style = Type.Headline.copy(color = dim, shadow = shadow), modifier = aside)
+            BasicText(listOfNotNull(place, stringResource(R.string.weather_temperature, w.celsius)).joinToString(" "), style = Type.Headline.copy(color = dim, shadow = shadow), modifier = aside)
         }
     }
 }
@@ -832,7 +849,7 @@ fun StatusPill(
         Row(
             Modifier
                 .clip(RoundedCornerShape(50))
-                .background(bg)
+                .drawBehind { drawRect(bg) }
                 .height(34.dp)
                 .padding(horizontal = 14.dp),
             verticalAlignment = Alignment.CenterVertically,

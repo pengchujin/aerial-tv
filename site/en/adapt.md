@@ -59,6 +59,8 @@ These are fixed on the spot, with no new release. Aerial keeps each TV's correct
 | `"xiaomiSources": {"6": 23}` | Xiaomi: open HW6 with tvplayer source id 23 (HDMI is usually 19-32) |
 | `"ignoresPictureBacklight": true` | The TV has `picture_backlight` but does not follow it: leave brightness to the TV's own slider |
 | `"ignoresScreenBrightness": true` | No `picture_backlight`, and the system's `screen_brightness` takes writes without the picture changing (Hisense VIDAA and others): the brightness row opens the TV's own picture settings |
+| `"filterHomeAlways": true` | The firmware's Home force-stops the app in front (a black or stock-launcher flash on every press; Redmi Projector mt5873, #684): the guard takes Home whenever the screen is on. The cost: a held volume key moves one step only. Add it only if the owner accepts that |
+| `"neverFilterKeys": true` | One press of a direction key moves several places, in the system settings too (LeTV, Android 6, #115): the guard filters no keys. The cost: Home shows the stock launcher for a moment, and on some TVs Aerial takes 5 s to return. Add it only if the owner accepts that |
 
 1. List the inputs: `CONFIG --ez list_sources true`; after `data=` is JSON with `id`, `label`, `hw`, `firmwareLabel`, `xiaomiInput` and `shown`.
 2. Open each: `CONFIG --es open_source '<id>'`, ask the user which port on the TV it switched to (or none), then `adb shell input keyevent KEYCODE_HOME`.

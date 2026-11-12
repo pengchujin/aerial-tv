@@ -7,6 +7,7 @@ import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.platform.LocalDensity
@@ -94,11 +95,13 @@ import app.orchard.tv.settings.AerialSettings
 import app.orchard.tv.settings.Restricted
 import app.orchard.tv.settings.RestrictedKind
 import app.orchard.tv.ui.home.kidsTimeLine
+import app.orchard.tv.system.HisenseLaserPanel
 import app.orchard.tv.system.HomeStatus
 import app.orchard.tv.system.LaunchFallback
 import app.orchard.tv.system.NetKind
 import app.orchard.tv.system.SourceKind
 import app.orchard.tv.system.Sounds
+import app.orchard.tv.system.OutputDevice
 import app.orchard.tv.system.SystemProbe
 import app.orchard.tv.ui.components.Pressable
 import app.orchard.tv.ui.components.consumeTaps
@@ -169,7 +172,7 @@ fun ControlCenter(
         // at 1% while Home is idle, without focus, the first opening is like the second.
         if (warm && !visible) {
             Column(Modifier.graphicsLayer { alpha = 0.01f }.width(300.dp).liquidGlass(24.dp).padding(16.dp)) {
-                MainPage(vm, now, false, onOpen)
+                MainPage(vm, now, takeFocus = false, poll = false, onOpen = onOpen)
             }
         }
         AnimatedVisibility(
@@ -182,8 +185,7 @@ fun ControlCenter(
                 Modifier
                     .width(300.dp)
                     .consumeTaps()
-                    .liquidGlass(24.dp, seeThroughFilm = onShelf)
-                    .padding(16.dp),
+                    .liquidGlass(24.dp, seeThroughFilm = onShelf),
             ) {
                 AnimatedContent(
                     targetState = page,
@@ -197,14 +199,21 @@ fun ControlCenter(
                     },
                     label = "cc-page",
                 ) { p ->
-                    // Closing sets the page back to Main while the panel fades out; that page must
-                    // not take focus from the tile Home has just put it back on.
-                    when (p) {
-                        CcPage.Main -> if (Restricted.active) KidsPage(vm, now, visible) else MainPage(vm, now, visible, onOpen)
-                        CcPage.Inputs -> InputsPage(vm, visible, onOpen)
-                        CcPage.InputSettings -> InputSettingsPage(vm, visible)
-                        CcPage.Update -> UpdatePage(vm, visible)
-                        CcPage.Setup -> SetupPage(vm, visible, onOpen)
+                    // Keep room for focused rows inside the fade layer so their scaled edges are not clipped.
+                    Box(Modifier.padding(16.dp)) {
+                        // Closing sets the page back to Main while the panel fades out; that page must
+                        // not take focus from the tile Home has just put it back on.
+                        when (p) {
+                            CcPage.Main -> if (Restricted.active) {
+                                KidsPage(vm, now, visible)
+                            } else {
+                                MainPage(vm, now, takeFocus = visible, poll = visible, onOpen = onOpen)
+                            }
+                            CcPage.Inputs -> InputsPage(vm, visible, onOpen)
+                            CcPage.InputSettings -> InputSettingsPage(vm, visible)
+                            CcPage.Update -> UpdatePage(vm, visible)
+                            CcPage.Setup -> SetupPage(vm, visible, onOpen)
+                        }
                     }
                 }
             }
@@ -219,6 +228,11 @@ fun ControlCenter(
 @Composable
 private fun KidsPage(vm: HomeViewModel, now: LocalDateTime, takeFocus: Boolean) {
     val first = remember { FocusRequester() }
+    val context = LocalContext.current
+    val laser = remember { HisenseLaserPanel.usable(context) }
+    val showsVolume = remember { OutputDevice.showsVolume(context) }
+    val showsBrightness = remember { OutputDevice.showsBrightness() }
+    PollBrightness(vm, laser, enabled = takeFocus)
     LaunchedEffect(Unit) {
         if (!takeFocus) return@LaunchedEffect
         withFrameNanos { }
@@ -232,9 +246,12 @@ private fun KidsPage(vm: HomeViewModel, now: LocalDateTime, takeFocus: Boolean) 
             BasicText(it, style = Type.Callout.copy(color = Palette.SecondaryLabel))
         }
         Spacer(Modifier.height(12.dp))
-        VolumeRow(vm, first)
-        Spacer(Modifier.height(6.dp))
-        BrightnessRow(vm)
+        // A box or stick has neither a panel nor, with its volume fixed, a sound level of its own (#1307).
+        if (showsVolume) {
+            VolumeRow(vm, first)
+            Spacer(Modifier.height(6.dp))
+        }
+        if (showsBrightness) BrightnessRow(vm, laser)
         Spacer(Modifier.height(6.dp))
         MenuRow(
             Glyph.Shield,
@@ -246,8 +263,21 @@ private fun KidsPage(vm: HomeViewModel, now: LocalDateTime, takeFocus: Boolean) 
 }
 
 @Composable
-private fun MainPage(vm: HomeViewModel, now: LocalDateTime, takeFocus: Boolean, onOpen: (android.content.Intent) -> Unit) {
+private fun MainPage(
+    vm: HomeViewModel,
+    now: LocalDateTime,
+    takeFocus: Boolean,
+    /** The row polls the picture service, so only the copy that is on screen may do it. */
+    poll: Boolean,
+    onOpen: (android.content.Intent) -> Unit,
+) {
     val context = LocalContext.current
+    // The laser level belongs to the laser sets only (HisenseLaserPanel); every other TV keeps
+    // the brightness row it had.
+    val laser = remember { HisenseLaserPanel.usable(context) }
+    val showsVolume = remember { OutputDevice.showsVolume(context) }
+    val showsBrightness = remember { OutputDevice.showsBrightness() }
+    PollBrightness(vm, laser, poll)
     val first = remember { FocusRequester() }
     val networkFocus = remember { FocusRequester() }
     val settingsFocus = remember { FocusRequester() }
@@ -330,9 +360,12 @@ private fun MainPage(vm: HomeViewModel, now: LocalDateTime, takeFocus: Boolean, 
         }
 
         Spacer(Modifier.height(12.dp))
-        VolumeRow(vm, cameFrom)
-        Spacer(Modifier.height(6.dp))
-        BrightnessRow(vm)
+        // A box or stick has neither a panel nor, with its volume fixed, a sound level of its own (#1307).
+        if (showsVolume) {
+            VolumeRow(vm, cameFrom)
+            Spacer(Modifier.height(6.dp))
+        }
+        if (showsBrightness) BrightnessRow(vm, laser)
 
         Spacer(Modifier.height(6.dp))
         // A parent left Kids and Elders mode: one press back into it, no PIN.
@@ -601,7 +634,7 @@ private fun RoundButton(
     Pressable(onClick = onClick, modifier = modifier, focusRequester = focusRequester, focusedScale = 1.1f) { state ->
         val bg by animateColorAsState(if (state.focused) Palette.Focus else Palette.Fill, tween(140, easing = Motion.EaseOut), label = "round-bg")
         Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(64.dp)) {
-            Box(Modifier.size(48.dp).clip(CircleShape).background(bg), contentAlignment = Alignment.Center) {
+            Box(Modifier.size(48.dp).clip(CircleShape).drawBehind { drawRect(bg) }, contentAlignment = Alignment.Center) {
                 GlyphIcon(glyph, if (state.focused) Palette.OnFocus else Palette.Label, 20.dp)
             }
             Spacer(Modifier.height(6.dp))
@@ -668,7 +701,7 @@ private fun SliderRow(
                         while (travelled <= -pitch) { step(-1); travelled += pitch }
                     }
                 }
-                .smoothBackground(bg, 14.dp).height(40.dp).padding(horizontal = 14.dp),
+                .smoothBackground({ bg }, 14.dp).height(40.dp).padding(horizontal = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
@@ -701,28 +734,42 @@ private fun VolumeRow(vm: HomeViewModel, returnTo: FocusRequester) {
     )
 }
 
-/**
- * Brightness where Aerial may change it; otherwise a row that opens the TV's picture settings, and
- * says so: a bare "Brightness" with no slider read as broken (Vidda 85V1F-S, FFalcon, issue #130).
+/** Reads the level every 700 ms while the brightness row is on screen. Neither the DLP light
+ * engine nor the picture service announces a change, and the TV's own slider can be moved with the
+ * panel still up, so nothing else would refresh either.
+ *
+ * Only the on-screen copy polls: the closed panel draws this page once at 1 %, so that its first
+ * opening is not its first draw (ControlCenter's warm path), and a LaunchedEffect runs from there
+ * too — that copy would read the picture service for a panel nobody can see.
  */
 @Composable
-private fun BrightnessRow(vm: HomeViewModel) {
+private fun PollBrightness(vm: HomeViewModel, laser: Boolean, enabled: Boolean) {
     val context = LocalContext.current
-    // XGIMI (GMUI): the real brightness is the DLP light-engine level. It reads through the HAL
-    // class (SystemProbe.xgimiBrightnessLevel) and, on this firmware, writes through it too, so the
-    // row is a slider of the light engine's own levels (1..10) rather than a percentage of the
-    // system setting that moves nothing. Poll the HAL while the row is on screen: the level can be
-    // changed from the TV's own overlay, which does not pause Aerial, so no onResume or
-    // screen_brightness observer ever fires for it.
     val xgimi = remember { SystemProbe.xgimiBrightnessLevel() != null }
-    LaunchedEffect(xgimi) {
-        if (!xgimi) return@LaunchedEffect
-        vm.discoverBrightnessBoost()
+    LaunchedEffect(xgimi, laser, enabled) {
+        if (!enabled || (!xgimi && !laser)) return@LaunchedEffect
+        // XGIMI's Boost is discovered once, before the first poll; it has no saying on a laser set.
+        if (xgimi) vm.discoverBrightnessBoost()
         while (isActive) {
             delay(700)
             vm.refreshBrightness()
         }
     }
+}
+
+/**
+ * Brightness where Aerial may change it; otherwise a row that opens the TV's picture settings, and
+ * says so: a bare "Brightness" with no slider read as broken (Vidda 85V1F-S, FFalcon, issue #130).
+ */
+@Composable
+private fun BrightnessRow(vm: HomeViewModel, laser: Boolean) {
+    val context = LocalContext.current
+    // XGIMI (GMUI): the real brightness is the DLP light-engine level. It reads through the HAL
+    // class (SystemProbe.xgimiBrightnessLevel) and, on this firmware, writes through it too, so the
+    // row is a slider of the light engine's own levels (1..10) rather than a percentage of the
+    // system setting that moves nothing. [laser] comes from the page: it is the light source's own
+    // 0..10 level, which the system setting does not move either.
+    val xgimi = remember { SystemProbe.xgimiBrightnessLevel() != null }
     val level = vm.brightness
     if (level == null) {
         MenuRow(Glyph.Sun, stringResource(R.string.cc_brightness), onClick = {
@@ -735,9 +782,21 @@ private fun BrightnessRow(vm: HomeViewModel) {
             glyph = Glyph.Sun,
             // Boost can leave the ordinary DLP getter at the previous level (X7 Max: 7).
             level = if (vm.brightnessBoost == true) 1f else level,
-            value = if (vm.brightnessBoost == true) "100+" else Math.round(level * 100).toString(),
-            // Brightness.adjust moves 5% a step, and stops at 1%; XGIMI steps its own levels.
-            steps = if (xgimi) SystemProbe.xgimiBrightnessMax + (if (extraStep) 1 else 0) else 20,
+            // A laser set's level is 11 notches of its own, not a percentage of anything: show the
+            // notch, the number the TV's own slider shows (4, not 40).
+            value = when {
+                vm.brightnessBoost == true -> "100+"
+                laser -> Math.round(level * HisenseLaserPanel.LEVEL_MAX).toString()
+                else -> Math.round(level * 100).toString()
+            },
+            // Brightness.adjust moves 5% a step, and stops at 1%; XGIMI steps its own levels and a
+            // Hisense laser set its own 11 notches. Only the drag pitch follows this; a key is one
+            // step either way.
+            steps = when {
+                laser -> HisenseLaserPanel.LEVEL_MAX
+                xgimi -> SystemProbe.xgimiBrightnessMax + (if (extraStep) 1 else 0)
+                else -> 20
+            },
             atMaximum = vm.brightnessBoost == true || (level >= 0.999f && !extraStep),
             onStep = vm::adjustBrightness,
             onClick = {},
@@ -767,11 +826,12 @@ private fun InputsPage(vm: HomeViewModel, takeFocus: Boolean, onOpen: (android.c
     Column(Modifier.heightIn(max = 470.dp).verticalScroll(rememberScrollState())) {
         MenuRow(Glyph.ChevronLeft, stringResource(R.string.cc_inputs), onClick = { vm.overlay = Overlay.ControlCenter(CcPage.Main) })
         Spacer(Modifier.height(8.dp))
-        if (vm.sources.isEmpty()) {
+        val shown = vm.shownSources
+        if (shown.isEmpty()) {
             BasicText(stringResource(R.string.cc_no_inputs), style = Type.Callout, modifier = Modifier.padding(14.dp))
         }
         val connected = stringResource(R.string.input_connected)
-        vm.sources.forEachIndexed { i, source ->
+        shown.forEachIndexed { i, source ->
             MenuRow(
                 glyph = when (source.kind) {
                     SourceKind.Hdmi, SourceKind.DisplayPort -> Glyph.Hdmi
@@ -791,7 +851,12 @@ private fun InputsPage(vm: HomeViewModel, takeFocus: Boolean, onOpen: (android.c
         // Switching is this page's one job; what Aerial does with the inputs is a page further in.
         if (vm.sources.isNotEmpty()) {
             Spacer(Modifier.height(10.dp))
-            MenuRow(Glyph.Gear, stringResource(R.string.cc_inputs_settings), onClick = { vm.overlay = Overlay.ControlCenter(CcPage.InputSettings) })
+            MenuRow(
+                Glyph.Gear, stringResource(R.string.cc_inputs_settings),
+                onClick = { vm.overlay = Overlay.ControlCenter(CcPage.InputSettings) },
+                // With every input taken out of the list, the way back in is the first row.
+                focusRequester = if (shown.isEmpty()) first else null,
+            )
         }
     }
 }
@@ -812,14 +877,33 @@ private fun InputSettingsPage(vm: HomeViewModel, takeFocus: Boolean) {
     Column(Modifier.heightIn(max = 470.dp).verticalScroll(rememberScrollState())) {
         MenuRow(Glyph.ChevronLeft, stringResource(R.string.cc_inputs_settings), onClick = { vm.overlay = Overlay.ControlCenter(CcPage.Inputs) })
 
+        val shown = vm.shownSources
+        // Which inputs the list has: firmwares list ports the TV does not have (issue #279).
         Spacer(Modifier.height(10.dp))
-        BasicText(stringResource(R.string.cc_inputs_pin), style = Type.Callout, modifier = Modifier.padding(start = 14.dp, bottom = 6.dp))
+        BasicText(stringResource(R.string.cc_inputs_list), style = Type.Callout, modifier = Modifier.padding(start = 14.dp, bottom = 6.dp))
         vm.sources.forEachIndexed { i, source ->
+            val listed = source.id !in AerialSettings.hiddenSources
+            ChoiceRow(
+                text = name(source),
+                selected = listed,
+                focusRequester = if (i == 0) first else null,
+                onClick = { vm.setSourceHidden(source, listed) },
+            )
+        }
+        BasicText(
+            stringResource(R.string.cc_inputs_list_hint),
+            style = Type.Caption,
+            modifier = Modifier.padding(start = 14.dp, end = 14.dp, top = 8.dp),
+        )
+
+        Spacer(Modifier.height(18.dp))
+        BasicText(stringResource(R.string.cc_inputs_pin), style = Type.Callout, modifier = Modifier.padding(start = 14.dp, bottom = 6.dp))
+        shown.forEach { source ->
             val pinned = source.id in AerialSettings.pinnedSources
             ChoiceRow(
                 text = name(source),
                 selected = pinned,
-                focusRequester = if (i == 0) first else null,
+                focusRequester = null,
                 onClick = { vm.setSourcePinned(source, !pinned) },
             )
         }
@@ -846,7 +930,7 @@ private fun InputSettingsPage(vm: HomeViewModel, takeFocus: Boolean) {
                 onClick = {},
             )
         }
-        vm.sources.forEach { source ->
+        shown.forEach { source ->
             ChoiceRow(
                 text = name(source),
                 selected = source.id == AerialSettings.bootSource,
@@ -856,6 +940,17 @@ private fun InputSettingsPage(vm: HomeViewModel, takeFocus: Boolean) {
         }
         BasicText(
             stringResource(R.string.cc_inputs_boot_hint),
+            style = Type.Caption,
+            modifier = Modifier.padding(start = 14.dp, end = 14.dp, top = 8.dp),
+        )
+
+        // A device switching itself on over HDMI-CEC takes the TV (issue #1020); off unless chosen.
+        Spacer(Modifier.height(18.dp))
+        BasicText(stringResource(R.string.cc_inputs_cec), style = Type.Callout, modifier = Modifier.padding(start = 14.dp, bottom = 6.dp))
+        ChoiceRow(stringResource(R.string.st_on), AerialSettings.cecSwitch, null) { AerialSettings.chooseCecSwitch(true) }
+        ChoiceRow(stringResource(R.string.st_off), !AerialSettings.cecSwitch, null) { AerialSettings.chooseCecSwitch(false) }
+        BasicText(
+            stringResource(R.string.cc_inputs_cec_hint),
             style = Type.Caption,
             modifier = Modifier.padding(start = 14.dp, end = 14.dp, top = 8.dp),
         )
@@ -869,7 +964,7 @@ private fun ChoiceRow(text: String, selected: Boolean, focusRequester: FocusRequ
         val bg by animateColorAsState(if (state.focused) Palette.Focus else Color.Transparent, tween(140, easing = Motion.EaseOut), label = "choice-bg")
         val fg = if (state.focused) Palette.OnFocus else Palette.Label
         Row(
-            Modifier.fillMaxWidth().smoothBackground(bg, 12.dp).height(44.dp).padding(horizontal = 14.dp),
+            Modifier.fillMaxWidth().smoothBackground({ bg }, 12.dp).height(44.dp).padding(horizontal = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             BasicText(text, style = Type.Body.copy(color = fg), modifier = Modifier.weight(1f))

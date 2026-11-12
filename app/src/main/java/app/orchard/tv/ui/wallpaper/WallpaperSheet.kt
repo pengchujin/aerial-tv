@@ -71,6 +71,7 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import app.orchard.tv.R
 import app.orchard.tv.settings.AerialSettings
+import app.orchard.tv.settings.ClockHours
 import app.orchard.tv.settings.Restricted
 import app.orchard.tv.settings.RestrictedKind
 import app.orchard.tv.settings.FocusStyle
@@ -118,6 +119,7 @@ fun WallpaperSheet(
     onDismiss: () -> Unit,
     hiddenCount: Int,
     onHiddenApps: () -> Unit,
+    onHomeLock: (on: Boolean) -> Unit,
     onStartScreensaver: () -> Unit,
     onPin: (on: Boolean) -> Unit,
     /** Kids and Elders mode's setup (behind the PIN). */
@@ -189,6 +191,20 @@ fun WallpaperSheet(
                         AerialSettings.wallpaperAlwaysMoves, AerialSettings::chooseWallpaperAlwaysMoves, first = true,
                     )
                 }
+                // Only for "My Photos, in turn": how often the next photo comes (issue #1314).
+                if (Wallpapers.selectedId == Wallpapers.ROTATE_PHOTOS) Group { note ->
+                    Choices(
+                        R.string.st_photo_every, stringResource(R.string.st_photo_every_hint), note,
+                        AerialSettings.PHOTO_MINUTES.map { m ->
+                            m to when {
+                                m >= AerialSettings.DAY_MINUTES -> stringResource(R.string.st_photo_every_day)
+                                m >= 60 -> stringResource(R.string.kids_h, m / 60)
+                                else -> stringResource(R.string.kids_m, m)
+                            }
+                        },
+                        AerialSettings.photoMinutes, { AerialSettings.choosePhotoMinutes(it); Wallpapers.rotateIfDue() }, first = true,
+                    )
+                }
 
                 Spacer(Modifier.height(6.dp))
                 SectionTitle(R.string.st_home_layout)
@@ -228,6 +244,11 @@ fun WallpaperSheet(
                             onHiddenApps,
                         )
                     }
+                    Choices(
+                        R.string.st_home_lock, stringResource(R.string.st_home_lock_hint), note,
+                        listOf(false to R.string.st_off, true to R.string.st_on),
+                        AerialSettings.homeLocked, onHomeLock,
+                    )
                 }
                 Spacer(Modifier.height(10.dp))
                 Group { note ->
@@ -240,6 +261,11 @@ fun WallpaperSheet(
                         R.string.st_clock_size, stringResource(R.string.st_clock_size_hint), note,
                         listOf(false to R.string.st_clock_small, true to R.string.st_clock_large),
                         AerialSettings.largeClock, AerialSettings::chooseLargeClock,
+                    )
+                    Choices(
+                        R.string.st_clock_hours, stringResource(R.string.st_clock_hours_hint), note,
+                        listOf(ClockHours.System to R.string.st_clock_hours_system, ClockHours.H24 to R.string.st_clock_hours_24, ClockHours.H12 to R.string.st_clock_hours_12),
+                        AerialSettings.clockHours, AerialSettings::chooseClockHours,
                     )
                     Choices(
                         R.string.wp_weather, null, note,
@@ -647,7 +673,7 @@ private fun WeatherValue() {
         )
     }
     BasicText(
-        if (w != null) listOfNotNull(place, "${w.celsius}° $kind").joinToString(" · ") else stringResource(R.string.wp_weather_none),
+        if (w != null) listOfNotNull(place, stringResource(R.string.weather_temperature, w.celsius) + " $kind").joinToString(" · ") else stringResource(R.string.wp_weather_none),
         style = Type.Body.copy(color = Palette.SecondaryLabel),
         modifier = Modifier.padding(end = 8.dp),
     )
@@ -668,7 +694,7 @@ private fun Chip(label: String, on: Boolean, onFocused: (() -> Unit)? = null, on
         )
         val fg = if (state.focused) Palette.OnFocus else Palette.Label
         Row(
-            Modifier.clip(RoundedCornerShape(50)).background(bg).height(40.dp).padding(horizontal = 20.dp),
+            Modifier.clip(RoundedCornerShape(50)).drawBehind { drawRect(bg) }.height(40.dp).padding(horizontal = 20.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
@@ -685,7 +711,7 @@ private fun ActionChip(label: String, glyph: Glyph, onClick: () -> Unit) {
         val bg by animateColorAsState(if (state.focused) Palette.Focus else Palette.FillStrong, tween(140, easing = Motion.EaseOut), label = "action-bg")
         val fg = if (state.focused) Palette.OnFocus else Palette.Label
         Row(
-            Modifier.clip(RoundedCornerShape(50)).background(bg).height(40.dp).padding(start = 20.dp, end = 14.dp),
+            Modifier.clip(RoundedCornerShape(50)).drawBehind { drawRect(bg) }.height(40.dp).padding(start = 20.dp, end = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
@@ -713,7 +739,7 @@ private fun ScreensaverChoice(onStart: () -> Unit) {
             val bg by animateColorAsState(if (state.focused) Palette.Focus else Palette.FillStrong, tween(140, easing = Motion.EaseOut), label = "ss-start")
             val fg = if (state.focused) Palette.OnFocus else Palette.Label
             Row(
-                Modifier.clip(RoundedCornerShape(50)).background(bg).height(40.dp).padding(horizontal = 20.dp),
+                Modifier.clip(RoundedCornerShape(50)).drawBehind { drawRect(bg) }.height(40.dp).padding(horizontal = 20.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {

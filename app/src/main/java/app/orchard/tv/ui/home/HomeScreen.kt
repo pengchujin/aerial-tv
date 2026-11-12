@@ -91,6 +91,7 @@ import app.orchard.tv.ui.theme.Type
 import app.orchard.tv.ui.components.diagLayer
 import androidx.compose.runtime.snapshotFlow
 import app.orchard.tv.system.DiagLog
+import app.orchard.tv.system.LaunchFallback
 import app.orchard.tv.system.SystemProbe
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
@@ -298,7 +299,8 @@ fun HomeScreen(
     val pillRequester = remember { FocusRequester() }
     val appContext = LocalContext.current
     val firmwareInputPanel = remember {
-        SystemProbe.tclInputPanel(appContext) != null || SystemProbe.coocaaInputPanel(appContext)
+        SystemProbe.tclInputPanel(appContext) != null || SystemProbe.coocaaInputPanel(appContext) ||
+            SystemProbe.tianciInputPanel(appContext)
     }
 
     var focusedKey by remember { mutableStateOf<String?>(null) }
@@ -322,15 +324,20 @@ fun HomeScreen(
         LiveFilm.onHome = liveFilm
         onDispose { if (LiveFilm.onHome === liveFilm) LiveFilm.onHome = null }
     }
-    // A screensaver of aerials over the aerial wallpaper carries the wallpaper's film on, one shot
-    // from Home to screensaver: the apps fade, the clock moves to the corner. Whether the film is
-    // moving already or still on its frame (Back on the top row), as long as Home shows it: on the
-    // top row with nothing over it. A film that does not move within FILM_SAVER_WAIT_MS hands over
-    // to the screensaver's own films.
+    val homeVideo = remember { HomeVideo() }
+    DisposableEffect(homeVideo) {
+        HomeVideo.onHome = homeVideo
+        onDispose { if (HomeVideo.onHome === homeVideo) HomeVideo.onHome = null }
+    }
+    // A screensaver of aerials over the aerial wallpaper, or of the owner's videos over their video
+    // wallpaper, carries the wallpaper's film on, one shot from Home to screensaver: the apps fade,
+    // the clock moves to the corner (saverCarriesWallpaper). Whether the film is moving already or
+    // still on its frame (Back on the top row), as long as Home shows it: on the top row with
+    // nothing over it. A film that does not move within FILM_SAVER_WAIT_MS hands over to the
+    // screensaver's own films.
     var filmFailed by remember(vm.screensaverVisible) { mutableStateOf(false) }
     val filmSaverChosen = remember(vm.screensaverVisible) {
-        vm.screensaverVisible && Wallpapers.selectedId == Wallpapers.LIVE && Wallpapers.screensaver == ScreensaverMode.Aerial &&
-            AerialFormats.screensaverCarriesWallpaper(appContext) &&
+        vm.screensaverVisible && saverCarriesWallpaper(appContext) &&
             (filmCover.value > 0.5f || focusedRow == 0 && overlay == Overlay.None && moving == null)
     }
     val filmSaver = filmSaverChosen && !filmFailed
@@ -508,6 +515,18 @@ fun HomeScreen(
                         vm.overlay = if (overlay is Overlay.ControlCenter) Overlay.None else Overlay.ControlCenter()
                         true
                     }
+                    NativeKeyEvent.KEYCODE_SETTINGS -> {
+                        // The remote's gear key reaches Home where no firmware answers it: a stock
+                        // Android TV launcher opens the settings on it, and with Aerial as Home it did
+                        // nothing (Riviera RLED-GLT32TPQ10, MediaTek, Android 14, issue #1190).
+                        // Kids and Elders mode keeps the settings shut, as Control Center does.
+                        if (kidsLock != null || Restricted.active) return@onPreviewKeyEvent true
+                        vm.whenUnlocked {
+                            LaunchFallback.arm(SystemProbe.settingsFallbacks(appContext))
+                            onOpen(SystemProbe.settingsIntent(appContext))
+                        }
+                        true
+                    }
                     NativeKeyEvent.KEYCODE_TV_INPUT -> {
                         // Kids and Elders mode switches only to the inputs it shows, as tiles.
                         if (Restricted.active && !firmwareInputPanel) return@onPreviewKeyEvent true
@@ -528,7 +547,6 @@ fun HomeScreen(
         // same picture and plate, and only the row after it goes into the grid (issue #633: the
         // grid's frosted picture flashed up on the way to an app in the second row).
         val inGrid = focusedRow >= if (oneRow) 1 else 2
-        val saverFadeOffscreen = remember { DiagLog.saverFadeOffscreen(appContext) }
         // With every name shown, the top row's go on its glass plate, which grows to hold them.
         val plateNames = AerialSettings.showAllNames && AerialSettings.homePlate
         val peek = AerialSettings.peekNextRow
@@ -610,6 +628,9 @@ fun HomeScreen(
         val filmMoves = vm.filmFront && overlay == Overlay.None && !vm.screensaverVisible && !pastShelf &&
             !inGrid && moving == null
         val sourceInput = Wallpapers.sourceInput
+        // Nothing over Home blurs it: a paused film stays (why: at LiveWallpaper below).
+        val filmStandsIn = overlay == Overlay.None || overlay is Overlay.ControlCenter || overlay is Overlay.Wallpaper ||
+            (overlay is Overlay.AppMenu && overlay.inFolder == null)
         when {
             Wallpapers.selectedId == Wallpapers.LIVE -> LiveWallpaper(
                 moving = filmMoves,
@@ -621,8 +642,7 @@ fun HomeScreen(
                 // there, the background jumped (another plane and processing; a key frame a second
                 // off where the exact frame did not decode, Xiaomi MiTV-MFTR0 and TCL MT5879); the
                 // menu flashed so as it opened (the owner, MFTR0). In a folder Home is frosted.
-                standIn = overlay == Overlay.None || overlay is Overlay.ControlCenter || overlay is Overlay.Wallpaper ||
-                    (overlay is Overlay.AppMenu && overlay.inFolder == null),
+                standIn = filmStandsIn,
                 panel = overlay != Overlay.None,
                 otherFormatSaver = vm.screensaverVisible && !filmSaver && Wallpapers.screensaver == ScreensaverMode.Aerial &&
                     !AerialFormats.screensaverCarriesWallpaper(appContext),
@@ -633,9 +653,13 @@ fun HomeScreen(
             Wallpapers.isVideo() -> key(Wallpapers.selectedId) {
                 VideoWallpaper(
                     moving = filmMoves,
-                    keep = vm.filmFront && !vm.screensaverVisible,
+                    keep = vm.filmFront && (!vm.screensaverVisible || filmSaver),
+                    hold = filmSaver && vm.filmFront,
+                    home = homeVideo,
+                    standIn = filmStandsIn,
                     lastInputAt = vm.lastInputAt,
                     cover = filmCover,
+                    behindApp = !vm.filmFront,
                 )
             }
             sourceInput != null -> SourceWallpaper(sourceInput, show = vm.resumed && !vm.screensaverVisible, cover = filmCover)
@@ -698,10 +722,12 @@ fun HomeScreen(
                 scroll = { scroll.value },
                 collapse = collapsePx,
                 cover = { filmCover.value },
-                // A film kept moving, or an input's picture, gets the shade a picture has, so the
-                // top row reads over it without the plate. In the grid both give way to the
-                // glass, as any wallpaper does (an input's picture cannot be blurred).
-                shadeMoving = Wallpapers.keepsMoving || sourceInput != null,
+                // An input's picture gets the shade a picture has; in the grid it gives way to the
+                // glass, as any wallpaper does (it cannot be blurred). Not a film, moving or not
+                // (the owner, 2026-10-29): since the aerial wallpaper keeps moving under keys
+                // (Wallpapers.keepsMoving) it was still shaded here, a full-screen draw each frame
+                // (Xiaomi MiTV-MFTR0: GPU 9.8 -> 6.9 ms a frame moving focus over the film).
+                shadeMoving = sourceInput != null,
                 filmStopped = { filmStopped },
                 toSaver = { toSaver.value },
                 filmGlass = (Wallpapers.filmFrost ?: Wallpapers.frosted).takeIf { Wallpapers.moves() && Wallpapers.backdrop != null },
@@ -775,6 +801,7 @@ fun HomeScreen(
                             spring(dampingRatio = 0.86f, stiffness = Spring.StiffnessMediumLow),
                             label = "slot",
                         )
+                        val saverFade = { ((toSaver.value - 0.05f * (index % columns)) / 0.6f).coerceIn(0f, 1f) }
                         AppTile(
                             app = app,
                             width = metrics.tileW,
@@ -782,7 +809,7 @@ fun HomeScreen(
                             focusRequester = requester(app.key),
                             enabled = gridEnabled,
                             moving = moving == app.key,
-                            appearDelayMs = (index * 28).coerceAtMost(320),
+                            opacity = { 1f - saverFade() },
                             onFocused = {
                                 focusedKey = app.key
                                 lastFocusedIndex = index
@@ -809,8 +836,8 @@ fun HomeScreen(
                                 }
                             },
                             onLongPress = { bounds ->
-                                // Nothing to rearrange in Kids and Elders mode (#1013).
-                                if (moving == null && !Restricted.active) {
+                                // Nothing to rearrange in Kids and Elders mode (#1013), nor on a locked Home.
+                                if (moving == null && !Restricted.active && !vm.noteHomeLocked()) {
                                     focusAfterOverlay = app.key
                                     indexAfterOverlay = index
                                     vm.overlay = Overlay.AppMenu(app.key, bounds ?: Rect.Zero)
@@ -820,22 +847,17 @@ fun HomeScreen(
                                 .diagLayer("tiles")
                                 // Lifted on the shelf with the plate; the clock above stays put.
                                 .offset { slot.value - IntOffset(0, lift.roundToInt()) }
+                                // Into the screensaver, the apps go left to right, sinking a little.
+                                // Opacity lives in the tile's own layers: another layer around it dropped
+                                // the focus zoom and rounded clip on Android 9 (issue #725).
+                                .offset { IntOffset(0, (saverFade() * 18.dp.toPx()).roundToInt()) }
                                 .then(
                                     if (index >= hiddenFrom) Modifier.graphicsLayer {
                                         alpha = (scroll.value / collapsePx * 2.5f).coerceIn(0f, 1f)
                                         // No offscreen buffer: it would clip the focus frame to the tile.
                                         compositingStrategy = CompositingStrategy.ModulateAlpha
                                     } else Modifier,
-                                )
-                                // Into the screensaver, the apps go left to right, sinking a little.
-                                .graphicsLayer {
-                                    val f = ((toSaver.value - 0.05f * (index % columns)) / 0.6f).coerceIn(0f, 1f)
-                                    if (f > 0f) {
-                                        alpha = 1f - f
-                                        translationY = f * 18.dp.toPx()
-                                        compositingStrategy = if (saverFadeOffscreen) CompositingStrategy.Offscreen else CompositingStrategy.ModulateAlpha
-                                    }
-                                },
+                                ),
                             rowEnd = index % columns == columns - 1 || index == apps.lastIndex,
                             // On the glass plate only with every name shown (an earlier build showed
                             // the focused one alone there, but it sat oddly on the glass).
@@ -883,10 +905,17 @@ fun HomeScreen(
                 modifier = Modifier
                     .diagLayer("pill")
                     // Down goes back to the top-row tile Up came from, not to the nearest one,
-                    // which under the pill is the last of the row (issue #703).
+                    // which under the pill is the last of the row (issue #703). Left and right do
+                    // too: an elder who strayed up here pressed them and nothing moved (#1215).
+                    // Without that tile, left is the row's last and right its first.
                     .focusProperties {
                         val key = focusedKey
-                        if (key != null && apps.indexOfFirst { it.key == key } in 0 until columns) down = requester(key)
+                        val rowEnd = minOf(apps.size, columns) - 1
+                        if (key != null && apps.indexOfFirst { it.key == key } in 0..rowEnd) {
+                            down = requester(key); left = requester(key); right = requester(key)
+                        } else if (rowEnd >= 0) {
+                            left = requester(apps[rowEnd].key); right = requester(apps[0].key)
+                        }
                     }
                     .graphicsLayer {
                         alpha = 1f - (toSaver.value * 2f).coerceIn(0f, 1f)
@@ -909,24 +938,6 @@ fun HomeScreen(
                     pillFocused = true
                     vm.overlay = Overlay.ControlCenter()
                 },
-            )
-        }
-
-        AnimatedVisibility(
-            visible = moving != null,
-            enter = fadeIn(tween(200, easing = Motion.EaseOut)) + slideInVertically(tween(260, easing = Motion.EaseOut)) { it / 2 },
-            exit = fadeOut(tween(150, easing = Motion.EaseOut)) + slideOutVertically(tween(150, easing = Motion.EaseOut)) { it / 2 },
-            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 28.dp),
-        ) {
-            // Screens that can be touched also say how to move with a finger.
-            val touch = LocalConfiguration.current.touchscreen != Configuration.TOUCHSCREEN_NOTOUCH
-            BasicText(
-                stringResource(if (touch) R.string.move_hint_touch else R.string.move_hint),
-                style = Type.Body,
-                modifier = Modifier
-                    .liquidGlass(20.dp)
-                    .height(40.dp)
-                    .padding(horizontal = 20.dp, vertical = 10.dp),
             )
         }
 
@@ -968,12 +979,15 @@ fun HomeScreen(
             apps = openFolder?.let { vm.folderApps[it] }.orEmpty(),
             visible = openFolder != null,
             enabled = overlay is Overlay.Folder,
+            movingKey = moving?.takeIf { vm.movingInFolder != null },
             tileW = metrics.tileW,
             tileH = metrics.tileH,
             gap = metrics.gap,
             columns = columns,
             onLaunch = onLaunch,
-            onLongPress = { app, bounds -> vm.overlay = Overlay.AppMenu(app.key, bounds ?: Rect.Zero, inFolder = openFolder) },
+            onLongPress = { app, bounds ->
+                if (!vm.noteHomeLocked()) vm.overlay = Overlay.AppMenu(app.key, bounds ?: Rect.Zero, inFolder = openFolder)
+            },
             onDismiss = { vm.overlay = Overlay.None },
         )
 
@@ -985,7 +999,7 @@ fun HomeScreen(
             anchor = menu?.anchor,
             inFolder = menu?.inFolder != null,
             folders = vm.folders(),
-            onMove = { vm.startMove(it) },
+            onMove = { vm.startMove(it, menu?.inFolder) },
             onHide = { key ->
                 closeMenu()
                 vm.hide(key)
@@ -1034,6 +1048,25 @@ fun HomeScreen(
             onDismiss = { closeMenu() },
         )
 
+        // Over an open folder too, where an app can move as well (issue #1344).
+        AnimatedVisibility(
+            visible = moving != null,
+            enter = fadeIn(tween(200, easing = Motion.EaseOut)) + slideInVertically(tween(260, easing = Motion.EaseOut)) { it / 2 },
+            exit = fadeOut(tween(150, easing = Motion.EaseOut)) + slideOutVertically(tween(150, easing = Motion.EaseOut)) { it / 2 },
+            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 28.dp),
+        ) {
+            // Screens that can be touched also say how to move with a finger.
+            val touch = LocalConfiguration.current.touchscreen != Configuration.TOUCHSCREEN_NOTOUCH
+            BasicText(
+                stringResource(if (touch) R.string.move_hint_touch else R.string.move_hint),
+                style = Type.Body,
+                modifier = Modifier
+                    .liquidGlass(20.dp)
+                    .height(40.dp)
+                    .padding(horizontal = 20.dp, vertical = 10.dp),
+            )
+        }
+
         KidsSetupSheet(
             visible = overlay is Overlay.Kids,
             candidates = vm.kidsCandidates,
@@ -1076,6 +1109,12 @@ fun HomeScreen(
             onDismiss = { vm.overlay = Overlay.ControlCenter() },
             hiddenCount = vm.hiddenApps.size,
             onHiddenApps = { vm.whenUnlocked { vm.overlay = Overlay.HiddenApps } },
+            // Locking needs nothing; unlocking, the PIN where one is set.
+            onHomeLock = { on ->
+                if (on == AerialSettings.homeLocked) Unit
+                else if (on) AerialSettings.chooseHomeLocked(true)
+                else vm.whenUnlocked { AerialSettings.chooseHomeLocked(false); vm.overlay = Overlay.Wallpaper }
+            },
             onKids = vm::setUpKidsMode,
             onStartScreensaver = {
                 vm.overlay = Overlay.None
@@ -1099,7 +1138,7 @@ fun HomeScreen(
         NoticeBanner(vm.notice, Modifier.align(Alignment.TopCenter).padding(top = 24.dp), vm.noticeGlyph)
 
         Screensaver(visible = vm.screensaverVisible, apps = apps, now = now, skips = vm.screensaverSkips, carry = when {
-                filmSaver -> SaverCarry.Film(liveFilm)
+                filmSaver -> if (Wallpapers.isVideo()) SaverCarry.Video(homeVideo) else SaverCarry.Film(liveFilm)
                 stillCarry != null -> stillCarry
                 else -> null
             },

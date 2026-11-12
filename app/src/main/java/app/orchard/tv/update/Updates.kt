@@ -57,6 +57,9 @@ object Updates {
      */
     private const val STALL_MS = 30_000L
     private const val STALL_BYTES = 256 * 1024L
+
+    /** Tries per source, the first included, while each try delivers some bytes; see download. */
+    private const val RESUME_TRIES = 3
     const val CONTROL_CENTER_MAX_AGE_MS = UpdateCheck.PANEL_MAX_AGE_MS
 
     /** This build's version, e.g. "1.17" (the guard build's "-guard" left off). */
@@ -385,9 +388,11 @@ object Updates {
      * worked there. So a session whose page does not come up in time is abandoned for it.
      */
     private var awaiting: Awaiting? = null
-    private class Awaiting(val id: Int, val confirmation: Boolean, val showConfirmation: Runnable?) {
+    private class Awaiting(val app: Context, val id: Int, val confirmation: Boolean, val showConfirmation: Runnable?) {
         var homeLeft = false
         var timedOut = false
+        /** When Home paused beneath the confirmation page. */
+        var leftAt = 0L
         lateinit var check: Runnable
     }
     private var homeInFront = false
@@ -411,13 +416,24 @@ object Updates {
     /** From starting the confirmation page to Home pausing beneath it. */
     private const val CONFIRM_TIMEOUT_MS = 4_000L
 
+    /**
+     * Home back this soon after the confirmation page covered it, with no answer, means the page
+     * never stayed: OBE C3 Ultra's installer (m7642, Android 9) reads the intent's data in
+     * InstallStart.onCreate, and a session's page has none, so it died within 200 ms every time
+     * and nothing was installed (issue #1482, the reporter's log and the decompiled installer).
+     * Leaving the page by hand takes longer, and Back or Cancel there answers the session.
+     */
+    private const val PAGE_DIED_MS = 1_500L
+    /** How long an answer may take after Home is back, before the page counts as having died. */
+    private const val ANSWER_AFTER_RETURN_MS = 1_500L
+
     /** Wait for an answer, or for a requested confirmation page to pause Home. */
     private fun awaitSession(
         app: Context, id: Int, ms: Long, why: String,
         confirmation: Boolean = false, showConfirmation: Runnable? = null,
     ) {
         awaiting?.let { main.removeCallbacks(it.check) }
-        val a = Awaiting(id, confirmation, showConfirmation)
+        val a = Awaiting(app, id, confirmation, showConfirmation)
         a.check = Runnable {
             if (awaiting !== a || (a.confirmation && a.homeLeft)) return@Runnable
             a.timedOut = true
@@ -531,7 +547,15 @@ object Updates {
             // Only returning from a requested confirmation releases the session's button.
             // Visiting another app while awaiting an answer must not forget the update.
             if (it.showConfirmation != null) it.showConfirmation.run()
-            else if (it.confirmation && it.homeLeft) stopAwaiting(it.id)
+            else if (it.confirmation && it.homeLeft) {
+                if (SystemClock.elapsedRealtime() - it.leftAt < PAGE_DIED_MS) {
+                    main.postDelayed({
+                        if (awaiting === it) giveUpOnSession(it.app, it.id, "confirmation page of session ${it.id} closed at once")
+                    }, ANSWER_AFTER_RETURN_MS)
+                } else {
+                    stopAwaiting(it.id)
+                }
+            }
             else if (it.timedOut) it.check.run()
         }
     }
@@ -540,6 +564,7 @@ object Updates {
         homeInFront = false
         checker?.setActive(false)
         awaiting?.takeIf { it.confirmation }?.let {
+            if (!it.homeLeft) it.leftAt = SystemClock.elapsedRealtime()
             it.homeLeft = true
             install = Install.Opened
         }
@@ -590,22 +615,57 @@ object Updates {
         check(directory.isDirectory || directory.mkdirs()) { "Cannot create update directory: $directory" }
         check(directory.canWrite()) { "Cannot write update directory: $directory" }
         val part = File(directory, file.name + ".part")
+        part.delete()
+        try {
+            // Broken off part way, the download carries on from where it stopped, from the same
+            // source: started over each time, it never finished on a home network that drops now
+            // and then (Hisense 43E3G, issue #1480: "half way, then Download and Install again").
+            // Nothing delivered at all goes to the next source, as before (#390).
+            var tries = 0
+            while (true) {
+                try {
+                    fetch(url, part)
+                    break
+                } catch (e: Exception) {
+                    if (e is kotlin.coroutines.cancellation.CancellationException) throw e
+                    if (++tries >= RESUME_TRIES || part.length() == 0L) throw e
+                    Log.w(TAG, "download broke off at ${part.length()} bytes; resuming", e)
+                    DiagLog.i("update: download broke off at ${part.length() / 1024} KB (${e.javaClass.simpleName} ${e.message}); resuming")
+                }
+            }
+            if (!part.renameTo(file)) error("could not keep the download")
+            // The installer on Android 5 and 6 opens the file itself.
+            if (Build.VERSION.SDK_INT < 24) file.setReadable(true, false)
+        } finally {
+            part.delete()
+        }
+    }
+
+    /** Fetches [url] into [part], from its end when it has bytes already and the server takes a range. */
+    private suspend fun fetch(url: String, part: File) {
+        val from = part.length()
         val c = URL(url).openConnection() as HttpURLConnection
         LegacyUpdateTls.configure(appContext, c)
         c.connectTimeout = 10_000
         c.readTimeout = 20_000
+        if (from > 0) c.setRequestProperty("Range", "bytes=$from-")
         // A throttled route can keep the TLS handshake up and deliver a byte now and then, so no
         // read() ever blocks long enough to time out and the progress bar sits at 0% for good
         // (issue #390, FFALCON/TCL on China Unicom). So the bytes are counted, not each read timed.
         var windowAt = SystemClock.elapsedRealtime()
         var windowFrom = 0L
         try {
-            if (c.responseCode != HttpURLConnection.HTTP_OK) error("HTTP ${c.responseCode}")
-            val total = c.contentLength.toLong()
-            var done = 0L
+            val code = c.responseCode
+            // A server that ignores the range sends it all again: start over.
+            val append = from > 0 && code == HttpURLConnection.HTTP_PARTIAL
+            if (code != HttpURLConnection.HTTP_OK && !append) error("HTTP $code")
+            val length = c.contentLength.toLong()
+            val total = if (length < 0) -1L else if (append) from + length else length
+            var done = if (append) from else 0L
+            windowFrom = done
             var shown = -1
             c.inputStream.use { input ->
-                part.outputStream().use { out ->
+                java.io.FileOutputStream(part, append).use { out ->
                     val buf = ByteArray(64 * 1024)
                     while (true) {
                         val n = input.read(buf)
@@ -627,12 +687,8 @@ object Updates {
                 }
             }
             if (total > 0 && done != total) error("got $done of $total bytes")
-            if (!part.renameTo(file)) error("could not keep the download")
-            // The installer on Android 5 and 6 opens the file itself.
-            if (Build.VERSION.SDK_INT < 24) file.setReadable(true, false)
         } finally {
             c.disconnect()
-            part.delete()
         }
     }
 

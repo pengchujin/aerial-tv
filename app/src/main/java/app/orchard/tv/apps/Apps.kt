@@ -9,6 +9,7 @@ import android.content.pm.PackageManager
 import android.util.Log
 import app.orchard.tv.R
 import app.orchard.tv.guard.HomeGuardService
+import app.orchard.tv.system.CoocaaHome
 import app.orchard.tv.system.TvSource
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.toArgb
@@ -133,15 +134,19 @@ object AppCatalog {
     private const val CATEGORY_APPSTORE_LAUNCHER = "android.intent.category.APPSTORE_LAUNCHER"
 
     /**
-     * Firmware apps that the maker's own launcher shows but that declare no launcher category at
-     * all, so no query finds them. Verified on Xiaomi MiTV-MFTR0.
+     * Apps that declare no launcher category at all, so no query finds them; most are firmware apps
+     * the maker's own launcher shows. Each entry names the TV it was found on.
      */
     private val UNLISTED_ENTRIES = listOf(
+        // Xiaomi MiTV-MFTR0
         ComponentName("com.xiaomi.mitv.mediaexplorer", "com.xiaomi.mitv.mediaexplorer.NewScraperMainEntryActivity"), // 高清播放器
         ComponentName("com.xiaomi.smarthome.tv", "com.xiaomi.smarthome.tv.ui.MainActivity"), // 米家
         // 小微畅聊, Tencent's video calls inside Sony's search app; MAIN only, no category
         // (BRAVIA XR-75X91L, Android 12, issue #1074, found by the reporter).
         ComponentName("com.sony.dtv.searchapp", "com.ktcp.aiagent.xwability.activity.VoipHomeActivity"),
+        // 宽带电视, GITV's live TV; MAIN only, no category, not on PatchWall either
+        // (MiTV4-ANSM0, Android 6.0.1, issue #1378, found by the reporter).
+        ComponentName("com.gitv.dvb.live", "com.gitv.dvb.live.activity.PlayActivity"),
     )
 
     /**
@@ -192,6 +197,18 @@ object AppCatalog {
 
     private class Cached(val stamp: Long, val width: Int, val label: String, val art: TileArt)
     private val cache = HashMap<String, Cached>()
+
+    /**
+     * Apps whose tile is Aerial's own (firmware apps, the stock launcher): the icon library's
+     * picture replaces it only when the phone page picked it, so the phone page shows what is in
+     * use. Without the banner check of [entry], so a firmware app that also has a banner may be
+     * counted; such apps are not in the library.
+     */
+    private val drawnByAerial = java.util.concurrent.ConcurrentHashMap<String, SystemTile>()
+
+    /** Whether [pkg]'s tile shows the icon library's picture (when it has one). */
+    fun usesLibrary(pkg: String): Boolean =
+        IconLibrary.uses(pkg) && (!drawnByAerial.containsKey(pkg) || IconLibrary.pick(pkg) == IconLibrary.Pick.Library)
 
     /** The apps of the last load, for the phone page. */
     @Volatile var loaded: List<AppEntry> = emptyList(); private set
@@ -261,10 +278,14 @@ object AppCatalog {
         // unaffected.
         val skyworthHomes = listOf("com.skyworth.officehomepage", "com.tianci.movieplatform")
             .any { runCatching { pm.getPackageInfo(it, 0) }.isSuccess }
+        // The home the Home key opens first: the one the firmware names (CoocaaHome), then the list.
+        // On Skyworth 8R734_A7HP that is com.tianci.movieplatform, and officehomepage, first in the
+        // list for skyT963, is not what the set shows.
+        val preferredHomes = listOfNotNull(CoocaaHome.launcher(context)?.packageName) + SKYWORTH_PREFERRED_STOCK_HOMES
         val stockInfos = stockLaunchers(pm)
             .filter { !skyworthHomes || it.packageName != "com.example.android.home" }
             .sortedBy {
-                SKYWORTH_PREFERRED_STOCK_HOMES.indexOf(it.packageName).let { i -> if (i == -1) Int.MAX_VALUE else i }
+                preferredHomes.indexOf(it.packageName).let { i -> if (i == -1) Int.MAX_VALUE else i }
             }
         for (info in stockInfos) {
             if (skyworthHomes && stockHomes.isNotEmpty()) continue
@@ -424,6 +445,8 @@ object AppCatalog {
      * library: for the phone page to show beside the library's. Off the main thread.
      */
     fun ownArt(context: Context, entry: AppEntry): TileArt? = runCatching {
+        // A firmware app's own tile is Aerial's, as Home draws it without a library picture.
+        drawnByAerial[entry.packageName]?.let { return@runCatching TileArtFactory.forSystem(it) }
         val pm = context.packageManager
         val info = pm.getActivityInfo(entry.component, 0)
         fromApp(pm, info, banner(pm, info, entry.leanback), TileRecipes.of(entry.packageName))
@@ -439,6 +462,8 @@ object AppCatalog {
         val stamp = runCatching { pm.getPackageInfo(pkg, 0).lastUpdateTime }.getOrDefault(0L) + CustomIcons.stamp(pkg) +
             IconLibrary.stamp(pkg) + if (stockHome) 1 else 0
         val system = (info.applicationInfo.flags and ApplicationInfo.FLAG_SYSTEM) != 0
+        val ownTile = if (stockHome) SystemTile.Home else if (system) SYSTEM_TILES[pkg] ?: byCategory[pkg] else null
+        if (ownTile != null) drawnByAerial[pkg] = ownTile else drawnByAerial.remove(pkg)
         val inMemory = synchronized(cache) { cache[pkg] }?.takeIf { it.stamp == stamp && it.width == TileArtFactory.W }
         if (inMemory == null && later) {
             TileDiskCache.readHeader(pkg, TileDiskCache.key(stamp))?.let { (label, tint) ->

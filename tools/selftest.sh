@@ -21,6 +21,9 @@ set -uo pipefail
 
 : "${TV:?set TV to the TV IP address, e.g. TV=<tv-ip> $0}"
 command -v adb >/dev/null || { echo "adb not found. macOS: brew install android-platform-tools; Linux: install android-tools / adb." >&2; exit 1; }
+# The timings and timeouts below are perl's: without it every wait ended at once, and a Home that
+# worked was reported FAIL (issue #1208, the reporter's agent).
+command -v perl >/dev/null || { echo "perl not found; this script times each check with it. Linux: install perl; Windows: run it in Git Bash, which has perl." >&2; exit 1; }
 PKG=app.orchard.tv
 case "$TV" in *:*) SERIAL="$TV" ;; *) SERIAL="$TV:5555" ;; esac
 export ANDROID_SERIAL="$SERIAL"
@@ -119,10 +122,13 @@ sleep 3
 sh_ am start -a android.settings.SETTINGS >/dev/null; sleep 3
 OTHER=$(fg)
 # Some TVs' settings are a panel over the current app rather than an activity of their own: an
-# app from the launcher list instead, neither Aerial nor the TV's own launcher.
+# app from the launcher list instead, neither Aerial nor the TV's own launcher. TV apps first, and
+# no placeholder: XGIMI DOHKO (Android 14) has no settings activity, and the first app on its
+# phone launcher list was com.android.newsettings.mock.MockActivity, which never comes up (#1483).
 if [ "$OTHER" = "$PKG" ]; then
-  APP=$(sh_ cmd package query-activities --brief -a android.intent.action.MAIN -c android.intent.category.LAUNCHER |
-    grep "/" | grep -v -e "^ *$PKG/" -e "^ *${HOME_TO%%/*}/" | head -n1 | tr -d ' ')
+  APP=$( { sh_ cmd package query-activities --brief -a android.intent.action.MAIN -c android.intent.category.LEANBACK_LAUNCHER
+           sh_ cmd package query-activities --brief -a android.intent.action.MAIN -c android.intent.category.LAUNCHER; } |
+    grep "/" | grep -v -i -e "^ *$PKG/" -e "^ *${HOME_TO%%/*}/" -e "mock" | head -n1 | tr -d ' \r')
   [ -n "$APP" ] && { sh_ am start -n "$APP" >/dev/null; sleep 4; OTHER=$(fg); }
 fi
 sh_ input keyevent KEYCODE_HOME

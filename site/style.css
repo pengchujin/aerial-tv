@@ -37,6 +37,11 @@ nav .brand:hover { text-decoration: none; }
 nav .links { display: flex; gap: 24px; margin-left: auto; font-size: 14px; }
 nav .links a { color: var(--muted); }
 nav .links a:hover { color: var(--text); text-decoration: none; }
+.stars { margin-left: .45em; font-variant-numeric: tabular-nums; opacity: .75; }
+/* Phones hide the links, so the GitHub link with its stars moves beside the language switch. */
+nav .gh { display: none; align-items: center; font-size: 14px; color: var(--muted); }
+nav .gh:hover { color: var(--text); text-decoration: none; }
+nav .gh .stars { opacity: 1; }
 nav .lang { font-size: 14px; color: var(--muted); }
 nav .lang:hover { color: var(--text); text-decoration: none; }
 nav .cta { font-size: 14px; padding: 6px 14px; border-radius: 980px; background: var(--accent); color: #fff; }
@@ -174,6 +179,8 @@ a.chip-link:hover { text-decoration: none; border-color: rgba(41,151,255,.5); co
 .panel > p.note { color: var(--dim); margin: 14px 0 0; }
 .panel ol { color: var(--muted); margin: 0 0 14px; padding-left: 22px; }
 .panel ol li { margin: 4px 0; }
+/* Long commands and setting names in the text have no spaces; let them break on narrow phones. */
+code { overflow-wrap: anywhere; }
 .code { position: relative; background: #0d0d0f; border: 1px solid var(--line); border-radius: 16px; }
 .code pre {
   margin: 0; padding: 22px 22px 22px; overflow-x: auto; white-space: pre-wrap; word-break: break-word;
@@ -216,7 +223,10 @@ footer a { color: var(--muted); }
 
 @media (max-width: 860px) {
   nav .links { display: none; }
-  nav .lang { margin-left: auto; }
+  nav .wrap { gap: 18px; }
+  nav .brand { margin-right: auto; }
+  nav .gh { display: flex; }
+  nav .gh, nav .lang, nav .cta { white-space: nowrap; }
   .hero { padding-top: 64px; }
   section { padding: 80px 0; }
   .feature, .feature.flip, .phone-row { grid-template-columns: 1fr; gap: 28px; }
@@ -230,10 +240,20 @@ footer a { color: var(--muted); }
   .compare-legend { margin-top: 18px; }
   .compare .knob { width: 34px; height: 34px; margin: -17px 0 0 -17px; }
 }
+/* The narrowest phones (320 px) fit the stars only without the GitHub mark. */
+@media (max-width: 380px) {
+  nav .wrap { gap: 12px; }
+  nav .gh svg { display: none; }
+  nav .gh .stars { margin-left: 0; }
+}
 @media (max-width: 480px) {
   .tabs .logo.xiaomi, .tabs .logo.android { display: none; }
   .tabs[data-tabs="method"] { display: flex; flex-wrap: wrap; }
   .tabs[data-tabs="method"] button { flex: 1 1 auto; justify-content: center; padding: 8px 10px; }
+}
+/* At 320 px the English brand tabs ran 15 px past the screen. */
+@media (max-width: 360px) {
+  .tabs[data-tabs="brand"] button { padding: 8px 5px; }
 }
 
 /* voices: posts from Weibo, X and Xiaohongshu, one stack of cards per platform */

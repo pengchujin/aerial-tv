@@ -6,13 +6,15 @@ internal object GamepadDevices {
     private const val AZFP0_EVENTSERVER_VENDOR_ID = 0xdead
     private const val AZFP0_EVENTSERVER_PRODUCT_ID = 0xbeef
 
-    // The built-in remote receiver of Amlogic TVs: not external, vendor and product 0x0001, yet
-    // its sources include SOURCE_GAMEPAD. Counted as a gamepad, it made the guard stop filtering
-    // keys in other apps (issue #774's Android 11 rule), so Home went to PatchWall first and Aerial
-    // came back seconds later (MiTV-AZFP0, Android 9, 2026-10-30).
-    private const val AMLOGIC_KEYPAD_NAME = "aml_keypad"
-    private const val AMLOGIC_KEYPAD_VENDOR_ID = 0x0001
-    private const val AMLOGIC_KEYPAD_PRODUCT_ID = 0x0001
+    // Vendor and product 0x0001 is the id kernel drivers give a TV's built-in inputs when they don't
+    // set one (Amlogic's IR receiver, HiSilicon's key wrapper); no real USB or Bluetooth gamepad
+    // has it. These inputs list SOURCE_GAMEPAD, and counted as a gamepad they made the guard stop
+    // filtering keys in other apps (issue #774's Android 11 rule), so Home went to PatchWall first
+    // and Aerial came back seconds later. Seen as "aml_keypad" (MiTV-AZFP0, Android 9, 2026-10-30),
+    // "Hi keyboard" (a HiSilicon projector) and "ir_keypad" (MiTV-AETP0, Android 9, issue #1423:
+    // the reporter's dumpsys input, sources 0x2703, not external).
+    private const val BUILT_IN_VENDOR_ID = 0x0001
+    private const val BUILT_IN_PRODUCT_ID = 0x0001
 
     // The Bluetooth voice remote paired to Redmi Projector Lite (Projector_10, Android 9) declares
     // SOURCE_GAMEPAD. Counting it as a gamepad made the guard stop filtering keys outside Aerial;
@@ -20,10 +22,6 @@ internal object GamepadDevices {
     private const val REDMI_PROJECTOR_REMOTE_NAME = "小米蓝牙语音遥控器"
     private const val XIAOMI_VENDOR_ID = 0x2717
     private const val REDMI_PROJECTOR_REMOTE_PRODUCT_ID = 0x32b8
-    // Its built-in input wrapper also declares SOURCE_GAMEPAD despite being a keyboard/remote.
-    private const val HILISILICON_PROJECTOR_KEYBOARD_NAME = "Hi keyboard"
-    private const val HILISILICON_PROJECTOR_KEYBOARD_VENDOR_ID = 0x0001
-    private const val HILISILICON_PROJECTOR_KEYBOARD_PRODUCT_ID = 0x0001
 
     fun isPhysicalGamepad(
         name: String?,
@@ -31,22 +29,23 @@ internal object GamepadDevices {
         supportsGamepad: Boolean,
         vendorId: Int,
         productId: Int,
+        alphabetic: Boolean = false,
     ): Boolean {
         if (isVirtual || name.orEmpty().contains("virtual", ignoreCase = true) || !supportsGamepad) return false
+        // A full keyboard is not a gamepad, whatever buttons it also declares. TCL's input stand-ins
+        // for its phone remote, "sim-kb" and "sim-mouse", are alphabetic keyboards with gamepad
+        // buttons, there with nothing plugged in; counted as gamepads, they stopped the filter in
+        // other apps and Home there showed the TCL launcher for Android's 5 s hold (tcl_m7642,
+        // Android 9, issue #1234: the reporter's dumpsys input, 4.9 s in 1.63-1.82, instant in 1.62).
+        if (alphabetic) return false
 
         // MiTV-AZFP0 (Android 9) reports these software eventserver endpoints as gamepads.
         if (name == AZFP0_EVENTSERVER_NAME &&
             vendorId == AZFP0_EVENTSERVER_VENDOR_ID && productId == AZFP0_EVENTSERVER_PRODUCT_ID
         ) return false
-        if (name == AMLOGIC_KEYPAD_NAME &&
-            vendorId == AMLOGIC_KEYPAD_VENDOR_ID && productId == AMLOGIC_KEYPAD_PRODUCT_ID
-        ) return false
+        if (vendorId == BUILT_IN_VENDOR_ID && productId == BUILT_IN_PRODUCT_ID) return false
         if (name == REDMI_PROJECTOR_REMOTE_NAME &&
             vendorId == XIAOMI_VENDOR_ID && productId == REDMI_PROJECTOR_REMOTE_PRODUCT_ID
-        ) return false
-        if (name == HILISILICON_PROJECTOR_KEYBOARD_NAME &&
-            vendorId == HILISILICON_PROJECTOR_KEYBOARD_VENDOR_ID &&
-            productId == HILISILICON_PROJECTOR_KEYBOARD_PRODUCT_ID
         ) return false
 
         return true

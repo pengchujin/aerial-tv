@@ -42,10 +42,27 @@ class DeviceProfile(
      * instead of a slider that changes nothing. Nothing on the TV tells this apart.
      */
     val ignoresScreenBrightness: Boolean = false,
+    /**
+     * Home Guard filters keys whenever the screen is on, whatever is in front, and answers Home
+     * itself. For firmwares whose own Home force-stops the app in front: Redmi Projector 4
+     * (mt5873, Android 13) did so to Aerial and to any app, a 1-2 s flash each press, and with
+     * the filter on it never did, but a held volume key then moved one step only (issue #684, the
+     * reporter's local build). Which of the two is worse is the owner's call, so only by profile.
+     */
+    val filterHomeAlways: Boolean = false,
+    /**
+     * Home Guard filters no keys at all. Up to Android 11 it otherwise filters everywhere, and on
+     * LeTV X4-40 (MStar 6A938, Android 6) one press of a direction key then moved two to five
+     * places, in the firmware's own lists as well, while getevent showed one press and injected
+     * keys moved one (issue #115, the reporter's test with the capability removed). Home then goes
+     * to the system: 0.2-0.5 s on that TV with the stock launcher showing for about 1 s, and up to
+     * 5 s where Android holds app starts after Home (TCL MT5879). The owner's call, so only by profile.
+     */
+    val neverFilterKeys: Boolean = false,
 ) {
     val isEmpty get() = hiddenHardware.isEmpty() && labels.isEmpty() && xiaomiSourceIds.isEmpty() &&
         xiaomiFallbackSourceIds.isEmpty() && !ignoresPictureBacklight && bootStockMs <= 0 &&
-        !ignoresScreenBrightness
+        !ignoresScreenBrightness && !filterHomeAlways && !neverFilterKeys
 
     /** The same fields `devices.json` uses, without the matching ones (models, buildMajorBelow, buildAtLeast). */
     fun toJson(): JSONObject = JSONObject().apply {
@@ -56,6 +73,8 @@ class DeviceProfile(
         if (ignoresPictureBacklight) put("ignoresPictureBacklight", true)
         if (bootStockMs > 0) put("bootStockMs", bootStockMs)
         if (ignoresScreenBrightness) put("ignoresScreenBrightness", true)
+        if (filterHomeAlways) put("filterHomeAlways", true)
+        if (neverFilterKeys) put("neverFilterKeys", true)
     }
 
     /** Where the profile in use came from, for the diagnostics. */
@@ -135,8 +154,10 @@ class DeviceProfile(
                 xiaomiSourceIds = ints("xiaomiSources"),
                 xiaomiFallbackSourceIds = ints("xiaomiFallbackSources"),
                 ignoresPictureBacklight = o.optBoolean("ignoresPictureBacklight", false),
-                bootStockMs = o.optInt("bootStockMs", 0).coerceIn(0, 10_000),
+                bootStockMs = o.optInt("bootStockMs", 0).coerceIn(0, 45_000),
                 ignoresScreenBrightness = o.optBoolean("ignoresScreenBrightness", false),
+                filterHomeAlways = o.optBoolean("filterHomeAlways", false),
+                neverFilterKeys = o.optBoolean("neverFilterKeys", false),
             )
         }
 

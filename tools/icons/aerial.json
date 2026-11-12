@@ -1,0 +1,22 @@
+{
+  "//": {
+    "note": "Firmware apps Aerial draws itself (AppCatalog.SYSTEM_TILES: settings, photos, weather, cast, security, store, media, browser) are left out: their tile is already this style. These are the other firmware apps, checked on the TVs named."
+  },
+  "// Xiaomi MFTR0 (checked 2026-11-10)": {},
+  "com.mitv.tvhome": {"glyph": "tv", "colors": ["#8E8CFF", "#3634A3"]},
+  "com.xiaomi.mitv.shop": {"glyph": "storefront", "colors": ["#FF9F4A", "#E0461E"]},
+  "com.xiaomi.tv.gallery": {"glyph": "landscape", "colors": ["#5ED6C2", "#14837A"]},
+  "com.duokan.videodaily": {"glyph": "smart_display", "colors": ["#FF6B6B", "#C81E2C"]},
+  "// TCL MT5879 (checked 2026-11-10)": {},
+  "com.tcl.walleve": {"glyph": "mic", "colors": ["#B58CFF", "#5B2FD0"]},
+  "com.tcl.wholenetsearch": {"glyph": "search", "colors": ["#6E9BFF", "#2348C8"]},
+  "com.tcl.c2dm.client": {"glyph": "chat", "colors": ["#4CE08A", "#11804A"]},
+  "com.tcl.usercenter": {"glyph": "account_circle", "colors": ["#7FA4D8", "#2F4F86"]},
+  "com.tcl.playskill": {"glyph": "lightbulb", "colors": ["#FFD45E", "#F08A00"]},
+  "com.tcl.appreciate.art": {"glyph": "palette", "colors": ["#FF9F7A", "#D9482B"]},
+  "com.tcl.t_solo": {"glyph": "headphones", "colors": ["#A99BFF", "#5A47D6"]},
+  "com.tcl.videocall": {"glyph": "videocam", "colors": ["#5ED6B0", "#14836A"]},
+  "com.tcl.gamecenter": {"glyph": "sports_esports", "colors": ["#A98CFF", "#5B3FC8"]},
+  "com.tcl.tshop": {"glyph": "redeem", "colors": ["#FF7A6E", "#C8282E"]},
+  "com.kookong.tvplus": {"glyph": "settings_remote", "colors": ["#FF7A6E", "#C8282E"]}
+}

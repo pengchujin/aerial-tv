@@ -19,7 +19,7 @@ adb shell cmd notification disallow_listener "$PKG/$PKG.guard.RevivalListener" >
 LISTENERS=$(adb shell settings get secure enabled_notification_listeners 2>/dev/null | tr -d '\r')
 case "$LISTENERS" in
   *"$PKG/$PKG.guard.RevivalListener"*)
-    REST=$(printf '%s' "$LISTENERS" | tr ':' '\n' | grep -v "^$PKG/" | paste -sd: -)
+    REST=$(printf '%s' "$LISTENERS" | tr ':' '\n' | grep -v "^$PKG/" | paste -sd: - || true)
     if [ -n "$REST" ]; then adb shell settings put secure enabled_notification_listeners "$REST" >/dev/null 2>&1 || true
     else adb shell settings delete secure enabled_notification_listeners >/dev/null 2>&1 || true; fi ;;
 esac
@@ -44,6 +44,20 @@ if [ -z "$REST" ] || [ "$REST" = null ]; then
   adb shell settings delete secure enabled_accessibility_services >/dev/null
 else
   adb shell settings put secure enabled_accessibility_services "'$REST'"
+fi
+# TCL: put back what the TV opened at power-on before install.sh made it Aerial.
+BOOT_APP=$(adb shell settings get global aerial_boot_app_componentname | tr -d '\r')
+if [ -n "$BOOT_APP" ] && [ "$BOOT_APP" != null ]; then
+  BOOT_MODE=$(adb shell settings get global aerial_boot_app_mode | tr -d '\r')
+  for pair in "boot_app_componentname:$BOOT_APP" "boot_app_mode:$BOOT_MODE"; do
+    key=${pair%%:*} value=${pair#*:}
+    case "$value" in none|null|"") adb shell settings put system "$key" "''" >/dev/null ;;
+      *) adb shell settings put system "$key" "$value" >/dev/null ;; esac
+  done
+  adb shell settings delete global aerial_boot_app_componentname >/dev/null
+  adb shell settings delete global aerial_boot_app_mode >/dev/null
+elif [ "$(adb shell settings get system boot_app_componentname | tr -d '\r')" = "$PKG/.MainActivity" ]; then
+  adb shell settings put system boot_app_componentname "''" >/dev/null
 fi
 # Hisense VIDAA: put back the launcher install.sh replaced in persist.vt.use_home_pkg.
 VT_HOME=$(adb shell settings get global aerial_vt_home_pkg | tr -d '\r')
