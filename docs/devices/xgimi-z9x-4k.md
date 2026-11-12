@@ -99,3 +99,16 @@ com.xgimi.xgimiframeworkui/.resolver.ResolverActivity
 轻量特效和 1080p 航拍质量已通过公开 CONFIG 接口设置，但没有进行帧时间基准，不能据此声称性能提升了某个比例。网络 ADB 只在户主授权的可信家庭局域网使用；本记录没有修改设备认证机制，也不建议把 ADB 暴露到公网。
 
 感谢维护者提供 Aerial，以及已经整理的极米机型笔记。希望这份有成功结果也保留限制的实测记录，能帮助其他同固件用户少走弯路。
+
+## RS20 Pro Max（XGIMI TV DOHKO，mt9952 / horse_popular，Android 14，#1483，报告人实测 1.94 standard）
+
+和 RS20 Ultra Max（#1379）同一个 DOHKO 平台。默认桌面留给极米，守护接管：`selftest.sh` 的 guard、home_on_aerial、待机（唤醒 0.9 秒回 Aerial）、重启（开机第 1 秒前台就是 Aerial）都通过。
+
+- 没有 `android.settings.SETTINGS` 的 Activity，自检的「从别的 App 按主页键」退到桌面 App 列表时挑中了 `com.android.newsettings.mock.MockActivity`（起不来）。2026-11-12 起脚本先找 TV 的 App、跳过 mock。报告人手工从 SmartTube、文件管理等按主页键都 0.7–1.4 秒回 Aerial。
+- 信号源：`com.xgimi.tvinput` 列出 HDMI1 / HDMI2，磁贴能切（HDMI1 实测出画面）；passthrough VIEW 没有 Activity 接，`open_source` 原来直接报 `ActivityNotFoundException`，2026-11-12 起和磁贴一样退到极米设置服务的信号源页。
+- `logcat -d` 读不出来（`Logcat read failure`），要看 Aerial 的日志用控制中心「反馈问题」或 `dumpsys activity app.orchard.tv/.MainActivity`。
+- 重启后 `SYSTEM_ALERT_WINDOW` 变 ignore、`REQUEST_INSTALL_PACKAGES` 变 default，UID 级的 allow 也没了（和本页 Z9X 不同）；开机接管照样成功。
+- HOME 有时解析到极米的选择器 `com.xgimi.xgimiframeworkui/.resolver.ResolverActivity`，没写过首选记录，再重启又回极米桌面。
+- 亮度条调的是光机档位（`getDlpLumensLevel`，1–10 档 ×10），Boost 档只能在极米自己的亮度页进，Aerial 显示 `10+`，和当贝 X7 Max 一致。
+- 抖 4K（DLP472TP，1080p 微镜 XPR），安卓只有 1080p60，`no 4K UI plane` 正常。
+

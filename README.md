@@ -231,7 +231,8 @@ curl -fsSL https://aerial.qust.me/install.sh | TV=192.168.1.20 bash -s restore
 | TCL / 雷鸟 | 60A730U、55V2 Pro（x32a0）、65Q10E 与鹤 6（m7642）、75S365C、75Q10L | Android 5.1–14 | ✅ 60A730U 只能装 guard 版；55V2 Pro 先 `setprop persist.tcl.debug.installapk 1` 才能 adb 安装（[#620](https://github.com/pengchujin/aerial-tv/issues/620)） |
 | 雷鸟 | FF55S515D-E674（tcl_m7642） | Android 9 | ✅ 多屏互动安装 guard，主页键可接管；重启亮屏后先出原桌面再切入 Aerial，待机唤醒偶尔同样短暂切换（[实测与限制](docs/devices/ffalcon-55s515d.md)） |
 | 雷鸟 | 鹤 7 Pro 65R675C（tcl_mt5879_cn） | Android 11 | ✅ standard 被拒（`INSTALL_FAILED_VERIFICATION_FAILURE`），guard 走多屏互动；装好后开机组件指向 Aerial，重启直接进 Aerial，主页键回 Aerial（[#1432](https://github.com/pengchujin/aerial-tv/issues/1432)） |
-| 雷鸟 | 55S595C Ultra、鹤 6 2025 Ultra | Android 11+ | ❌ 能装，接管不了主页键（[笔记](docs/devices/tcl-mt9655-cn.md)） |
+| 雷鸟 | 55S595C Ultra、鹤 6 2025 Ultra | Android 11+ | ❌ 无线调试连不上时能装、接管不了主页键（[笔记](docs/devices/tcl-mt9655-cn.md)） |
+| 雷鸟 | 855S595C Ultra（MT9655，固件 V8-0015T11） | Android 14 | ✅ 用 USB A 对 A 线授权 ADB（C 对 A 线不行），多屏互动装 guard 版，主页键和开机都进 Aerial；重启后要重新接线 `adb tcpip 5555`（[#1473](https://github.com/pengchujin/aerial-tv/issues/1473)） |
 | 索尼 | A80J 国行、BRAVIA VH1 | Android 10 / 12 | ✅ |
 | 索尼 | BRAVIA BF1 国行（BRAVIA 3，当贝系统） | Android 12 | ✅ 亮度要在电视设置里调（[#1355](https://github.com/pengchujin/aerial-tv/issues/1355)） |
 | 索尼 | BRAVIA 4K VH2 | 未说 | ✅（[#1193](https://github.com/pengchujin/aerial-tv/issues/1193)） |
@@ -271,6 +272,7 @@ curl -fsSL https://aerial.qust.me/install.sh | TV=192.168.1.20 bash -s restore
 | 长虹 | CHiQ 43Q5T（ZLS70Hi5） | — | ❌ ADB 连上但不弹授权框，设置里没有无障碍入口，接管不了主页键；U 盘装上可以当普通 App 用（[#1262](https://github.com/pengchujin/aerial-tv/issues/1262)） |
 | 长虹 | 65D7H Ultra（MT9655） | Android 14 | ⚠️ ADB 不弹授权框；报告人用长虹自己的系统接口把 Aerial 设成默认桌面，主页键、待机唤醒正常；要在电视管家里允许 Aerial 后台运行，否则按返回会停在长虹桌面（[#1409](https://github.com/pengchujin/aerial-tv/issues/1409)） |
 | OPPO | K9 | Android 9 | ⚠️ 要改包名才能装（[笔记](docs/devices/oppo-coloros-tv.md)） |
+| 极米 | RS20 Pro Max（XGIMI TV DOHKO，horse_popular） | Android 14 | ✅ guard 守护接管，主页键、待机唤醒、重启都回 Aerial，HDMI1 能切；重启后固件收回悬浮窗授权，不影响开机进 Aerial（[#1483](https://github.com/pengchujin/aerial-tv/issues/1483)） |
 | 极米 | Z9X 4K 高亮版（goat_elegant） | Android 13 | ⚠️ 1.76 有限实测：初次显示、UID app-op 与重启前台恢复；启动画面和待机仍待验（[笔记](docs/devices/xgimi-z9x-4k.md)） |
 | 极米 | Z7X、m7642 | Android 9 | ✅ Z7X 要用第三方工具打开 ADB（[笔记](docs/devices/xgimi-z7x.md)） |
 | 极米 | 神灯 L1（m7642，pig_chivalrous） | Android 9 | ✅ 默认桌面开机后会丢，报告人的双规则办法见[笔记](docs/devices/xgimi-z7x.md)（[#767](https://github.com/pengchujin/aerial-tv/issues/767)） |

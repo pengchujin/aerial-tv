@@ -185,4 +185,13 @@ Tianci 的 `HotKeyHandler` 按 `persist.service.homepage.*`（`com.cos.launcher/
 ## 无障碍被固件关掉的两台（#1361 #1462）
 
 - 9S89_S8A：`settings put secure accessibility_enabled 1` 连续三次读回 0，`enabled_accessibility_services` 写得进去；唤醒后守护根本没复活（`services:{}`，那几分钟 AerialGuard 零输出），前台是 `com.skyworth.tv/.activity.SkyTVMainActivity`。主页键先出酷开桌面是固件在守护之前处理的。这台 `logcat -d` 不带 `-b main -b system` 返回 0 字节，缓冲只留 20–40 秒。
-- 8R39_K5C（Realtek rtd285x，安卓 8）：主页键走私有类别 `android.intent.category.HOME.CC`、主页由 `persist.service.homepage.pkg` 派发，先闪酷开桌面约 0.34 秒再被守护拉回。1.93 写 `filterHomeAlways` 无效（按住音量照样连续加），1.94 改成 profile 要求时 Aerial 是默认桌面也过滤，待报告人复测。
+- 8R39_K5C（Realtek rtd285x，安卓 8）：主页键走私有类别 `android.intent.category.HOME.CC`、主页由 `persist.service.homepage.pkg` 派发，先闪酷开桌面约 0.34 秒再被守护拉回。1.93 写 `filterHomeAlways` 无效（按住音量照样连续加），1.94 改成 profile 要求时 Aerial 是默认桌面也开过滤，报告人复测发现主页键仍然闪：`onKeyEvent` 里「Aerial 是默认桌面就把 Home 交还系统」那一行没跟着改。2026-11-12 main 上补了（报告人用这一行自己编的 1.94 实测：不再闪；这台音量在守护看到按键前已被固件改过，日志 `volume already changed before the key filter`，按住音量照样连续加，没有「只走一格」的代价）。
+
+## 1AA81_P3H（酷开 55P3H，T963，安卓 9，low_ram，#1484）
+
+Aerial 是默认桌面、守护绑定，主页键正常；但重启后一分钟内前台一直是 `com.tianci.movieplatform`，待机唤醒也停在酷开桌面。和 7T634_P3H（安卓 13）不是同一套系统。等报告人贴开机后守护和无障碍的状态。
+
+## 松下 TH-55HX560C（创维代工，天赐，m7221，安卓 8，#1468）
+
+- 信号源键：天赐固件自己打开信号源页，键也放给 Aerial，两个面板同时出来。2026-11-12 起装有 `com.tianci.system` 时 Aerial 把这个键留给固件（和 TCL、酷开 Quick Panel 一样），没在这台上验证。
+- Aerial 是默认桌面时双击主页键会先闪原桌面 1–2 秒再被拉回；默认桌面是 `ResolverActivity`（守护接管）时双击能稳定打开后台。和 8R39_K5C 同一类：天赐不管 Home 解析到谁都起自己的桌面，可以写 `filterHomeAlways`（下个版本起默认桌面时也生效）。

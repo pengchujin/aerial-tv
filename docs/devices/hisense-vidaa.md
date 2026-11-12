@@ -236,8 +236,23 @@ Aerial 的处理：`system/HisenseLaserPanel.kt`；`Brightness.level` / `adjust`
 
 ## 海信 GX27 显示器（MT9655，mt5877，安卓 14，#1461，报告人 Agent 只读实测）
 
-`vendor.display-size = 3840x2160`、`ro.vtf.4kui.mtk = 1`、`ro.vt.4k_whitelist_support = 0`、`ro.surface_flinger.max_graphics_width/height = 3840/2160`，`dumpsys display` 只有 1920x1080@60。SurfaceFlinger / MStar 记录 Timing、Panel 3840x2160，Display Region 1920x1080，Aerial 那一层 1920x1080 缓冲放大送显。`/vendor/etc/uhd_keeping_packages.xml` 是空名单；`vt-extensions` 有 `set4KUIEnabled`（要 `SET_SCREEN_COMPATIBILITY`）。`wm size 3840x2160` 不生效。还没试 `uhd_canvas`。
+`vendor.display-size = 3840x2160`、`ro.vtf.4kui.mtk = 1`、`ro.vt.4k_whitelist_support = 0`、`ro.surface_flinger.max_graphics_width/height = 3840/2160`，`dumpsys display` 只有 1920x1080@60。SurfaceFlinger / MStar 记录 Timing、Panel 3840x2160，Display Region 1920x1080，Aerial 那一层 1920x1080 缓冲放大送显。`/vendor/etc/uhd_keeping_packages.xml` 是空名单；`vt-extensions` 有 `set4KUIEnabled`（要 `SET_SCREEN_COMPATIBILITY`）。`wm size 3840x2160` 不生效。
+
+报告人后来用 root 试了（1.94）：`--ez uhd_canvas true`，再临时把 `ro.odm.tcl.panel_resolution` 设成 3840x2160，Aerial 拿到 3840×2160 的缓冲，MStar HWC 显示 4K=Y。2026-11-12 main 上 `UhdCanvas` 也读 `vendor.display-size` 算面板尺寸，不用再伪装 TCL 的属性（只在强制打开时起作用；App 能不能读到这个 vendor 属性没在真机验证，诊断的 uhd 一行会写出面板尺寸）。看起来是否更清楚、卡不卡，待报告人说。
 
 ## 海信 VIDAA_TV MTK9632（m7332，安卓 9，#1447）
 
 1.92 的壁纸取帧（PixelCopy 读视频平面）在厂商 `libstagefrighthw_yuv.so` 的 detile 里 SIGSEGV（RenderThread），每 30 秒崩一次，系统把守护的重启推迟 4 小时，主页键回聚好看。之前有一次取帧返回绿色。1.94 起取帧前在磁盘记一笔，下个进程发现就不再在这个固件上用 PixelCopy。1.76 没有这条取帧，连跑 9 天正常。
+
+## 100U7S-PRO：USB 调试开着重启，USB 口全部断电（#1478，报告人实测）
+
+MT9655（mt5877），安卓 14。USB 调试（ADB）开着时断电重启，所有 USB 口（包括指向遥控器的接收器）都不供电，遥控器和 U 盘都用不了，也就没法再到设置里关 ADB。重启前把 USB 调试关掉就正常。这是固件行为，和 Aerial 无关：装完以后不需要 ADB，Aerial 照常工作；`keep_adb` 开着时 Aerial 会在开机后把 ADB 打开，这台要先关掉它：
+```
+adb shell am broadcast -a app.orchard.tv.CONFIG -n app.orchard.tv/.guard.ConfigReceiver --ez keep_adb false
+adb shell settings put global adb_enabled 0
+```
+
+## 98E7Q（MT9655，安卓 14，#1470）：遥控器的语音键和鼠标键不管用
+
+装 1.94 后报的。诊断里守护把语音助手 `com.keylab.speech.view.vidaa/com.ju.secondscreen.HomeActivity` 当原桌面拉回过一次（#261 时 MT9653 的固件在主页键和唤醒时会拉起它，所以守护认它）。是不是按语音键时拉起的、鼠标键走哪里，等报告人的日志。
+

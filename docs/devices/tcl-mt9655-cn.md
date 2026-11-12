@@ -130,6 +130,17 @@ TCL Q10L（MT9655，1.67-guard，2026-10-28 报告人实测）：Aerial 的 4K �
 - 应用内更新原来被拒：`W/verifier: fetch signature info from :app.orchard.tv`，接着 `metaData is null,so return false`，`INSTALL_FAILED_VERIFICATION_FAILURE`。签名比的是当前默认桌面（Aerial 自己），能过，只差 `com.tcl.app.type = com.tcl.ui`（逻辑见 [tcl-mt5879-cn.md](tcl-mt5879-cn.md)「安装限制」）。下一版 standard 带上了它，待报告人确认更新能走通。
 
 
+## 855S595C Ultra（MT9655，Android 14，#1473，报告人 Agent 实测 1.94-guard）
+
+固件字符串 `V8-0015T11-LF1V487` 和 #50 的 55S595C Ultra 一样，但 getprop 是 Android 14（`tcl9655_cn_an64-user 14 UTT2.250416.001 AU01`），所以「这个固件 USB 也无效」（#646 #1293 的推论）不成立：
+
+- 无线：5555 拒绝，ADB 开关的动态端口回 `STLS`，没有配对入口，和上面一样连不上。
+- **USB C 对 A 线**（线和电脑口用手机验证过能传数据）：电视黑色 2.0、蓝色 3.0 两个口、ADB 开关开关、断电重启四种组合，电脑上都不出现设备。
+- **USB A 对 A 线**插电视 2.0 口：Windows 立刻识别 `USB\VID_18D1&PID_4EE7`，电视弹授权，之后 `adb tcpip 5555` 改走无线。USB 授权跨重启保留；5555 重启后不监听（`keep_adb` 也拉不起来），要再插线执行一次 `adb tcpip 5555`。
+- 工厂菜单（信源 → 模拟 → 菜单 → 设置 → 显示 → 专业设定 → 对比度 → `1950`）能进，Other 里只有 watch dog，没有 ADB。
+- standard 被拒（`INSTALL_FAILED_VERIFICATION_FAILURE`），guard 走多屏互动。**电视在播直播时推送的确认框被视频层盖住看不见**，两次超时；回到桌面再推就出来了。
+- 装好后守护保留过重启，开机组件（原值 `boot_app_mode=boot_tv_hdmi1`、`boot_app_componentname` 空）设成 Aerial 后重启第一个前台就是 Aerial，主页键回 Aerial。
+
 ## 网络调试回 `STLS`（75Q9L Pro，#1293）
 
 `STLS` 不是 TCL 私有协议，是标准 ADB 的 TLS 握手（A_STLS）：无线调试的端口要先配对才接受。这类固件没有配对码入口、USB 口只出摄像头时，电脑连不上，只能走多屏互动推 guard 版，装完没有 ADB 就开不了守护。

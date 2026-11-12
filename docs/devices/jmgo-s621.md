@@ -25,3 +25,11 @@ wzpan 的 `skyworth-home-task` 分支在「Aerial 是系统默认桌面」时改
 ## 冷启动顺序
 
 用户解锁前坚果桌面不支持直接启动，钩子找不到它，系统按正常规则以 HOME 方式启动 Aerial，Aerial 再按 `handOverToFirmwareFallbackHome()` 让给坚果的 FallbackHome；解锁后钩子把坚果桌面设回首选并启动。
+
+## 坚果 H931（mt5889，Android 11，#1481，报告人 Agent 实测 1.94）
+
+- 守护接管，主页键（从坚果应用商店 0.2 秒）正常；HOME 候选里有 `com.jmgo.arwen`、`com.jmgo.launcher`（解析到它）、`com.jmgo.tv/.MainActivity` 和 Aerial。
+- 信号源是 MediaTek 的 `com.mediatek.tvinput/.hdmi.HDMIInputService/HW5..`，HDMI 2 接 Apple TV 时 CEC 子输入是 `HDMI200004`。框架的 passthrough VIEW 没有 Activity 接，磁贴报「不支持」。
+- 固件自己的入口：`com.jmgo.tv/.MainActivity` 带 `inputSrc=HDMI2`，再由不导出的 `TvActivity` 绑定 CEC 子输入出图；`TvActivity` 已经在跑时，广播 `com.jmgo.select.source`（`com.jmgo.select.sourcename=HDMI2`）也能切。
+- 2026-11-12 main：MediaTek 的 HDMI 口在 passthrough 打不开时走 `com.jmgo.tv/.MainActivity` + `inputSrc`（端口号取固件标签里的数字，没有就按 HW5 = HDMI 1）；这个 Activity 也是 HOME 候选，从磁贴 / 控制中心打开时记为「有意打开原桌面」，守护不拉回。没在 H931 上验证。
+
