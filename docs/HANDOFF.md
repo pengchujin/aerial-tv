@@ -4,6 +4,7 @@
 
 ## 现状（2026-11-12）
 
+- **1.95（versionCode 135），2026-11-12 发布**（[v1.95](https://github.com/pengchujin/aerial-tv/releases/tag/v1.95)）：下面这轮巡检的全部修复（#1462 #1482 #1480 #1481 #1483 #1461 #1468）。versionCode 跳过 134（两台装过 134 测试包）。Lite 没改，Release 附的仍是 1.28（30）。三个包签名 e089…。小米 MFTR0 `install-multiple` standard + 31.dm（speed-profile / install-dm）：`selftest.sh` 守护、主页键（从设置 0.4 秒）、`INPUTS=1` 8 个信号源通过。TCL MT5879 `tcast-push.py` 推 guard（先回桌面，截图确认焦点在「同意」），compile speed：守护、主页键（从 TCL 浏览器 0.4 秒）、7 个信号源通过，两个 walleve 服务、屏保 AerialDream 保留。官网已部署：version.txt = v1.95，notes.json 有 1.95，三个 APK md5 与 Release 一致，`/diag/aerial-710.apk` 还在。7 个 issue 贴了发布链接（`local/triage/release-1.95-posts.py`）。#1482 #1480 的改动要从 1.95 往后的升级才用得上，回复里说了这次先用安装命令。**下次发版 versionCode ≥ 136，Lite ≥ 31。**
 - **2026-11-12 巡检（没发版，改在 main 上）**，记录 `local/triage/2026-11-12-full.md`（原始 `raw-2026-11-12/`），回复 `replies-2026-11-12.py`，发出 `posted-2026-11-12.txt`。329 issue / 65 PR，用户最后发言 58（18 个上轮定了不回、没有新内容）。在主目录分支 `claude/triage-2026-11-12` 上做，合回 main。
   - 改了（每个单独提交）：
     - #1462 酷开 8R39_K5C：1.94 只让 `filterHomeAlways` 在默认桌面时开过滤，`onKeyEvent` 照样把 Home 交还系统，酷开照样闪原桌面 → 加 `&& !filterHomeAlways()`（报告人用这一行自编 1.94 实测不闪）。
@@ -14,7 +15,7 @@
     - #1461 海信 GX27：`UhdCanvas` 面板尺寸也读 `vendor.display-size`（只在 `uhd_canvas` 强制打开时有用）。
     - #1468 松下 TH-55HX560C（天赐）：有 `com.tianci.system` 时信号源键留给固件。
     - 文档：README 两份（雷鸟 855S595C Ultra、极米 RS20 Pro Max）、`agent.md` 两份（MT9655 用 USB A 对 A 线、TCL 推送前停在桌面）、机型笔记（MT9655、DOHKO、H931、OBE C3 Ultra、酷开 / 松下、海信 100U7S-PRO USB、98E7Q、GX27、极米首选记录作废机制）、ARCHITECTURE。
-  - 验证：standard、guard 单测各 265 个通过，Lite lint，三个包签名 e089…。TCL MT5879 用 `tcast-push.py` 推 guard 测试包 **1.95-test（versionCode 134，没提交）**，截图确认焦点在「同意」，compile speed：`selftest.sh` 守护、主页键（从 TCL 浏览器 0.3 秒）、`INPUTS=1` 7 个信号源通过，两个 walleve 服务、屏保 AerialDream 保留。系统屏保录屏两次开头都是 6–7 秒只有时钟的黑底，日志是 Apple 影片取流 `ERROR_CODE_TIMEOUT`（电视经家里路由的代理，主页影片同样超时），不是这次的改动，**屏保接力这一轮没验证到**。小米 MFTR0 巡检时在待机（小米待机会把 `adb_enabled` 写成 0，`keep_adb` 要醒着才写回），户主开机后补测：`install-multiple` standard 1.95-test（134）+ 31.dm（`speed-profile` / `install-dm`），`selftest.sh` 守护、主页键（从设置 0.5 秒）、`INPUTS=1` 8 个信号源通过；从首页进 Aerial 屏保录屏无黑帧（亮度最低 109），屏保接着壁纸的影片放，唤醒回壁纸。没在真机上验证的：#1462 #1482 #1480 #1481 #1483 的 `open_source`、#1461 #1468。**下次发版 versionCode ≥ 135（TCL 装了 134），Lite 没改（≥ 31 不变）。**
+  - 验证：standard、guard 单测各 265 个通过，Lite lint，三个包签名 e089…。TCL MT5879 用 `tcast-push.py` 推 guard 测试包 **1.95-test（versionCode 134，没提交）**，截图确认焦点在「同意」，compile speed：`selftest.sh` 守护、主页键（从 TCL 浏览器 0.3 秒）、`INPUTS=1` 7 个信号源通过，两个 walleve 服务、屏保 AerialDream 保留。系统屏保录屏两次开头都是 6–7 秒只有时钟的黑底，日志是 Apple 影片取流 `ERROR_CODE_TIMEOUT`（电视经家里路由的代理，主页影片同样超时），不是这次的改动，**屏保接力这一轮没验证到**。小米 MFTR0 巡检时在待机（小米待机会把 `adb_enabled` 写成 0，`keep_adb` 要醒着才写回），户主开机后补测：`install-multiple` standard 1.95-test（134）+ 31.dm（`speed-profile` / `install-dm`），`selftest.sh` 守护、主页键（从设置 0.5 秒）、`INPUTS=1` 8 个信号源通过；从首页进 Aerial 屏保录屏无黑帧（亮度最低 109），屏保接着壁纸的影片放，唤醒回壁纸。没在真机上验证的：#1462 #1482 #1480 #1481 #1483 的 `open_source`、#1461 #1468。（已随 1.95 发布。）
   - 关闭 30 个（10 个确认 / 重复 / 固件限制，20 个十天无回音）；#1474 打 enhancement 等户主：sln162 写了一个另装的无障碍服务点掉极米的桌面选择框，项目不推荐另装 App，要不要把这个做法做进守护（默认关）由户主定。PR #1489（视频壁纸底层图片）功能类，没合。
 
 ## 现状（2026-11-11）
