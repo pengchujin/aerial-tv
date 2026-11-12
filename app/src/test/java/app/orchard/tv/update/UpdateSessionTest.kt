@@ -220,6 +220,36 @@ class UpdateSessionTest {
     }
 
     @Test
+    fun confirmationPageThatDiesAtOnceFallsBackToInstaller() {
+        // #1482: OBE C3 Ultra's installer threw in InstallStart.onCreate; Home was back 0.3 s later.
+        val id = commit()
+        requestConfirmation(id)
+        Updates.onHomePaused()
+        advance(300)
+        Updates.onHomeResumed()
+        advance(1_499)
+        assertNotNull(installer.getSessionInfo(id))
+        assertNull(shadowOf(app).nextStartedActivity)
+        advance(1)
+        assertNull(installer.getSessionInfo(id))
+        assertInstallerOpened()
+    }
+
+    @Test
+    fun quickCancelOnConfirmationPageDoesNotOpenInstaller() {
+        val id = commit()
+        requestConfirmation(id)
+        Updates.onHomePaused()
+        advance(300)
+        Updates.onHomeResumed()
+        advance(500)
+        answer(id, PackageInstaller.STATUS_FAILURE_ABORTED)
+        advance(5_000)
+        assertEquals(Updates.Install.Idle, Updates.install)
+        assertNull(shadowOf(app).nextStartedActivity)
+    }
+
+    @Test
     fun confirmationRequestedWhileAwayWaitsForHomeBeforeOpening() {
         val id = commit()
         Updates.onHomePaused()

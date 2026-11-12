@@ -385,9 +385,11 @@ object Updates {
      * worked there. So a session whose page does not come up in time is abandoned for it.
      */
     private var awaiting: Awaiting? = null
-    private class Awaiting(val id: Int, val confirmation: Boolean, val showConfirmation: Runnable?) {
+    private class Awaiting(val app: Context, val id: Int, val confirmation: Boolean, val showConfirmation: Runnable?) {
         var homeLeft = false
         var timedOut = false
+        /** When Home paused beneath the confirmation page. */
+        var leftAt = 0L
         lateinit var check: Runnable
     }
     private var homeInFront = false
@@ -411,13 +413,24 @@ object Updates {
     /** From starting the confirmation page to Home pausing beneath it. */
     private const val CONFIRM_TIMEOUT_MS = 4_000L
 
+    /**
+     * Home back this soon after the confirmation page covered it, with no answer, means the page
+     * never stayed: OBE C3 Ultra's installer (m7642, Android 9) reads the intent's data in
+     * InstallStart.onCreate, and a session's page has none, so it died within 200 ms every time
+     * and nothing was installed (issue #1482, the reporter's log and the decompiled installer).
+     * Leaving the page by hand takes longer, and Back or Cancel there answers the session.
+     */
+    private const val PAGE_DIED_MS = 1_500L
+    /** How long an answer may take after Home is back, before the page counts as having died. */
+    private const val ANSWER_AFTER_RETURN_MS = 1_500L
+
     /** Wait for an answer, or for a requested confirmation page to pause Home. */
     private fun awaitSession(
         app: Context, id: Int, ms: Long, why: String,
         confirmation: Boolean = false, showConfirmation: Runnable? = null,
     ) {
         awaiting?.let { main.removeCallbacks(it.check) }
-        val a = Awaiting(id, confirmation, showConfirmation)
+        val a = Awaiting(app, id, confirmation, showConfirmation)
         a.check = Runnable {
             if (awaiting !== a || (a.confirmation && a.homeLeft)) return@Runnable
             a.timedOut = true
@@ -531,7 +544,15 @@ object Updates {
             // Only returning from a requested confirmation releases the session's button.
             // Visiting another app while awaiting an answer must not forget the update.
             if (it.showConfirmation != null) it.showConfirmation.run()
-            else if (it.confirmation && it.homeLeft) stopAwaiting(it.id)
+            else if (it.confirmation && it.homeLeft) {
+                if (SystemClock.elapsedRealtime() - it.leftAt < PAGE_DIED_MS) {
+                    main.postDelayed({
+                        if (awaiting === it) giveUpOnSession(it.app, it.id, "confirmation page of session ${it.id} closed at once")
+                    }, ANSWER_AFTER_RETURN_MS)
+                } else {
+                    stopAwaiting(it.id)
+                }
+            }
             else if (it.timedOut) it.check.run()
         }
     }
@@ -540,6 +561,7 @@ object Updates {
         homeInFront = false
         checker?.setActive(false)
         awaiting?.takeIf { it.confirmation }?.let {
+            if (!it.homeLeft) it.leftAt = SystemClock.elapsedRealtime()
             it.homeLeft = true
             install = Install.Opened
         }
