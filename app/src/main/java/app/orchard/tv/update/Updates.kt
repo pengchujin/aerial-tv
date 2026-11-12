@@ -57,6 +57,9 @@ object Updates {
      */
     private const val STALL_MS = 30_000L
     private const val STALL_BYTES = 256 * 1024L
+
+    /** Tries per source, the first included, while each try delivers some bytes; see download. */
+    private const val RESUME_TRIES = 3
     const val CONTROL_CENTER_MAX_AGE_MS = UpdateCheck.PANEL_MAX_AGE_MS
 
     /** This build's version, e.g. "1.17" (the guard build's "-guard" left off). */
@@ -612,22 +615,57 @@ object Updates {
         check(directory.isDirectory || directory.mkdirs()) { "Cannot create update directory: $directory" }
         check(directory.canWrite()) { "Cannot write update directory: $directory" }
         val part = File(directory, file.name + ".part")
+        part.delete()
+        try {
+            // Broken off part way, the download carries on from where it stopped, from the same
+            // source: started over each time, it never finished on a home network that drops now
+            // and then (Hisense 43E3G, issue #1480: "half way, then Download and Install again").
+            // Nothing delivered at all goes to the next source, as before (#390).
+            var tries = 0
+            while (true) {
+                try {
+                    fetch(url, part)
+                    break
+                } catch (e: Exception) {
+                    if (e is kotlin.coroutines.cancellation.CancellationException) throw e
+                    if (++tries >= RESUME_TRIES || part.length() == 0L) throw e
+                    Log.w(TAG, "download broke off at ${part.length()} bytes; resuming", e)
+                    DiagLog.i("update: download broke off at ${part.length() / 1024} KB (${e.javaClass.simpleName} ${e.message}); resuming")
+                }
+            }
+            if (!part.renameTo(file)) error("could not keep the download")
+            // The installer on Android 5 and 6 opens the file itself.
+            if (Build.VERSION.SDK_INT < 24) file.setReadable(true, false)
+        } finally {
+            part.delete()
+        }
+    }
+
+    /** Fetches [url] into [part], from its end when it has bytes already and the server takes a range. */
+    private suspend fun fetch(url: String, part: File) {
+        val from = part.length()
         val c = URL(url).openConnection() as HttpURLConnection
         LegacyUpdateTls.configure(appContext, c)
         c.connectTimeout = 10_000
         c.readTimeout = 20_000
+        if (from > 0) c.setRequestProperty("Range", "bytes=$from-")
         // A throttled route can keep the TLS handshake up and deliver a byte now and then, so no
         // read() ever blocks long enough to time out and the progress bar sits at 0% for good
         // (issue #390, FFALCON/TCL on China Unicom). So the bytes are counted, not each read timed.
         var windowAt = SystemClock.elapsedRealtime()
         var windowFrom = 0L
         try {
-            if (c.responseCode != HttpURLConnection.HTTP_OK) error("HTTP ${c.responseCode}")
-            val total = c.contentLength.toLong()
-            var done = 0L
+            val code = c.responseCode
+            // A server that ignores the range sends it all again: start over.
+            val append = from > 0 && code == HttpURLConnection.HTTP_PARTIAL
+            if (code != HttpURLConnection.HTTP_OK && !append) error("HTTP $code")
+            val length = c.contentLength.toLong()
+            val total = if (length < 0) -1L else if (append) from + length else length
+            var done = if (append) from else 0L
+            windowFrom = done
             var shown = -1
             c.inputStream.use { input ->
-                part.outputStream().use { out ->
+                java.io.FileOutputStream(part, append).use { out ->
                     val buf = ByteArray(64 * 1024)
                     while (true) {
                         val n = input.read(buf)
@@ -649,12 +687,8 @@ object Updates {
                 }
             }
             if (total > 0 && done != total) error("got $done of $total bytes")
-            if (!part.renameTo(file)) error("could not keep the download")
-            // The installer on Android 5 and 6 opens the file itself.
-            if (Build.VERSION.SDK_INT < 24) file.setReadable(true, false)
         } finally {
             c.disconnect()
-            part.delete()
         }
     }
 
