@@ -825,7 +825,7 @@ object SystemProbe {
                     ?: tclPlayer?.takeIf { info.id.startsWith(TCL_INPUTS) }?.let { tclRoute(it, kind, label, hw(info.id)) }
                     ?: generic.takeIf { resolves(context, it) }
                     ?: droidLogicRoute(context, info)
-                    ?: jmgoRoute(context, info)
+                    ?: jmgoRoute(context, info, label)
                     ?: tclPlayer?.let { tclRoute(it, kind, label, hw(info.id)) }
                     ?: generic
                 val device = cec
@@ -900,10 +900,22 @@ object SystemProbe {
      * after. JMGO S60 (Amlogic T968, Android 5.1.1): HDMI3 opened, the reporter's patched build and
      * `am start` (issue #1347).
      */
-    private fun jmgoRoute(context: Context, info: TvInputInfo): Intent? {
+    private fun jmgoRoute(context: Context, info: TvInputInfo, label: String): Intent? {
         if (info.type != TvInputInfo.TYPE_HDMI) return null
-        val port = JMGO_PORT.find(info.id)?.groupValues?.get(1) ?: return null
-        val intent = Intent().setComponent(ComponentName(JMGO_TV, "$JMGO_TV.AmlogicTvActivity"))
+        JMGO_PORT.find(info.id)?.groupValues?.get(1)?.let { return jmgoActivity(context, "AmlogicTvActivity", it) }
+        // JMGO H931 (MediaTek mt5889, Android 11): MediaTek's .hdmi.HDMIInputService/HW5-8, and the
+        // TV app's MainActivity takes the same extra, then tunes the port's CEC child in its
+        // TvActivity, which is not exported (issue #1481, the reporter's agent with adb). The port
+        // is the digit in the firmware's label (HDMI 2), else MediaTek's HW5 for HDMI 1.
+        if (!info.id.startsWith(MTK_HDMI)) return null
+        val port = HDMI_DIGIT.find(label)?.groupValues?.get(1)
+            ?: hw(info.id)?.minus(4)?.takeIf { it in 1..4 }?.toString()
+            ?: return null
+        return jmgoActivity(context, "MainActivity", port)
+    }
+
+    private fun jmgoActivity(context: Context, activityName: String, port: String): Intent? {
+        val intent = Intent().setComponent(ComponentName(JMGO_TV, "$JMGO_TV.$activityName"))
             .putExtra("inputSrc", "HDMI$port")
         val activity = runCatching { context.packageManager.getActivityInfo(intent.component!!, 0) }.getOrNull() ?: return null
         return intent.takeIf {
@@ -914,6 +926,8 @@ object SystemProbe {
 
     private const val JMGO_TV = "com.jmgo.tv"
     private val JMGO_PORT = Regex("""\.Hdmi(\d)InputService/""")
+    private const val MTK_HDMI = "com.mediatek.tvinput/.hdmi.HDMIInputService/"
+    private val HDMI_DIGIT = Regex("""^HDMI\s*(\d)""", RegexOption.IGNORE_CASE)
 
     private fun resolves(context: Context, intent: Intent) =
         runCatching { context.packageManager.resolveActivity(intent, 0) != null }.getOrDefault(false)
