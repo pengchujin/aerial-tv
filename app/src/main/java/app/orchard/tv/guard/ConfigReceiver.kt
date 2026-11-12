@@ -92,7 +92,15 @@ class ConfigReceiver : BroadcastReceiver() {
                 if (!HisenseSources.open(context, source.intent)) context.startActivity(source.intent)
                 "open_source: ${source.label} -> ${source.intent.component?.flattenToShortString() ?: source.intent.data}" +
                     (source.xiaomiInput?.let { " input=$it" } ?: "")
-            }.getOrElse { "open_source: ${it.javaClass.simpleName} ${it.message}" }
+            }.getOrElse {
+                // As the tile does when nothing answers the passthrough intent: the TV's own picker
+                // (XGIMI DOHKO, Android 14: the tile switched, this said ActivityNotFoundException;
+                // issue #1483, the reporter's selftest).
+                if (it is android.content.ActivityNotFoundException && source.intent.data?.host == "android.media.tv" &&
+                    SystemProbe.openInputPicker(context)
+                ) "open_source: ${source.label} -> the TV's input picker (nothing answers ${source.intent.data})"
+                else "open_source: ${it.javaClass.simpleName} ${it.message}"
+            }
             return
         }
         if (intent.getBooleanExtra("clear_pin", false)) {
