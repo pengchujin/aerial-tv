@@ -669,6 +669,31 @@ class HomeGuardService : AccessibilityService() {
     }
     private val frontAfterHomeAgain: Runnable = Runnable { frontAfterHome.run() }
 
+    /** The Home press this chooser Back was already sent for, so that it is sent once per press. */
+    private var chooserBackFor = Long.MIN_VALUE
+
+    /**
+     * The chooser half of [frontAfterHome] alone, for the Back that closes it right after Home: if that
+     * Back did not close it, this still brings Aerial back at the same deadline, and if it did, the
+     * chooser is gone from [lastWindow] and nothing happens. The rest of frontAfterHome is left out
+     * because it guesses from usage stats and may restart accessibility, which a Back that worked
+     * must not trigger.
+     */
+    private val chooserAfterBack: Runnable = Runnable {
+        val chooser = lastWindow?.takeIf { isHomeChooser(it.first, it.second) } ?: return@Runnable
+        Log.i(TAG, "Back did not close the Home chooser (${chooser.first}); bringing Aerial back")
+        goHome()
+    }
+
+    /** When that Home was sent, so that a Home of ours is never taken for the viewer's own press. */
+    private var chooserHomeAt = Long.MIN_VALUE / 2
+
+    /** The Home that follows the Back which closed the chooser over another app. */
+    private fun chooserThenHome() {
+        chooserHomeAt = SystemClock.uptimeMillis()
+        performGlobalAction(GLOBAL_ACTION_HOME)
+    }
+
     /** Xiaomi's UI boost, where Aerial answers Home in other apps itself; see uiBoostChanged. */
     private fun watchUiBoost() {
         if (!backOnPause || uiBoostWatched || Settings.Global.getString(contentResolver, UI_BOOST) == null) return
@@ -1806,6 +1831,50 @@ class HomeGuardService : AccessibilityService() {
             }
         }
         if (!GuardSetup.isUserUnlocked(this)) return
+        // XGIMI (Android 9): with no default Home set, Home from Aerial puts the Home chooser in front,
+        // and frontAfterHome reaches it only FRONT_AFTER_HOME_MS later (issue #44). Its own start then
+        // came through 4.4 s later; with the chooser closed first it would come through at once, but
+        // closing it also resumes whatever ran before it, so only do this when that was Aerial itself.
+        // Gated on a Home press just before it: this activity also serves apps' "open with".
+        // After the unlock check, like the rest of this method: nothing here may act in the seconds
+        // before the user is unlocked (that window is the boot recovery's, see #1449).
+        if (isHomeChooser(pkg, cls)) {
+            // Answered once per Home press: Aerial restarts itself on that press, which also refreshes
+            // broughtBackAt, so a cooldown on it would skip the Back on every ordinary press.
+            if (before == packageName &&
+                SystemClock.uptimeMillis() - homePressedAt <= FRONT_AFTER_HOME_MS &&
+                chooserBackFor != homePressedAt
+            ) {
+                chooserBackFor = homePressedAt
+                handler.removeCallbacks(frontAfterHome)
+                handler.removeCallbacks(frontAfterHomeAgain)
+                handler.removeCallbacks(chooserAfterBack)
+                performGlobalAction(GLOBAL_ACTION_BACK)
+                // Same deadline as frontAfterHome, without a new constant of its own.
+                val spent = SystemClock.uptimeMillis() - homePressedAt
+                handler.postDelayed(chooserAfterBack, (FRONT_AFTER_HOME_MS - spent).coerceAtLeast(0L))
+                return
+            }
+            // Home from another app leaves the chooser over that app and the remote dead. Back closes
+            // it; the Home after that is answered by the system rather than by us, so Aerial comes up
+            // without waiting out the switch protection. A Home of ours must not count as another
+            // press, or the two of us keep bringing the chooser back.
+            if (before != null &&
+                before != packageName &&
+                SystemClock.uptimeMillis() - homePressedAt <= FRONT_AFTER_HOME_MS &&
+                chooserBackFor != homePressedAt &&
+                SystemClock.uptimeMillis() - chooserHomeAt > DOUBLE_HOME_MS
+            ) {
+                chooserBackFor = homePressedAt
+                handler.removeCallbacks(frontAfterHome)
+                handler.removeCallbacks(frontAfterHomeAgain)
+                handler.removeCallbacks(chooserAfterBack)
+                Log.i(TAG, "Home over $before left the Home chooser; closing it, then Home again")
+                performGlobalAction(GLOBAL_ACTION_BACK)
+                chooserThenHome()
+                return
+            }
+        }
         // Kids and Elders mode: an app not chosen for it (or any, once locked) goes straight back
         // to Home. The stock launcher's home activity and input switches are left to the rest below.
         if (isActivity(pkg, cls) && pkg !in SOURCE_SWITCHERS && stockHomes[pkg]?.contains(cls) != true && KidsWatch.keepsAway(this, pkg)) {
