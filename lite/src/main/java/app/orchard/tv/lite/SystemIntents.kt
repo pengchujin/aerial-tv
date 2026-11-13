@@ -251,8 +251,20 @@ object SystemIntents {
 
     /** Not Intent.resolveActivity: it returns an explicit component unchecked. */
     private fun first(context: Context, vararg intents: Intent): Intent {
-        val pm = context.packageManager
-        return (intents.firstOrNull { runCatching { pm.resolveActivity(it, 0) }.getOrNull() != null } ?: intents.last())
+        return (intents.firstOrNull { startable(context, it) } ?: intents.last())
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    }
+
+    /**
+     * Resolves to an activity Lite may start: exported, any permission it asks for held. Haier's
+     * settings resolve on Huanglong firmware but ask for a signature permission, and the start
+     * threw (full app, issue #1388).
+     */
+    private fun startable(context: Context, intent: Intent): Boolean {
+        val info = runCatching { context.packageManager.resolveActivity(intent, 0)?.activityInfo }.getOrNull() ?: return false
+        if (info.packageName == context.packageName) return true
+        if (!info.exported) return false
+        val permission = info.permission ?: return true
+        return context.checkCallingOrSelfPermission(permission) == android.content.pm.PackageManager.PERMISSION_GRANTED
     }
 }
