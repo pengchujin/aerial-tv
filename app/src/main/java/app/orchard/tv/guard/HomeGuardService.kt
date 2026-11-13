@@ -1833,8 +1833,11 @@ class HomeGuardService : AccessibilityService() {
         // same GlobalPanel (a full-screen system overlay, type 2014) for it, and VIDAA keys are not
         // filtered (keysPassThrough), so every Home showed the panel for about 5 s and from Settings
         // it stayed (issue #1505, the reporter's dumpsys and logcat). Not tried on that TV either.
+        // Not while the stock launcher was opened on purpose: from Aerial's tile it comes up with
+        // this panel, which was closed at once and the launcher with it (Hi3751V551, Android 5.1,
+        // issue #1502, the reporter's log: "opened on purpose", then "Jamdeo's panel").
         if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.M && pkg == JAMDEO_LAUNCHER && isJamdeoPanel(cls) &&
-            pkg in stockHomes && !screenOff
+            pkg in stockHomes && !screenOff && SystemClock.uptimeMillis() >= allowStockUntil
         ) {
             DiagLog.i("guard: Jamdeo's panel over ${before ?: "?"}; closing it and bringing Aerial back")
             performGlobalAction(GLOBAL_ACTION_BACK)
