@@ -237,9 +237,11 @@ curl -fsSL https://aerial.qust.me/install.sh | TV=192.168.1.20 bash -s restore
 | 索尼 | BRAVIA BF1 国行（BRAVIA 3，当贝系统） | Android 12 | ✅ 亮度要在电视设置里调（[#1355](https://github.com/pengchujin/aerial-tv/issues/1355)） |
 | 索尼 | BRAVIA 4K VH2 | 未说 | ✅（[#1193](https://github.com/pengchujin/aerial-tv/issues/1193)） |
 | 索尼 | KD-55X8000E 国行（BRAVIA 4K GB） | Android 9 | ✅ 固件锁死主页键，Agent 在这台电视上写 `filterHomeAlways` 后主页键回 Aerial；开机先露原桌面（[#1351](https://github.com/pengchujin/aerial-tv/issues/1351)） |
+| 索尼 | 49X7500E 国行（BRAVIA 4K GB） | Android 9 | ✅ 选了信号源闪回原桌面，是电视里程序数据损坏，清掉数据后正常（[#1493](https://github.com/pengchujin/aerial-tv/issues/1493)） |
 | 索尼 | KD55X7000D 国行 | Android 8 | ✅ 亮度要在电视设置里调（[#757](https://github.com/pengchujin/aerial-tv/issues/757)） |
 | 创维 / 酷开 | K3 Pro、75A7D | Android 11 | ✅ 75A7D 的信号源 1.45 起能用；开机先出酷开桌面 3–6 秒，报告人改固件属性后开机直达（[#894](https://github.com/pengchujin/aerial-tv/issues/894)） |
 | 创维 / 酷开 | 65G60、8R134 / 8R145、aigc 系（C10 投影、P60、7T863） | Android 8–11 | ⚠️ 开机先进酷开桌面，或被系统清理后要等 20–30 秒（[笔记](docs/devices/skyworth-coocaa.md)） |
+| 创维 / 酷开 | 55K5C（8R39_K5C） | Android 8 | ✅ 1.95 起主页键不再先闪酷开桌面，需要 Agent 写 `filterHomeAlways`（[#1462](https://github.com/pengchujin/aerial-tv/issues/1462)） |
 | 创维 / 酷开 | 5S21（50K2、7626K2）、5S05（60U2）、8H66 H7 | Android 5.x | ⚠️ 开机和待机后是 Aerial，主页键回不到 Aerial；信号源列不出来 |
 | 创维 / 酷开 | 8H83 M6（Hi3751V500） | Android 4.4 | ❌ Aerial Lite 能装能开，但主页键和开机都由固件按组件直接打开酷开桌面，选择框里没有第三方桌面（[#903](https://github.com/pengchujin/aerial-tv/issues/903)） |
 | 创维 / 酷开 | 8H57_H5 | Android 5.1 | ⚠️ 开机先转圈十几秒才进 Aerial（[#785](https://github.com/pengchujin/aerial-tv/issues/785)） |
@@ -249,7 +251,7 @@ curl -fsSL https://aerial.qust.me/install.sh | TV=192.168.1.20 bash -s restore
 | 创维 / 酷开 | K3（7T634_P3H） | Android 13 | ⚠️ 1.87 standard 显示、实体 Home 和音量减短按正常；需放行自启动和后台保留；HDMI 接入时仅 Aerial 的重启测试仍停在输入画面，待机未测（[笔记](docs/devices/skyworth-coocaa.md)、[#864](https://github.com/pengchujin/aerial-tv/issues/864)） |
 | 创维 | 7T641、75A6E、8R721_A6FP | Android 13 | ❌ 黑屏，或拿不到焦点被系统结束（[#839](https://github.com/pengchujin/aerial-tv/issues/839)） |
 | 创维 | 小湃 P3（Q5001 / cupid-p2）盒子 | Android 10 | ⚠️ 要改包名才能接管 HOME；开机广播全被拦（[笔记](docs/devices/skyworth-p3-box.md)） |
-| 松下 | TH-55HX560C（创维代工） | Android 8 | ⚠️ 信号源列不出来 |
+| 松下 | TH-55HX560C（创维代工） | Android 8 | ⚠️ 信号源列不出来；遥控器信号源键出系统自己的信号源页（1.95 起），双击主页键闪原桌面要让 Agent 写 `filterHomeAlways`（[#1468](https://github.com/pengchujin/aerial-tv/issues/1468)） |
 | 康佳 | KKTV U86V9、2861 | Android 9 | ✅ U86V9 亮度调不了（[笔记](docs/devices/konka-kktv-u86v9.md)） |
 | 海尔 | L55F5（LRM9633，AliOS） | Android 13 | ✅ guard 版主页键、待机唤醒（[#1131](https://github.com/pengchujin/aerial-tv/issues/1131)） |
 | 康佳 | Android TV 551（Hi3751V551） | Android 5.1.1 | ✅ 在康佳「设置 → 通用 → 快捷 → 开机直达」里选 Aerial 后开机直达，主页键由守护接管；固件没有 `cmd` 命令（[#1089](https://github.com/pengchujin/aerial-tv/issues/1089)） |
@@ -265,6 +267,7 @@ curl -fsSL https://aerial.qust.me/install.sh | TV=192.168.1.20 bash -s restore
 | 海信 | VIDAA_TV（MSD6A348） | Android 4.4 | ✅ Aerial Lite，U 盘安装，主页键选「始终」即可；亮度调不了（[#769](https://github.com/pengchujin/aerial-tv/issues/769)） |
 | 海信 | LED47K600X3D（VIDAA_TV，MT5880） | Android 4.0.4 | ⚠️ Aerial Lite 能装能用，开机直接进；遥控器的主页、APP、VOD 键被固件走私有通道拉起自家界面，Aerial 接不到（[#913](https://github.com/pengchujin/aerial-tv/issues/913)） |
 | 海信 | VIDAA_TV（MT9603 / mt5873） | Android 11 | ✅ 开机、主页键、HDMI、待机唤醒都是 Aerial（[#1266](https://github.com/pengchujin/aerial-tv/issues/1266)） |
+| 海信 | VIDAA_TV（MT9655，VX5SPRO） | Android 14 | ✅ 开机直达 Aerial 要按[笔记](docs/devices/hisense-vidaa.md)设好 `persist.sys.boot.source_pkg`（[#1495](https://github.com/pengchujin/aerial-tv/issues/1495)） |
 | 海信 | VIDAA_TV（HZ55E3D-J，Hi3751V551） | Android 7 | ✅ U 盘装 standard 版可用（[#1298](https://github.com/pengchujin/aerial-tv/issues/1298)） |
 | Vidda | 65V1R-Pro | Android 14 | ✅ 主页键、开机、待机、信号源、亮度、屏保都正常（[#1295](https://github.com/pengchujin/aerial-tv/issues/1295)） |
 | 小米 | MiTV-MTTP0（低内存） | Android 9 | ✅ 主页键、开机、待机、信号源通过；内存紧时回 Aerial 要几秒（[#1285](https://github.com/pengchujin/aerial-tv/issues/1285)） |

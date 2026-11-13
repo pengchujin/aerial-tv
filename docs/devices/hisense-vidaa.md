@@ -13,6 +13,8 @@
 | 较老的海信（`com.jamdeo.launcher`，`BaseTileActivity`） | 日志里有 `TaskRecord`，系统应在 Android 7 以前 | 开机先显示海信桌面（智汇中心），过很久才到 Aerial；海信的 `AppManagerHelper` 把 `app.orchard.tv` 列为 `Black package` | #119（只有日志，型号待补） |
 | VIDAA_TV（老款） | Android 5.1.1（SDK 22），MStar MSD6A828 | 装得上；没有 `cmd`；每次开机固件把 `accessibility_enabled` 清成 0，直接写 1 会被静默丢弃，先 `pm unhide` 任一个包触发包变更后再写才生效；GlobalPanel 吃掉主页键，只有守护能接管；设置里没有无障碍入口，每次开机都要用电脑恢复 | #285 |
 | VIDAA_TV（老款，2016） | Android 5.1.1（SDK 22），Hi3751v620 | 1.87 起智汇键（F12）可以当主页键用：固件照样先弹 GlobalPanel，守护用一次返回键收掉再回 Aerial，在 Aerial、别的 App、HDMI 里都回到 Aerial，面板闪 0.4–0.7 秒；代价是聚好看面板不能再停留。报告人 1.88 实测 | #808 |
+| VIDAA_TV（MSD6A648） | Android 6.0（SDK 23） | 固件在 WindowManager 里把主页键映射成 `KEYCODE_F12`（`jamdeoBeforeDispatching`；`input keyevent KEYCODE_HOME` 也打印 `map KEYCODE_HOME to KEYCODE_F12`），弹 `com.jamdeo.launcher` 的 GlobalPanel（ty=2014 全屏浮层）；VIDAA 不开按键过滤（`keysPassThrough`），`filterHomeAlways` 无效；每次按主页先停约 5 秒浮层，从设置里按主页回不来。main 上（1.95 之后）安卓 6 也按 #808 的办法收掉浮层，没在真机验证 | #1505 |
+| VIDAA_TV（Hi3751V551） | Android 5.1.1（SDK 22） | 从磁贴开原桌面，守护刚放行就把随之出现的 GlobalPanel 当成主页键浮层收掉、拉回 Aerial（main 上改成放行期间不收，没在真机验证）；开机广告后黑屏停在 `com.jamdeo.tv.resources/.StickySiloStubActivity`，`list_sources` 为空，待报告人补 `persist.sys.last_source` 和 `silo_config.xml` | #1502 |
 | VIDAA C1 投影 | Android 9，MT9669 | 没有 role 服务，也没有 `persist.vt.use_home_pkg`；聚好看 HOME priority=50，守护拉起 Aerial 后 2–5 秒系统（uid 1000）又切回聚好看；`SYSTEM_ALERT_WINDOW` 被改回 ignore；暂时接管不了 | #323 |
 | 海信会议室触屏电视、海信投影 | 未说 | 投影打不开 ADB；会议室机只问了能否保留触屏（能，1.20 起支持触屏） | 微博 |
 | VIDAA_TV | Android 9，MTK9652（`m7642`），1080p，armeabi-v7a | 1.83 我的视频壁纸：打开控制中心或在里面按上下键后背景变黑，几秒后恢复；PixelCopy 太慢被停用（`copy=false copy_slow=true`），每次暂停都用 MediaMetadataRetriever 读帧，视频随后恢复时 `DECODING_FAILED`。下个版本起控制中心里不读帧、在 App 里软件解码关键帧、出错重试同一部（见下面「我的视频壁纸黑屏」） | #1251 |
@@ -178,6 +180,8 @@ VIDAA_TV（MT9655，Android 14，固件 07.02.70.202605110330）上，报告人�
 - 改法（`VideoWallpaper`）：不模糊首页的面板下只暂停不取帧；取帧优先在 App 里软件解码关键帧，MediaMetadataRetriever 只在播放器放开后用；出错先重试同一部、遮罩收起露出图片。
 - **没在海信上验证**：维护者手上没有这台。小米 MFTR0 上回归过：控制中心里暂停、恢复从原位置接着放；从控制中心进设置再回来，App 内解关键帧 0.5–0.7 秒，视频从那一帧的时间接着放；屏保来回不黑。
 
+另一台 VIDAA_TV（MT9655，VX5SPRO，固件 07.02.70.202606170419，#1495，报告人 Agent 实测）：只设 `persist.vt.use_home_pkg` 时冷开机 2–6 分钟内聚好看反复抢前台、守护拉回 3.6 秒又被顶掉，Aerial 的 `BootReceiver` / `ConfigReceiver` 被置成 disabled（`revival: cleared disabled ... override (was 2)`）；补设 `persist.sys.boot.source_pkg=app.orchard.tv` 后 `adb reboot` 全程没有 onPause，8 分钟稳定。
+
 ## 海信 E8H（m7642，安卓 9，#1227）
 
 只读信息：`wm size` 1920x1080，唯一显示模式 1920x1080@60，面板和输出时序是 3840x2160（显示引擎在 SurfaceFlinger 之后放大 2 倍），`ro.his.tv.osd_video_separated=0`；4K 只走视频平面（侧带）。App 层改不了，不开 4K 画布。
@@ -239,6 +243,8 @@ Aerial 的处理：`system/HisenseLaserPanel.kt`；`Brightness.level` / `adjust`
 `vendor.display-size = 3840x2160`、`ro.vtf.4kui.mtk = 1`、`ro.vt.4k_whitelist_support = 0`、`ro.surface_flinger.max_graphics_width/height = 3840/2160`，`dumpsys display` 只有 1920x1080@60。SurfaceFlinger / MStar 记录 Timing、Panel 3840x2160，Display Region 1920x1080，Aerial 那一层 1920x1080 缓冲放大送显。`/vendor/etc/uhd_keeping_packages.xml` 是空名单；`vt-extensions` 有 `set4KUIEnabled`（要 `SET_SCREEN_COMPATIBILITY`）。`wm size 3840x2160` 不生效。
 
 报告人后来用 root 试了（1.94）：`--ez uhd_canvas true`，再临时把 `ro.odm.tcl.panel_resolution` 设成 3840x2160，Aerial 拿到 3840×2160 的缓冲，MStar HWC 显示 4K=Y。2026-11-12 main 上 `UhdCanvas` 也读 `vendor.display-size` 算面板尺寸，不用再伪装 TCL 的属性（只在强制打开时起作用；App 能不能读到这个 vendor 属性没在真机验证，诊断的 uhd 一行会写出面板尺寸）。看起来是否更清楚、卡不卡，待报告人说。
+
+报告人 1.95 复测（2026-11-12）：只发 `--ez uhd_canvas true`，诊断 `uhd 2.0 (forced: 3840 for a 1920 UI)`，SurfaceView 缓冲 3840×2160，MStar HWC 4K=Y；肉眼更清楚，上下移动有小掉帧。自动打开仍不做（帧数要先看）；报告人另提圆角从直边过渡处不顺、功能图标是位图在 4K 下发虚，记为界面改进。
 
 ## 海信 VIDAA_TV MTK9632（m7332，安卓 9，#1447）
 

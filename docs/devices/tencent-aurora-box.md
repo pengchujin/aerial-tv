@@ -16,3 +16,7 @@
 ## 极光盒子 5S（创维 A4141，Amlogic，安卓 9，#1463，报告人 Agent 实测 1.93）
 
 开机和主页键都进 Aerial（守护接管）。固件对第三方桌面打印 `block home apk`，`set-home-activity` 报 `User no Permission`，没有 `cmd role`。`/system/bin/settings` 权限是 `rwxr-x--- root system`，shell 执行不了（报 `error: closed` 或 Permission denied），读设置用 `content query --uri content://settings/secure/<名字>`，写交给 Aerial 的 CONFIG 广播。只有 USB 调试，要先插线 `adb tcpip 5555`，之后 `keep_adb` 能保住。长按主页键调不出后台，原因待查。
+
+## 极光盒子 3mini（创维 A4101，faraday，安卓 9，1 GB，#1496，报告人 Agent 实测）
+
+开机和在 Aerial 里按主页键正常；打开任何别的 App 后，固件马上强停 Aerial（`ActivityManager: app not allow running background: app.orchard.tv ... otherProcess has fg act: false`，`Force stopping app.orchard.tv`），守护随进程消失，计划的重启（70 秒）也没拉起来，按主页键落到 `com.ktcp.launcher`。`set-home-activity` 报 `cannot be home on user 0`（`block home apk`），设置里没有自启动 / 后台白名单。`filterHomeAlways` 无效（不是按主页键才杀）。固件规则，App 改不了。

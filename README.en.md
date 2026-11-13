@@ -239,9 +239,11 @@ Most TVs sold in China only accept their own home screen and clear third-party a
 | Sony | BRAVIA BF1 (China, BRAVIA 3, Dangbei firmware) | Android 12 | ✅ Brightness only in the TV's own settings ([#1355](https://github.com/pengchujin/aerial-tv/issues/1355)) |
 | Sony | BRAVIA 4K VH2 | not given | ✅ ([#1193](https://github.com/pengchujin/aerial-tv/issues/1193)) |
 | Sony | KD-55X8000E (China, BRAVIA 4K GB) | Android 9 | ✅ The firmware locks Home; with `filterHomeAlways` written on that TV by an agent, Home goes to Aerial; the stock launcher shows first at boot ([#1351](https://github.com/pengchujin/aerial-tv/issues/1351)) |
+| Sony | 49X7500E (China, BRAVIA 4K GB) | Android 9 | ✅ Choosing an input flashed back to the stock launcher because of corrupted app data on the TV; fine after clearing it ([#1493](https://github.com/pengchujin/aerial-tv/issues/1493)) |
 | Sony | KD55X7000D (China) | Android 8 | ✅ Brightness only in the TV's own settings ([#757](https://github.com/pengchujin/aerial-tv/issues/757)) |
 | Skyworth / Coocaa | K3 Pro, 75A7D | Android 11 | ✅ 75A7D inputs work from 1.45; at power-on Coocaa's launcher shows for 3–6 s, which the reporter removed by changing firmware properties ([#894](https://github.com/pengchujin/aerial-tv/issues/894)) |
 | Skyworth / Coocaa | 65G60, 8R134 / 8R145, aigc models (C10 projector, P60, 7T863) | Android 8–11 | ⚠️ Boots into Coocaa's home first, or takes 20–30 s to come back after the system clears it ([notes](docs/devices/skyworth-coocaa.md)) |
+| Skyworth / Coocaa | 55K5C (8R39_K5C) | Android 8 | ✅ From 1.95 Home no longer flashes Coocaa's launcher first, with `filterHomeAlways` written by an agent ([#1462](https://github.com/pengchujin/aerial-tv/issues/1462)) |
 | Skyworth / Coocaa | 5S21 (50K2, 7626K2), 5S05 (60U2), 8H66 H7 | Android 5.x | ⚠️ Aerial after boot and standby, but Home does not return to it; no inputs listed |
 | Skyworth / Coocaa | 8H83 M6 (Hi3751V500) | Android 4.4 | ❌ Aerial Lite installs and runs, but the firmware opens its own launcher by component on Home and at power-on, and its chooser lists no third-party launcher ([#903](https://github.com/pengchujin/aerial-tv/issues/903)) |
 | Skyworth / Coocaa | 8H57_H5 | Android 5.1 | ⚠️ Spins for a dozen seconds at boot before Aerial ([#785](https://github.com/pengchujin/aerial-tv/issues/785)) |
@@ -251,7 +253,7 @@ Most TVs sold in China only accept their own home screen and clear third-party a
 | Skyworth / Coocaa | K3 (7T634_P3H) | Android 13 | ⚠️ 1.87 standard: picture, physical Home and a short Volume Down press work after allowing auto-start and background retention. With HDMI connected, reboot tests with Aerial alone still stayed on the input; standby untested ([notes](docs/devices/skyworth-coocaa.md), [#864](https://github.com/pengchujin/aerial-tv/issues/864)) |
 | Skyworth | 7T641, 75A6E, 8R721_A6FP | Android 13 | ❌ Black screen, or no window focus and stopped by the system ([#839](https://github.com/pengchujin/aerial-tv/issues/839)) |
 | Skyworth | Xiaopai P3 (Q5001 / cupid-p2) box | Android 10 | ⚠️ Needs a renamed package to take over Home; boot broadcasts are all blocked ([notes](docs/devices/skyworth-p3-box.md)) |
-| Panasonic | TH-55HX560C (built by Skyworth) | Android 8 | ⚠️ No inputs listed |
+| Panasonic | TH-55HX560C (built by Skyworth) | Android 8 | ⚠️ No inputs listed; the remote's input key shows the TV's own input page (from 1.95); Home pressed twice flashes the stock launcher until an agent writes `filterHomeAlways` ([#1468](https://github.com/pengchujin/aerial-tv/issues/1468)) |
 | Konka | KKTV U86V9, 2861 | Android 9 | ✅ U86V9 brightness does not work ([notes](docs/devices/konka-kktv-u86v9.md)) |
 | Haier | L55F5 (LRM9633, AliOS) | Android 13 | ✅ Guard build: Home and waking from standby ([#1131](https://github.com/pengchujin/aerial-tv/issues/1131)) |
 | Konka | Android TV 551 (Hi3751V551) | Android 5.1.1 | ✅ Boots straight into Aerial once it is chosen under Konka's Settings → General → Shortcuts → Boot to; Home Guard takes Home; the firmware has no `cmd` ([#1089](https://github.com/pengchujin/aerial-tv/issues/1089)) |
@@ -266,6 +268,7 @@ Most TVs sold in China only accept their own home screen and clear third-party a
 | Hisense | VIDAA_TV (MSD6A348) | Android 4.4 | ✅ Aerial Lite from a USB drive; pick it with "Always" at the Home prompt; no brightness ([#769](https://github.com/pengchujin/aerial-tv/issues/769)) |
 | Hisense | LED47K600X3D (VIDAA_TV, MT5880) | Android 4.0.4 | ⚠️ Aerial Lite installs and boots straight in; the remote's Home, APP and VOD keys open Hisense's own screens through a private path Aerial cannot catch ([#913](https://github.com/pengchujin/aerial-tv/issues/913)) |
 | Hisense | VIDAA_TV (MT9603 / mt5873) | Android 11 | ✅ Boot, Home, HDMI and wake all land on Aerial ([#1266](https://github.com/pengchujin/aerial-tv/issues/1266)) |
+| Hisense | VIDAA_TV (MT9655, VX5SPRO) | Android 14 | ✅ Boots straight into Aerial once `persist.sys.boot.source_pkg` is set as in the [notes](docs/devices/hisense-vidaa.md) ([#1495](https://github.com/pengchujin/aerial-tv/issues/1495)) |
 | Hisense | VIDAA_TV (HZ55E3D-J, Hi3751V551) | Android 7 | ✅ The standard build from a USB drive works ([#1298](https://github.com/pengchujin/aerial-tv/issues/1298)) |
 | Vidda | 65V1R-Pro | Android 14 | ✅ Home, boot, wake, inputs, brightness and the screensaver work ([#1295](https://github.com/pengchujin/aerial-tv/issues/1295)) |
 | Xiaomi | MiTV-MTTP0 (low RAM) | Android 9 | ✅ Home, boot, wake and inputs pass; a few seconds back to Aerial when memory is tight ([#1285](https://github.com/pengchujin/aerial-tv/issues/1285)) |
