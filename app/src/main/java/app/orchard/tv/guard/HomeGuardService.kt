@@ -1603,6 +1603,17 @@ class HomeGuardService : AccessibilityService() {
                 volumeStepDirection = if (event.keyCode == KeyEvent.KEYCODE_VOLUME_UP) 1 else -1
                 volumeStepPending = true
                 handler.postDelayed(volumeStepIfUnmoved, VOLUME_UNMOVED_MS)
+                // Held, such a press got one step and no more: Android makes no repeats for a key
+                // the filter keeps (TCL ak30a5, Android 9, issue #1499: a 6 s hold, one DOWN and
+                // one UP from the IR driver, one step; MiTV4-ANSM0, Android 6, issue #1498). Where
+                // the lifts of kept presses reach the filter, a held one steps on at Android's
+                // repeat pace until it comes up, as on TCL below.
+                if (stepKey && takenVolumeLiftSeen) {
+                    volumeRepeatDirection = volumeStepDirection
+                    volumeRepeatShowsUi = true
+                    volumeRepeatUntil = SystemClock.uptimeMillis() + VOLUME_REPEAT_MAX_MS
+                    handler.postDelayed(volumeRepeat, ViewConfiguration.getKeyRepeatTimeout().toLong())
+                }
             }
             volumeDownPassedAt = if (stepKey && !volumeKeyTaken) event.downTime else Long.MAX_VALUE
             if (movedFirst) {
@@ -1613,6 +1624,7 @@ class HomeGuardService : AccessibilityService() {
                     else -> 0
                 }
                 if (volumeRepeatDirection != 0 && (repeatsHeldVolume || takenVolumeLiftSeen)) {
+                    volumeRepeatShowsUi = false
                     volumeRepeatUntil = SystemClock.uptimeMillis() + VOLUME_REPEAT_MAX_MS
                     handler.postDelayed(volumeRepeat, ViewConfiguration.getKeyRepeatTimeout().toLong())
                 }
@@ -1657,7 +1669,10 @@ class HomeGuardService : AccessibilityService() {
         volumeStepPending = false
         if (volumeNow() != volumeStepFrom) return@Runnable
         DiagLog.i("guard: the volume did not move for a press not passed on; stepping it")
-        SystemProbe.adjustVolume(this, volumeStepDirection, fromKey = true)
+        // With the volume bar, as the key itself has it: the firmware did nothing with this press,
+        // so nothing else shows one. Without it the volume moved unseen (MiTV4-ANSM0, Android 6,
+        // issue #1498: "no volume window any more, only blind steps").
+        SystemProbe.adjustVolume(this, volumeStepDirection, fromKey = true, showUi = true)
         // Its own step is no change the firmware made: the next press must not look moved first.
         volumeSeen = volumeNow()
     }
@@ -1673,6 +1688,9 @@ class HomeGuardService : AccessibilityService() {
     private var takenVolumeLiftSeen = false
 
     private var volumeRepeatDirection = 0
+
+    /** Whether the held key's steps show the volume bar: the firmware's own did not act on it. */
+    private var volumeRepeatShowsUi = false
     private var volumeRepeatUntil = 0L
     private val volumeRepeat: Runnable = object : Runnable {
         override fun run() {
@@ -1680,7 +1698,7 @@ class HomeGuardService : AccessibilityService() {
                 Log.i(TAG, "volume key still not up after ${VOLUME_REPEAT_MAX_MS / 1000} s; no more steps")
                 return
             }
-            SystemProbe.adjustVolume(this@HomeGuardService, volumeRepeatDirection, fromKey = true)
+            SystemProbe.adjustVolume(this@HomeGuardService, volumeRepeatDirection, fromKey = true, showUi = volumeRepeatShowsUi)
             handler.postDelayed(this, ViewConfiguration.getKeyRepeatDelay().toLong())
         }
     }

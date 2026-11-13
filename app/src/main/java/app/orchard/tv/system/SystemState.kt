@@ -132,19 +132,20 @@ object SystemProbe {
      * on MT5879 (Android 11, 1.41), as on the reporter's m7221 (Android 8). Up to 1.40 the flag was
      * there for MT5879, where it had seemed that only a shown bar reached the amplifier.
      * [fromKey]: the guard repeating a held volume key (HomeGuardService.takeVolumeKey), which
-     * shows TCL's bar as the key itself does.
+     * shows TCL's bar as the key itself does. [showUi]: a step for a key the firmware did nothing
+     * with, which would have shown Android's bar (issue #1498).
      */
-    private fun volumeFlags(context: Context, fromKey: Boolean) =
-        if (fromKey && isInstalled(context, "com.tcl.settings")) AudioManager.FLAG_SHOW_UI else 0
+    private fun volumeFlags(context: Context, fromKey: Boolean, showUi: Boolean = false) =
+        if (showUi || (fromKey && isInstalled(context, "com.tcl.settings"))) AudioManager.FLAG_SHOW_UI else 0
 
     /**
      * TCL tcl_m7642 (雷鸟 65S515D, Android 9) has adjustStreamVolume note the change in battery stats,
      * which needs a system permission: it threw and Control Center crashed at the first step (issue
      * #15). Setting the level is the way left there.
      */
-    fun adjustVolume(context: Context, direction: Int, fromKey: Boolean = false) {
+    fun adjustVolume(context: Context, direction: Int, fromKey: Boolean = false, showUi: Boolean = false) {
         val am = context.getSystemService<AudioManager>() ?: return
-        val flags = volumeFlags(context, fromKey)
+        val flags = volumeFlags(context, fromKey, showUi)
         try {
             am.adjustStreamVolume(
                 AudioManager.STREAM_MUSIC,
