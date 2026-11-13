@@ -4,6 +4,7 @@
 
 ## 现状（2026-11-13）
 
+- **1.96（versionCode 137）+ Aerial Lite 1.29（31），2026-11-13 发布**（[v1.96](https://github.com/pengchujin/aerial-tv/releases/tag/v1.96)）：下面这轮巡检的全部修复（#1499 #1498 #1505 #1502 #1388 #1491，Lite 带 #1388）。versionCode 跳过 136（两台装过 136 测试包）。三个包签名 e089…。小米 MFTR0 `install-multiple` standard + 31.dm（speed-profile / install-dm）：`selftest.sh` 守护、主页键（从设置 0.4 秒）、`INPUTS=1` 8 个信号源通过。TCL MT5879 用 `APK_FILE=… KEEP_ADB=1 tools/install.sh guard`（先 `adb install` 被 TCL 拒绝 `INSTALL_FAILED_VERIFICATION_FAILURE`，再走多屏互动，uiautomator 确认焦点在「同意」后按确定），compile speed：守护、7 个信号源通过，两个 walleve 服务、屏保 AerialDream 保留；主页键：装完立刻测是 5.2 / 4.6 / 4.9 秒（守护状态行 `filter=true`，但按键没进过滤，原桌面出来后靠窗口事件、等安卓 5 秒才拉回），`am force-stop` 再打开 Aerial 后 0.5 秒。代码和 0.3 秒的 136 测试包一样，差别是这次走了 install.sh（它在守护绑着时重写无障碍设置）；**待查：install.sh 覆盖安装后守护以为在过滤、实际收不到按键**，应用内升级是否也会这样没测。官网已部署：version.txt = v1.96，notes.json 有 1.96，三个 APK md5 与 Release 一致，`/diag/aerial-710.apk` 还在。6 个 issue 贴了发布链接（`local/triage/release-1.96-posts.py`）。**下次发版 versionCode ≥ 138，Lite ≥ 32。**
 - **2026-11-13 巡检（没发版，改在 main 上）**，记录 `local/triage/2026-11-13-full.md`（原始 `raw-2026-11-13/`，复查 `raw-2026-11-13b/`），回复 `replies-2026-11-13.py` / `replies-2026-11-13b.py`，发出 `posted-2026-11-13.txt`。313 issue / 65 PR，用户最后发言 52（17 个上轮定了不回、没有新内容）。在主目录分支 `claude/triage-2026-11-13` 上做，合回 main。
   - 改了（每个单独提交）：
     - #1499 TCL ak30a5（安卓 9）/ #1498 小米 ANSM0（安卓 6）：守护因 `volumeLiftUnseen` 留下音量键时，自己调的那一格不弹音量条、按住只走一格 → 自己调时带 `FLAG_SHOW_UI`；被留下的键抬起能回到守护（`takenVolumeLiftSeen`）后，按住按连发节奏一直调（最长 8 秒）。
