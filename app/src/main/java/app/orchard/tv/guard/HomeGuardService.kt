@@ -1829,8 +1829,12 @@ class HomeGuardService : AccessibilityService() {
         // event names a RelativeLayout. The reporters asked for the key to be Home everywhere
         // (issue #808, events from the reporter's logcat): close the panel and bring Aerial back.
         // Not tried on that TV.
-        if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.LOLLIPOP_MR1 && pkg == JAMDEO_LAUNCHER &&
-            cls == "android.widget.RelativeLayout" && pkg in stockHomes && !screenOff
+        // Android 6 VIDAA too (MSD6A648): the firmware maps the remote's Home to F12 and shows the
+        // same GlobalPanel (a full-screen system overlay, type 2014) for it, and VIDAA keys are not
+        // filtered (keysPassThrough), so every Home showed the panel for about 5 s and from Settings
+        // it stayed (issue #1505, the reporter's dumpsys and logcat). Not tried on that TV either.
+        if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.M && pkg == JAMDEO_LAUNCHER && isJamdeoPanel(cls) &&
+            pkg in stockHomes && !screenOff
         ) {
             DiagLog.i("guard: Jamdeo's panel over ${before ?: "?"}; closing it and bringing Aerial back")
             performGlobalAction(GLOBAL_ACTION_BACK)
@@ -1955,6 +1959,15 @@ class HomeGuardService : AccessibilityService() {
     private fun isActivity(pkg: String, cls: String): Boolean = activityCache.getOrPut(pkg to cls) {
         runCatching { packageManager.getActivityInfo(android.content.ComponentName(pkg, cls), 0) }.isSuccess
     }
+
+    /**
+     * Jamdeo's GlobalPanel: a window of the launcher's process that is no activity of it. The
+     * Android 5.1 event named a RelativeLayout (issue #808); on Android 6 the panel's root view
+     * class was not in the report (#1505), so any view that is no activity or dialog counts.
+     */
+    private fun isJamdeoPanel(cls: String): Boolean =
+        cls == "android.widget.RelativeLayout" ||
+            (Build.VERSION.SDK_INT == Build.VERSION_CODES.M && !isActivity(JAMDEO_LAUNCHER, cls) && !cls.contains("Dialog"))
 
     /** True for packages with a launcher entry, i.e. apps rather than system overlays and dialogs. */
     private fun isApp(pkg: String): Boolean =
