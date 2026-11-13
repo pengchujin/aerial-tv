@@ -305,7 +305,22 @@ object SystemProbe {
         resolvable(context, Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS"))
 
     private fun resolvable(context: Context, intent: Intent): Intent? =
-        intent.takeIf { context.packageManager.resolveActivity(it, 0) != null }?.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        intent.takeIf { startable(context, it) }?.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+
+    /**
+     * Whether [intent] resolves to an activity Aerial may start: exported, and any permission it
+     * asks for held. Haier's settings (com.haier.tv.menusetting/.RootActivity) resolve on the
+     * Huanglong-based 统帅 L65F8 (Android 12) but ask for com.huanglong.permission.COMMON_PERMISSION,
+     * signature|privileged, so the start threw and Control Center said the TV had no settings,
+     * though candidates after it were there (issue #1388, the reporter's dexdump and adb).
+     */
+    private fun startable(context: Context, intent: Intent): Boolean {
+        val info = context.packageManager.resolveActivity(intent, 0)?.activityInfo ?: return false
+        if (info.packageName == context.packageName) return true
+        if (!info.exported) return false
+        val permission = info.permission ?: return true
+        return context.checkCallingOrSelfPermission(permission) == PackageManager.PERMISSION_GRANTED
+    }
 
     /**
      * The network page and, after it, the ones to try if it closes at once. Xiaomi MiTV-ANSP0
@@ -728,10 +743,9 @@ object SystemProbe {
     }.isSuccess
 
     private fun firstResolvable(context: Context, vararg intents: Intent): Intent {
-        val pm = context.packageManager
         // Not Intent.resolveActivity: it returns an explicit component unchecked, so Xiaomi's
         // component was picked on TCL too, where it does not exist.
-        return (intents.firstOrNull { pm.resolveActivity(it, 0) != null } ?: intents.last())
+        return (intents.firstOrNull { startable(context, it) } ?: intents.last())
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             .let { settingsLaunchIntent(context, it) }
     }
@@ -743,6 +757,7 @@ object SystemProbe {
         return intents
             .filter { intent ->
                 val info = pm.resolveActivity(intent, 0)?.activityInfo ?: return@filter false
+                if (!startable(context, intent)) return@filter false
                 seen.add("${info.packageName}/${info.name}")
             }
             .ifEmpty { listOf(intents.last()) }
