@@ -837,6 +837,7 @@ class HomeGuardService : AccessibilityService() {
     override fun onServiceConnected() {
         instance = this
         unlockPending = !GuardSetup.isUserUnlocked(this)
+        if (GuardSetup.isUserUnlocked(this)) restoreStockVisit(this)
         // Both read credential storage: bound before unlock, the guard crashed here twice and the
         // system put off its restart for 30 min, so nothing took Home at boot (1.79 to 1.81: Redmi
         // Projector 4 mt5873, Android 13, issue #684; Formovie spiderman, Android 9, issue #1213;
@@ -2264,6 +2265,7 @@ class HomeGuardService : AccessibilityService() {
         /** How far back to look for the front when no window has been seen; see frontByUsage. */
         private const val UNKNOWN_FRONT_LOOKBACK_MS = 6 * 60 * 60 * 1000L
         private const val DOUBLE_HOME_MS = 400L
+        private const val STOCK_VISIT_MS = 60 * 60 * 1000L
         /** Android's hold on app starts after Home (stopAppSwitches), with a margin. */
         private const val APP_SWITCH_HOLD_MS = 5_500L
         private const val PACKAGE_SETTLE_MS = 1000L
@@ -2671,17 +2673,39 @@ class HomeGuardService : AccessibilityService() {
         private var allowStockFrom = 0L
 
         private fun endStockVisit(why: String) {
+            visitContext?.let { GuardSetup.noteStockVisit(it, null) }
             if (allowStockUntil == 0L) return
             if (SystemClock.uptimeMillis() < allowStockUntil) DiagLog.i("guard: stock launcher visit over ($why)")
             allowStockUntil = 0L
         }
 
-        /** Lets the stock launcher stay in front until Aerial is back: the viewer opened it on purpose. */
-        fun allowStockLauncher() {
+        /** Where the visit is kept on disk (GuardSetup.noteStockVisit): the application context. */
+        @Volatile
+        private var visitContext: Context? = null
+
+        /**
+         * Lets the stock launcher stay in front until Aerial is back: the viewer opened it on purpose.
+         * Kept on disk too, for a guard revived in a new process (GuardSetup.noteStockVisit).
+         */
+        fun allowStockLauncher(context: Context? = null) {
             val now = SystemClock.uptimeMillis()
-            allowStockUntil = now + 60 * 60 * 1000L
+            allowStockUntil = now + STOCK_VISIT_MS
             allowStockFrom = now
+            (context?.applicationContext ?: instance?.applicationContext)?.let {
+                visitContext = it
+                GuardSetup.noteStockVisit(it, SystemClock.elapsedRealtime() + STOCK_VISIT_MS)
+            }
             DiagLog.i("guard: the stock launcher opened on purpose; leaving it in front")
+        }
+
+        /** The visit a guard before this process allowed, if it still runs; see allowStockLauncher. */
+        private fun restoreStockVisit(context: Context) {
+            visitContext = context.applicationContext
+            if (aerialResumed) return GuardSetup.noteStockVisit(context, null)
+            val left = GuardSetup.stockVisitLeftMs(context)
+            if (left <= 0L || SystemClock.uptimeMillis() < allowStockUntil) return
+            allowStockUntil = SystemClock.uptimeMillis() + left
+            DiagLog.i("guard: the stock launcher visit opened before Aerial was stopped still holds; leaving it in front")
         }
 
         /** The visit has not begun yet while the stock launcher's own start is still on screen. */
@@ -2701,9 +2725,12 @@ class HomeGuardService : AccessibilityService() {
         private var aerialPausedAt = Long.MIN_VALUE / 2
 
         /** Called when Aerial comes back to the front: the stock launcher is fair game again. */
-        fun onAerialResumed() {
+        fun onAerialResumed(context: Context) {
             aerialResumed = true
             aerialResumedAt = SystemClock.uptimeMillis()
+            // Back in Aerial, guard or not: a visit kept on disk is over.
+            visitContext = context.applicationContext
+            GuardSetup.noteStockVisit(context, null)
             val s = instance ?: return
             // Back in Aerial: an installer opened from Control Center was left without updating.
             GuardSetup.installerJustClosed(s)

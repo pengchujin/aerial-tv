@@ -1022,7 +1022,7 @@ class MainActivity : ComponentActivity() {
         }
         restartIdleTimer()
         GuardSetup.setHomeInFront(this, true)
-        HomeGuardService.onAerialResumed()
+        HomeGuardService.onAerialResumed(this)
         Updates.onHomeResumed()
         vm.refreshSystem()
         if (!resumedInProcess) {
@@ -1153,7 +1153,7 @@ class MainActivity : ComponentActivity() {
                 // Opened on purpose all the same. In a process the firmware had just killed the
                 // guard had not bound yet, so isStockHome said no above, and once bound it took
                 // PatchWall for one the TV raised (MiTV-ANSP0, Android 9, issue #971, PR #1216).
-                if (isHomeApp(app.packageName)) HomeGuardService.allowStockLauncher()
+                if (isHomeApp(app.packageName)) HomeGuardService.allowStockLauncher(this)
                 return
             }
             Toast.makeText(this, getString(R.string.launch_failed, app.label), Toast.LENGTH_SHORT).show()
@@ -1215,7 +1215,7 @@ class MainActivity : ComponentActivity() {
      */
     private fun allowInputThroughHome(intent: Intent) {
         val pkg = intent.component?.packageName ?: return
-        if (pkg != packageName && isHomeApp(pkg)) HomeGuardService.allowStockLauncher()
+        if (pkg != packageName && isHomeApp(pkg)) HomeGuardService.allowStockLauncher(this)
     }
 
     private fun open(intent: Intent) {

@@ -72,6 +72,10 @@ object GuardSetup {
     private const val KEY_HOME_IN_FRONT_BOOT_ID = "home_in_front_boot_id"
     private const val KEY_STOCK_HOME_BOOT_ID = "stock_home_boot_id"
     private const val KEY_INSTALLER_OPENED = "installer_opened_at"
+    private const val KEY_STOCK_VISIT_AT = "stock_visit_at"
+    private const val KEY_STOCK_VISIT_UNTIL = "stock_visit_until"
+    private const val KEY_STOCK_VISIT_BOOT = "stock_visit_boot"
+    private const val KEY_STOCK_VISIT_BOOT_ID = "stock_visit_boot_id"
     private const val KEY_SCREENSAVER_SWITCHED_OFF = "screensaver_switched_off"
     private const val KEY_SCREENSAVER_ENABLED = "screensaver_enabled"
     private const val KEY_OFF_IN_STANDBY = "guard_off_in_standby"
@@ -195,6 +199,40 @@ object GuardSetup {
             .putLong(KEY_STOCK_HOME_AT, SystemClock.elapsedRealtime())
             .putLong(KEY_STOCK_HOME_BOOT, System.currentTimeMillis() - SystemClock.elapsedRealtime())
             .putString(KEY_STOCK_HOME_BOOT_ID, app.orchard.tv.system.BootOpen.BOOT_ID).apply()
+
+    /**
+     * The viewer's visit to the stock launcher, opened on purpose from Aerial (HomeGuardService
+     * .allowStockLauncher), kept on disk until [untilElapsed] (elapsed realtime); null ends it. A
+     * guard killed and revived in the middle of it had lost it in memory and took the launcher
+     * away: Haier WATERFALL_T962 (YunOS, Android 5.1, 920 MB), whose stock launcher is 酷喵, killed
+     * Aerial again and again, and each revival pulled 酷喵 back to Aerial a second after the tile
+     * opened it (issue #1491, the reporter's log).
+     */
+    fun noteStockVisit(context: Context, untilElapsed: Long?) {
+        if (!isUserUnlocked(context)) return
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        if (untilElapsed == null) {
+            if (!prefs.contains(KEY_STOCK_VISIT_UNTIL)) return
+            prefs.edit().remove(KEY_STOCK_VISIT_AT).remove(KEY_STOCK_VISIT_UNTIL).remove(KEY_STOCK_VISIT_BOOT)
+                .remove(KEY_STOCK_VISIT_BOOT_ID).apply()
+            return
+        }
+        prefs.edit()
+            .putLong(KEY_STOCK_VISIT_AT, SystemClock.elapsedRealtime())
+            .putLong(KEY_STOCK_VISIT_UNTIL, untilElapsed)
+            .putLong(KEY_STOCK_VISIT_BOOT, System.currentTimeMillis() - SystemClock.elapsedRealtime())
+            // At once: the firmware that makes this matter kills Aerial moments after the tile.
+            .putString(KEY_STOCK_VISIT_BOOT_ID, app.orchard.tv.system.BootOpen.BOOT_ID).commit()
+    }
+
+    /** How long the visit noted by [noteStockVisit] still runs, in this boot; 0 when there is none. */
+    fun stockVisitLeftMs(context: Context): Long {
+        if (!isUserUnlocked(context)) return 0L
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val at = prefs.getLong(KEY_STOCK_VISIT_AT, -1L)
+        if (!thisBoot(prefs, at, KEY_STOCK_VISIT_BOOT, KEY_STOCK_VISIT_BOOT_ID)) return 0L
+        return (prefs.getLong(KEY_STOCK_VISIT_UNTIL, 0L) - SystemClock.elapsedRealtime()).coerceAtLeast(0L)
+    }
 
     /**
      * Whether, in this boot, a stock launcher's home came to the front after Aerial's Home last left
