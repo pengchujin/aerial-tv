@@ -1,0 +1,185 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Aerial</string>
+    <string name="guard_name">Pengaman Beranda Aerial</string>
+    <string name="guard_description">Menjaga Aerial sebagai beranda utama di TV yang tidak mengizinkan pengubahan default. Tidak membaca konten layar.</string>
+
+    <string name="greeting_morning">Selamat pagi</string>
+    <string name="greeting_afternoon">Selamat siang</string>
+    <string name="greeting_evening">Selamat malam</string>
+
+    <string name="cc_title">Pusat Kontrol</string>
+    <string name="cc_inputs">Sumber Input</string>
+    <string name="cc_network">Jaringan</string>
+    <string name="cc_settings">Setelan</string>
+    <string name="cc_volume">Volume</string>
+    <string name="cc_muted">Senyap</string>
+    <string name="cc_home_default">Aerial adalah beranda Anda</string>
+    <string name="cc_home_guarded">Pengaman Beranda aktif</string>
+    <string name="cc_home_not_default">Bukan beranda bawaan</string>
+    <string name="cc_setup_title">Jadikan Aerial Beranda Anda</string>
+    <string name="cc_setup_body">Terpasang dari APK, Aerial dapat dibuka, namun Tombol Beranda, Nyalakan dan Bangun dari Standby masih mengarah ke peluncur lama.</string>
+    <string name="cc_setup_guard">Aktifkan Pengaman Beranda</string>
+    <string name="cc_setup_guard_where">Aksesibilitas</string>
+    <string name="cc_setup_home">Pilih Aplikasi Beranda Default</string>
+    <string name="cc_setup_revival">Kembali Setelah Standby</string>
+    <string name="cc_setup_revival_where">Akses Notifikasi</string>
+    <string name="cc_setup_scan">Atau atur menggunakan komputer (direkomendasikan)</string>
+    <string name="cc_setup_scan_hint">Pindai dengan ponsel untuk perintah TV ini dan instruksi agen AI.</string>
+    <string name="cc_back">Kembali</string>
+    <string name="cc_no_inputs">Tidak ada sumber input ditemukan di TV ini</string>
+
+    <string name="net_ethernet">Ethernet</string>
+    <string name="net_wifi">Wi-Fi</string>
+    <string name="net_offline">Tidak Terhubung</string>
+    <string name="net_vpn">VPN</string>
+
+    <string name="input_connected">Terhubung</string>
+    <string name="input_live_tv">TV Langsung</string>
+    <string name="input_antenna">Antena</string>
+    <string name="input_digital">TV Digital</string>
+    <string name="input_av">AV</string>
+
+    <string name="menu_move">Pindahkan</string>
+    <string name="menu_to_folder">Pindahkan ke Folder</string>
+    <string name="menu_new_folder">Folder Baru</string>
+    <string name="menu_out_of_folder">Keluarkan dari Folder</string>
+    <string name="menu_rename_folder">Ubah Nama</string>
+    <string name="menu_ungroup">Hapus Folder</string>
+    <string name="menu_back">Kembali</string>
+    <string name="folder_default">Folder</string>
+    <string-array name="folder_names">
+        <item>Sistem</item>
+        <item>Video</item>
+        <item>Musik</item>
+        <item>Game</item>
+        <item>Anak</item>
+        <item>Alat</item>
+        <item>Folder</item>
+    </string-array>
+    <string name="menu_hide">Sembunyikan dari Beranda</string>
+    <string name="menu_reset_icon">Pulihkan Ikon Default</string>
+    <string name="menu_info">Info Aplikasi</string>
+    <string name="menu_uninstall">Copot Pemasangan</string>
+    <string name="move_hint">Gunakan tombol panah untuk memindahkan · Tekan OK jika selesai</string>
+    <string name="move_hint_touch">Gunakan panah atau ketuk titik untuk memindahkan · Tekan OK atau ketuk aplikasi jika selesai</string>
+
+    <string name="hidden_title">Aplikasi Tersembunyi</string>
+    <string name="hidden_hint">Pilih aplikasi untuk dikembalikan ke Beranda</string>
+    <string name="hidden_empty">Tidak ada aplikasi tersembunyi</string>
+
+    <string name="launch_failed">Gagal membuka %1$s</string>
+    <string name="unavailable">Tidak tersedia di TV ini</string>
+    <string name="cc_brightness">Kecerahan</string>
+    <string name="cc_brightness_in_settings">Setelan Gambar</string>
+    <string name="cc_personalize">Personalisasi</string>
+    <string name="wp_title">Personalisasi</string>
+    <string name="wp_wallpaper">Wallpaper</string>
+    <string name="wp_weather">Cuaca</string>
+    <string name="wp_weather_none">Belum ada cuaca. Akan dimuat saat TV online.</string>
+    <string name="wp_weather_guessed">Dilokasikan dari jaringan. Jika salah, pindai kode di kanan untuk mengatur kota Anda.</string>
+    <string name="wp_weather_chosen">Kota diatur di ponsel Anda; pindai kode di kanan untuk mengubahnya.</string>
+    <string name="wx_clear">Cerah</string>
+    <string name="wx_partly_cloudy">Berawan Sebagian</string>
+    <string name="wx_cloudy">Berawan</string>
+    <string name="wx_fog">Kabut</string>
+    <string name="wx_rain">Hujan</string>
+    <string name="wx_snow">Salju</string>
+    <string name="wx_thunder">Badai Petir</string>
+    <string name="wp_daily_latest">Foto Harian</string>
+    <string name="wp_live">Video lanskap bergerak. Diputar saat beranda di baris atas dan berhenti pada bingkai saat turun ke aplikasi.</string>
+    <string name="wp_photos_rotate">Foto Saya, Harian</string>
+    <string name="wp_daily_note">Foto pilihan harian dari Bing, berganti setiap hari.</string>
+    <string name="wp_photos_rotate_note">Foto berbeda dari koleksi Anda setiap hari.</string>
+    <string name="wp_photo_note">Foto Anda. Pindai kode di kanan untuk mengirim lebih banyak dari ponsel.</string>
+    <string name="wp_auto_note">Warna diambil dari karya seni aplikasi yang dipilih.</string>
+    <string name="wp_screensaver">Penyimpan Layar</string>
+    <string name="ss_follow_hint">Belum dipilih, mengikuti wallpaper.</string>
+    <string name="ss_aerial">Aerial</string>
+    <string name="ss_photos">Foto</string>
+    <string name="ss_clock">Jam</string>
+    <string name="wp_phone_title">Atur dari ponsel atau komputer</string>
+    <string name="wp_phone_offline">Sambungkan TV ke jaringan untuk mengaturnya dari ponsel atau komputer.</string>
+    <string name="ss_start">Mulai Sekarang</string>
+    <string name="ss_delay">Mulai setelah</string>
+    <string name="ss_minutes">%d mnt</string>
+    <string name="ss_hours">%d jam</string>
+    <string name="ss_never">Jangan pernah</string>
+    <string name="looks_title">Tampilan &amp; Gaya</string>
+    <string name="looks_apps_row">Baris Aplikasi</string>
+    <string name="looks_rows">Jumlah Baris</string>
+    <string name="looks_rows_1">1 Baris</string>
+    <string name="looks_rows_2">2 Baris</string>
+    <string name="looks_clock">Ukuran Jam</string>
+    <string name="looks_clock_large">Besar</string>
+    <string name="looks_clock_small">Kecil</string>
+    <string name="looks_corner">Sudut Jam</string>
+    <string name="looks_corner_left">Kiri</string>
+    <string name="looks_corner_right">Kanan</string>
+    <string name="looks_names">Nama Aplikasi</string>
+    <string name="looks_names_focused">Saat Disorot</string>
+    <string name="looks_names_always">Selalu</string>
+    <string name="looks_names_never">Sembunyikan</string>
+    <string name="looks_focus">Gaya Fokus</string>
+    <string name="looks_focus_lift">Mengapung &amp; Cincin Putih</string>
+    <string name="looks_focus_standard">Standar tvOS</string>
+    <string name="looks_sounds">Suara Tombol</string>
+    <string name="looks_sounds_on">Aktif</string>
+    <string name="looks_sounds_off">Mati</string>
+    <string name="looks_dim">Latar Belakang Redup</string>
+    <string name="looks_dim_off">Mati</string>
+    <string name="looks_dim_subtle">Halus</string>
+    <string name="looks_dim_dark">Gelap</string>
+    <string name="looks_effects">Efek Visual</string>
+    <string name="looks_effects_auto">Otomatis</string>
+    <string name="looks_effects_full">Penuh</string>
+    <string name="looks_effects_lite">Ringan (Hemat RAM)</string>
+    <string name="looks_boot_app">Aplikasi Saat Boot</string>
+    <string name="looks_boot_app_home">Beranda Default</string>
+    <string name="looks_boot_app_last">Terakhir Dibuka</string>
+    <string name="looks_boot_app_none">Langsung ke Beranda</string>
+    <string name="looks_sleep_timer">Pengatur Waktu Tidur</string>
+    <string name="looks_sleep_timer_off">Mati</string>
+    <string name="looks_sleep_timer_min">%d menit</string>
+    <string name="looks_sleep_timer_hour">%d jam</string>
+    <string name="looks_sleep_timer_prompt">Matikan TV dalam:</string>
+    <string name="looks_update">Pembaruan Otomatis</string>
+    <string name="looks_update_on">Aktif</string>
+    <string name="looks_update_off">Mati</string>
+    <string name="looks_parental">Kontrol Orang Tua</string>
+    <string name="looks_parental_off">Mati</string>
+    <string name="looks_parental_on">Aktif (PIN Diperlukan)</string>
+    <string name="pin_title">Masukkan PIN</string>
+    <string name="pin_hint">Gunakan tombol arah untuk memasukkan PIN</string>
+    <string name="pin_wrong">PIN salah, coba lagi</string>
+    <string name="pin_set">Atur PIN Baru</string>
+    <string name="pin_confirm">Konfirmasi PIN</string>
+    <string name="pin_mismatch">PIN tidak cocok, coba lagi</string>
+    <string name="pin_clear">Hapus PIN</string>
+    <string name="update_new">Versi Baru: %1$s</string>
+    <string name="update_download">Unduh &amp; Pasang</string>
+    <string name="update_downloading">Mengunduh pembaruan...</string>
+    <string name="update_failed">Gagal mengunduh pembaruan</string>
+    <string name="update_latest">Aerial sudah versi terbaru</string>
+    <string name="cc_about">Tentang Aerial</string>
+    <string name="about_version">Versi %1$s</string>
+    <string name="about_github">GitHub</string>
+    <string name="about_issues">Laporkan Masalah</string>
+    <string name="about_docs">Dokumentasi</string>
+    <string name="about_license">Lisensi MIT</string>
+    <string name="feedback_title">Bantuan &amp; Umpan Balik</string>
+    <string name="feedback_subtitle">Salin diagnostik untuk dibagikan di GitHub</string>
+    <string name="feedback_copy">Salin Diagnostik</string>
+    <string name="feedback_copied">Berhasil disalin ke clipboard</string>
+    <string name="feedback_qr">Pindai untuk membuka GitHub</string>
+    <string name="toast_wallpaper_saved">Wallpaper berhasil disimpan</string>
+    <string name="toast_wallpaper_failed">Gagal menyimpan wallpaper</string>
+    <string name="toast_photo_added">Foto berhasil ditambahkan</string>
+    <string name="toast_photo_removed">Foto dihapus</string>
+    <string name="toast_pin_set">PIN berhasil diatur</string>
+    <string name="toast_pin_cleared">PIN dihapus</string>
+    <string name="dialog_ok">OK</string>
+    <string name="dialog_cancel">Batal</string>
+    <string name="dialog_yes">Ya</string>
+    <string name="dialog_no">Tidak</string>
+</resources>
