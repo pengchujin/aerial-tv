@@ -2,6 +2,22 @@
 
 写给接手 Aerial 的人或 AI。先读这份，再读 [ARCHITECTURE.md](ARCHITECTURE.md) 和 [devices/](devices/)。
 
+## 现状（2026-11-13）
+
+- **2026-11-13 巡检（没发版，改在 main 上）**，记录 `local/triage/2026-11-13-full.md`（原始 `raw-2026-11-13/`，复查 `raw-2026-11-13b/`），回复 `replies-2026-11-13.py` / `replies-2026-11-13b.py`，发出 `posted-2026-11-13.txt`。313 issue / 65 PR，用户最后发言 52（17 个上轮定了不回、没有新内容）。在主目录分支 `claude/triage-2026-11-13` 上做，合回 main。
+  - 改了（每个单独提交）：
+    - #1499 TCL ak30a5（安卓 9）/ #1498 小米 ANSM0（安卓 6）：守护因 `volumeLiftUnseen` 留下音量键时，自己调的那一格不弹音量条、按住只走一格 → 自己调时带 `FLAG_SHOW_UI`；被留下的键抬起能回到守护（`takenVolumeLiftSeen`）后，按住按连发节奏一直调（最长 8 秒）。
+    - #1505 海信 VIDAA 安卓 6（MSD6A648）：固件把主页键映射成 F12、弹 Jamdeo GlobalPanel；VIDAA 不开按键过滤 → 浮层处理从安卓 5.1 扩到安卓 6（`isJamdeoPanel`：安卓 6 上 jamdeo 启动器的非 Activity、非 Dialog 窗口）。
+    - #1502 海信 Hi3751V551：从磁贴开原桌面后 Jamdeo 浮层被当主页键浮层收掉 → 放行期间不收。
+    - #1388 统帅 L65F8（Huanglong）：设置候选能解析但要签名权限 → `startable()`：导出且权限已有才算（`firstResolvable` / `allResolvable` / `resolvable`），Lite 的 `SystemIntents.first` 同步。这台下一个候选（系统设置）本身画不出来，设置仍打不开。
+    - #1491 海尔 WATERFALL_T962：「有意打开原桌面」只在内存 → 也记在磁盘（`GuardSetup.noteStockVisit`，boot id，commit），守护复活时恢复，Aerial 回前台 / 拜访结束时清掉。
+    - 文档：README 两份（55K5C、49X7500E、VIDAA MT9655 VX5SPRO、松下行更新），`hisense-vidaa.md`（MSD6A648、Hi3751V551、GX27 4K 画布复测、VX5SPRO 开机直达），`tencent-aurora-box.md`（3mini A4101 后台即强停），新增 `haier.md`。
+  - 验证：standard、guard 单测各 265 个通过，Lite lint，三个包签名 e089…。**小米 MFTR0** `install-multiple` standard 测试包 **1.96-test（versionCode 136，没提交）** + 31.dm（speed-profile / install-dm）：`selftest.sh` 守护、主页键（从设置 0.4 秒）、`INPUTS=1` 8 个信号源通过；按返回进屏保、按上键回来，录屏逐帧看亮度没有掉到黑帧。**TCL MT5879** `tcast-push.py` 推 guard 测试包 136（截图 + uiautomator 确认焦点在「同意」），compile speed：`selftest.sh` 守护、主页键（从 TCL 浏览器 0.3 秒）、7 个信号源通过，两个 walleve 服务、屏保 AerialDream 保留。没改户主的任何设置。
+  - **没有真机验证**：#1499 #1498（两台的音量键都不经过这条路径：小米安卓 14 过滤时收不到音量键，TCL 走 movedFirst）、#1505 #1502、#1388、#1491（小米上找原桌面磁贴要翻户主的文件夹，没做）。
+  - 没修、要信息：#1467 乐视 X3-65 1.94 主页键回不来——怀疑 #1430 的「复活后前台未知、Aerial 离开主页去 App、没见原桌面 → 不动」（这台 EUI 按主页键强停 Aerial、`com.stv.launcher` 0.3 秒崩），但报告人开着用量统计、前台应该不是「未知」，证据不够，试写的改动撤回了，请报告人抓 `AerialDiag`。#891 MFFU0 黑闪要录屏分清进 App 还是回来。#1506 小米电视 2（安卓 5.1）1.95 后没天气，1.94→1.95 天气代码没变，要 `AerialWeather` 日志。其余见记录（#1490 #937 #1497 #1503 #1504 #1494 #1492 #1311 #1477 #1383 #1357 #1463 #1461 #706）。
+  - 关闭 13 个：确认 / README #1462 #1468 #1471 #1493 #1495，重复 #1500 #1501 #688，固件限制 #1496，十天无回音 #1047 #1184（其余维护者最后发言的是 enhancement 或在等我们 / 户主）。enhancement：#1490（持久关闭守护的开关，户主定）。PR 没有可合的；#1170 作者同步到 1.95，仍是 Draft，留功能轮次。
+  - **下次发版 versionCode ≥ 137（两台装过 136 测试包），Lite 改过（#1388），≥ 31。**
+
 ## 现状（2026-11-12）
 
 - **1.95（versionCode 135），2026-11-12 发布**（[v1.95](https://github.com/pengchujin/aerial-tv/releases/tag/v1.95)）：下面这轮巡检的全部修复（#1462 #1482 #1480 #1481 #1483 #1461 #1468）。versionCode 跳过 134（两台装过 134 测试包）。Lite 没改，Release 附的仍是 1.28（30）。三个包签名 e089…。小米 MFTR0 `install-multiple` standard + 31.dm（speed-profile / install-dm）：`selftest.sh` 守护、主页键（从设置 0.4 秒）、`INPUTS=1` 8 个信号源通过。TCL MT5879 `tcast-push.py` 推 guard（先回桌面，截图确认焦点在「同意」），compile speed：守护、主页键（从 TCL 浏览器 0.4 秒）、7 个信号源通过，两个 walleve 服务、屏保 AerialDream 保留。官网已部署：version.txt = v1.95，notes.json 有 1.95，三个 APK md5 与 Release 一致，`/diag/aerial-710.apk` 还在。7 个 issue 贴了发布链接（`local/triage/release-1.95-posts.py`）。#1482 #1480 的改动要从 1.95 往后的升级才用得上，回复里说了这次先用安装命令。**下次发版 versionCode ≥ 136，Lite ≥ 31。**
