@@ -229,7 +229,7 @@ NanoHTTPD 监听 8790 端口，路径前缀是 8 位随机令牌（每次打开�
 
 ## 诊断报告（system/Diagnostics.kt）
 
-给维护者没有的电视用：机型、固件指纹、屏幕和内存、HOME 解析和所有候选、守护看着的原桌面、守护和通知监听的状态、各项授权、屏保和按键音设置、亮度、`TvInputManager` 的输入和 Aerial 显示的信号源、Aerial 认识的厂商包（只列这些，不列全部 App）、DiagLog 最近 150 行、本进程 Aerial 各 tag 的 logcat（不含 AerialWeather，里面有城市）。日志里的 IP、MAC、手机页令牌打码。不收集账号、序列号、Wi-Fi 名称、天气城市。
+给维护者没有的电视用：机型、固件指纹、屏幕和内存、HOME 解析和所有候选、守护看着的原桌面、守护和通知监听的状态、各项授权、屏保和按键音设置、亮度、`TvInputManager` 的输入和 Aerial 显示的信号源、Aerial 认识的厂商包（只列这些，不列全部 App）、天气状态（`Weather.diagnostics`：有没有显示、上次取到和尝试的时间、结果、是否还在请求，不含城市和坐标，#1506）、DiagLog 最近 150 行、本进程 Aerial 各 tag 的 logcat（不含 AerialWeather，里面有城市）。日志里的 IP、MAC、手机页令牌打码。不收集账号、序列号、Wi-Fi 名称、天气城市。
 
 三个出口：手机页 `GET api/diagnostics`（页面最下面「反馈问题」，可复制，局域网 HTTP 没有 `navigator.clipboard`，用 `execCommand`）；`adb shell dumpsys activity app.orchard.tv/.MainActivity report`；`tools/report.sh` 在它前面再加只有 shell 能读的：getprop、包信息和 appops、HOME 候选和 role、相关 settings、无障碍绑定、tv_input 硬件、系统服务里关于 Aerial 的 logcat（只按 tag 取：小米应用商店会在日志里打印已装 App 列表）。
 
@@ -281,6 +281,7 @@ NanoHTTPD 监听 8790 端口，路径前缀是 8 位随机令牌（每次打开�
 - 方向键、确认键由磁贴自己处理；长按确认键打开长按菜单。
 - 菜单键：焦点在 App 磁贴上时打开这个 App 的长按菜单（老遥控器长按确认键识别不出来，issue #28），其他时候开关控制中心。和长按一样，只在本磁贴上按下、抬起时才触发，抬起不会误选菜单的第一项。
 - `KEYCODE_TV_INPUT` 打开控制中心的信号源页；固件自己有信号源面板、又把键放给 Aerial 的电视上不接（TCL 面板、酷开 Quick Panel、装有 `com.tianci.system` 的天赐固件，#1468），免得两个面板一起出来。
+- 主页键 intent：带 HOME category、或 action 是 MAIN、或没有 action 且目标是 Aerial 自己（创维 7S77_M2 按 `persist.service.homepage.*` 直接启动首页，#1508；Aerial 自己启动首页都带 MAIN），都按「首页上按主页键」处理（两段式：从 App 回来先保持焦点，再按回第一个磁贴）。Lite 同。
 
 ## 触屏和鼠标（issue #60）
 
@@ -307,8 +308,10 @@ NanoHTTPD 监听 8790 端口，路径前缀是 8 位随机令牌（每次打开�
 运行：HomeGuardService
   - 按键表弄错的遥控器主页键也当 HOME（`isStrayHome`）：扫描码 102 被通用表映射成 MOVE_HOME（只认没有字母键的设备，小米 4A 蓝牙遥控 2717:32b8，#1396），或 102 / 172 成了 UNKNOWN（海尔 HaierTV-RC，#1388）。安卓 9 模拟器上用 `hid` 造的遥控器验证过 MOVE_HOME，带字母的键盘不受影响
   - 长按主页键发 TCL 的多任务广播后 4 秒内 cyberui 的 MainActivity 到前台 → 当成多任务（鹤 6 Plus T966D5、Q9L Pro 的多任务在桌面主界面里，#1402 #1369），`allowStockLauncher`
+  - 双击 / 长按主页键打开多任务的顺序（`openRecents`）：小米 SystemUI 服务 → TCL 桌面的广播 → 当贝 `SHOW_RECENTS_FOR_USER` → 自带多任务页的固件的 Activity（创维 / 腾讯极光 A4141 的 `recentsmanager`，#1463；当贝 DBX5 Ultra 桌面里的 `ChildRecentActivity`，#1525；只开导出、不要权限的）→ `GLOBAL_ACTION_RECENTS`。
   - 守护拦下的主页键一直拦到它抬起（最多 10 秒，`homeDownTakenAt`）：安卓 12+ 只在 Aerial 在前台时过滤，长按打开多任务后 Aerial 退后，抬起曾交给系统、成了一次新的主页键，把多任务关掉（T966D5 1.89 日志，#1402；Google TV 安卓 13 模拟器上用 `hid` 遥控器长按、同时打开设置复现并验证）
   - 开机、唤醒、复活时前台是 Home 选择框（极米的 `.resolver.ResolverActivity`，或安卓自己的 `android/com.android.internal.app.ResolverActivity`，大眼橙 C3 Ultra #1401）→ 和原桌面一样拉回 Aerial（`isHomeChooser`）
+  - 主页键后选择框到前台（极米首选记录被作废时，#44 #1474，PR #1523）：盖在 Aerial 上 → 只发一个返回键关框，Aerial 自己回来；盖在别的 App 上 → 关框后再发一次 HOME，由系统完成切换（不经过安卓 5 秒的切换保护）。每次按键只答一次（`chooserBackFor`），自己补的 HOME 在 `DOUBLE_HOME_MS` 内不算新按键（`chooserHomeAt`）；关不掉时到 `FRONT_AFTER_HOME_MS` 照旧 `goHome()`。
   - 复活后只靠用量统计认出前台 App、又没有窗口事件时，每 2 秒再查一次用量统计，2 分钟内它退到后台且后面没有 App 就拉回 Aerial（`watchUnseenApp`，乐视 X50 NativeActivity 退出不发窗口事件，#1023）
   - onKeyEvent(HOME) → 不是默认桌面时吞掉按键，打开 Aerial（Android 11 及以下一直开着按键过滤，见 filterKeys；接着手柄 `SOURCE_GAMEPAD` 且前台是别的 App 时不过滤，#774：过滤时每个手柄事件都要经 system_server 主线程重新注入，MFTR0 安卓 11 串流时卡死重启。不看 joystick 位：TCL MT5879 的红外接收器带这一位；厂商和产品 ID 都是 0x0001 的内置输入（`aml_keypad`、`Hi keyboard`、小米 AETP0 的 `ir_keypad` #1423）不算；名字里带 virtual 的设备也不算，索尼的语音搜索设备 `virtual-search` 自称手柄，#840）；插着外接鼠标（安卓 10+ `InputDevice.isExternal`、非虚拟、带 `SOURCE_MOUSE`）时，在装有 PatchWall 或小米系统界面的电视上所有界面都不过滤（#1039：TCL 75Q10L 插鼠标开着过滤不卡，关掉反而主页键先闪 TCL 桌面），Aerial 首页也一样，#988：MFTR0 安卓 11 上蓝牙鼠标走同一条注入路径卡死重启；TCL MT5879 自带的 `gIrTouch_Mouse` 不是外接，不算）；以及「插鼠标时开着过滤、3 分钟内同一次开机里 Aerial 换了新进程重新绑定」过一次的固件（`mouseDownedSystem`，按 Build.FINGERPRINT 记在 prefs `guard_mouse_downed_system`）：TCL TC8000 安卓 11 改过的 `InputFilterHost.sendInputEvent` 把鼠标的 MotionEvent 强转 KeyEvent，system_server 崩（#1109），事先看不出来，第一次崩过才记住。守护状态行 `mouseDowned=`
   - 守护「聋」了（#651）：重启无障碍在安卓 6 以上改成把 Aerial 从列表拿出再放回（只改 `accessibility_enabled` 不会重新绑定）；发现聋之后，按主页键起每 150 ms 查一次用量统计，直到收到窗口事件。开机复查时最后看到的窗口如果是负优先级的 HOME（开机向导、FallbackHome，`fallbackHomes`），当作前台未知，问用量统计（#701）。问用量统计时看最后一个移到前台的 Activity 之后有没有它自己的「移到后台」（`UsageFront`）：有且之后没有别的上来，就是前台空着，按原桌面在前台处理（乐视 X4-50 退出最后一个 App 后黑屏、没有窗口，#1023）
@@ -320,6 +323,7 @@ NanoHTTPD 监听 8790 端口，路径前缀是 8 位随机令牌（每次打开�
     或者电视自己「开机播放上次的信号源」（小米 PatchWall 的 autoPlay），都以电视为准
   - adb_enabled 的 ContentObserver → keep_adb 时写回 1，但亮屏使用中（开机 3 分钟后、亮屏 1 分钟后）被关掉时当成户主自己关的：不写回、keep_adb 关掉（`GuardSetup.adbSwitchedOffInUse`，#1399：TCL 隐藏菜单关再开 ADB 被顶回去后一直「获取失败」）；开机几分钟内 5555 不通时把 adb_enabled 切 0 再切 1 重启 adbd（#454），只在安卓 6–10 做：小米电视 3 安卓 5.0.1 上这一切把 TCP 模式的 adbd 停死了（#1099）
   - 音量键（创维酷开，#937 #1058 #1091 #1113）：有的固件音量键的抬起根本不经过过滤层，按下却经过（1.77 的诊断里守护只有 down；酷开 C10 系统日志里按下走了 VolServer 的 Local 和 Broadcast 两条通道、抬起只回 Local）。守护把按下传下去，固件第二条通道等不到抬起，每 50 ms 连发到下一次按键。守护看到「传下去的音量按下没等到抬起、1 秒以后又来了下一次按下」就按 Build.FINGERPRINT 记进 prefs `guard_volume_lift_unseen`，之后音量按下一律不传下去（固件在过滤层之前已调过）；拦下后 300 ms 音量没动就自己调一格（`volumeStepIfUnmoved`，调完更新 `volumeSeen`，免得下一次被当成「固件先调过」）。每台第一次仍会连冲一回。安卓 9 模拟器上用 hid 两个设备造过；TCL MT5879（固件先调音量）不会误判。守护状态行 `volumeLiftUnseen=`。1.77 的另一半仍在：守护记下看到的抬起（`volumeKeyCameUp`），`MainActivity.dispatchKeyEvent` 丢掉抬起之后还在连发的音量键。按住时遥控器每约 200 ms 发一次新的按下，比补格的 300 ms 快：新的按下先把上一次没补的补上（`volumeStepPending`），否则整段按住只补一格（A7D，#937）。自己补的那一格带 `FLAG_SHOW_UI`（固件没管这次按下，不然看不到音量条，小米 ANSM0 #1498）；被留下的按下的抬起到过守护（`takenVolumeLiftSeen`）以后，按住时也按连发节奏一直调（`volumeRepeatShowsUi`，最长 8 秒，TCL ak30a5 #1499）。默认桌面时的过滤 `defaultHomeNeedsHomeFilter` 原来只看 `com.cvte.factory.at`（红米投影仪 Lite 按主页键会结束前台进程），酷开 C10 也有这个包，过滤开着时音量被固件分发两次、连冲（#1113）；有 `com.tianci.system` 时不算
+  - 「被留下的音量键抬起能回到守护」（`takenVolumeLiftSeen`，1.96 起据此按住连调）和 `volumeLiftUnseen` 一样按固件指纹记在磁盘（`guard_taken_volume_lift_seen`）：只记内存时每次重启、进程被杀后第一次按住只走一格（TCL ak30a5，#1521）。
   - 开机 3 分钟内复活时，Aerial 的主页不在前台被当成「用户在别的 App」（#989）；但守护看到原桌面的主页面到前台时会记进 prefs（`GuardSetup.noteStockHomeInFront`），原桌面是在 Aerial 离开之后上来的就照样拉回（#1047，小米 MTEQ0 开机 40 秒后被固件推回 PatchWall、2 秒后被强停）
 被杀（小米待机 killAllThirdApp）：系统移除无障碍授权
   → 通知监听绑定断开 → 系统约 0.5 秒后重绑 RevivalListener（进程复活）
