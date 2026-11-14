@@ -1665,7 +1665,7 @@ class HomeGuardService : AccessibilityService() {
         }
         if (event.action == KeyEvent.ACTION_UP) {
             if (taken && stepKey && !takenVolumeLiftSeen) {
-                takenVolumeLiftSeen = true
+                noteTakenVolumeLiftSeen(this)
                 DiagLog.i("guard: the lift of a volume press not passed on reached the filter; held keys step the volume from now on")
             }
             volumeDownPassedAt = Long.MAX_VALUE
@@ -1710,8 +1710,13 @@ class HomeGuardService : AccessibilityService() {
      * guard steps a held key as on TCL. Not before: on 7AA46_H5D and 8A002_H5D (issues #448 #451)
      * and 8R134_A7D (issue #937, Aerial's log on 1.81) no lift ever came, and stepping until the
      * cap would run the volume for seconds after every press.
+     *
+     * Kept per firmware build like [volumeLiftUnseen]: in memory only, every new process (each
+     * boot, and TCL stops Aerial often) began with presses that stepped once when held, and a hold
+     * right after a boot stepped once (TCL ak30a5, Android 9, issue #1521 on 1.96: fine after
+     * `pm clear`, one step again after each reboot).
      */
-    private var takenVolumeLiftSeen = false
+    private val takenVolumeLiftSeen: Boolean get() = takenVolumeLiftSeen(this)
 
     private var volumeRepeatDirection = 0
 
@@ -2474,6 +2479,21 @@ class HomeGuardService : AccessibilityService() {
             Log.i(TAG, "a volume press passed on never came up at the filter; no volume press is passed on from now on")
             DiagLog.i("guard: a volume press passed on never came up here; volume presses stay with the firmware from now on")
             context.getSharedPreferences("system", Context.MODE_PRIVATE).edit().putString(KEY_VOLUME_LIFT_UNSEEN, Build.FINGERPRINT).apply()
+        }
+
+        /** See HomeGuardService.takenVolumeLiftSeen; kept per firmware build. */
+        private const val KEY_TAKEN_VOLUME_LIFT_SEEN = "guard_taken_volume_lift_seen"
+        @Volatile
+        private var takenVolumeLiftSeen: Boolean? = null
+
+        private fun takenVolumeLiftSeen(context: Context): Boolean = takenVolumeLiftSeen
+            ?: if (!GuardSetup.isUserUnlocked(context)) false else (context.getSharedPreferences("system", Context.MODE_PRIVATE).getString(KEY_TAKEN_VOLUME_LIFT_SEEN, null) == Build.FINGERPRINT)
+                .also { takenVolumeLiftSeen = it }
+
+        private fun noteTakenVolumeLiftSeen(context: Context) {
+            takenVolumeLiftSeen = true
+            if (!GuardSetup.isUserUnlocked(context)) return
+            context.getSharedPreferences("system", Context.MODE_PRIVATE).edit().putString(KEY_TAKEN_VOLUME_LIFT_SEEN, Build.FINGERPRINT).apply()
         }
 
         @Volatile
