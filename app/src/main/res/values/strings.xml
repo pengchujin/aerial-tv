@@ -11,6 +11,7 @@
     <string name="cc_title">Control Center</string>
     <string name="cc_inputs">Inputs</string>
     <string name="cc_network">Network</string>
+    <string name="cc_bluetooth">Bluetooth</string>
     <string name="cc_settings">Settings</string>
     <string name="cc_volume">Volume</string>
     <string name="cc_muted">Muted</string>
