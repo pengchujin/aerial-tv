@@ -7,6 +7,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
+import android.database.ContentObserver
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
@@ -721,8 +722,55 @@ object GuardSetup {
         }.onFailure { Log.w(TAG, "could not allow the notification listener", it) }
     }
 
+    /**
+     * JMGO rewrites the enabled list two to four seconds after the user is unlocked and drops the
+     * guard from it: on the H3S only JMGO's own service was left until the sync put the guard back
+     * 110 s later (issue #1377, boot timeline of 2026-11-14). Watch the list in the first minutes of
+     * a boot and write the entry back 1.5 s after it goes, at most three times: outside a boot a
+     * missing entry is the viewer's choice in Settings, which the next start overrides as before.
+     */
+    private const val LIST_WATCH_WINDOW_MS = 5 * 60_000L
+    private const val LIST_WATCH_DELAY_MS = 1_500L
+    private const val LIST_WATCH_MAX_TRIES = 3
+    private var listWatchTries = 0
+    @Volatile private var listWatch: ContentObserver? = null
+
+    @Synchronized
+    fun watchEnabledList(context: Context) {
+        if (listWatch != null) return
+        val app = context.applicationContext
+        val handler = Handler(Looper.getMainLooper())
+        val me = ComponentName(app, HomeGuardService::class.java).flattenToString()
+        val watch = object : ContentObserver(handler) {
+            override fun onChange(selfChange: Boolean) {
+                handler.postDelayed({
+                    if (listWatchTries >= LIST_WATCH_MAX_TRIES) return@postDelayed
+                    if (SystemClock.elapsedRealtime() > LIST_WATCH_WINDOW_MS) return@postDelayed
+                    val listed = Settings.Secure
+                        .getString(app.contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES)
+                        .orEmpty().split(':')
+                        .any { ComponentName.unflattenFromString(it)?.flattenToString() == me }
+                    if (listed) return@postDelayed
+                    // Counted only when the entry was actually put back: standing out for standby,
+                    // or a write another path had just made, must not use up the tries.
+                    if (ensureEnabled(app)) {
+                        listWatchTries++
+                        Log.i(TAG, "the firmware dropped Home Guard from the enabled list; putting it back ($listWatchTries)")
+                    }
+                }, LIST_WATCH_DELAY_MS)
+            }
+        }
+        runCatching {
+            app.contentResolver.registerContentObserver(
+                Settings.Secure.getUriFor(Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES), false, watch,
+            )
+            listWatch = watch
+        }.onFailure { Log.w(TAG, "could not watch the enabled list", it) }
+    }
+
     fun ensureEnabled(context: Context): Boolean {
         ensureAdb(context)
+        watchEnabledList(context)
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_SECURE_SETTINGS) != PackageManager.PERMISSION_GRANTED) return false
         restoreReceivers(context)
         keepScreensaver(context)

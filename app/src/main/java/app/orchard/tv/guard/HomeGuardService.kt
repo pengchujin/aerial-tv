@@ -802,6 +802,10 @@ class HomeGuardService : AccessibilityService() {
      */
     override fun onCreate() {
         super.onCreate()
+        // On JMGO the guard is bound before the unlock, and MainActivity may never start (the boot
+        // chooser stayed in front on the H3S): watch the list from here too, so a rewrite after the
+        // unlock is put back without waiting for the sync.
+        GuardSetup.watchEnabledList(this)
         if (SystemClock.elapsedRealtime() >= BOOT_WINDOW_MS || !GuardSetup.isUserUnlocked(this)) return
         if (getSystemService<PowerManager>()?.isInteractive != true) return
         val bootSource = hasBootSource()
