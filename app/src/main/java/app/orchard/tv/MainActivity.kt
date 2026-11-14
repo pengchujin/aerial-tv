@@ -923,7 +923,12 @@ class MainActivity : ComponentActivity() {
             idleHandler.post { startScreensaver(asked = true) }
             return
         }
-        if (intent.hasCategory(Intent.CATEGORY_HOME) || intent.action == Intent.ACTION_MAIN) {
+        // Some Skyworth/Coocaa firmwares answer Home by starting persist.service.homepage.pkg/cls
+        // themselves, with no action and no category: Home on Home never reset the focus
+        // (7S77_M2, MStar M7221, Android 8.0, issue #1508; the reporter patched 1.95 with this
+        // and checked it). Aerial's own starts of this activity all carry ACTION_MAIN.
+        val homeByComponent = intent.action == null && intent.component?.packageName == packageName
+        if (intent.hasCategory(Intent.CATEGORY_HOME) || intent.action == Intent.ACTION_MAIN || homeByComponent) {
             // Since 1.11 Home Guard answers Home from an app by bringing Aerial back with this same
             // intent, so the intent alone cannot tell Home-on-Home from coming back from an app.
             vm.onHomePressed(resetFocus = !openedAppSinceHome)

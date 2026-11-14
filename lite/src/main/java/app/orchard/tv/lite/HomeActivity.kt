@@ -162,7 +162,11 @@ class HomeActivity : Activity(), HomeView.Host {
     /** The Home key while Home is in front: back to the first tile, as the full app does. */
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        if (intent.hasCategory(Intent.CATEGORY_HOME)) {
+        // Some Skyworth/Coocaa firmwares answer Home by starting the home component themselves,
+        // with no action and no category (7S77_M2, Android 8.0, issue #1508, the full app; not
+        // tried on a Lite TV). Lite's own starts of this activity carry ACTION_MAIN.
+        val homeByComponent = intent.action == null && intent.component?.packageName == packageName
+        if (intent.hasCategory(Intent.CATEGORY_HOME) || homeByComponent) {
             hideSaver()
             closeAll()
             home.reset()
