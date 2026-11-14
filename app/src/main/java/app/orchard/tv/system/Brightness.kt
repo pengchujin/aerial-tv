@@ -46,8 +46,13 @@ object Brightness {
         !DeviceProfile.current(context).ignoresPictureBacklight &&
             Settings.Global.getString(context.contentResolver, XIAOMI_BACKLIGHT) != null
 
+    // TCL's Google TV firmware has no com.tcl.settings (its settings are com.android.tv.settings),
+    // yet TCL's picture library answers there: TCL Smart TV Pro G10_4K_GB (Realtek rtd6748,
+    // Android 12) has com.tcl.tv.display with TvBacklightManager, and without this the slider
+    // wrote Settings.System screen_brightness, which that panel ignores.
     private fun isTcl(context: Context) =
-        runCatching { context.packageManager.getPackageInfo("com.tcl.settings", 0) }.isSuccess
+        runCatching { context.packageManager.getPackageInfo("com.tcl.settings", 0) }.isSuccess ||
+            TclPq.backlight(context) != null
 
     private fun isXiaomi(context: Context) =
         runCatching { context.packageManager.getPackageInfo("com.xiaomi.mitv.settings", 0) }.isSuccess
