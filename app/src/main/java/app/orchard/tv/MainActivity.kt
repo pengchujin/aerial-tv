@@ -89,6 +89,7 @@ import app.orchard.tv.system.MissingClipboard
 import app.orchard.tv.system.Sounds
 import app.orchard.tv.system.NetKind
 import app.orchard.tv.system.SystemProbe
+import app.orchard.tv.system.QuickActionRunner
 import app.orchard.tv.system.HisenseSources
 import app.orchard.tv.system.KonkaSources
 import app.orchard.tv.system.HomeReopen
@@ -1018,6 +1019,7 @@ class MainActivity : ComponentActivity() {
             minuteReceiverOn = true
         }
         KidsWatch.homeInFront = true
+        QuickActionRunner.foreground = quickControlHost
         idleHandler.removeCallbacks(endHomeBounce)
         vm.homeBounce = false
         DiagLog.i("onResume; screensaver after ${idleBeforeScreensaver() / 1000} s")
@@ -1062,6 +1064,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onPause() {
         super.onPause()
+        if (QuickActionRunner.foreground === quickControlHost) QuickActionRunner.foreground = null
         if (locked) return
         vm.resumed = false
         if (minuteReceiverOn) { runCatching { unregisterReceiver(minuteReceiver) }; minuteReceiverOn = false }
@@ -1100,6 +1103,12 @@ class MainActivity : ComponentActivity() {
         unregisterReceiver(dayReceiver)
         runCatching { getSystemService<ConnectivityManager>()?.unregisterNetworkCallback(networkCallback) }
     }
+
+    private val quickControlHost = QuickActionRunner.Foreground(
+        open = { intent -> vm.overlay = Overlay.None; open(intent) },
+        showInputs = { vm.showInputs() },
+        closePanel = { vm.overlay = Overlay.None },
+    )
 
     /** Opens an app, growing it out of its tile. */
     private fun launch(app: AppEntry, bounds: Rect?) {

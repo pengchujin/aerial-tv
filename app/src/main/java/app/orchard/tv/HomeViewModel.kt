@@ -67,7 +67,7 @@ sealed interface Overlay {
     data object Kids : Overlay
 }
 
-enum class CcPage { Main, Inputs, InputSettings, Update, Setup }
+enum class CcPage { Main, Inputs, InputSettings, QuickControls, Update, Setup }
 
 /**
  * Tiles a cold start reads whole before showing Home (two rows and a half, as many as can show);
@@ -640,6 +640,12 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
     fun toggleMute() {
         SystemProbe.toggleMute(context)
         volume = SystemProbe.volume(context)
+    }
+
+    fun showInputs() {
+        // TCL lists no inputs to Android; its own input panel is the next best thing.
+        overlay = if (sources.isEmpty() && SystemProbe.openInputPicker(context)) Overlay.None
+        else Overlay.ControlCenter(CcPage.Inputs)
     }
 
     /** Runs [action] at once, or after the parental PIN when one is set (issue #10). */

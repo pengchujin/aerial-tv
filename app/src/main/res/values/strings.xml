@@ -324,4 +324,57 @@
     <string name="kids_blocked">%s is not allowed here</string>
     <string name="kids_warn">%d min of TV left</string>
     <string name="kids_warn_break">A break in %d min</string>
+    <!-- Optional action for an already installed Clash Meta client. -->
+    <string name="cc_shortcuts">Shortcuts</string>
+    <string name="cc_clash">Clash Meta</string>
+    <string name="cc_clash_toggle">Toggle</string>
+    <string name="st_clash_shortcut">Clash Meta shortcut</string>
+    <string name="st_clash_shortcut_hint">Show a Control Center action. Configure Clash Meta and approve its VPN connection in the client first.</string>
+    <string name="cc_clash_requested">Toggle requested. If nothing happens, open Clash Meta to check its profile and VPN approval.</string>
+    <string name="cc_clash_unavailable">Clash Meta external control is unavailable. Check that the official client is installed and enabled.</string>
+    <string name="cc_clash_failed">Unable to control Clash Meta. Open the client and check its settings.</string>
+
+    <!-- Editable quick controls. -->
+    <string name="qc_title">Quick controls</string>
+    <string name="qc_edit_area">Edit quick controls</string>
+    <string name="qc_show_area">Show quick controls</string>
+    <string name="qc_add">Add control</string>
+    <string name="qc_hide">Hide control</string>
+    <string name="qc_show">Show control</string>
+    <string name="qc_up">Move up</string>
+    <string name="qc_down">Move down</string>
+    <string name="qc_save">Save</string>
+    <string name="qc_sent">Request sent to the app.</string>
+    <string name="qc_unavailable">This control is unavailable. Check the app and its settings.</string>
+    <string name="qc_invalid">Check the name, target and parameters.</string>
+    <string name="qc_failed">The TV could not run this control.</string>
+    <string name="qc_limit">You can add up to 12 controls.</string>
+    <string name="qc_conflict">Controls changed. Refresh and try again.</string>
+    <string name="qc_background">Open Aerial on the TV before running this control.</string>
+    <string name="qc_restricted">Quick controls are disabled in Kids and Elders mode.</string>
+    <string name="qc_hidden">Hidden</string>
+    <string name="qc_network_settings">Network settings</string>
+    <string name="qc_bluetooth_settings">Bluetooth settings</string>
+    <string name="qc_group_system">Available controls</string>
+    <string name="qc_manual_add">Add manually</string>
+    <string name="qc_manual_edit">Edit action</string>
+    <string name="qc_manual_type">Action type</string>
+    <string name="qc_manual_activity">Open screen (Activity)</string>
+    <string name="qc_manual_broadcast">Send broadcast</string>
+    <string name="qc_manual_name">Control name</string>
+    <string name="qc_manual_package">App package name</string>
+    <string name="qc_manual_component">Component class name</string>
+    <string name="qc_manual_action">Intent action</string>
+    <string name="qc_manual_optional_action">Intent action (optional)</string>
+    <string name="qc_manual_uri">Data URI (optional)</string>
+    <string name="qc_manual_extras">Extra parameters (JSON, optional)</string>
+    <string name="qc_manual_hint">Copy a public entry point from the app documentation. A leading dot in the class name means the app package. Extra values may be strings, numbers, or booleans.</string>
+    <string name="qc_vpn_toggle">Toggle</string>
+    <string name="qc_vpn_connect">Connect</string>
+    <string name="qc_vpn_disconnect">Disconnect</string>
+    <string name="qc_arrange_hint">Select a tile to rename, move, hide or remove it.</string>
+    <string name="qc_rename">Rename</string>
+    <string name="qc_remove">Remove</string>
+    <string name="qc_exists">This control is already added.</string>
+    <string name="qc_mute">Mute</string>
 </resources>
