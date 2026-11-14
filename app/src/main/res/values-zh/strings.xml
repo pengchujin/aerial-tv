@@ -323,4 +323,6 @@
     <string name="kids_blocked">「%s」不在这个模式里</string>
     <string name="kids_warn">还能看 %d 分钟</string>
     <string name="kids_warn_break">%d 分钟后休息一下</string>
+    <string name="cc_power">电源</string>
+    <string name="cc_power_unavailable">无法打开系统电源菜单，请确认已启用 Aerial 桌面守护。</string>
 </resources>

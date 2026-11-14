@@ -2690,6 +2690,10 @@ class HomeGuardService : AccessibilityService() {
                 "screenOff=${s.screenOff} gamepad=${s.gamepadName?.let { "'$it'" } ?: false} mouse=${s.mouseAttached} mouseDowned=${mouseDownedSystem(s)} volumeLiftUnseen=${volumeLiftUnseen(s)} stockAllowed=${SystemClock.uptimeMillis() < allowStockUntil} " +
                 "front=${s.lastWindow} windowEvents=${s.windowsSeen} resolved=${s.resolvedHome()} homes=${s.stockHomes}"
         }
+        /** Opens Android's power dialog through the connected accessibility service. */
+        fun showPowerDialog(): Boolean = runCatching {
+            instance?.performGlobalAction(GLOBAL_ACTION_POWER_DIALOG) == true
+        }.getOrDefault(false)
 
         /** Whether usage stats may be read (GET_USAGE_STATS, granted over ADB); see foregroundCheck. */
         fun usageStatsAllowed(context: Context): Boolean = runCatching {
