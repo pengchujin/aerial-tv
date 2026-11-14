@@ -52,6 +52,11 @@ object Brightness {
     private fun isXiaomi(context: Context) =
         runCatching { context.packageManager.getPackageInfo("com.xiaomi.mitv.settings", 0) }.isSuccess
 
+    // LeTV X3-50 (EUI, Android 5.0.1): its own settings app drives the backlight and Aerial
+    // cannot set it, so Control Center shows the picture settings row instead of a slider.
+    private fun isLetv(context: Context) =
+        runCatching { context.packageManager.getPackageInfo("com.stv.globalsetting", 0) }.isSuccess
+
     // Sony's own settings app, or Sony's name on a set with Dangbei's China firmware instead of it:
     // BRAVIA BF1 (mt5896, Android 12) drew the slider and the panel did not follow (issue #1355).
     private fun isSony(context: Context) =
@@ -117,10 +122,10 @@ object Brightness {
             // A Xiaomi TV where neither place works: open the TV's own backlight slider rather than
             // show one that changes nothing (issue #346).
             isXiaomi(context) -> null
-            // TCL, Sony, Hisense VIDAA and Skyworth/Coocaa drive the backlight through their own TV
-            // services and ignore the system setting; Control Center opens their picture panels.
-            // Before Android 6.0 WRITE_SETTINGS is granted at install.
-            isTcl(context) || isSony(context) || isVidaa(context) || SystemProbe.skyworthPicturePanel(context) ||
+            // TCL, Sony, Hisense VIDAA, LeTV and Skyworth/Coocaa drive the backlight through
+            // their own TV services and ignore the system setting; Control Center opens their
+            // picture panels. Before Android 6.0 WRITE_SETTINGS is granted at install.
+            isTcl(context) || isSony(context) || isVidaa(context) || isLetv(context) || SystemProbe.skyworthPicturePanel(context) ||
                 DeviceProfile.current(context).ignoresScreenBrightness ||
                 Build.VERSION.SDK_INT >= 23 && !Settings.System.canWrite(context) -> null
             else -> {
