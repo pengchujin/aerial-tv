@@ -125,6 +125,7 @@ object Diagnostics {
         }
         appendLine("            wallpaper=${app.orchard.tv.wallpaper.Wallpapers.selectedId.substringBefore('/')} always_moves=${AerialSettings.wallpaperAlwaysMoves} quality=${AerialSettings.aerialQuality.key} weather=${AerialSettings.showWeather} saver_clock=${AerialSettings.screensaverClock}")
         runCatching { app.orchard.tv.ui.home.filmGlassReport(context) }.getOrNull()?.let { appendLine("            film glass $it") }
+        runCatching { app.orchard.tv.weather.Weather.diagnostics() }.getOrNull()?.let { appendLine("Weather     $it") }
         appendLine("```")
 
         appendLine()

@@ -87,8 +87,24 @@ object Weather {
         if (since >= REFRESH_MS || (failed && (networkCameUp || since >= RETRY_MS))) refresh()
     }
 
+    private var lastResult = "none"
+
+    /**
+     * For the diagnostics report: weather gone after an update and back only once Aerial was
+     * restarted, with nothing in the log (MiTV-MFTR0 1.86 -> 1.96 and Xiaomi TV 2, issue #1506).
+     * No place name or coordinates: the report is posted in public.
+     */
+    fun diagnostics(): String {
+        if (!started) return "not started in this process"
+        fun ago(at: Long) = if (at == 0L) "never" else "${(System.currentTimeMillis() - at) / 60_000} min ago"
+        return "shown=${now != null} chosen=$chosen located=${!prefs.getFloat("lat", Float.NaN).isNaN()}; " +
+            "read ${ago(prefs.getLong("fetched_at", 0))}; attempt ${ago(lastAttempt)}, result=$lastResult, " +
+            "inFlight=${job?.isActive == true}"
+    }
+
     private fun refresh() {
         lastAttempt = System.currentTimeMillis()
+        lastResult = "pending"
         job?.cancel()
         job = scope.launch {
             val reading = withContext(Dispatchers.IO) {
@@ -96,7 +112,9 @@ object Weather {
             }
             prefs.getString("place", null)?.let { place = it }
             failed = reading == null
+            lastResult = if (reading != null) "success" else "failed"
             if (reading != null) {
+                Log.i(TAG, "weather read")
                 now = reading
                 prefs.edit {
                     putLong("fetched_at", System.currentTimeMillis())
