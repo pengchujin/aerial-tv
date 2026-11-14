@@ -2,6 +2,25 @@
 
 写给接手 Aerial 的人或 AI。先读这份，再读 [ARCHITECTURE.md](ARCHITECTURE.md) 和 [devices/](devices/)。
 
+## 现状（2026-11-14）
+
+- **2026-11-14 巡检（没发版，改在 main 上）**，记录 `local/triage/2026-11-14-full.md`（原始 `raw-2026-11-14/`），回复 `replies-2026-11-14.py`，发出 `posted-2026-11-14.txt`。329 issue / 66 PR，用户最后发言 69（18 个上轮定了不回、没有新内容）。在主目录分支 `claude/triage-2026-11-14` 上做，合回 main。
+  - 改了（每个单独提交）：
+    - #1521 TCL ak30a5：1.96 的「被留下的音量键抬起能回到守护 → 按住连调」只记在内存，重启 / 进程被杀后第一次按住只走一格 → 和 `volumeLiftUnseen` 一样按固件指纹记在磁盘（`guard_taken_volume_lift_seen`）。
+    - #1508 创维 7S77_M2：主页键是无 action 的显式 intent → 无 action、目标是 Aerial 也算主页键（报告人自改 1.95 验证），Lite 同步。
+    - #1463 腾讯极光 5S / A4141、#1525 当贝 DBX5 Ultra：多任务是固件自己的 Activity，`GLOBAL_ACTION_RECENTS` 落空 → `TASK_CENTRE_ACTIVITIES`，导出且不要权限才开。#1525 的「守护把无障碍列表改成只剩自己」核对过不是 Aerial：列表里是短格式类名（安卓自己写回），安卓在 App 被强停时移出它的服务。
+    - #1528 乐视 Max4-55：设置候选加 `com.stv.globalsetting/.activity.SettingActivity`，Lite 同步。
+    - #1527 喜瑞 HS350（HiSilicon YunOS）：passthrough 没人接 → `openInputPicker` 最后加 `alliance://start_signal`。
+    - #1517 红米 A Pro 75（MiTV-ASTR0）：devices.json `hidden [7, 8]`。
+    - #1506 天气升级后没了、重启 Aerial 才回来（原因没找到）：诊断报告加 `Weather` 一行（不含城市），成功也写日志。
+    - PR #1523（sln162，极米选择框：主页键后关框，盖在别的 App 上再补一次 HOME）cherry-pick 合入，作者保留。
+    - 文档：README 两份（长虹 mst838、康佳 551E、ASTR0、BF1 亮度），机型笔记（乐视 Max4、当贝 DBX5 Ultra、极米选择框、创维 7S77_M2 / 8H57_H5 / P7F、TCL T7L、极光 5S、VIDAA MT9653），ARCHITECTURE。
+  - 验证：standard、guard 单测各 265 个通过，Lite lint，三个包签名 e089…。**小米 MFTR0** `install-multiple` standard 测试包 **1.97-test（versionCode 140，没提交）** + 31.dm（speed-profile / install-dm）：`selftest.sh` 守护、主页键（从设置 0.4 秒）、`INPUTS=1` 8 个信号源通过；诊断 `Weather` 一行正常；按返回进屏保、按上键回来，录屏逐帧没有黑帧。**TCL MT5879** `tcast-push.py` 推 guard 测试包 140（uiautomator 确认焦点在「同意」），compile speed：`selftest.sh` 守护、主页键（从 TCL 浏览器 0.4 秒）、7 个信号源通过，两个 walleve 服务、屏保 AerialDream 保留；系统屏保进入后约 9 秒只有时钟（影片取流慢，和上轮一样），按键 1 秒内回首页。没改户主的任何设置。
+  - **没有真机验证**：#1521、#1508、#1463 #1525、#1528、#1527、#1517、PR #1523（两台都没有选择框，只回归了不受影响）。
+  - 查到没修：#1383 极米 H3（ironman，安卓 8）日志里守护一行都没有，Aerial 退后台二三十秒进程就没了 → 疑似极米强停后安卓移出了守护，要了 `enabled_accessibility_services` 和强停记录。#1510 TCL T7L「连按主页回原桌面」是 1.88 起的多任务（在 TCL 桌面里），单按闪是安卓 12+ 取舍，请试 filterHomeAlways。#1518 #1427 酷开闪桌面：1.95 起 filterHomeAlways 管默认桌面，请试。#1517 影片没下完时反复重开会卡住，记下没修。#891 MFFU0 黑闪录屏录不到、只有 60Hz → 请用静态壁纸对照。#1522 #1516 微鲸背光后端 / 安卓 5 的 4K，下一轮做测试包。
+  - 关闭 28 个：确认 / README / 报告 #1498 #1355 #1504 #1531 #1526 #1287 #1492，重复 #1513 #1507，root 开机脚本 #1374，十天无回音 #1094 #1158 #1200 #1203 #1205 #1208 #1209 #1220 #1238，固件限制已解释 #1214 #1226 #1230 #1233，PR #1523（已合）。enhancement：#1528（关多任务手势）、#1503（音效走媒体通道）。
+  - **下次发版 versionCode ≥ 141（两台装过 140 测试包），Lite 改过（#1508 #1528），≥ 32。**
+
 ## 现状（2026-11-13）
 
 - **1.96（versionCode 137）+ Aerial Lite 1.29（31），2026-11-13 发布**（[v1.96](https://github.com/pengchujin/aerial-tv/releases/tag/v1.96)）：下面这轮巡检的全部修复（#1499 #1498 #1505 #1502 #1388 #1491，Lite 带 #1388）。versionCode 跳过 136（两台装过 136 测试包）。三个包签名 e089…。小米 MFTR0 `install-multiple` standard + 31.dm（speed-profile / install-dm）：`selftest.sh` 守护、主页键（从设置 0.4 秒）、`INPUTS=1` 8 个信号源通过。TCL MT5879 用 `APK_FILE=… KEEP_ADB=1 tools/install.sh guard`（先 `adb install` 被 TCL 拒绝 `INSTALL_FAILED_VERIFICATION_FAILURE`，再走多屏互动，uiautomator 确认焦点在「同意」后按确定），compile speed：守护、7 个信号源通过，两个 walleve 服务、屏保 AerialDream 保留；主页键：装完立刻测是 5.2 / 4.6 / 4.9 秒（守护状态行 `filter=true`，但按键没进过滤，原桌面出来后靠窗口事件、等安卓 5 秒才拉回），`am force-stop` 再打开 Aerial 后 0.5 秒。代码和 0.3 秒的 136 测试包一样，差别是这次走了 install.sh。**2026-11-13 下午复查（没修）**：`selftest.sh` 的 `home_from_app` 用 `input keyevent`，本来就不经过守护的按键过滤，测的是「原桌面出来 → 守护拉回」这条路；慢的 5 秒是安卓按主页键后 5 秒的切换限制挡住了拉回，快的 0.3 秒是没挡住，和过滤器是否收到按键无关（上面「守护以为在过滤」是误读）。复现过：1.96 install.sh 后、138 测试包上重跑 install.sh 的授权（会杀掉 Aerial、通知监听复活）后，各连续几次 5 秒；只把守护在无障碍列表里关开一次就回到 0.4 秒。没复现出来：139 测试包装完、同样杀掉复活后、逐条重跑每个授权，都是 0.2–0.6 秒。所以是时有时无，原因没找到。试过、没用、已撤回：复活后重新 setServiceInfo；「homekey 广播时过滤器没收到键就关开守护」（`input keyevent` 不经过过滤，每次都误判）。**TCL 现在装的是 139 测试包（1.97-test2，代码和 1.96 只差已撤回的这段检测），下次发版 versionCode ≥ 140。** 要接着查，下次出现 5 秒时先抓 `dumpsys activity processes app.orchard.tv`（procstate、adj）和 `dumpsys activity activities` 再关开守护对比。官网已部署：version.txt = v1.96，notes.json 有 1.96，三个 APK md5 与 Release 一致，`/diag/aerial-710.apk` 还在。6 个 issue 贴了发布链接（`local/triage/release-1.96-posts.py`）。**下次发版 versionCode ≥ 140（TCL 装了 139 测试包），Lite ≥ 32。**
