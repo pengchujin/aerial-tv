@@ -268,6 +268,10 @@ object SystemProbe {
             // com.android.settings (priority 1) over Hisense's own page, which declares it too and
             // is what the TV's System Settings tile opens (issue #1085, the reporter's adb).
             Intent(Settings.ACTION_SETTINGS).setComponent(ComponentName("com.android.tv.settings", "com.hisense.systemsettings.MainActivity")),
+            // LeTV Max4-55 (MStar, Android 6, Dangbei's slimmed firmware): ACTION_SETTINGS lands in
+            // AOSP's empty MainSettings; LeTV's own settings have no launcher entry and answer no
+            // settings action (the reporter opened them by component, issue #1528).
+            Intent(Intent.ACTION_MAIN).setComponent(ComponentName("com.stv.globalsetting", "com.stv.globalsetting.activity.SettingActivity")),
             Intent(Settings.ACTION_SETTINGS),
             // Konka Android TV 553 (Hi3751V553, Android 5.1.1) has neither of the above: its settings
             // are a second app, opened by component on the TV by the reporter (issue #918).
