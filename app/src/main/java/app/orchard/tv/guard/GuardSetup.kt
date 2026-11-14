@@ -723,8 +723,8 @@ object GuardSetup {
     }
 
     /**
-     * JMGO rewrites the enabled list two to four seconds after the user is unlocked and drops the
-     * guard from it: on the H3S only JMGO's own service was left until the sync put the guard back
+     * XGIMI rewrites the enabled list two to four seconds after the user is unlocked and drops the
+     * guard from it: on the H3S only XGIMI's own service was left until the sync put the guard back
      * 110 s later (issue #1377, boot timeline of 2026-11-14). Watch the list in the first minutes of
      * a boot and write the entry back 1.5 s after it goes, at most three times: outside a boot a
      * missing entry is the viewer's choice in Settings, which the next start overrides as before.
