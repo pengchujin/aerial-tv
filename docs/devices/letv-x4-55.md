@@ -83,3 +83,11 @@
 ## 修改版固件 V2401RCN02C060057B06021S（#1444，报告人实测 1.89）
 
 机主自刷、已 root 的固件：官方包直接装上、主页键 0.9 秒回 Aerial、`adb reboot` 后 3 秒进 Aerial（首选桌面是 root 写的）。没有 TIF（`Can't find service: tv_input`），信号源列不出来，只能走 MStar 的 `TvCommonManager.setInputSource`。重启后 `screensaver_components` 被改回 `com.stv.screenflyter`。日志 `no MP4 extractor found, TCL's extractor true` 是 Aerial 在安卓 6 上找错了地方（插件目录是安卓 9 才有的），1.94 改为查 libstagefright.so；系统 MediaExtractor 本身能用。
+
+## Max4-55 当贝精简系统（DemeterSHC，MStar，安卓 6，#1528，报告人实测 1.96）
+
+- 开机黑屏：乐视的 `Sandman` 一开机就以「用户请求」拉起屏保（当时是 Aerial 的照片屏保），壁纸约 70–100 秒后才画出来，看起来像黑屏。报告人把 `screensaver_enabled` 改成 0 后正常。
+- 开机先闪一下 `ResolverActivity`：三个 HOME 候选、没有默认；安卓 6 没有 `cmd`，只能在选择框里用遥控器选 Aerial「始终」。
+- 主页键闪原桌面：乐视固件按键时用 uid 1000 显式启动 `com.stv.launcher/.Launcher`，默认桌面挡不住；`filterHomeAlways` 有效（实体遥控器不闪，按住音量也正常）。
+- 设置：`android.settings.SETTINGS` 落到 AOSP 的空页面，乐视自己的 `com.stv.globalsetting/.activity.SettingActivity` 没有桌面入口；1.97 起排在 AOSP 之前（Lite 同）。
+- 没有 `tv_input`，信号源列不出来。

@@ -262,3 +262,10 @@ adb shell settings put global adb_enabled 0
 
 装 1.94 后报的。诊断里守护把语音助手 `com.keylab.speech.view.vidaa/com.ju.secondscreen.HomeActivity` 当原桌面拉回过一次（#261 时 MT9653 的固件在主页键和唤醒时会拉起它，所以守护认它）。是不是按语音键时拉起的、鼠标键走哪里，等报告人的日志。
 
+
+## MT9653（V3N_X，安卓 11，#1526，报告人 Agent 实测 1.96）
+
+- 固件会把 `persist.vt.use_home_pkg` 和 HOME 角色改回聚好看（`com.jamdeo.tv.vod`，priority=50），没重启也会改回；主页键靠守护，开机先出聚好看。`cmd role get-role-holders` 不支持。
+- `TvInputManager` 列不出输入；按固件名字的 4 个 HDMI（`hisense:1281`–`1284`）能切到对应的口，固件叫 `HDMI 3 / eARC`。
+- 亮度：`picture_backlight` 不存在，`screen_brightness` 能写但面板不变，`ignoresScreenBrightness` 后不再显示亮度条。
+- 杜比视界影片在这块芯片上解得慢（`decoded: false in 5390 ms`，掉帧），航拍画质选 1080p 或 4K。

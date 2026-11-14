@@ -20,3 +20,7 @@
 ## 极光盒子 3mini（创维 A4101，faraday，安卓 9，1 GB，#1496，报告人 Agent 实测）
 
 开机和在 Aerial 里按主页键正常；打开任何别的 App 后，固件马上强停 Aerial（`ActivityManager: app not allow running background: app.orchard.tv ... otherProcess has fg act: false`，`Force stopping app.orchard.tv`），守护随进程消失，计划的重启（70 秒）也没拉起来，按主页键落到 `com.ktcp.launcher`。`set-home-activity` 报 `cannot be home on user 0`（`block home apk`），设置里没有自启动 / 后台白名单。`filterHomeAlways` 无效（不是按主页键才杀）。固件规则，App 改不了。
+
+## 极光 5S / 创维 A4141（Amlogic newton，#1463）：最近任务
+
+守护能认出长按主页键，但 `GLOBAL_ACTION_RECENTS` 在这台是空的；最近任务是创维自己的 `com.skyworthdigital.recentsmanager/.RecentTaskActivity`（报告人 `am start -n` 能打开，`KEYCODE_APP_SWITCH` 没反应）。1.97 起导出且不要权限时就打开它，我们没实测。

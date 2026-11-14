@@ -195,3 +195,11 @@ Aerial 是默认桌面、守护绑定，主页键正常；但重启后一分钟�
 
 - 信号源键：天赐固件自己打开信号源页，键也放给 Aerial，两个面板同时出来。2026-11-12 起装有 `com.tianci.system` 时 Aerial 把这个键留给固件（和 TCL、酷开 Quick Panel 一样），没在这台上验证。
 - Aerial 是默认桌面时双击主页键会先闪原桌面 1–2 秒再被拉回；默认桌面是 `ResolverActivity`（守护接管）时双击能稳定打开后台。和 8R39_K5C 同一类：天赐不管 Home 解析到谁都起自己的桌面，可以写 `filterHomeAlways`（下个版本起默认桌面时也生效）。
+
+## 7S77_M2（MStar M7221，安卓 8，#1508）：主页键是无 action 的显式 intent
+
+这台按主页键不走系统 HOME：框架按 `persist.service.homepage.pkg/cls` 发一个没有 action、没有 category 的显式 intent 给首页。Aerial 原来只认 HOME / MAIN，所以首页上按主页键焦点不回第一个磁贴。1.97 起「没有 action、目标是 Aerial 自己」也算主页键（Aerial 自己启动首页都带 MAIN）；报告人用同样的改法改 1.95 验证过，Lite 同步。守护在这台 `filter=true` 但收不到主页键。
+
+## 8H57_H5（Hi3751V551，安卓 5.1.1，#1518）、8R720_P7F / 8R710_A6E（安卓 13，#1427）：Aerial 是默认桌面仍闪酷开桌面
+
+酷开固件按主页键照样直接启动自家桌面，守护事后拉回，约 0.2–0.5 秒。1.95 起 `filterHomeAlways` 在 Aerial 是默认桌面时也开过滤（#1462），可以试；代价是有的机型按住音量只走一格。开机：解锁后先等 1.5 秒（防止 CEC 切源被打断）再接管，加上冷启动约 3 秒。
