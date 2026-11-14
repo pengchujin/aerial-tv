@@ -77,6 +77,7 @@ import app.orchard.tv.settings.RestrictedKind
 import app.orchard.tv.settings.FocusStyle
 import app.orchard.tv.settings.UiSounds
 import app.orchard.tv.settings.Effects
+import app.orchard.tv.settings.VideoUnder
 import app.orchard.tv.system.Sounds
 import app.orchard.tv.ui.components.Pressable
 import app.orchard.tv.ui.components.consumeTaps
@@ -183,12 +184,26 @@ fun WallpaperSheet(
                 Spacer(Modifier.height(16.dp))
                 SectionTitle(R.string.wp_wallpaper)
                 WallpaperRows(takeFocus)
-                // Only for the owner's videos: whether keys stop them. The aerial films always move.
+                // Only for the owner's videos: whether keys stop them, and what the picture under
+                // them is. The aerial films always move.
                 if (Wallpapers.isVideo()) Group { note ->
                     Choices(
                         R.string.st_play, stringResource(R.string.st_play_hint), note,
                         listOf(false to R.string.st_play_still, true to R.string.st_play_always),
                         AerialSettings.wallpaperAlwaysMoves, AerialSettings::chooseWallpaperAlwaysMoves, first = true,
+                    )
+                    // The film's frame, as it has been (issues #410 #583); the still picture the owner
+                    // chose before the videos, which also shows where no frame can be read; or the
+                    // app in hand, as "Follow App" has it, so the picture never settles on one of them.
+                    Choices(
+                        R.string.st_under, stringResource(R.string.st_under_hint), note,
+                        listOf(
+                            VideoUnder.Frame to R.string.st_under_frame,
+                            VideoUnder.Still to R.string.st_under_still,
+                            VideoUnder.App to R.string.st_under_app,
+                        ),
+                        AerialSettings.videoUnder,
+                        { under -> AerialSettings.chooseVideoUnder(under); Wallpapers.rebuildPicture() },
                     )
                 }
                 // Only for "My Photos, in turn": how often the next photo comes (issue #1314).
