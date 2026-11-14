@@ -14,6 +14,11 @@
       "labels": {"0": "DTMB", "1": "ATV", "2": "AV", "6": "HDMI 2 (eARC)"}
     },
     {
+      "models": ["MiTV_ASTR0", "MiTV-ASTR0"],
+      "note": "Redmi A Pro 75 (blueplanet, Amlogic, Android 11): two HDMI ports on the set (the firmware's source_ports_list is source_list_tv_2hdmi), yet the TvInput HAL registers four, HW5-HW8 for HDMI 1-4 (#1517, the reporter's dumpsys tv_input; hidden 7 and 8 tried there, HDMI 1 and 2 still open).",
+      "hidden": [7, 8]
+    },
+    {
       "models": ["MiTV_MFFU1", "MiTV-MFFU1"],
       "note": "Redmi monitor G Pro 27U registers its DP port (HW9) and USB-C port (HW10) both as DisplayPort; tvplayer sources 29 and 30 (#62, its MonitorUtils). It also registers two tuners (HW0, HW1, reported connected) and a composite input (HW2) that a monitor does not have (#815; the same on the owner's MFFU1, OS3.0.120). The 2025 model has no USB-C either, but it shares the model name with the 2026 one, so HW10 stays.",
       "hidden": [0, 1, 2],
