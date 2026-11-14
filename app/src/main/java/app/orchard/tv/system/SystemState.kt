@@ -683,6 +683,13 @@ object SystemProbe {
         if (runCatching { pm.resolveActivity(mstar, 0)?.activityInfo }.getOrNull()?.exported == true &&
             runCatching { context.startActivity(mstar) }.isSuccess
         ) return true
+        // HiSilicon YunOS (喜瑞 HS350, bigfish, Android 9): TvInputManager lists the inputs, but
+        // nothing answers their passthrough intent; the system TVSource app's source list does
+        // (the reporter's agent opened it with this link, issue #1527). Only an exported one.
+        val yunos = Intent(Intent.ACTION_VIEW, Uri.parse("alliance://start_signal")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        if (runCatching { pm.resolveActivity(yunos, 0)?.activityInfo }.getOrNull()?.exported == true &&
+            runCatching { context.startActivity(yunos) }.isSuccess
+        ) return true
         return false
     }
 
