@@ -115,12 +115,87 @@ class HomeGuardService : AccessibilityService() {
     /**
      * A profile's [DeviceProfile.bootStockMs]: at power-on the stock launcher is left in front
      * until it has shown for that long (or, if it never says it showed, for [BOOT_STOCK_CAP_MS]).
+     *
+     * [bootStockWaiting] ends that hold as soon as that package stops being disabled, instead of
+     * waiting the time out. Xiaomi's Mi Home reads the TV as online only while MiIO (UDP 54321)
+     * answers; that responder lives in MiTVHostService, and the firmware keeps `com.xiaomi.miplay`
+     * disabled until the stock launcher has run its own boot task — the task that then sends this
+     * package PATCHWALL_START_COMPLETED. Taken over before that, the package stays disabled for the
+     * whole boot and Mi Home shows the TV offline (MiTV4-ANSM0, Android 6.0.1: MiIO binds 10–27 s
+     * in, while the fixed 45 s profile window kept the stock launcher on screen for 47–73 s).
      */
     private var bootStockHolding = false
     private var bootStockShown = false
-    private val endBootStockHold = Runnable {
+    private var bootStockWaiting = ""
+
+    /**
+     * The firmware disables [MIIO_GATE] during its package scan, which can land after the guard has
+     * already looked (MiTV4-ANSM0: the scan ran at 22:40:24, the guard's own check at 22:40:32 still
+     * saw it enabled, and the package was disabled 20 s later). Watches for a while after a boot so
+     * that a late disable still gets the hold, instead of leaving the package disabled and Mi Home
+     * offline for that boot.
+     */
+    private var miioWatchTicks = 0
+    private val miioBootWatch: Runnable = object : Runnable {
+        override fun run() {
+            if (miioWatchTicks <= 0 || bootStockHolding) return
+            if (!packageEnabled(MIIO_GATE)) {
+                miioWatchTicks = 0
+                startMiioBootHold()
+                DiagLog.i("guard: $MIIO_GATE was disabled after boot; holding on the stock launcher (MiIO)")
+                return
+            }
+            miioWatchTicks--
+            handler.postDelayed(this, MIIO_GATE_WATCH_MS)
+        }
+    }
+
+    private val bootStockPoll: Runnable = object : Runnable {
+        override fun run() {
+            val gate = bootStockWaiting
+            if (!bootStockHolding || gate.isEmpty()) return
+            if (packageEnabled(gate)) {
+                bootStockWaiting = ""
+                DiagLog.i("guard: $gate is no longer disabled at boot; taking Home in 2 s")
+                handler.removeCallbacks(endBootStockHold)
+                handler.postDelayed(endBootStockHold, MIIO_GATE_GRACE_MS)
+                return
+            }
+            // Keep the stock launcher in front while the firmware still has the package disabled:
+            // its boot task only runs once the launcher is showing, and Aerial's boot launch
+            // otherwise covers it. Only when it is not in front already, and judged by the last
+            // window seen rather than by usage stats, which are queried off the main thread (#1284).
+            val front = lastWindow
+            if (front == null || front.first !in stockHomes) {
+                runCatching { performGlobalAction(GLOBAL_ACTION_HOME) }
+            }
+            handler.postDelayed(this, MIIO_GATE_POLL_MS)
+        }
+    }
+
+    /** Whether [name] is installed and not disabled; a package that is not there counts as enabled. */
+    private fun packageEnabled(name: String): Boolean {
+        val info = runCatching {
+            packageManager.getApplicationInfo(name, PackageManager.MATCH_DISABLED_COMPONENTS)
+        }.getOrNull() ?: return true
+        return info.enabled
+    }
+
+    /** Hold on the stock launcher until [MIIO_GATE] is enabled, so its MiIO responder can start. */
+    private fun startMiioBootHold() {
+        if (bootStockHolding) return
+        bootStockHolding = true
+        bootStockWaiting = MIIO_GATE
+        allowStockUntil = SystemClock.uptimeMillis() + MIIO_GATE_HOLD_MS
+        handler.postDelayed(endBootStockHold, MIIO_GATE_HOLD_MS)
+        handler.postDelayed(bootStockPoll, MIIO_GATE_POLL_MS)
+    }
+
+    private val endBootStockHold: Runnable = Runnable {
         if (!bootStockHolding) return@Runnable
         bootStockHolding = false
+        bootStockWaiting = ""
+        handler.removeCallbacks(bootStockPoll)
         endStockVisit("the boot hold is over")
         DiagLog.i("guard: stock launcher left on screen at boot (${if (bootStockShown) "it showed" else "it never said so"}); taking Home")
         takeOverOnceSettled("after the stock launcher showed at boot", woke = true)
@@ -596,6 +671,9 @@ class HomeGuardService : AccessibilityService() {
                 handler.postDelayed(frontAfterHome, if (quiet) DEAF_LOOK_MS else FRONT_AFTER_HOME_MS)
                 return
             }
+            // Same during a boot hold: the stock launcher is meant to stay in front (see
+            // bootStockWaiting), and answering Home with Aerial there is what churned the front.
+            if (SystemClock.uptimeMillis() < allowStockUntil) return
             // The stock launcher's window change usually comes first and already brought Aerial
             // back; starting it again redid Home's resume (MiTV-MFTR0: 0.2 s apart).
             if (SystemClock.uptimeMillis() - broughtBackAt < 1_000) return
@@ -637,6 +715,10 @@ class HomeGuardService : AccessibilityService() {
      * every DEAF_LOOK_MS from the press on instead, until a window change is seen again.
      */
     private val frontAfterHome: Runnable = Runnable {
+        // The boot hold leaves the stock launcher in front on purpose (see bootStockWaiting), so a
+        // Home that brought us there must not be answered with Aerial again: doing that swung the
+        // front back and forth and the package the firmware had to enable never got its window.
+        if (SystemClock.uptimeMillis() < allowStockUntil) return@Runnable
         // XGIMI (Android 9, m7642) answers Home with its own Home chooser when set-home-activity did
         // not take; it was never drawn and the remote went dead over it (issue #44). Only right
         // after Home: the same chooser also serves apps' "open with".
@@ -811,6 +893,14 @@ class HomeGuardService : AccessibilityService() {
         val bootSource = hasBootSource()
         val patchwall = !bootSource && patchwallHomeInFront()
         if (!bootSource && !patchwall) return
+        // Xiaomi: the stock launcher's own boot task is what gets the MiIO host enabled, and Mi
+        // Home reads the TV as offline until that responder binds (see bootStockWaiting). Taking
+        // Home here first left the package disabled for the whole boot, so wait it out instead.
+        if (!packageEnabled(MIIO_GATE)) {
+            startMiioBootHold()
+            Log.i(TAG, "started shortly after boot; $MIIO_GATE is disabled, leaving the stock launcher first")
+            return
+        }
         Log.i(TAG, "started shortly after boot; taking over before the service is connected")
         takeOverOnceSettled("started shortly after boot", woke = true)
         patchwallEarlyTakeOver = patchwall
@@ -891,6 +981,20 @@ class HomeGuardService : AccessibilityService() {
             allowStockUntil = SystemClock.uptimeMillis() + hold + DeviceProfile.current(this).bootStockMs
             handler.postDelayed(endBootStockHold, hold)
             DiagLog.i("guard: bound at boot; leaving the stock launcher on screen first (device profile)")
+        }
+        // Xiaomi's Mi Home reads the TV as online only while MiIO answers (see bootStockWaiting).
+        // Feature-detected: the host package is installed and the firmware has it disabled. The
+        // firmware can disable it a little later than this check, so watch for a while as well.
+        if (!bootStockHolding && SystemClock.elapsedRealtime() < BOOT_WINDOW_MS &&
+            GuardSetup.isUserUnlocked(this)
+        ) {
+            if (!packageEnabled(MIIO_GATE)) {
+                startMiioBootHold()
+                DiagLog.i("guard: $MIIO_GATE is disabled at boot; leaving the stock launcher first (MiIO)")
+            } else {
+                miioWatchTicks = MIIO_GATE_WATCH_TICKS
+                handler.postDelayed(miioBootWatch, MIIO_GATE_WATCH_MS)
+            }
         }
         // Register before querying homes or checking the state so an unlock cannot be missed.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
@@ -2310,6 +2414,22 @@ class HomeGuardService : AccessibilityService() {
         private const val HOME_LEFT_MS = 5_000L
         private const val SETTLE_MS = 1500L
         private const val BOOT_STOCK_CAP_MS = 20_000L
+        /**
+         * The MiIO host package Xiaomi's Mi Home reads: its responder binds UDP 54321, and the
+         * firmware keeps the package disabled until the stock launcher's own boot task enables it
+         * (that task then sends this package PATCHWALL_START_COMPLETED, so it cannot be listened
+         * for from another app). See bootStockWaiting.
+         */
+        private const val MIIO_GATE = "com.xiaomi.miplay"
+        /** Longest the guard waits for [MIIO_GATE] to be enabled at boot before taking Home anyway. */
+        private const val MIIO_GATE_HOLD_MS = 75_000L
+        /** Grace after [MIIO_GATE] is enabled, so MiTVHostService can start and bind its port. */
+        private const val MIIO_GATE_GRACE_MS = 2_000L
+        /** How often [bootStockPoll] re-checks the package and keeps the stock launcher in front. */
+        private const val MIIO_GATE_POLL_MS = 2_000L
+        /** How often a boot re-checks whether the firmware has disabled [MIIO_GATE] too late to see. */
+        private const val MIIO_GATE_WATCH_MS = 2_000L
+        private const val MIIO_GATE_WATCH_TICKS = 30
         /** How long the stock launcher's own start may show the firmware's SystemUI; see visitStillOpening. */
         private const val STOCK_OPENING_MS = 2_000L
         private const val WAKE_WINDOW_MS = 15_000L
