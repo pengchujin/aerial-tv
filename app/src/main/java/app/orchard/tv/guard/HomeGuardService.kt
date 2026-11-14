@@ -1814,6 +1814,18 @@ class HomeGuardService : AccessibilityService() {
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             if (runCatching { startActivity(intent) }.isSuccess) return
         }
+        // Firmwares whose recent apps are an activity of their own and whose SystemUI has none:
+        // GLOBAL_ACTION_RECENTS and KEYCODE_APP_SWITCH did nothing there. Started only where the
+        // activity is exported and needs no permission Aerial lacks. Opened by the reporters with
+        // `am start -n`; not tried by Aerial on those TVs.
+        for (component in TASK_CENTRE_ACTIVITIES) {
+            val info = runCatching { packageManager.getActivityInfo(component, 0) }.getOrNull() ?: continue
+            if (!info.enabled || !info.applicationInfo.enabled || !info.exported) continue
+            if (!info.permission.isNullOrEmpty() &&
+                ContextCompat.checkSelfPermission(this, info.permission) != PackageManager.PERMISSION_GRANTED) continue
+            val intent = Intent().setComponent(component).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            if (runCatching { startActivity(intent) }.isSuccess) return
+        }
         performGlobalAction(GLOBAL_ACTION_RECENTS)
     }
 
@@ -2364,6 +2376,12 @@ class HomeGuardService : AccessibilityService() {
         /** How long a Home press may stay down and keep the filter on for its lift; a lost lift ends it. */
         private const val HOME_DOWN_KEEP_MS = 10_000L
         private val TASK_CENTRE_ACTIONS = listOf("com.dangbei.recentstask.action.SHOW_RECENTS_FOR_USER")
+        private val TASK_CENTRE_ACTIVITIES = listOf(
+            // Tencent Aurora 5S / Skyworth A4141 (Amlogic, issue #1463).
+            ComponentName("com.skyworthdigital.recentsmanager", "com.skyworthdigital.recentsmanager.RecentTaskActivity"),
+            // Dangbei DBX5 Ultra (mt5879, Android 11, issue #1525): part of Dangbei's launcher.
+            ComponentName("com.dangbei.leard.leradlauncher", "com.dangbei.leard.leradlauncher.ui.secondary.childpattern.recent.ChildRecentActivity"),
+        )
         private const val VOLUME_REPEAT_MAX_MS = 8_000L
         private const val HOME_PAUSE_MS = 400L
         /** "homekey" came 350 ms or more after the key while Aerial was busy (see noteHomeInAerial). */
