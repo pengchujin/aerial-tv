@@ -56,6 +56,12 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.foundation.focusable
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.ImageBitmap
@@ -231,6 +237,7 @@ fun WallpaperSheet(
                         listOf(true to R.string.st_plate_glass, false to R.string.st_plate_none),
                         AerialSettings.homePlate, AerialSettings::chooseHomePlate,
                     )
+                    HomePlateOpacity(note)
                     Choices(
                         R.string.st_names, stringResource(R.string.st_names_hint), note,
                         listOf(false to R.string.st_names_focused, true to R.string.st_names_all),
@@ -638,6 +645,41 @@ private fun <T> Choices(
             options.forEach { (value, text) ->
                 Chip(if (text is Int) stringResource(text) else text.toString(), on = current == value) { choose(value) }
             }
+        }
+    }
+}
+
+@Composable
+private fun HomePlateOpacity(note: (String?) -> Unit) {
+    var value by remember { mutableStateOf(AerialSettings.homePlateOpacity) }
+    var editing by remember { mutableStateOf(false) }
+    BackHandler(enabled = editing) {
+        AerialSettings.chooseHomePlateOpacity(value)
+        editing = false
+    }
+    SettingRow(R.string.st_plate_opacity, stringResource(R.string.st_plate_opacity_hint), note) {
+        Row(
+            Modifier
+                .onFocusChanged { state ->
+                    if (state.isFocused) value = AerialSettings.homePlateOpacity
+                }
+                .focusable()
+                .onPreviewKeyEvent { event ->
+                    if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                    val next = when (event.key) {
+                        Key.DirectionLeft -> (value - 5).coerceAtLeast(0)
+                        Key.DirectionRight -> (value + 5).coerceAtMost(100)
+                        else -> return@onPreviewKeyEvent false
+                    }
+                    value = next
+                    editing = true
+                    AerialSettings.previewHomePlateOpacity(next)
+                    true
+                },
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            BasicText("$value%", style = Type.Body, modifier = Modifier.padding(horizontal = 14.dp))
+            BasicText("‹  ›", style = Type.Caption, modifier = Modifier.padding(end = 10.dp))
         }
     }
 }

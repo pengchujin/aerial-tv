@@ -149,6 +149,8 @@
     <string name="st_home_one_row">One Row</string>
     <string name="st_home_layout_hint">One Row puts only the top row on screen, low down, so more of the wallpaper shows, a family photo say. Two Rows shows the top of the second row too. Press down for the rest.</string>
     <string name="st_plate">Top Row</string>
+    <string name="st_plate_opacity">First-row plate opacity</string>
+    <string name="st_plate_opacity_hint">Left/right adjusts the glass opacity in 5% steps. Press Back to save.</string>
     <string name="st_plate_hint">A plate of frosted glass under the top row, as on Apple TV, or the apps straight on the wallpaper.</string>
     <string name="st_plate_glass">Glass</string>
     <string name="st_plate_none">None</string>

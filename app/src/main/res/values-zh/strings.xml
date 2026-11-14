@@ -148,6 +148,8 @@
     <string name="st_home_one_row">单排</string>
     <string name="st_home_layout_hint">单排：只显示第一排，放在屏幕下方，露出更多壁纸，比如家庭合照。双排：下面露出第二排。按下键看其余 App。</string>
     <string name="st_plate">第一排底板</string>
+    <string name="st_plate_opacity">第一排底板透明度</string>
+    <string name="st_plate_opacity_hint">按左右方向键以 5% 为步进调整透明度，按返回键保存。</string>
     <string name="st_plate_hint">第一排下面垫一块磨砂玻璃，像 Apple TV 一样；或者让 App 直接放在壁纸上。</string>
     <string name="st_plate_glass">玻璃</string>
     <string name="st_plate_none">不显示</string>
