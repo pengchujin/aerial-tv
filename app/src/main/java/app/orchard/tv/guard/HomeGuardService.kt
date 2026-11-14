@@ -355,7 +355,7 @@ class HomeGuardService : AccessibilityService() {
             events.getNextEvent(event)
             picker.add(event.eventType, event.packageName, event.className, event.timeStamp)
         }
-        picker.result()
+        picker.result(System.currentTimeMillis(), ACTIVITY_SETTLE_MS)
     }.getOrNull()
 
     /**
@@ -2359,6 +2359,7 @@ class HomeGuardService : AccessibilityService() {
         /** Android's hold on app starts after Home (stopAppSwitches), with a margin. */
         private const val APP_SWITCH_HOLD_MS = 5_500L
         private const val PACKAGE_SETTLE_MS = 1000L
+        private const val ACTIVITY_SETTLE_MS = 1000L
         private const val PATCHWALL = "com.mitv.tvhome"
         /**
          * PatchWall's boot cover, which comes up over Aerial some 20 s into a boot and is no home
