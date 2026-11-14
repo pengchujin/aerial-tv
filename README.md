@@ -243,6 +243,7 @@ curl -fsSL https://aerial.qust.me/install.sh | TV=192.168.1.20 bash -s restore
 | 创维 / 酷开 | 65G60、8R134 / 8R145、aigc 系（C10 投影、P60、7T863） | Android 8–11 | ⚠️ 开机先进酷开桌面，或被系统清理后要等 20–30 秒（[笔记](docs/devices/skyworth-coocaa.md)） |
 | 创维 / 酷开 | 55K5C（8R39_K5C） | Android 8 | ✅ 1.95 起主页键不再先闪酷开桌面，需要 Agent 写 `filterHomeAlways`（[#1462](https://github.com/pengchujin/aerial-tv/issues/1462)） |
 | 创维 / 酷开 | 5S21（50K2、7626K2）、5S05（60U2）、8H66 H7 | Android 5.x | ⚠️ 开机和待机后是 Aerial，主页键回不到 Aerial；信号源列不出来 |
+| 创维 / 酷开 | 8S26 14U（sky918_14U，MStar） | Android 4.3 | ❌ Aerial Lite 能装能开，但主页键由固件的 `com.tianci.uiservice` 直接打开酷开桌面，不弹选择框，只能当普通 App 用（[#1529](https://github.com/pengchujin/aerial-tv/issues/1529)） |
 | 创维 / 酷开 | 8H83 M6（Hi3751V500） | Android 4.4 | ❌ Aerial Lite 能装能开，但主页键和开机都由固件按组件直接打开酷开桌面，选择框里没有第三方桌面（[#903](https://github.com/pengchujin/aerial-tv/issues/903)） |
 | 创维 / 酷开 | 8H57_H5 | Android 5.1 | ⚠️ 开机先转圈十几秒才进 Aerial（[#785](https://github.com/pengchujin/aerial-tv/issues/785)） |
 | 创维 | 1AA46_D4（T963） | Android 9 | ✅（[#796](https://github.com/pengchujin/aerial-tv/issues/796)） |
