@@ -41,4 +41,28 @@ class UsageFrontTest {
     @Test fun noEventsIsUnknown() {
         assertNull(pick())
     }
+
+    @Test fun activityPauseIsNotAnExitWhileTheNextActivityIsStarting() {
+        val p = UsageFront.Picker()
+        p.add(MOVE_TO_FOREGROUND, "org.smarttube.stable", ".BrowseActivity", 100L)
+        p.add(MOVE_TO_BACKGROUND, "org.smarttube.stable", ".BrowseActivity", 200L)
+        assertFalse(p.result(now = 250L, activitySettleMs = 1000L)!!.closed)
+    }
+
+    @Test fun settingsResumingKeepsTheSameAppInFront() {
+        val p = UsageFront.Picker()
+        p.add(MOVE_TO_FOREGROUND, "org.smarttube.stable", ".BrowseActivity", 100L)
+        p.add(MOVE_TO_BACKGROUND, "org.smarttube.stable", ".BrowseActivity", 200L)
+        p.add(MOVE_TO_FOREGROUND, "org.smarttube.stable", ".AppDialogActivity", 300L)
+        val f = p.result(now = 1400L, activitySettleMs = 1000L)!!
+        assertEquals(".AppDialogActivity", f.cls)
+        assertFalse(f.closed)
+    }
+
+    @Test fun genuineExitIsClosedAfterThePauseHasSettled() {
+        val p = UsageFront.Picker()
+        p.add(MOVE_TO_FOREGROUND, "com.stv.filemanager", ".Main", 100L)
+        p.add(MOVE_TO_BACKGROUND, "com.stv.filemanager", ".Main", 200L)
+        assertTrue(p.result(now = 1200L, activitySettleMs = 1000L)!!.closed)
+    }
 }
