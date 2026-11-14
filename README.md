@@ -213,7 +213,7 @@ curl -fsSL https://aerial.qust.me/install.sh | TV=192.168.1.20 bash -s restore
 | 品牌 | 机型 | 系统 | 情况 |
 |---|---|---|---|
 | 小米 / Redmi | MiTV-MFTR0（Redmi X65 2026）、MFFU0、MTSU0（S65 Mini LED 2026 至尊版） | Android 14 | ✅ 日常使用（[MFTR0](docs/devices/xiaomi-mitv-mftr0.md)、[MFFU0](docs/devices/xiaomi-mitv-mffu0.md)、[MTSU0](docs/devices/xiaomi-mitv-mtsu0.md)） |
-| 小米 / Redmi | MiTV-ASTR0（红米 A Pro 75，HyperOS 2） | Android 11 | ✅ 主页键、重启、待机唤醒、音量亮度正常（[#1042](https://github.com/pengchujin/aerial-tv/issues/1042)） |
+| 小米 / Redmi | MiTV-ASTR0（红米 A Pro 75，HyperOS 2） | Android 11 | ✅ 主页键、重启、待机唤醒、音量亮度正常（[#1042](https://github.com/pengchujin/aerial-tv/issues/1042)）；机身只有 2 个 HDMI，固件登记了 4 个，下个版本只列 2 个；实体遥控器按主页键会先闪一下小米桌面（[#1517](https://github.com/pengchujin/aerial-tv/issues/1517)） |
 | 小米 | MiTV-ASTP0、ASTP1、NSOP0、MFTP0 | Android 9 | ✅ MFTP0 被系统清理后约 30–60 秒才回来（[笔记](docs/devices/xiaomi-mitv-mftp0.md)） |
 | 小米 | 小米电视 4 / 4A / 4X / 3S、小米盒子 4 | Android 6 | ✅ 1.43 起；按主页键后几秒才回到 Aerial（[笔记](docs/devices/xiaomi-android6.md)） |
 | 小米 | 小米电视 2S（MIUITV 1.3.33） | Android 5.1 | ✅ U 盘装全量版，在控制中心打开桌面守护后主页键、断电重启、待机唤醒都回到 Aerial（[#1237](https://github.com/pengchujin/aerial-tv/issues/1237)） |
@@ -234,7 +234,7 @@ curl -fsSL https://aerial.qust.me/install.sh | TV=192.168.1.20 bash -s restore
 | 雷鸟 | 55S595C Ultra、鹤 6 2025 Ultra | Android 11+ | ❌ 无线调试连不上时能装、接管不了主页键（[笔记](docs/devices/tcl-mt9655-cn.md)） |
 | 雷鸟 | 855S595C Ultra（MT9655，固件 V8-0015T11） | Android 14 | ✅ 用 USB A 对 A 线授权 ADB（C 对 A 线不行），多屏互动装 guard 版，主页键和开机都进 Aerial；重启后要重新接线 `adb tcpip 5555`（[#1473](https://github.com/pengchujin/aerial-tv/issues/1473)） |
 | 索尼 | A80J 国行、BRAVIA VH1 | Android 10 / 12 | ✅ |
-| 索尼 | BRAVIA BF1 国行（BRAVIA 3，当贝系统） | Android 12 | ✅ 亮度要在电视设置里调（[#1355](https://github.com/pengchujin/aerial-tv/issues/1355)） |
+| 索尼 | BRAVIA BF1 国行（BRAVIA 3，当贝系统） | Android 12 | ✅ 控制中心的亮度项打开电视的图像设置（[#1355](https://github.com/pengchujin/aerial-tv/issues/1355)） |
 | 索尼 | BRAVIA 4K VH2 | 未说 | ✅（[#1193](https://github.com/pengchujin/aerial-tv/issues/1193)） |
 | 索尼 | KD-55X8000E 国行（BRAVIA 4K GB） | Android 9 | ✅ 固件锁死主页键，Agent 在这台电视上写 `filterHomeAlways` 后主页键回 Aerial；开机先露原桌面（[#1351](https://github.com/pengchujin/aerial-tv/issues/1351)） |
 | 索尼 | 49X7500E 国行（BRAVIA 4K GB） | Android 9 | ✅ 选了信号源闪回原桌面，是电视里程序数据损坏，清掉数据后正常（[#1493](https://github.com/pengchujin/aerial-tv/issues/1493)） |
@@ -254,7 +254,7 @@ curl -fsSL https://aerial.qust.me/install.sh | TV=192.168.1.20 bash -s restore
 | 松下 | TH-55HX560C（创维代工） | Android 8 | ⚠️ 信号源列不出来；遥控器信号源键出系统自己的信号源页（1.95 起），双击主页键闪原桌面要让 Agent 写 `filterHomeAlways`（[#1468](https://github.com/pengchujin/aerial-tv/issues/1468)） |
 | 康佳 | KKTV U86V9、2861 | Android 9 | ✅ U86V9 亮度调不了（[笔记](docs/devices/konka-kktv-u86v9.md)） |
 | 海尔 | L55F5（LRM9633，AliOS） | Android 13 | ✅ guard 版主页键、待机唤醒（[#1131](https://github.com/pengchujin/aerial-tv/issues/1131)） |
-| 康佳 | Android TV 551（Hi3751V551） | Android 5.1.1 | ✅ 在康佳「设置 → 通用 → 快捷 → 开机直达」里选 Aerial 后开机直达，主页键由守护接管；固件没有 `cmd` 命令（[#1089](https://github.com/pengchujin/aerial-tv/issues/1089)） |
+| 康佳 | Android TV 551（Hi3751V551） | Android 5.1.1 | ✅ 在康佳「设置 → 通用 → 快捷 → 开机直达」里选 Aerial 后开机直达，主页键由守护接管；固件没有 `cmd` 命令（[#1089](https://github.com/pengchujin/aerial-tv/issues/1089)）；Hi3751V551E 1.95 守护版可用，开机后壁纸要十几秒才出来（[#1504](https://github.com/pengchujin/aerial-tv/issues/1504)） |
 | 乐视 | 超4 X55（f608） | Android 6 | ✅ 安装、开机自启、主页键接管；切到别的应用约 4 秒后被强停、返回先回原桌面约 4 秒；开机有固件原生广告（[笔记](docs/devices/letv-x4-55.md)、[#510](https://github.com/pengchujin/aerial-tv/issues/510)） |
 | 乐视 | 超3 X65（X65-168CQ） | Android 5.0.1 | ⚠️ 能装能显示；按主页键时系统会强杀第三方桌面，接管不稳定（[笔记](docs/devices/letv-x3-65.md)） |
 | 海信 / Vidda | VIDAA 各型号 | Android 5–14 | ⚠️ 主页键能接管，开机多数先进聚好看；VIDAA C1 投影接管不了（[笔记](docs/devices/hisense-vidaa.md)） |
@@ -273,6 +273,7 @@ curl -fsSL https://aerial.qust.me/install.sh | TV=192.168.1.20 bash -s restore
 | 小米 | MiTV-MTTP0（低内存） | Android 9 | ✅ 主页键、开机、待机、信号源通过；内存紧时回 Aerial 要几秒（[#1285](https://github.com/pengchujin/aerial-tv/issues/1285)） |
 | 夏普 | LCD-50SU671A | Android 6 | ✅ 要用 QuickShortcutMaker 打开 ADB |
 | 长虹 | CHiQ 43Q5T（ZLS70Hi5） | — | ❌ ADB 连上但不弹授权框，设置里没有无障碍入口，接管不了主页键；U 盘装上可以当普通 App 用（[#1262](https://github.com/pengchujin/aerial-tv/issues/1262)） |
+| 长虹 | Android TV（mst838） | Android 6 | ❌ 没有 `tv_input`，列不出信号源；电视设置是盖在当前 App 上的浮层；固件不认 ADB 模拟的主页键，实体遥控器没测；户主最后卸载了（[#1531](https://github.com/pengchujin/aerial-tv/issues/1531)） |
 | 长虹 | 65D7H Ultra（MT9655） | Android 14 | ⚠️ ADB 不弹授权框；报告人用长虹自己的系统接口把 Aerial 设成默认桌面，主页键、待机唤醒正常；要在电视管家里允许 Aerial 后台运行，否则按返回会停在长虹桌面（[#1409](https://github.com/pengchujin/aerial-tv/issues/1409)） |
 | OPPO | K9 | Android 9 | ⚠️ 要改包名才能装（[笔记](docs/devices/oppo-coloros-tv.md)） |
 | 极米 | RS20 Pro Max（XGIMI TV DOHKO，horse_popular） | Android 14 | ✅ guard 守护接管，主页键、待机唤醒、重启都回 Aerial，HDMI1 能切；重启后固件收回悬浮窗授权，不影响开机进 Aerial（[#1483](https://github.com/pengchujin/aerial-tv/issues/1483)） |
