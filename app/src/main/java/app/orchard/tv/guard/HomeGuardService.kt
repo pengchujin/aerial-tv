@@ -780,10 +780,20 @@ class HomeGuardService : AccessibilityService() {
         }
     }
 
+    /** When this binding was connected; see adbObserver. */
+    private var connectedAt = 0L
+
     private val adbObserver by lazy {
         object : ContentObserver(handler) {
             override fun onChange(selfChange: Boolean) {
-                if (GuardSetup.adbSwitchedOffInUse(this@HomeGuardService, SystemClock.elapsedRealtime() - screenOnAt)) return
+                // Counted from the connection too: a guard revived after a standby kill missed
+                // SCREEN_ON, so screenOnAt says the screen has been on for ever, and the firmware
+                // switching ADB off at the wake was taken for the viewer's doing (Xiaomi MiTV-MFTP0,
+                // Android 9: STR standby stops Aerial and ADB; from 1.89 keep_adb ended at the
+                // first wake, issue #1537, the reporter's log).
+                val now = SystemClock.elapsedRealtime()
+                val awakeFor = minOf(now - screenOnAt, now - connectedAt)
+                if (GuardSetup.adbSwitchedOffInUse(this@HomeGuardService, awakeFor)) return
                 GuardSetup.ensureAdb(this@HomeGuardService)
             }
         }
@@ -865,6 +875,7 @@ class HomeGuardService : AccessibilityService() {
 
     override fun onServiceConnected() {
         instance = this
+        connectedAt = SystemClock.elapsedRealtime()
         unlockPending = !GuardSetup.isUserUnlocked(this)
         if (GuardSetup.isUserUnlocked(this)) restoreStockVisit(this)
         // Both read credential storage: bound before unlock, the guard crashed here twice and the
