@@ -107,12 +107,13 @@ object Weather {
         lastResult = "pending"
         job?.cancel()
         job = scope.launch {
+            var why: String? = null
             val reading = withContext(Dispatchers.IO) {
-                runCatching { fetch() }.onFailure { Log.w(TAG, "weather unavailable", it) }.getOrNull()
+                runCatching { fetch() }.onFailure { Log.w(TAG, "weather unavailable", it); why = reasonOf(it) }.getOrNull()
             }
             prefs.getString("place", null)?.let { place = it }
             failed = reading == null
-            lastResult = if (reading != null) "success" else "failed"
+            lastResult = if (reading != null) "success" else "failed ($why)"
             if (reading != null) {
                 Log.i(TAG, "weather read")
                 now = reading
@@ -127,6 +128,15 @@ object Weather {
             }
         }
     }
+
+    /**
+     * Why a reading failed, for the diagnostics: the HTTP status or the exception's kind, never its
+     * message, which can hold the URL and so the coordinates. Two 1.97 reports showed only
+     * "failed" for hours while our TVs read the weather (issues #1538 #1548).
+     */
+    private fun reasonOf(e: Throwable): String = (e as? HttpStatus)?.message ?: e.javaClass.simpleName
+
+    private class HttpStatus(code: Int) : java.io.IOException("HTTP $code")
 
     /** Off the main thread. */
     private fun fetch(): WeatherNow {
@@ -294,6 +304,8 @@ object Weather {
         c.connectTimeout = 8_000
         c.readTimeout = 10_000
         return try {
+            val code = c.responseCode
+            if (code !in 200..299) throw HttpStatus(code)
             c.inputStream.use { it.readBytes().decodeToString() }
         } finally {
             c.disconnect()
