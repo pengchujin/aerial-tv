@@ -289,6 +289,9 @@ object SystemProbe {
             Intent(Intent.ACTION_MAIN).setComponent(ComponentName("com.pptv.setting", "com.pptv.setting.root.SettingsActivity")),
             // XGIMI GMUI (Z7X, Android 9) neither; its settings open by link (issue #241).
             Intent(Intent.ACTION_VIEW, Uri.parse("Settings://com.xgimi.misckey.main/mainPage")),
+            // Huawei smart screen V65 (HEGE-560, honghu818, Android 10) neither; its settings app
+            // takes tvsetting:// links (issue #1394, the reporter's dumpsys package).
+            Intent(Intent.ACTION_VIEW, Uri.parse("tvsetting://com.huawei.homevision.settings/main")),
             WHALEY_SETTINGS,
         )
 
@@ -350,6 +353,8 @@ object SystemProbe {
             // PPTV K55U27 and XGIMI Z7X answer no standard Wi-Fi action (issues #264, #241).
             Intent("com.pptv.intent.action.WIFI_ACTIVITY").setComponent(ComponentName("com.pptv.setting", "com.pptv.setting.wifi.WifiWorkActivity")),
             Intent(Intent.ACTION_VIEW, Uri.parse("Settings://com.xgimi.settings.net/wifi_misckey")),
+            // Huawei V65 (issue #1394): see settingsActivityIntent.
+            Intent(Intent.ACTION_VIEW, Uri.parse("tvsetting://com.huawei.homevision.settings/network")),
             Intent(Settings.ACTION_SETTINGS),
             // TCL tcl_m7642 (Android 9) answers neither Wi-Fi nor settings actions (issue #15).
             Intent(Intent.ACTION_MAIN).setComponent(ComponentName("com.tcl.settings", "com.tcl.settings.ui.MainActivity")),
