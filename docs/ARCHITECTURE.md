@@ -46,7 +46,7 @@ app/src/main/java/app/orchard/tv/
 ├── weather/
 │   └── Weather.kt           时钟旁的天气：Open-Meteo 实时天气，城市来自手机页或 IP 定位
 ├── system/
-│   ├── SystemState.kt       SystemProbe：网络、音量、桌面状态、设置入口、信号源（TvInputManager + 小米路由 + 机型修正）
+│   ├── SystemState.kt       SystemProbe：网络、音量、桌面状态、设置入口、信号源（TvInputManager + 小米路由 + 机型修正；没有框架信号源时按厂商兜底，当贝 Huanglong 投影走 `com.huanglong.tvui` 的 `SourceName`，#1477；安卓 14 极米的 HDMI passthrough 没人接时走 xhplayer `sw=HDMI<n>`，#1483；控制中心打开时重读一次）
 │   ├── VidaaSiloSources.kt  旧海信 VIDAA 4.1（安卓 5.1，Hi3751V551）的信号源：读 `/system/etc/silo_config.xml`，用不带包名的 `SILO_SWITCH_EVENT` 广播切 HDMI 1/2、电视直播（#1386，报告人从普通 App 身份实测）
 │   ├── Brightness.kt        亮度：小米 picture_backlight / 海信激光 HisenseLaserPanel / 标准 screen_brightness / TCL 走面板
 │   ├── DeviceProfile.kt     按机型的修正（数据在 assets/devices.json），这台电视自己的修正可以覆盖它
@@ -321,7 +321,9 @@ NanoHTTPD 监听 8790 端口，路径前缀是 8 位随机令牌（每次打开�
   - 亮屏、开机、复活、解锁 → 等 1.5 秒，前台还是原桌面（或者不知道）才打开 Aerial（takeOverOnceSettled）。不知道前台、但本进程里 Aerial 首页正 resume 着时，当作前台是 Aerial（极米 H3 被停后冷启动，守护 9 秒后接上又拉一次、焦点回第一格，#1383）。
     只有 Activity 窗口算前台，浮层和对话框不算（TCL 语音助手）。前台是信号源时不动：CEC 切过去的，
     或者电视自己「开机播放上次的信号源」（小米 PatchWall 的 autoPlay），都以电视为准
-  - adb_enabled 的 ContentObserver → keep_adb 时写回 1，但亮屏使用中（开机 3 分钟后、亮屏 1 分钟后）被关掉时当成户主自己关的：不写回、keep_adb 关掉（`GuardSetup.adbSwitchedOffInUse`，#1399：TCL 隐藏菜单关再开 ADB 被顶回去后一直「获取失败」）；开机几分钟内 5555 不通时把 adb_enabled 切 0 再切 1 重启 adbd（#454），只在安卓 6–10 做：小米电视 3 安卓 5.0.1 上这一切把 TCP 模式的 adbd 停死了（#1099）
+  - 当贝的 `com.dangbei.action.STR_SHUTDOWN`（强停 Aerial 前约 0.5 秒）→ `disableSelf()` 退出列表，亮屏或下次启动加回（DBF3 Air 关机时 system_server 崩溃，#1497）
+  - 控制中心装的更新：新版本的守护绑定时，2 分钟内刚升级、亮屏、有 `installer_opened_at` 记录 → 1.5 秒后拉回 Aerial 一次（当贝 DBF6 安装器停在「已安装」页，#1544）
+  - adb_enabled 的 ContentObserver → keep_adb 时写回 1，但亮屏使用中（开机 3 分钟后、亮屏 1 分钟后、这次绑定 1 分钟后：待机强停后被拉起的守护收不到那次 SCREEN_ON，#1537）被关掉时当成户主自己关的：不写回、keep_adb 关掉（`GuardSetup.adbSwitchedOffInUse`，#1399：TCL 隐藏菜单关再开 ADB 被顶回去后一直「获取失败」）；开机几分钟内 5555 不通时把 adb_enabled 切 0 再切 1 重启 adbd（#454），只在安卓 6–10 做：小米电视 3 安卓 5.0.1 上这一切把 TCP 模式的 adbd 停死了（#1099）
   - 音量键（创维酷开，#937 #1058 #1091 #1113）：有的固件音量键的抬起根本不经过过滤层，按下却经过（1.77 的诊断里守护只有 down；酷开 C10 系统日志里按下走了 VolServer 的 Local 和 Broadcast 两条通道、抬起只回 Local）。守护把按下传下去，固件第二条通道等不到抬起，每 50 ms 连发到下一次按键。守护看到「传下去的音量按下没等到抬起、1 秒以后又来了下一次按下」就按 Build.FINGERPRINT 记进 prefs `guard_volume_lift_unseen`，之后音量按下一律不传下去（固件在过滤层之前已调过）；拦下后 300 ms 音量没动就自己调一格（`volumeStepIfUnmoved`，调完更新 `volumeSeen`，免得下一次被当成「固件先调过」）。每台第一次仍会连冲一回。安卓 9 模拟器上用 hid 两个设备造过；TCL MT5879（固件先调音量）不会误判。守护状态行 `volumeLiftUnseen=`。1.77 的另一半仍在：守护记下看到的抬起（`volumeKeyCameUp`），`MainActivity.dispatchKeyEvent` 丢掉抬起之后还在连发的音量键。按住时遥控器每约 200 ms 发一次新的按下，比补格的 300 ms 快：新的按下先把上一次没补的补上（`volumeStepPending`），否则整段按住只补一格（A7D，#937）。自己补的那一格带 `FLAG_SHOW_UI`（固件没管这次按下，不然看不到音量条，小米 ANSM0 #1498）；被留下的按下的抬起到过守护（`takenVolumeLiftSeen`）以后，按住时也按连发节奏一直调（`volumeRepeatShowsUi`，最长 8 秒，TCL ak30a5 #1499）。默认桌面时的过滤 `defaultHomeNeedsHomeFilter` 原来只看 `com.cvte.factory.at`（红米投影仪 Lite 按主页键会结束前台进程），酷开 C10 也有这个包，过滤开着时音量被固件分发两次、连冲（#1113）；有 `com.tianci.system` 时不算
   - 「被留下的音量键抬起能回到守护」（`takenVolumeLiftSeen`，1.96 起据此按住连调）和 `volumeLiftUnseen` 一样按固件指纹记在磁盘（`guard_taken_volume_lift_seen`）：只记内存时每次重启、进程被杀后第一次按住只走一格（TCL ak30a5，#1521）。
   - 开机 3 分钟内复活时，Aerial 的主页不在前台被当成「用户在别的 App」（#989）；但守护看到原桌面的主页面到前台时会记进 prefs（`GuardSetup.noteStockHomeInFront`），原桌面是在 Aerial 离开之后上来的就照样拉回（#1047，小米 MTEQ0 开机 40 秒后被固件推回 PatchWall、2 秒后被强停）

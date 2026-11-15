@@ -2,6 +2,27 @@
 
 写给接手 Aerial 的人或 AI。先读这份，再读 [ARCHITECTURE.md](ARCHITECTURE.md) 和 [devices/](devices/)。
 
+## 现状（2026-11-15）
+
+- **2026-11-15 巡检（没发版，改在 main 上）**，记录 `local/triage/2026-11-15-full.md`（原始 `raw-2026-11-15/`），回复 `replies-2026-11-15.py`，发出 `posted-2026-11-15.txt`。318 issue / 68 PR，用户最后发言 53（20 个上轮定了不回、没有新内容）。在主目录分支 `claude/triage-2026-11-15` 上做，合回 main。
+  - 改了（每个单独提交）：
+    - #1537 小米 MFTP0（安卓 9）：1.89（#1399）起待机唤醒后 ADB 不再恢复、keep_adb 被关。原因：待机强停 Aerial，唤醒后被拉起的守护没收到 SCREEN_ON，`screenOnAt` 是「从没亮过」，固件唤醒时关 ADB 被当成用户关的 → 「亮屏多久」同时从这次绑定算（`connectedAt`），取较短的。
+    - #1525 当贝 DBX5 Ultra：1.97 打开的 `ChildRecentActivity` 是观看记录 → 从 `TASK_CENTRE_ACTIVITIES` 去掉。
+    - #1487 小米 5 Pro（ANSP0）：devices.json 内置 HW7/6/5 → HDMI 1/2/3、23/24/25（报告人用同一份配置在 1.97 上验过三个口）。
+    - #1497 当贝 DBF3 Air：守护注册 `com.dangbei.action.STR_SHUTDOWN`（强停前约 0.5 秒），收到就 `disableSelf()`，亮屏或下次启动加回（`GuardSetup.stepOutForShutdown`）。没用 `com.dangs.workmode`（「关屏」不关机时也可能发）。
+    - #1394 华为智慧屏 V65：设置 `tvsetting://com.huawei.homevision.settings/main`、网络 `.../network`。
+    - #1477 当贝 DBF6（Huanglong）：有 `com.dangbei.action.INPUTSOURCE_CHOOSER_ACTIVITY` 时列出 HDMI 1 / 2，走 `com.huanglong.tvui/.MainActivity` 带 `SourceName` 9 / 10；选择器兜底开当贝的选择页。
+    - #1483 极米 DOHKO（安卓 14）：passthrough 没人接时直接开 `com.xgimi.xhplayer/.InputActivity` 带 `sw=HDMI<n>`（只在安卓 14、`com.xgimi.tvinput` 的 HDMI 输入上）；打开控制中心时重读一次信号源（拔线后的「已连接」）。
+    - #1544 当贝 DBF6：控制中心升级后安装器停在「已安装」页 → 升级后重新绑定的守护在 2 分钟内、亮屏、有「安装器是 Aerial 开的」记录时，1.5 秒后拉回一次。
+    - #1538 #1548 天气 1.97 拉取失败：诊断的 Weather 一行写出失败原因（HTTP 状态或异常类型，不含 URL / 坐标）。我们两台同时都能读到，原因没找到（猜测是报告人网络到 open-meteo 不通，或运营商出口共用 IP 被限流），等报告人。
+    - PR #1551（ccaata，TCL Google TV 亮度按 `TclPq` 检测）、PR #1541（felixlark，用量统计里活动切换的 1 秒间隙不算退出，带 3 个单测）cherry-pick 合入，作者保留。
+    - 文档：README 两份（TCL 65T7L、海信 HZ55A65），`xgimi-h3.md`（H3S 四种首选记录状态，一条都不写最稳）、`dangbei-box.md`（B3 按主页键强停全部后台、拦静态广播；DBF6 信号源 / 升级 / 唤醒倒置；DBF3 关机崩溃）、`xgimi-z9x-4k.md`（DOHKO `sw`）、ARCHITECTURE。
+  - 验证：standard、guard 单测各 268 个通过，Lite 没改（这轮的改动 Lite 都没有对应代码：Lite 没有守护 / keep_adb，天气诊断行 Lite 本来就没有，其余机型都是安卓 5 以上），三个包签名 e089…。**小米 MFTR0** `install-multiple` standard 测试包 **1.98-test（versionCode 143，没提交）** + 31.dm（speed-profile / install-dm）：`selftest.sh` 守护、主页键（从设置 0.4 秒）、`INPUTS=1` 8 个信号源通过；控制中心、信号源页打开正常、没有崩溃；按返回进屏保、按上键回来，录屏逐帧亮度最低 114，没有黑帧。**TCL MT5879** `tcast-push.py` 推 guard 测试包 143（截图 + uiautomator 确认焦点在「同意」），compile speed：`selftest.sh` 守护、主页键（从 TCL 浏览器 0.4 秒）、7 个信号源通过，两个 walleve 服务、屏保 AerialDream 保留；亮度一行和以前一样（有 `com.tcl.settings`）；系统屏保约 9 秒只有时钟、然后影片，按键回首页（和上轮一样）。没改户主的任何设置。
+  - **没有真机验证**：#1537（我们的 MFTR0 待机时进程不被杀，走不到这条路；没敢在户主的电视上关 ADB 试）、#1497、#1394、#1477、#1483、#1544、PR #1541（两台只回归了不受影响）、PR #1551（作者 G10_4K_GB 实测）。
+  - 查到没修 / 要户主定：#1546 当贝 B3 请求内置 `filterHomeAlways`（固件拦 CONFIG 广播，用户自己写不进去）——这个开关的音量代价一直是户主决定只按用户配置开，**要户主决定**要不要按型号内置。PR #1540（乐视 X3-50）没合：`dispatchKeyEvent` 里对所有电视拦 `KEYCODE_TV_INPUT`、亮度按 `Build.MANUFACTURER` 藏行，请作者改。#1517 红米 ASTR0 影片没下完时取帧读网络、媒体服务被占、界面卡，下一轮在自己电视上造「边下边播」再改。#1505 海信 VIDAA 安卓 6 的 F12：要过滤才接得到，过滤会让 VIDAA 音量失灵（#7），固件限制关闭。#1536 小米 MFFU0 冷开机 keep_adb：解锁时 `ensureEnabled` 已经调 `ensureAdb`，和报告人的日志对不上，要了数据。#1530 索尼开机显示静音但有声音：要 `dumpsys audio`。#1542 当贝 DBF6 唤醒后画面倒置（`/sys/class/projector/mirror` 被写 0）：要 SELinux 标签和补发进程。
+  - 关闭 23 个：确认 / README / 报告 #1547 #1545 #1539 #1463 #1474，重复 #1549，固件限制 #1505，十天无回音 #1199 #1213 #1217 #1241 #1247 #1254 #1256 #1257 #1272 #1277 #1280，PR #1551 #1541（已合）。enhancement：#1543（农历干支年）。
+  - **下次发版 versionCode ≥ 144（两台装过 143 测试包）；Lite 没改，仍是 1.30（32）。**
+
 ## 现状（2026-11-14）
 
 - **1.97（versionCode 142）+ Aerial Lite 1.30（32），2026-11-14 发布**（[v1.97](https://github.com/pengchujin/aerial-tv/releases/tag/v1.97)）：下面这轮巡检的全部修复（#1521 #1508 #1463 #1525 #1528 #1527 #1517 #1506、PR #1523 #1534，Lite 带 #1508 #1528）。versionCode 跳过 138–141（两台装过 140、141 测试包）。standard、guard 单测各 265 个通过，Lite lint，三个包签名 e089…。小米 MFTR0 `install-multiple` standard + .dm（.dm 要和 APK 同名，否则 `Unmatched .dm files`；speed-profile / install-dm）：`selftest.sh` 守护、主页键（从设置 0.4 秒）、`INPUTS=1` 8 个信号源通过。TCL MT5879 `APK_FILE=… KEEP_ADB=1 tools/install.sh guard`（`adb install` 被拒 `INSTALL_FAILED_VERIFICATION_FAILURE` 后走多屏互动，截图 + uiautomator 确认焦点在「同意」后按确定），compile speed：守护、7 个信号源通过，两个 walleve 服务、屏保 AerialDream 保留。**主页键又是 install.sh 之后慢**：从 TCL 浏览器 5.2 / 5.1 / 4.6 秒；按上次留下的办法抓了对比：慢的时候 `dumpsys activity processes` 里 Aerial `curProcState=2`、`oom cur=0`，`dumpsys accessibility` 绑定了小T助手和 Aerial；在无障碍列表里把守护关开一次后 0.5 / 0.4 / 0.3 秒，这时进程状态和 `dumpsys accessibility` 的输出**逐字一样**。所以不是进程优先级，也不是无障碍绑定状态，原因仍没找到（同一次推送前的 141 测试包用 `tcast-push.py` 装，是 0.4 秒）。下次可以对比守护自己的状态行（`dumpsys activity top | grep 'Home Guard'`）和 `dumpsys input` 的过滤器。官网已部署：version.txt = v1.97，notes.json 有 1.97，三个 APK md5 与 Release 一致，`/diag/aerial-710.apk` 还在。12 个 issue / PR 贴了发布链接（`local/triage/release-1.97-posts.py`）。**下次发版 versionCode ≥ 143，Lite ≥ 33。**
