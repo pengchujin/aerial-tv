@@ -288,9 +288,11 @@ private fun MainPage(
     // Firmwares that list their inputs late (see HomeViewModel.refreshSources): look again while
     // the page is open and still empty. One provider or TvInputManager query every 3 s.
     LaunchedEffect(Unit) {
+        // Once as it opens: what is plugged in may have changed since the list was read.
+        vm.refreshSources(again = true)
         while (vm.sources.isEmpty()) {
-            vm.refreshSources()
             delay(3000)
+            vm.refreshSources()
         }
     }
     LaunchedEffect(Unit) {

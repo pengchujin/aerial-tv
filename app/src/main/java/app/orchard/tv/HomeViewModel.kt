@@ -571,11 +571,16 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
      * Android 9) fills its source list some 30 s after boot, after Aerial has loaded and while it
      * stays in front, so nothing re-probed it (PR #507, by Sakurasan, checked on that TV).
      */
-    fun refreshSources() {
+    fun refreshSources(again: Boolean = false) {
         viewModelScope.launch {
             val ctx = context
             val s = withContext(Dispatchers.Default) { SystemProbe.sources(ctx) }
-            if (s.isNotEmpty() && sources.isEmpty()) { sources = s; arrange() }
+            if (s.isEmpty()) return@launch
+            // [again]: the inputs page opening. The list is read at start and on package changes, so
+            // a cable pulled since stayed "connected" (XGIMI RS20 Pro Max, issue #1483). Only what
+            // the page shows is compared; Intent has no equality of its own.
+            fun shown(l: List<TvSource>) = l.map { listOf(it.id, it.label, it.connected, it.deviceName, it.hidden) }
+            if (sources.isEmpty() || again && shown(s) != shown(sources)) { sources = s; arrange() }
         }
     }
 
