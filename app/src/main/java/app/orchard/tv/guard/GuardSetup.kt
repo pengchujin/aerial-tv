@@ -110,7 +110,7 @@ object GuardSetup {
 
     // Synchronized: BootReceiver calls ensureEnabled off the main thread.
     @Synchronized
-    private fun watchScreenOn(context: Context) {
+    private fun watchScreenOn(context: Context, litNowCounts: Boolean = true) {
         if (screenOnWatch != null) return
         val app = context.applicationContext
         val receiver = object : BroadcastReceiver() {
@@ -125,7 +125,7 @@ object GuardSetup {
         screenOnWatch = receiver
         app.registerReceiver(receiver, IntentFilter(Intent.ACTION_SCREEN_ON))
         // Lit in between: the broadcast is already gone.
-        if (context.getSystemService<PowerManager>()?.isInteractive == true) receiver.onReceive(app, Intent(Intent.ACTION_SCREEN_ON))
+        if (litNowCounts && context.getSystemService<PowerManager>()?.isInteractive == true) receiver.onReceive(app, Intent(Intent.ACTION_SCREEN_ON))
     }
 
     /** Called by the guard at SCREEN_OFF: takes it out of the list and waits for the screen. */
@@ -142,6 +142,16 @@ object GuardSetup {
                 .split(':').filter { it.isNotBlank() && ComponentName.unflattenFromString(it)?.flattenToString() != me }
             Settings.Secure.putString(resolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES, others.joinToString(":"))
         }.onFailure { Log.w(TAG, "could not take Home Guard out", it) }
+    }
+
+    /**
+     * Called by the guard when the firmware announces a shutdown with the screen still on (Dangbei,
+     * issue #1497): out of the list now, back at the next SCREEN_ON or the next start.
+     */
+    fun stepOutForShutdown(service: android.accessibilityservice.AccessibilityService) {
+        Log.i(TAG, "shutdown announced; taking Home Guard out")
+        watchScreenOn(service, litNowCounts = false)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) runCatching { service.disableSelf() }
     }
 
     /**
