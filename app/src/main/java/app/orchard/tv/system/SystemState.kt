@@ -588,6 +588,28 @@ object SystemProbe {
      * side panel: SystemUI's status bar service where the firmware has the custom source panel,
      * TCL settings' otherwise (TclShortCutKeyManager.startTVInputService).
      */
+    private val XGIMI_PLAYER = ComponentName("com.xgimi.xhplayer", "com.xgimi.xhplayer.InputActivity")
+    private val XGIMI_HDMI_INPUT = Regex("""^com\.xgimi\.tvinput/\.inputservice\.Hdmi(\d)TvInputService/HW\d+$""")
+
+    /**
+     * XGIMI GMUI on Android 14 (RS20 Pro Max, DOHKO): the passthrough intent of an HDMI input has
+     * no taker, and the source page [openInputPicker] opens asks for the port again, always on
+     * HDMI 1, wherever two are plugged in. Its player switches straight to a port named in "sw"
+     * (HDMI1, HDMI2), the field of GimiConfigManager's signal list (issue #1483, the reporter's adb;
+     * the "launcher_start_source" extra of Android 8, XgimiMstarSources, does nothing there). Only
+     * from Android 14, the one version it was tried on. False when it does not apply.
+     */
+    fun openXgimiInput(context: Context, passthrough: Intent): Boolean {
+        if (Build.VERSION.SDK_INT < 34 || passthrough.data?.host != "android.media.tv") return false
+        val id = passthrough.data?.lastPathSegment ?: return false
+        val port = XGIMI_HDMI_INPUT.matchEntire(id)?.groupValues?.get(1) ?: return false
+        val info = runCatching { context.packageManager.getActivityInfo(XGIMI_PLAYER, 0) }.getOrNull() ?: return false
+        if (!info.exported || !info.enabled || info.permission != null) return false
+        val intent = Intent("com.xgimi.action.hdmiPlayer").setComponent(XGIMI_PLAYER)
+            .putExtra("sw", "HDMI$port").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        return runCatching { context.startActivity(intent) }.isSuccess
+    }
+
     fun openInputPicker(context: Context): Boolean {
         val pm = context.packageManager
         changhongInputPanel(context)?.let { intent ->
