@@ -257,9 +257,6 @@ object SystemProbe {
     private fun settingsActivityIntent(context: Context): Intent =
         firstResolvable(
             context,
-            // LeTV X3-50 (EUI, Android 5.0.1) has no com.android.settings at all; its own
-            // settings app is com.stv.globalsetting, and SettingActivity is exported.
-            Intent(Intent.ACTION_MAIN).setComponent(ComponentName("com.stv.globalsetting", "com.stv.globalsetting.activity.SettingActivity")),
             Intent("com.xiaomi.mitv.settings.SETTINGS").setComponent(ComponentName("com.xiaomi.mitv.settings", "com.xiaomi.mitv.settings.entry.MainActivity")),
             // Haier 65U2 (YunOS 9, Android 9) answers ACTION_SETTINGS with a Bluetooth page that
             // crashes as it opens; its own settings are here (the reporter opened them, issue #458).
@@ -612,7 +609,7 @@ object SystemProbe {
      * letv.desktop.DesktopManager.setEnabledDesktopTags(["signal"]) first so
      * getEnabledDesktopTags() returns ["signal"] and enableSignalDesktop()
      * succeeds. This lives inside [openInputPicker] (not in the TV_INPUT key
-     * handler) so every caller — the key handler, the source tile, the Control
+     * handler) so every caller — the upstream key handler, the source tile, the Control
      * Center inputs button — primes before launching, exactly as Dangbei's
      * only LeTV entry point always primes first. Safe to call even if
      * DesktopManager is absent: catches and logs, then proceeds. `set` is

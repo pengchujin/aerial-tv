@@ -34,15 +34,19 @@ object OutputDevice {
     fun showsVolume(context: Context): Boolean = !volumeFixed(context)
 
     /** Control Center shows a brightness row (a slider or the way to the picture settings): not on a box, and not on LeTV. */
-    fun showsBrightness(): Boolean = !isPlaybackDevice() && !isLetv()
+    fun showsBrightness(context: Context): Boolean = !isPlaybackDevice() && !isLetv(context)
 
     /**
-     * LeTV X3-50 (EUI, Android 5.0.1): the panel ignores the system screen_brightness
-     * setting and the TV's own picture settings are not reachable from here — the
-     * "Picture Settings" row only opens the main settings page, which reads as broken.
-     * Hide the row entirely; brightness is adjusted in LeTV's own settings.
+     * LeTV with its own settings app (com.stv.globalsetting), e.g. X3-50 (EUI, Android
+     * 5.0.1): the panel ignores the system screen_brightness setting and the TV's own
+     * picture settings are not reachable from here — the "Picture Settings" row only
+     * opens the main settings page, which reads as broken. Hide the row entirely;
+     * brightness is adjusted in LeTV's own settings. Detected by the settings app's
+     * presence, not by manufacturer, so other LeTV sets that can adjust brightness
+     * keep the row.
      */
-    private fun isLetv(): Boolean = Build.MANUFACTURER.equals("Letv", ignoreCase = true)
+    private fun isLetv(context: Context) =
+        runCatching { context.packageManager.getPackageInfo("com.stv.globalsetting", 0) }.isSuccess
 
     private fun prop(key: String): String? = runCatching {
         Class.forName("android.os.SystemProperties").getMethod("get", String::class.java).invoke(null, key) as String
