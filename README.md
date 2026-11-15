@@ -223,6 +223,7 @@ curl -fsSL https://aerial.qust.me/install.sh | TV=192.168.1.20 bash -s restore
 | TCL | MT5879 国行、98T8H | Android 11 | ✅ 日常使用（[笔记](docs/devices/tcl-mt5879-cn.md)；98T8H 见 [#803](https://github.com/pengchujin/aerial-tv/issues/803)） |
 | TCL | Q9L Pro | Android 14 | ⚠️ 只能 USB 线连 adb；要在电视管家里允许 Aerial 自启；信号源 1.77 起能切（[#792](https://github.com/pengchujin/aerial-tv/issues/792)） |
 | TCL | 85T7L Pro（MT9655_4K_CN） | Android 14 | ⚠️ 只能 USB 线连 adb（无线 adb 只在 IPv6 上监听，连不上）；standard 装不上，guard 版把 `boot_app_componentname` 设成 Aerial 后重启进 Aerial，守护保持（[#1398](https://github.com/pengchujin/aerial-tv/issues/1398)） |
+| TCL | 65T7L（MT9655_4K_CN） | Android 14 | ✅ guard 版，USB A 对 A 线授权后 `adb install` 被拒，走多屏互动推送装上；主页键、待机唤醒正常，重启还没试（[#1547](https://github.com/pengchujin/aerial-tv/issues/1547)） |
 | TCL | 65V8E（tc8000 ay30a2） | Android 11 | ✅ 断电开机先显示原桌面 6–8 秒（[#1137](https://github.com/pengchujin/aerial-tv/issues/1137)） |
 | 雷鸟 | 75S78A Plus（FFALCON T966D5） | Android 14 | ❌ 固件约每分钟清掉无障碍，主页键接管不了；`boot_app_componentname` 能让开机进 Aerial（[笔记](docs/devices/ffalcon-t966d5.md)） |
 | 雷鸟 | 鹤 6 2027 款 55 英寸（T966D5 / AU01） | Android 14 | ⚠️ guard 版，把 `boot_app_componentname` 设成 Aerial 后重启进 Aerial，守护在；只试过一次重启（[#1185](https://github.com/pengchujin/aerial-tv/issues/1185)） |
@@ -270,6 +271,7 @@ curl -fsSL https://aerial.qust.me/install.sh | TV=192.168.1.20 bash -s restore
 | 海信 | VIDAA_TV（MT9603 / mt5873） | Android 11 | ✅ 开机、主页键、HDMI、待机唤醒都是 Aerial（[#1266](https://github.com/pengchujin/aerial-tv/issues/1266)） |
 | 海信 | VIDAA_TV（MT9655，VX5SPRO） | Android 14 | ✅ 开机直达 Aerial 要按[笔记](docs/devices/hisense-vidaa.md)设好 `persist.sys.boot.source_pkg`（[#1495](https://github.com/pengchujin/aerial-tv/issues/1495)） |
 | 海信 | VIDAA_TV（HZ55E3D-J，Hi3751V551） | Android 7 | ✅ U 盘装 standard 版可用（[#1298](https://github.com/pengchujin/aerial-tv/issues/1298)） |
+| 海信 | HZ55A65 | Android 7 | ✅ U 盘装 standard 版，主页键、开机、待机、信号源、屏保、手机页正常，音量亮度没确认（[#1545](https://github.com/pengchujin/aerial-tv/issues/1545)） |
 | Vidda | 65V1R-Pro | Android 14 | ✅ 主页键、开机、待机、信号源、亮度、屏保都正常（[#1295](https://github.com/pengchujin/aerial-tv/issues/1295)） |
 | 小米 | MiTV-MTTP0（低内存） | Android 9 | ✅ 主页键、开机、待机、信号源通过；内存紧时回 Aerial 要几秒（[#1285](https://github.com/pengchujin/aerial-tv/issues/1285)） |
 | 夏普 | LCD-50SU671A | Android 6 | ✅ 要用 QuickShortcutMaker 打开 ADB |

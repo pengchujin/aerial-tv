@@ -225,6 +225,7 @@ Most TVs sold in China only accept their own home screen and clear third-party a
 | TCL | MT5879 (China), 98T8H | Android 11 | ✅ In daily use ([notes](docs/devices/tcl-mt5879-cn.md); 98T8H: [#803](https://github.com/pengchujin/aerial-tv/issues/803)) |
 | TCL | Q9L Pro | Android 14 | ⚠️ ADB over a USB cable only; allow Aerial to auto-start in the TV manager; inputs switch from 1.77 on ([#792](https://github.com/pengchujin/aerial-tv/issues/792)) |
 | TCL | 85T7L Pro (MT9655_4K_CN) | Android 14 | ⚠️ adb over a USB cable only (network adb listens on IPv6 alone and can't be reached); standard won't install, guard with `boot_app_componentname` set to Aerial boots into Aerial and the guard stays ([#1398](https://github.com/pengchujin/aerial-tv/issues/1398)) |
+| TCL | 65T7L (MT9655_4K_CN) | Android 14 | ✅ Guard build; after authorizing over a USB A-to-A cable `adb install` was refused, so it went through 多屏互动 (screen sharing); Home and wake work, a restart not yet tried ([#1547](https://github.com/pengchujin/aerial-tv/issues/1547)) |
 | TCL | 65V8E (tc8000 ay30a2) | Android 11 | ✅ After a power cut the stock launcher shows for 6–8 s first ([#1137](https://github.com/pengchujin/aerial-tv/issues/1137)) |
 | Thunderbird | 75S78A Plus (FFALCON T966D5) | Android 14 | ❌ The firmware clears accessibility about once a minute, so Home cannot be taken over; `boot_app_componentname` boots into Aerial ([notes](docs/devices/ffalcon-t966d5.md)) |
 | Thunderbird | He 6 2027, 55" (T966D5 / AU01) | Android 14 | ⚠️ guard flavor; with `boot_app_componentname` set to Aerial it booted into Aerial with the guard running; one reboot tried ([#1185](https://github.com/pengchujin/aerial-tv/issues/1185)) |
@@ -271,6 +272,7 @@ Most TVs sold in China only accept their own home screen and clear third-party a
 | Hisense | VIDAA_TV (MT9603 / mt5873) | Android 11 | ✅ Boot, Home, HDMI and wake all land on Aerial ([#1266](https://github.com/pengchujin/aerial-tv/issues/1266)) |
 | Hisense | VIDAA_TV (MT9655, VX5SPRO) | Android 14 | ✅ Boots straight into Aerial once `persist.sys.boot.source_pkg` is set as in the [notes](docs/devices/hisense-vidaa.md) ([#1495](https://github.com/pengchujin/aerial-tv/issues/1495)) |
 | Hisense | VIDAA_TV (HZ55E3D-J, Hi3751V551) | Android 7 | ✅ The standard build from a USB drive works ([#1298](https://github.com/pengchujin/aerial-tv/issues/1298)) |
+| Hisense | HZ55A65 | Android 7 | ✅ Standard build from a USB drive: Home, power-on, standby, inputs, screensaver and the phone page work; volume and brightness not confirmed ([#1545](https://github.com/pengchujin/aerial-tv/issues/1545)) |
 | Vidda | 65V1R-Pro | Android 14 | ✅ Home, boot, wake, inputs, brightness and the screensaver work ([#1295](https://github.com/pengchujin/aerial-tv/issues/1295)) |
 | Xiaomi | MiTV-MTTP0 (low RAM) | Android 9 | ✅ Home, boot, wake and inputs pass; a few seconds back to Aerial when memory is tight ([#1285](https://github.com/pengchujin/aerial-tv/issues/1285)) |
 | Sharp | LCD-50SU671A | Android 6 | ✅ Needs QuickShortcutMaker to open ADB |
