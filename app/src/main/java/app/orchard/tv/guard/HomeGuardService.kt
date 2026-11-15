@@ -402,6 +402,16 @@ class HomeGuardService : AccessibilityService() {
     private var sawEvent = false
 
     /**
+     * Like [sawEvent], but not counting a dialog's event: the locked-boot start in unlockPoll waits
+     * on this one. XGIMI H3S (pig_chivalrous, Android 9) raises com.xgimi.systemui's
+     * com.open.ui.widget.dialog.TVUIDialog during its automatic focus and keystone at boot, while
+     * locked; counted, it kept the start back for good and the screen stayed black (PR #1449, the
+     * author's boot log of 1.97). A dialog does not cover the screen, so it says nothing of whether
+     * something is shown; an activity not found before unlock still counts, by its name.
+     */
+    private var sawScreenEvent = false
+
+    /**
      * Whether another enabled service filters keys without being marked default (flagDefault), up
      * to Android 6. There a key goes to one service only: AccessibilityManagerService
      * .notifyKeyEventLocked walks the bound services from the one bound last and hands the key to
@@ -472,10 +482,11 @@ class HomeGuardService : AccessibilityService() {
             // this binding: the screen is on and nothing is coming. XGIMI H3S (pig_chivalrous,
             // Android 9) sits here (issues #942 #1377; PR #1449, verified by its author on an H3S):
             // the firmware drops the HOME record, the resolver it falls to never draws, and
-            // onAccessibilityEvent returns at its unlock guard, so nothing takes over. Not on any
-            // event at all (sawEvent): a window that came while locked, from an activity not found
-            // before unlock, leaves lastWindow empty though the screen shows something.
-            if (!bootBlackStarted && !screenOff && !sawEvent && lastWindow == null && !aerialResumed &&
+            // onAccessibilityEvent returns at its unlock guard, so nothing takes over. Not after
+            // any event but a dialog's (sawScreenEvent): a window that came while locked, from an
+            // activity not found before unlock, leaves lastWindow empty though the screen shows
+            // something; XGIMI's boot-time focus dialog, on the other hand, covers nothing.
+            if (!bootBlackStarted && !screenOff && !sawScreenEvent && lastWindow == null && !aerialResumed &&
                 bootAnimRaw()?.trim() == "stopped"
             ) {
                 bootBlackStalls++
@@ -1877,6 +1888,7 @@ class HomeGuardService : AccessibilityService() {
 
     override fun onAccessibilityEvent(event: AccessibilityEvent) {
         sawEvent = true
+        if (!event.className?.toString().orEmpty().contains("Dialog", ignoreCase = true)) sawScreenEvent = true
         deafAfterHome = false
         windowsSeen++
         if (event.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return

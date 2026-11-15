@@ -42,7 +42,7 @@ H3 和 [Z6X 第四代 XK03U](xgimi-xk03u-android8.md) 是同一平台（`ironman
 
 ## H3S：首选记录被作废后开机黑屏，守护在解锁前兜底（PR #1449，2026-11-10 报告人实测）
 
-双 HOME 记录也不是根治：固件会在某次冷启动里把带 DEFAULT 的那条作废成 `always="false"`（报告人遇到两次：断电冷启动、应用内更新后重启）。黑屏时 `dumpsys user` 停在 `State: BOOTING`，`sys.boot_completed` 为空，`init.svc.bootanim=stopped`，两种 HOME 查询都落到极米框架的选择器，但选择器没画出来，`mCurrentFocus=null`，整屏黑，只有网络 ADB 能连。守护这时已经绑定，但用户没解锁，事件处理在解锁检查处直接返回。PR #1449 在解锁轮询里加了一条：开机动画已结束、亮屏、这次绑定一个事件都没收到，连续两次（约 4 秒）就启动一次 Aerial；报告人 H3S 上多次冷启动都自己回到 Aerial，会先短暂出现一次桌面选择框，几秒后由解锁后的接管盖回。H5（#1357）、神灯 L1 没有实测。
+双 HOME 记录也不是根治：固件会在某次冷启动里把带 DEFAULT 的那条作废成 `always="false"`（报告人遇到两次：断电冷启动、应用内更新后重启）。黑屏时 `dumpsys user` 停在 `State: BOOTING`，`sys.boot_completed` 为空，`init.svc.bootanim=stopped`，两种 HOME 查询都落到极米框架的选择器，但选择器没画出来，`mCurrentFocus=null`，整屏黑，只有网络 ADB 能连。守护这时已经绑定，但用户没解锁，事件处理在解锁检查处直接返回。PR #1449 在解锁轮询里加了一条：开机动画已结束、亮屏、这次绑定除了对话框一个事件都没收到，连续两次（约 4 秒）就启动一次 Aerial；报告人 H3S 上多次冷启动都自己回到 Aerial，会先短暂出现一次桌面选择框，几秒后由解锁后的接管盖回。H5（#1357）、神灯 L1 没有实测。
 
 当贝 D7X Pro（`horse_popular`，mt5877 / mt9952，安卓 14，#1182 #1180）用的也是极米框架的选择器：`cmd role`、`set-home-activity` 返回成功但不生效，选择器里点「始终」重启后失效，开机先停在选择器约 30 秒再被守护拉回。报告人的 Agent 停用了当贝桌面和七个广告组件（不推荐，没有写进安装说明）；双 HOME 记录在这台上还没试过。
 
@@ -62,3 +62,7 @@ H3 和 [Z6X 第四代 XK03U](xgimi-xk03u-android8.md) 是同一平台（`ironman
 | 双 HOME 被固件作废（`always=false set=0`） | 和一条都不写一样 |
 
 结论：H3S 上不必再推双 HOME 记录，开机靠 PR #1449，按主页键靠 #1523。`install.sh` 第 7 步写的那条带 DEFAULT 的记录在这台上开机命中不了（FallbackHome 走宽查询，落到 `ResolverActivity`），按一次 HOME 后又被固件作废，最终和不写一样。PR #1534（开机后守护被删出列表时写回）1.97 上遇到两次，2–3 秒回到列表。别的 Android 9 极米机型等有人回测再推荐。
+
+## 开机校正对话框挡住兜底（PR #1449 作者追加，1.97，2026-11-14）
+
+开机自动对焦 / 梯形校正时 `com.xgimi.systemui` 在锁定期间弹 `com.open.ui.widget.dialog.TVUIDialog`，产生一条窗口事件。9ebb603 要求「这次绑定一个事件都没收到」才兜底，于是这条对话框事件让兜底永远不出手：作废记录现场 8 分钟黑屏。报告人本地删掉这一项后 69.9 秒救援、73 秒 Aerial 到前台。main 上改成不算类名含 `Dialog` 的事件（`sawScreenEvent`），别的事件仍会挡住兜底：锁定期间安卓看不到不支持直接启动的 Activity，`lastWindow` 可能空着而屏幕上有东西，整项删掉会把 Aerial 拉到它上面。我们手上没有极米，没有真机验证。
