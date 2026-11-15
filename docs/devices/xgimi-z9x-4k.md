@@ -111,4 +111,7 @@ com.xgimi.xgimiframeworkui/.resolver.ResolverActivity
 - HOME 有时解析到极米的选择器 `com.xgimi.xgimiframeworkui/.resolver.ResolverActivity`，没写过首选记录，再重启又回极米桌面。
 - 亮度条调的是光机档位（`getDlpLumensLevel`，1–10 档 ×10），Boost 档只能在极米自己的亮度页进，Aerial 显示 `10+`，和当贝 X7 Max 一致。
 - 抖 4K（DLP472TP，1080p 微镜 XPR），安卓只有 1080p60，`no 4K UI plane` 正常。
+- 信号源一次直达（1.97 复测，2026-11-14）：接两个 HDMI 时，点 HDMI1 / HDMI2 都只打开极米的信号源面板（总是高亮 HDMI 1），要再选一次。报告人实测 `am start -a com.xgimi.action.hdmiPlayer -n com.xgimi.xhplayer/.InputActivity --es sw HDMI2` 直接切到那个口；安卓 8 用的 `launcher_start_source`、`source`、`hdmi_port` 在这台上都没用。main 上：passthrough 没人接、安卓 14、输入 id 是 `com.xgimi.tvinput/.inputservice.Hdmi<n>TvInputService` 时直接开 xhplayer 带 `sw=HDMI<n>`（`openXgimiInput`），其他极米机型不变。没有真机验证。
+- 拔掉 HDMI 后列表仍显示「已连接」：列表只在启动和装卸 App 时读。main 上打开控制中心时重读一次。固件拔线后先把状态改成 CONNECTING（1）而不是 DISCONNECTED（2），刚拔时重读也可能还对不上。
+- 遥控器的信号源键发 `KEY_MESSENGER`（454），按键表里没有映射，安卓这边是空键，固件自己在用；Aerial 收不到。
 
