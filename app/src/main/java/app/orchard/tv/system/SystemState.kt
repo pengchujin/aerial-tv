@@ -633,6 +633,12 @@ object SystemProbe {
         if (runCatching { pm.queryBroadcastReceivers(skyMovie, 0) }.getOrNull().orEmpty().any { it.activityInfo.exported }) {
             return runCatching { context.sendBroadcast(skyMovie) }.isSuccess
         }
+        // Dangbei DBF6 (Huanglong, Android 12): its own chooser, which switches by itself when only
+        // one port has a signal (issue #1477, the reporter opened it with adb).
+        val dangbei = Intent(DANGBEI_INPUT_CHOOSER).setPackage(HUANGLONG_TVUI).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        if (runCatching { pm.resolveActivity(dangbei, 0) }.getOrNull()?.activityInfo?.exported == true &&
+            runCatching { context.startActivity(dangbei) }.isSuccess
+        ) return true
         // LeTV eUI (X3-55, MStar, Android 5.0.1) has no tv_input service at all; its signal source
         // app switches to the input last used, and takes no port (issues #818 #998: both reporters
         // opened it with adb, sourceId ignored). The remote's input key picks another from there.
@@ -797,6 +803,7 @@ object SystemProbe {
         .ifEmpty { KonkaSources.load(context) }
         .ifEmpty { tclSources(context) }
         .ifEmpty { whaleySources(context) }
+        .ifEmpty { dangbeiHuanglongSources(context) }
         .ifEmpty { skyworthSources(context) } + listOfNotNull(usbSource(context))
 
     /**
@@ -1109,6 +1116,37 @@ object SystemProbe {
             source(6, SourceKind.Hdmi, "HDMI 3"),
             source(7, SourceKind.Av, context.getString(R.string.input_av)),
         )
+    }
+
+    private const val HUANGLONG_TVUI = "com.huanglong.tvui"
+    private const val DANGBEI_INPUT_CHOOSER = "com.dangbei.action.INPUTSOURCE_CHOOSER_ACTIVITY"
+
+    /**
+     * Dangbei's Huanglong projectors (DBF6, tv_hi3751v811, Android 12) list no framework inputs.
+     * Their TV app switches when its MainActivity is started with an int "SourceName", 9 for HDMI 1
+     * and 10 for HDMI 2, which is what its own source chooser does (issue #1477: the reporter read
+     * it from the APK and switched both ports with adb). Known by that chooser being there under
+     * Dangbei's action, so other Huanglong TVs (Haier, #1311), whose tvui may number differently,
+     * are left alone.
+     */
+    private fun dangbeiHuanglongSources(context: Context): List<TvSource> {
+        val pm = context.packageManager
+        val chooser = Intent(DANGBEI_INPUT_CHOOSER).setPackage(HUANGLONG_TVUI)
+        if (runCatching { pm.resolveActivity(chooser, 0) }.getOrNull() == null) return emptyList()
+        val player = ComponentName(HUANGLONG_TVUI, "$HUANGLONG_TVUI.MainActivity")
+        val info = runCatching { pm.getActivityInfo(player, 0) }.getOrNull() ?: return emptyList()
+        if (!info.exported) return emptyList()
+        fun hdmi(port: Int, sourceName: Int) = TvSource(
+            id = "huanglong:$sourceName",
+            label = "HDMI $port",
+            kind = SourceKind.Hdmi,
+            connected = false,
+            deviceName = null,
+            intent = Intent(Intent.ACTION_MAIN).setComponent(player)
+                .putExtra("SourceName", sourceName)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+        )
+        return listOf(hdmi(1, 9), hdmi(2, 10))
     }
 
     private const val SKYWORTH_PLAYER = "com.skyworth.tv"
