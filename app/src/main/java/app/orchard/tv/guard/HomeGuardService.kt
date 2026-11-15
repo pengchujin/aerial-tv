@@ -2394,8 +2394,8 @@ class HomeGuardService : AccessibilityService() {
         private val TASK_CENTRE_ACTIVITIES = listOf(
             // Tencent Aurora 5S / Skyworth A4141 (Amlogic, issue #1463).
             ComponentName("com.skyworthdigital.recentsmanager", "com.skyworthdigital.recentsmanager.RecentTaskActivity"),
-            // Dangbei DBX5 Ultra (mt5879, Android 11, issue #1525): part of Dangbei's launcher.
-            ComponentName("com.dangbei.leard.leradlauncher", "com.dangbei.leard.leradlauncher.ui.secondary.childpattern.recent.ChildRecentActivity"),
+            // Not Dangbei's ChildRecentActivity: on the DBX5 Ultra (mt5879, Android 11) it is the
+            // watch history, not the running apps (issue #1525, the reporter's retest of 1.97).
         )
         private const val VOLUME_REPEAT_MAX_MS = 8_000L
         private const val HOME_PAUSE_MS = 400L

@@ -308,7 +308,7 @@ NanoHTTPD 监听 8790 端口，路径前缀是 8 位随机令牌（每次打开�
 运行：HomeGuardService
   - 按键表弄错的遥控器主页键也当 HOME（`isStrayHome`）：扫描码 102 被通用表映射成 MOVE_HOME（只认没有字母键的设备，小米 4A 蓝牙遥控 2717:32b8，#1396），或 102 / 172 成了 UNKNOWN（海尔 HaierTV-RC，#1388）。安卓 9 模拟器上用 `hid` 造的遥控器验证过 MOVE_HOME，带字母的键盘不受影响
   - 长按主页键发 TCL 的多任务广播后 4 秒内 cyberui 的 MainActivity 到前台 → 当成多任务（鹤 6 Plus T966D5、Q9L Pro 的多任务在桌面主界面里，#1402 #1369），`allowStockLauncher`
-  - 双击 / 长按主页键打开多任务的顺序（`openRecents`）：小米 SystemUI 服务 → TCL 桌面的广播 → 当贝 `SHOW_RECENTS_FOR_USER` → 自带多任务页的固件的 Activity（创维 / 腾讯极光 A4141 的 `recentsmanager`，#1463；当贝 DBX5 Ultra 桌面里的 `ChildRecentActivity`，#1525；只开导出、不要权限的）→ `GLOBAL_ACTION_RECENTS`。
+  - 双击 / 长按主页键打开多任务的顺序（`openRecents`）：小米 SystemUI 服务 → TCL 桌面的广播 → 当贝 `SHOW_RECENTS_FOR_USER` → 自带多任务页的固件的 Activity（创维 / 腾讯极光 A4141 的 `recentsmanager`，#1463；只开导出、不要权限的。当贝 DBX5 Ultra 桌面里的 `ChildRecentActivity` 是观看记录，不算，#1525）→ `GLOBAL_ACTION_RECENTS`。
   - 守护拦下的主页键一直拦到它抬起（最多 10 秒，`homeDownTakenAt`）：安卓 12+ 只在 Aerial 在前台时过滤，长按打开多任务后 Aerial 退后，抬起曾交给系统、成了一次新的主页键，把多任务关掉（T966D5 1.89 日志，#1402；Google TV 安卓 13 模拟器上用 `hid` 遥控器长按、同时打开设置复现并验证）
   - 开机、唤醒、复活时前台是 Home 选择框（极米的 `.resolver.ResolverActivity`，或安卓自己的 `android/com.android.internal.app.ResolverActivity`，大眼橙 C3 Ultra #1401）→ 和原桌面一样拉回 Aerial（`isHomeChooser`）
   - 主页键后选择框到前台（极米首选记录被作废时，#44 #1474，PR #1523）：盖在 Aerial 上 → 只发一个返回键关框，Aerial 自己回来；盖在别的 App 上 → 关框后再发一次 HOME，由系统完成切换（不经过安卓 5 秒的切换保护）。每次按键只答一次（`chooserBackFor`），自己补的 HOME 在 `DOUBLE_HOME_MS` 内不算新按键（`chooserHomeAt`）；关不掉时到 `FRONT_AFTER_HOME_MS` 照旧 `goHome()`。

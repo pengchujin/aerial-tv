@@ -10,5 +10,5 @@
 
 ## DBX5 Ultra（mt5879，安卓 11，#1525）
 
-- 最近任务是当贝桌面里的 `com.dangbei.leard.leradlauncher/.ui.secondary.childpattern.recent.ChildRecentActivity`，SystemUI 没有（`mRecentsComponent=null`，`GLOBAL_ACTION_RECENTS`、`KEYCODE_APP_SWITCH` 都没反应）。1.97 起守护在双击 / 长按主页键时，导出且不要权限的话就打开它（报告人 `am start -n` 打开过，我们没试）。
+- 没有最近任务：SystemUI 没有（`mRecentsComponent=null`，`GLOBAL_ACTION_RECENTS`、`KEYCODE_APP_SWITCH` 都没反应），`com.dangbei.recentstask.action.SHOW_RECENTS_FOR_USER` 也没人接。1.97 打开过当贝桌面里的 `com.dangbei.leard.leradlauncher/.ui.secondary.childpattern.recent.ChildRecentActivity`，报告人复测它是「观看记录」影视海报墙，不是运行中的 App，所以 main 上去掉了（双击 / 长按主页键回到 1.96 的样子，什么都不开）。
 - 第三方语音（夏杰 `com.peasun.aispeech/.AIMonitorService`）从 `enabled_accessibility_services` 里掉出：列表里 Aerial 是短格式 `app.orchard.tv/.guard.HomeGuardService`，这是安卓的无障碍服务自己写回的格式（Aerial 写的是完整类名）。安卓在 App 被强停时会把它的无障碍服务移出列表，当贝固件会定时强停后台 App（#195），所以是固件的问题，不是守护覆盖。Aerial 自己会把自己加回去，别人的服务它不动。
