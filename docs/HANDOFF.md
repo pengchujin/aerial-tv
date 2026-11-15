@@ -4,6 +4,7 @@
 
 ## 现状（2026-11-15）
 
+- **1.98（versionCode 144），2026-11-15 发布**（[v1.98](https://github.com/pengchujin/aerial-tv/releases/tag/v1.98)）：下面这轮巡检的全部修复（#1537 #1525 #1487 #1497 #1394 #1477 #1483 #1544、天气诊断 #1538 #1548、PR #1551 #1541），加上 PR #1449 作者追加的问题：极米 H3S 开机校正的 `TVUIDialog` 在锁定期间产生一条事件，9ebb603 的 `sawEvent` 让开机黑屏兜底永远不出手 → 改成不算类名含 `Dialog` 的事件（`sawScreenEvent`，9064493；没有整项删掉，见 `xgimi-h3.md`）。versionCode 跳过 143（两台装过 143 测试包）。Lite 没改，Release 附的仍是 1.30（32），用的是 v1.97 那份原文件（md5 99dce703…）。standard、guard 单测各 268 个通过，三个包签名 e089…。**小米 MFTR0** `install-multiple` standard + 31.dm（speed-profile / install-dm）：`selftest.sh` 守护、主页键（从设置 0.4 秒）、`INPUTS=1` 8 个信号源通过。**TCL MT5879** `APK_FILE=… KEEP_ADB=1 tools/install.sh guard`（`adb install` 被拒 `INSTALL_FAILED_VERIFICATION_FAILURE` 后走多屏互动，截图 + uiautomator 确认焦点在「同意」后按确定），compile speed：守护、7 个信号源通过，两个 walleve 服务、屏保 AerialDream 保留；主页键从 TCL 浏览器四次 0.4 / 0.3 / 0.3 / 0.4 秒，这次 install.sh 之后没有出现前两轮的 5 秒。官网已部署：`/download/version.txt` = v1.98，notes.json 有 1.98，三个 APK md5 与 Release 一致，`/diag/aerial-710.apk` 还在。13 个 issue / PR 贴了发布链接（`local/triage/release-1.98-posts.py`）。#1449 的改动没有真机验证（两台都走不到锁定期间兜底）。**下次发版 versionCode ≥ 145，Lite ≥ 33。**
 - **2026-11-15 巡检（没发版，改在 main 上）**，记录 `local/triage/2026-11-15-full.md`（原始 `raw-2026-11-15/`），回复 `replies-2026-11-15.py`，发出 `posted-2026-11-15.txt`。318 issue / 68 PR，用户最后发言 53（20 个上轮定了不回、没有新内容）。在主目录分支 `claude/triage-2026-11-15` 上做，合回 main。
   - 改了（每个单独提交）：
     - #1537 小米 MFTP0（安卓 9）：1.89（#1399）起待机唤醒后 ADB 不再恢复、keep_adb 被关。原因：待机强停 Aerial，唤醒后被拉起的守护没收到 SCREEN_ON，`screenOnAt` 是「从没亮过」，固件唤醒时关 ADB 被当成用户关的 → 「亮屏多久」同时从这次绑定算（`connectedAt`），取较短的。
@@ -21,7 +22,7 @@
   - **没有真机验证**：#1537（我们的 MFTR0 待机时进程不被杀，走不到这条路；没敢在户主的电视上关 ADB 试）、#1497、#1394、#1477、#1483、#1544、PR #1541（两台只回归了不受影响）、PR #1551（作者 G10_4K_GB 实测）。
   - 查到没修 / 要户主定：#1546 当贝 B3 请求内置 `filterHomeAlways`（固件拦 CONFIG 广播，用户自己写不进去）——这个开关的音量代价一直是户主决定只按用户配置开，**要户主决定**要不要按型号内置。PR #1540（乐视 X3-50）没合：`dispatchKeyEvent` 里对所有电视拦 `KEYCODE_TV_INPUT`、亮度按 `Build.MANUFACTURER` 藏行，请作者改。#1517 红米 ASTR0 影片没下完时取帧读网络、媒体服务被占、界面卡，下一轮在自己电视上造「边下边播」再改。#1505 海信 VIDAA 安卓 6 的 F12：要过滤才接得到，过滤会让 VIDAA 音量失灵（#7），固件限制关闭。#1536 小米 MFFU0 冷开机 keep_adb：解锁时 `ensureEnabled` 已经调 `ensureAdb`，和报告人的日志对不上，要了数据。#1530 索尼开机显示静音但有声音：要 `dumpsys audio`。#1542 当贝 DBF6 唤醒后画面倒置（`/sys/class/projector/mirror` 被写 0）：要 SELinux 标签和补发进程。
   - 关闭 23 个：确认 / README / 报告 #1547 #1545 #1539 #1463 #1474，重复 #1549，固件限制 #1505，十天无回音 #1199 #1213 #1217 #1241 #1247 #1254 #1256 #1257 #1272 #1277 #1280，PR #1551 #1541（已合）。enhancement：#1543（农历干支年）。
-  - **下次发版 versionCode ≥ 144（两台装过 143 测试包）；Lite 没改，仍是 1.30（32）。**
+  - （已随 1.98 发布。）
 
 ## 现状（2026-11-14）
 
