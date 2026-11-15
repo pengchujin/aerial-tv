@@ -45,6 +45,12 @@
       "xiaomiFallbackSources": {"7": 23}
     },
     {
+      "models": ["MiTV-ANSP0", "MiTV_ANSP0"],
+      "note": "Mi TV 5 Pro, Amlogic, Android 9, firmware 23.6.5.3226: like the Mi TV 4 from 22.8, HW7 is the port on the back marked HDMI 1, source 23 (#1487, the reporter set this profile and checked all three ports on 1.97).",
+      "labels": {"7": "HDMI 1", "6": "HDMI 2", "5": "HDMI 3"},
+      "xiaomiSources": {"7": 23, "6": 24, "5": 25}
+    },
+    {
       "models": ["MiTV_MFZP0", "MiTV-MFZP0"],
       "note": "77\" OLED, mt9950, Android 9: HW4-HW7 registered as HDMI 1-4, but three ports; HW7 has none, tvplayer numbers them hw + 19 (#311, reporter's local build).",
       "hidden": [7],
