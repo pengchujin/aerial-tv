@@ -266,6 +266,11 @@
     <string name="st_play_still">静止时</string>
     <string name="st_play_always">一直</string>
     <string name="st_play_hint">静止时：在第一排（双排时前两排）停 10 秒后播放，按键停下。一直：按键不停，背景压暗一点；再往下进入其余 App 时停下。</string>
+    <string name="st_under">底层图片</string>
+    <string name="st_under_frame">影片画面</string>
+    <string name="st_under_still">上一张静态壁纸</string>
+    <string name="st_under_app">跟随 App</string>
+    <string name="st_under_hint">影片画面：视频停下时显示的那一帧，玻璃和网格与之一致。上一张静态壁纸：选视频壁纸之前用的内置图、必应每日一图或照片；电视完全读不出一帧时也显示它。跟随 App：用当前聚焦 App 的配色，和「跟随 App」壁纸一样。</string>
     <string name="ss_show_time">时间</string>
     <string name="ss_show_time_hint">航拍和照片屏保上的时间。时间和地名会不时挪一点位置，避免烧屏。</string>
 

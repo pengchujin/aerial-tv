@@ -271,6 +271,9 @@ class MainActivity : ComponentActivity() {
         val fresh = savedInstanceState == null
         FontWarmup.start(this)
         val uhd = UhdCanvas.scale(this)
+        // Before the wallpapers: they bake their first picture at start, and with a video wallpaper
+        // that picture follows the setting for it (AerialSettings.videoUnder), read there.
+        AerialSettings.init(this)
         Wallpapers.init(this)
         // A receiver may have started the wallpapers with the app's size; Home's window is the one.
         Wallpapers.fitScreen(this)
@@ -281,7 +284,6 @@ class MainActivity : ComponentActivity() {
         IconLibrary.init(this)
         SourceLooks.init(this)
         AppNames.init(this)
-        AerialSettings.init(this)
         Restricted.init(this)
         KidsWatch.start(this)
         // After the settings: the artwork's size follows the number of apps a row.

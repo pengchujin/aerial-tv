@@ -77,7 +77,9 @@ fun Modifier.liquidGlass(corner: Dp, bottomCorners: Boolean = true, seeThroughFi
     // Now the picture's glass, as over a still picture, once the picture is there: the frame
     // decoded in the app where the film was let go, which the film goes on from (owner, TCL
     // MT5879, issue #1238). Solid only until a picture exists.
-    val solid = Wallpapers.moves() && Wallpapers.filmGlassless && Wallpapers.frosted == null
+    // A video wallpaper lit by the app in hand has a picture of its own (Wallpapers.videoLitByApp):
+    // the panels read it as they read any picture, not as a slab until one comes.
+    val solid = Wallpapers.moves() && Wallpapers.filmGlassless && Wallpapers.frosted == null && !Wallpapers.videoLitByApp
     // Where the film's frames cannot be had otherwise, the latest glass of the moving film, decoded
     // in the app (Wallpapers.filmFrost), over the picture's, which may be another shot.
     val latest = (if (Wallpapers.moves() && Wallpapers.filmGlassless) Wallpapers.filmFrost ?: Wallpapers.frosted else Wallpapers.frosted)
