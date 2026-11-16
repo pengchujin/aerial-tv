@@ -1932,7 +1932,13 @@ class HomeGuardService : AccessibilityService() {
         // Gated on a Home press just before it: this activity also serves apps' "open with".
         // After the unlock check, like the rest of this method: nothing here may act in the seconds
         // before the user is unlocked (that window is the boot recovery's, see #1449).
-        if (isHomeChooser(pkg, cls)) {
+        // Skipped altogether when the wide query already answers Aerial: a record with MAIN + HOME
+        // and no CATEGORY_DEFAULT (the split state of #1569, and what a reboot leaves of a dual set)
+        // answers the wide query and leaves the DEFAULT one to the system's chooser. Neither branch
+        // below helps there: closing the chooser only makes it come back on the next press, and the
+        // Home after it is answered by the system, which is the same chooser again. Those machines
+        // had this chooser before #1523 and are left with it, nothing added.
+        if (isHomeChooser(pkg, cls) && wideResolvedHome() != packageName) {
             // Answered once per Home press: Aerial restarts itself on that press, which also refreshes
             // broughtBackAt, so a cooldown on it would skip the Back on every ordinary press.
             if (before == packageName &&
@@ -2145,6 +2151,17 @@ class HomeGuardService : AccessibilityService() {
         cls.endsWith(".FallbackHome") && (pkg to cls) in fallbackHomes && GuardSetup.isUserUnlocked(this)
 
     private fun isDefaultHome(): Boolean = resolvedHome() == packageName
+
+    /**
+     * What the wide query alone (MAIN + HOME, no DEFAULT) hands Home to. No flag here: a preferred
+     * record written without CATEGORY_DEFAULT answers this one while the DEFAULT query falls to the
+     * chooser, which is the state the start of onAccessibilityEvent's chooser block checks for.
+     */
+    private fun wideResolvedHome(): String? =
+        packageManager.resolveActivity(
+            Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME),
+            0,
+        )?.activityInfo?.packageName
 
     private fun resolvedHome(): String? =
         packageManager.resolveActivity(
