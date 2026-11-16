@@ -64,6 +64,12 @@ object GuardSetup {
     /** Test hook: probe another port to watch the toggle without closing a working ADB link. */
     @Volatile var adbProbePort = 5555
 
+    /** When a Dangbei shutdown was announced (elapsed) and in which boot; see [shuttingDown]. */
+    private const val KEY_SHUTDOWN_AT = "shutdown_announced_at"
+    private const val KEY_SHUTDOWN_BOOT_ID = "shutdown_announced_boot_id"
+    private const val SHUTDOWN_HOLD_MS = 2 * 60_000L
+    @Volatile private var shutdownRecheck = false
+
     private const val KEY_OWN_SCREENSAVER = "own_screensaver"
     private const val KEY_HOME_IN_FRONT = "home_in_front"
     private const val KEY_HOME_IN_FRONT_AT = "home_in_front_at"
@@ -119,6 +125,7 @@ object GuardSetup {
                 runCatching { app.unregisterReceiver(this) }
                 screenOnWatch = null
                 Log.i(TAG, "screen on; putting Home Guard back after standby")
+                clearShutdown(app)
                 ensureEnabled(app)
             }
         }
@@ -150,8 +157,34 @@ object GuardSetup {
      */
     fun stepOutForShutdown(service: android.accessibilityservice.AccessibilityService) {
         Log.i(TAG, "shutdown announced; taking Home Guard out")
+        // On disk at once: the firmware force-stops Aerial 0.4 s later and starts it straight
+        // again as the Home, and that new process put the guard back 0.5 s after, a second before
+        // the screen went off; the crash came with that change (DBF3 Air on 1.98, issue #1497).
+        if (isUserUnlocked(service)) service.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .putLong(KEY_SHUTDOWN_AT, SystemClock.elapsedRealtime())
+            .putString(KEY_SHUTDOWN_BOOT_ID, app.orchard.tv.system.BootOpen.BOOT_ID).commit()
         watchScreenOn(service, litNowCounts = false)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) runCatching { service.disableSelf() }
+    }
+
+    /**
+     * A shutdown was announced in this boot in the last two minutes and the screen has not lit
+     * since: the guard stays out (issue #1497). Dangbei's "shutdown" is a suspend, so the boot id
+     * stays; SCREEN_ON after it clears the note, and a real restart has another boot id.
+     */
+    private fun shuttingDown(context: Context): Boolean {
+        if (!isUserUnlocked(context)) return false
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val at = prefs.getLong(KEY_SHUTDOWN_AT, 0L)
+        if (at == 0L) return false
+        val sameBoot = prefs.getString(KEY_SHUTDOWN_BOOT_ID, null) == app.orchard.tv.system.BootOpen.BOOT_ID
+        return sameBoot && SystemClock.elapsedRealtime() - at in 0 until SHUTDOWN_HOLD_MS
+    }
+
+    private fun clearShutdown(context: Context) {
+        if (!isUserUnlocked(context)) return
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .remove(KEY_SHUTDOWN_AT).remove(KEY_SHUTDOWN_BOOT_ID).apply()
     }
 
     /**
@@ -787,6 +820,17 @@ object GuardSetup {
         RevivalSync.ensure(context)
         ensureListenerBeforeNougat(context)
         if (standingOut(context)) { watchScreenOn(context); return false }
+        if (shuttingDown(context)) {
+            Log.i(TAG, "shutdown announced a moment ago; Home Guard stays out until the screen lights")
+            watchScreenOn(context, litNowCounts = false)
+            // If no shutdown follows, back when the hold is over rather than at the next start.
+            if (!shutdownRecheck) {
+                shutdownRecheck = true
+                val app = context.applicationContext
+                Handler(Looper.getMainLooper()).postDelayed({ shutdownRecheck = false; ensureEnabled(app) }, SHUTDOWN_HOLD_MS + 1_000L)
+            }
+            return false
+        }
         val me = ComponentName(context, HomeGuardService::class.java).flattenToString()
         val resolver = context.contentResolver
         val current = Settings.Secure.getString(resolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES).orEmpty()
