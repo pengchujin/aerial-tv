@@ -147,6 +147,10 @@ object AppCatalog {
         // 宽带电视, GITV's live TV; MAIN only, no category, not on PatchWall either
         // (MiTV4-ANSM0, Android 6.0.1, issue #1378, found by the reporter).
         ComponentName("com.gitv.dvb.live", "com.gitv.dvb.live.activity.PlayActivity"),
+        // 应用商店 on older Xiaomi firmware: MAIN plus its own mitv.appstore.action.LAUNCHER, no
+        // category; MFTR0's declares APPSTORE_LAUNCHER and is found above (MiTV4C, Android 6.0.1,
+        // issue #1568, the reporter's pm dump).
+        ComponentName("com.xiaomi.mitv.appstore", "com.xiaomi.mitv.appstore.MainActivity"),
     )
 
     /**

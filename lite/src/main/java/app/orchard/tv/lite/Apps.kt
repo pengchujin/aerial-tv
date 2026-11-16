@@ -69,6 +69,7 @@ object AppCatalog {
         ComponentName("com.xiaomi.smarthome.tv", "com.xiaomi.smarthome.tv.ui.MainActivity"),
         ComponentName("com.sony.dtv.searchapp", "com.ktcp.aiagent.xwability.activity.VoipHomeActivity"), // #1074
         ComponentName("com.gitv.dvb.live", "com.gitv.dvb.live.activity.PlayActivity"), // 宽带电视, #1378
+        ComponentName("com.xiaomi.mitv.appstore", "com.xiaomi.mitv.appstore.MainActivity"), // 应用商店, MiTV4C, #1568
     )
 
     /** Firmware apps drawn as Aerial's own tiles, by package, as in the full app. */
