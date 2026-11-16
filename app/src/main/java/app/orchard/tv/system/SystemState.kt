@@ -599,6 +599,11 @@ object SystemProbe {
                     // (issue #1025, the reporter tried both). Not a standard action, so only where
                     // a firmware declares it.
                     Intent("android.settings.IMAGE_SETTINGS"),
+                    // LeTV (Zero65 MAX5-65, EUI, Android 6): AOSP's display page answers the
+                    // display action and crashes at its brightness test; LeTV's own settings,
+                    // the ones Control Center's Settings opens there (#1528), have the picture
+                    // (issue #1567, the reporter's agent opened both). Only where it is installed.
+                    Intent(Intent.ACTION_MAIN).setComponent(ComponentName("com.stv.globalsetting", "com.stv.globalsetting.activity.SettingActivity")),
                     Intent(Settings.ACTION_DISPLAY_SETTINGS),
                     // PPTV K55U27: picture and sound, where its brightness is (issue #264).
                     Intent("com.pptv.intent.action.PICTUREAUDIO_ACTIVITY")
