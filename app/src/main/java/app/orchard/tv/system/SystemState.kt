@@ -375,6 +375,9 @@ object SystemProbe {
         val wired = listOfNotNull(Intent("com.xiaomi.mitv.settings.ETHERNET_SETTINGS").setPackage("com.xiaomi.mitv.settings").takeIf { ethernet })
         return allResolvable(
             context,
+            // LeTV X3-50 (EUI, Android 5.0.1): its own network page, action
+            // com.letv.setting.NETWORK, exported and verified on the TV.
+            Intent("com.letv.setting.NETWORK").setComponent(ComponentName("com.stv.globalsetting", "com.stv.globalsetting.activity.NetworkActivity")),
             *listOfNotNull(hisenseNetworkSettingsIntent(context)).toTypedArray(),
             *wired.toTypedArray(),
             Intent("com.xiaomi.mitv.settings.WIFI_SETTINGS").setComponent(ComponentName("com.xiaomi.mitv.settings", "com.xiaomi.mitv.settings.wifi.MitvWifiActivity")),
@@ -599,10 +602,11 @@ object SystemProbe {
                     // (issue #1025, the reporter tried both). Not a standard action, so only where
                     // a firmware declares it.
                     Intent("android.settings.IMAGE_SETTINGS"),
-                    // LeTV (Zero65 MAX5-65, EUI, Android 6): AOSP's display page answers the
-                    // display action and crashes at its brightness test; LeTV's own settings,
-                    // the ones Control Center's Settings opens there (#1528), have the picture
-                    // (issue #1567, the reporter's agent opened both). Only where it is installed.
+                    // LeTV: its own settings have the picture. Zero65 MAX5-65 (EUI, Android 6)
+                    // answers the display action with AOSP's display page, which crashes at its
+                    // brightness test (issue #1567, the reporter's agent opened both); X3-50
+                    // (Android 5.0.1) has no AOSP settings and LeTV's DisplayActivity is not
+                    // exported (PR #1540, its author on the TV). Only where it is installed.
                     Intent(Intent.ACTION_MAIN).setComponent(ComponentName("com.stv.globalsetting", "com.stv.globalsetting.activity.SettingActivity")),
                     Intent(Settings.ACTION_DISPLAY_SETTINGS),
                     // PPTV K55U27: picture and sound, where its brightness is (issue #264).
@@ -616,6 +620,41 @@ object SystemProbe {
 
     /** XGIMI's own source page, opened through its settings service; see [openInputPicker]. */
     private const val XGIMI_SOURCE_PAGE = "Settings://com.xgimi.settings.signalSource/hdmi_misckey"
+
+    /**
+     * LeTV X3-50: prime DesktopManager's enabled-desktop tags before launching
+     * SignalSourceManager, mirroring Dangbei's reflection workaround (decompiled
+     * com.dangbei.leradlauncher.rom.util.k / SignalSourceUtil.a()). Without this,
+     * SignalSourceManager's SourceBase.enableSignalDesktop() iterates
+     * DesktopManager.getEnabledDesktopTags() and crashes with NPE — either the
+     * array is null (never set, SourceBase.java:1300) or it contains a null
+     * element (the stock deskplatform's DataModel writes an array with a null
+     * slot when findPackage returns -1, SourceBase.java:1301). Dangbei calls
+     * letv.desktop.DesktopManager.setEnabledDesktopTags(["signal"]) first so
+     * getEnabledDesktopTags() returns ["signal"] and enableSignalDesktop()
+     * succeeds. This lives inside [openInputPicker] (not in the TV_INPUT key
+     * handler) so every caller — the upstream key handler, the source tile, the Control
+     * Center inputs button — primes before launching, exactly as Dangbei's
+     * only LeTV entry point always primes first. Safe to call even if
+     * DesktopManager is absent: catches and logs, then proceeds. `set` is
+     * last-writer-wins, so the tags are read back once and a mismatch is
+     * logged (deskplatform rewrites them on plugin refresh).
+     */
+    private fun primeDesktopTags(): Boolean = runCatching {
+        val managerClass = Class.forName("letv.desktop.DesktopManager")
+        val manager = managerClass.getMethod("get").invoke(null)
+        managerClass.getMethod("setEnabledDesktopTags", Array<String>::class.java)
+            .invoke(manager, arrayOf("signal") as Any)
+        val readBack = runCatching {
+            managerClass.getMethod("getEnabledDesktopTags").invoke(manager) as? Array<*>
+        }.getOrNull()
+        val ok = readBack != null && readBack.size == 1 && readBack[0] == "signal"
+        if (ok) DiagLog.i("primed DesktopManager tags=[signal]")
+        else DiagLog.i("primed tags read-back mismatch: ${readBack?.joinToString() ?: "null"}")
+        ok
+    }.onFailure {
+        DiagLog.i("prime DesktopManager tags failed: ${it.javaClass.simpleName}: ${it.message}")
+    }.getOrDefault(false)
 
     /**
      * Opens the TV's own input picker, for TVs whose inputs Android does not list. TCL MT5879 keeps
@@ -699,7 +738,13 @@ object SystemProbe {
         // LeTV eUI (X3-55, MStar, Android 5.0.1) has no tv_input service at all; its signal source
         // app switches to the input last used, and takes no port (issues #818 #998: both reporters
         // opened it with adb, sourceId ignored). The remote's input key picks another from there.
-        val letv = Intent(Intent.ACTION_MAIN).setComponent(LETV_SOURCES).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        // Prime the desktop tags first (see primeDesktopTags) so enableSignalDesktop()
+        // does not NPE, then launch it the way Dangbei does — no action,
+        // NEW_TASK | CLEAR_TASK — so each launch is a fresh task, not a leftover
+        // crashed one.
+        primeDesktopTags()
+        val letv = Intent().setComponent(LETV_SOURCES)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
         if (runCatching { pm.getActivityInfo(LETV_SOURCES, 0) }.getOrNull()?.exported == true &&
             runCatching { context.startActivity(letv) }.isSuccess
         ) return true
