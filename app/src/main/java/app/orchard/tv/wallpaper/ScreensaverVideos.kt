@@ -119,6 +119,8 @@ object ScreensaverVideos {
      * MP4, while its player plays them (issue #1558, the reporter's logcat).
      */
     private fun hasVideoTrack(file: File): Boolean {
+        // Shared with Lite, which runs from Android 4.0; MediaExtractor came in 4.1.
+        if (android.os.Build.VERSION.SDK_INT < 16) return false
         val extractor = android.media.MediaExtractor()
         return try {
             extractor.setDataSource(file.absolutePath)
