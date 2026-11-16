@@ -332,6 +332,7 @@
   <p class="foot" id="ssFoot"></p>
   <div class="list" id="ssTimeBox" style="margin-top:10px">
     <label class="item"><span class="txt"><span data-i18n="sw_saver_time"></span><span class="sub" data-i18n="sw_saver_time_sub"></span></span><input class="switch" type="checkbox" id="swSaverTime" data-setting="screensaverClock"></label>
+    <label class="item"><span class="txt"><span data-i18n="sw_saver_place"></span><span class="sub" data-i18n="sw_saver_place_sub"></span></span><input class="switch" type="checkbox" id="swSaverPlace" data-setting="screensaverCaption"></label>
   </div>
   <div id="videos">
     <h2 data-i18n="videos_h"></h2>
@@ -407,7 +408,7 @@ let state = null, stateJson = '';
 
 // The language: ?lang=ru in the address, else the one picked under More (kept on the phone), else the
 // first of the phone's preferred languages that has a table, else English. Keys are in KEYS, one array of texts per language.
-const KEYS = ["screensaver", "screensaver_short", "ss_aerial", "ss_photos", "ss_clock", "focus", "focus_high", "focus_standard", "weather", "city_ph", "set", "upload_label", "feedback_h", "feedback_hint", "diag_show", "diag_copy", "diag_github", "hint_aerial", "hint_photos", "hint_clock", "g_live", "g_live_sub", "g_daily", "g_daily_sub", "g_photo", "g_builtin", "g_auto", "toast_wallpaper", "aria_delete", "confirm_delete", "wx_clear", "wx_partlycloudy", "wx_cloudy", "wx_fog", "wx_rain", "wx_snow", "wx_thunder", "wx_chosen", "wx_auto_btn", "toast_auto", "wx_guessed", "wx_none", "tag_source", "aria_rename", "toast_renamed", "toast_name_reset", "toast_rename_fail", "aria_reset_icon", "toast_icon_reset", "focus_hint_standard", "focus_hint_high", "daily_title", "daily_caption", "rotate_title", "rotate_caption", "empty_photos", "add_second", "toast_tv_updated", "sending_n", "toast_added", "toast_no_photos", "toast_send_fail", "toast_city_set", "toast_city_nf", "toast_set_fail", "toast_sending_icon", "toast_icon_set", "toast_icon_bad", "diag_collecting", "toast_diag_fail", "toast_copied", "toast_copy_manual", "language", "hint_follows", "ss_videos", "hint_videos", "videos_h", "videos_upload", "videos_hint", "videos_empty", "confirm_video_delete", "toast_videos_added", "toast_video_bad", "sending_video", "hint_system", "tab_home", "tab_more", "current_wp", "cancel", "save", "name_ph", "rename_hint", "change_icon", "this_tv", "folder_count", "folder_ph", "inputs_h", "inputs_hint", "rename_hint_app", "was_named", "arrange_hint", "arrange_unready", "hidden_h", "hidden_none", "hidden_locked", "show_app", "hide_app", "to_folder", "new_folder", "out_of_folder", "ungroup", "ungroup_confirm", "folder_hint", "toast_hidden", "toast_shown", "toast_in_folder", "toast_out_folder", "toast_ungrouped", "tab_looks", "looks_title", "show_on_home", "source_device", "source_plain", "source_device_hint", "tv_model", "sw_always", "sw_always_sub", "sw_weather", "sw_saver_time", "sw_saver_time_sub", "g_source_sub", "icon_h", "icon_library", "icon_own", "icon_custom", "toast_icon_picked", "drop_hint", "drop_sub", "drop_none", "toast_diag_paste", "kids_h", "elders_h", "kids_used", "kids_left", "kids_nolimit", "kids_allowed", "kids_lock_day", "kids_lock_late", "kids_lock_break", "kids_pin_ph", "kids_unlock", "kids_wrong", "kids_need_pin", "kids_locked_foot", "kids_add", "kids_day", "kids_leave_k", "kids_leave_e", "kids_paused", "kids_resume", "kids_min", "kids_hm", "kids_erase", "kids_hr", "kids_both", "kids_off_line", "kids_settings", "kids_no_pin", "kids_pin_foot", "ks_meta", "ks_on", "ks_on_sub", "ks_block", "ks_block_sub", "ks_block_noguard", "ks_time_h", "ks_weekday", "ks_weekend", "ks_minutes", "ks_nolimit", "ks_window", "ks_from", "ks_to", "ks_break", "ks_break_every", "ks_break_len", "ks_time_foot", "ks_apps", "ks_apps_sub", "ks_input", "ks_save", "ks_saved", "ks_invalid", "ks_for", "wx_temp"];
+const KEYS = ["screensaver", "screensaver_short", "ss_aerial", "ss_photos", "ss_clock", "focus", "focus_high", "focus_standard", "weather", "city_ph", "set", "upload_label", "feedback_h", "feedback_hint", "diag_show", "diag_copy", "diag_github", "hint_aerial", "hint_photos", "hint_clock", "g_live", "g_live_sub", "g_daily", "g_daily_sub", "g_photo", "g_builtin", "g_auto", "toast_wallpaper", "aria_delete", "confirm_delete", "wx_clear", "wx_partlycloudy", "wx_cloudy", "wx_fog", "wx_rain", "wx_snow", "wx_thunder", "wx_chosen", "wx_auto_btn", "toast_auto", "wx_guessed", "wx_none", "tag_source", "aria_rename", "toast_renamed", "toast_name_reset", "toast_rename_fail", "aria_reset_icon", "toast_icon_reset", "focus_hint_standard", "focus_hint_high", "daily_title", "daily_caption", "rotate_title", "rotate_caption", "empty_photos", "add_second", "toast_tv_updated", "sending_n", "toast_added", "toast_no_photos", "toast_send_fail", "toast_city_set", "toast_city_nf", "toast_set_fail", "toast_sending_icon", "toast_icon_set", "toast_icon_bad", "diag_collecting", "toast_diag_fail", "toast_copied", "toast_copy_manual", "language", "hint_follows", "ss_videos", "hint_videos", "videos_h", "videos_upload", "videos_hint", "videos_empty", "confirm_video_delete", "toast_videos_added", "toast_video_bad", "sending_video", "hint_system", "tab_home", "tab_more", "current_wp", "cancel", "save", "name_ph", "rename_hint", "change_icon", "this_tv", "folder_count", "folder_ph", "inputs_h", "inputs_hint", "rename_hint_app", "was_named", "arrange_hint", "arrange_unready", "hidden_h", "hidden_none", "hidden_locked", "show_app", "hide_app", "to_folder", "new_folder", "out_of_folder", "ungroup", "ungroup_confirm", "folder_hint", "toast_hidden", "toast_shown", "toast_in_folder", "toast_out_folder", "toast_ungrouped", "tab_looks", "looks_title", "show_on_home", "source_device", "source_plain", "source_device_hint", "tv_model", "sw_always", "sw_always_sub", "sw_weather", "sw_saver_time", "sw_saver_time_sub", "sw_saver_place", "sw_saver_place_sub", "g_source_sub", "icon_h", "icon_library", "icon_own", "icon_custom", "toast_icon_picked", "drop_hint", "drop_sub", "drop_none", "toast_diag_paste", "kids_h", "elders_h", "kids_used", "kids_left", "kids_nolimit", "kids_allowed", "kids_lock_day", "kids_lock_late", "kids_lock_break", "kids_pin_ph", "kids_unlock", "kids_wrong", "kids_need_pin", "kids_locked_foot", "kids_add", "kids_day", "kids_leave_k", "kids_leave_e", "kids_paused", "kids_resume", "kids_min", "kids_hm", "kids_erase", "kids_hr", "kids_both", "kids_off_line", "kids_settings", "kids_no_pin", "kids_pin_foot", "ks_meta", "ks_on", "ks_on_sub", "ks_block", "ks_block_sub", "ks_block_noguard", "ks_time_h", "ks_weekday", "ks_weekend", "ks_minutes", "ks_nolimit", "ks_window", "ks_from", "ks_to", "ks_break", "ks_break_every", "ks_break_len", "ks_time_foot", "ks_apps", "ks_apps_sub", "ks_input", "ks_save", "ks_saved", "ks_invalid", "ks_for", "wx_temp"];
 const TEXTS = {
  "zh": [
   "屏幕保护程序",
@@ -540,6 +541,8 @@ const TEXTS = {
   "在主屏幕显示天气",
   "屏保显示时间",
   "航拍和照片屏保。时间和地名会不时挪一点位置，避免烧屏。",
+  "屏保显示地点",
+  "航拍屏保左下角的地名，照片屏保的图片标题。",
   "信号源的实时画面当背景，没有声音。往下选 App 时换成磨砂背景。",
   "图标",
   "精选图",
@@ -737,6 +740,8 @@ const TEXTS = {
   "Weather on Home",
   "Time on the screensaver",
   "Aerial and photo screensavers. The time and place name move a little now and then, so nothing burns in.",
+  "Place on the screensaver",
+  "The place name bottom left on the aerial screensaver, and the picture’s title on the photo screensaver.",
   "An input's live picture behind Home, without sound. Going down to the apps, it gives way to a frosted background.",
   "Picture",
   "Ready-made",
@@ -934,6 +939,8 @@ const TEXTS = {
   "Погода на главном экране",
   "Время на заставке",
   "Заставки с аэросъёмкой и фото. Время и название места иногда слегка сдвигаются, чтобы экран не выгорал.",
+  "Место на заставке",
+  "Название места слева внизу на заставке с аэросъёмкой и название снимка на заставке с фото.",
   "Живая картинка входа за главным экраном, без звука. Когда вы переходите к приложениям ниже, фон становится матовым.",
   "Картинка",
   "Готовая",
@@ -1131,6 +1138,8 @@ const TEXTS = {
   "Погода на головному екрані",
   "Час на заставці",
   "Заставки з аерозйомкою і фото. Час і назва місця іноді трохи зсуваються, щоб екран не вигорав.",
+  "Місце на заставці",
+  "Назва місця зліва внизу на заставці з аерозйомкою і назва знімка на заставці з фото.",
   "Жива картинка входу за головним екраном, без звуку. Коли ви переходите до застосунків нижче, тло стає матовим.",
   "Зображення",
   "Готове",
@@ -1328,6 +1337,8 @@ const TEXTS = {
   "Басты экранда ауа райы",
   "Экран қорғауышта уақыт",
   "Аэрожиын және фото қорғауыштары. Экран күймес үшін уақыт пен орын атауы анда-санда сәл жылжиды.",
+  "Экран қорғауышта орын",
+  "Аэрожиын экран қорғауышында төменгі сол жақтағы орын атауы, фото экран қорғауышында сурет атауы.",
   "Кірістің тірі суреті басты экран артында, дыбыссыз. Төмендегі қолданбаларға өткенде күңгірт фонға ауысады.",
   "Сурет",
   "Дайын",
@@ -1667,6 +1678,7 @@ function renderScreensaver() {
   // The time only over the aerial and photo screensavers; the clock one is its clock.
   $('#ssTimeBox').hidden = state.screensaver !== 'aerial' && state.screensaver !== 'photos';
   $('#swSaverTime').checked = !!state.screensaverClock;
+  $('#swSaverPlace').checked = state.screensaverCaption !== false;
   const list = $('#videoList'); list.replaceChildren();
   const videos = state.videos || [];
   if (!videos.length) { const row = el('div', 'item'); row.appendChild(el('span', 'txt', t('videos_empty'))).style.color = 'var(--secondary)'; list.appendChild(row); }
@@ -1775,7 +1787,7 @@ async function setting(sw) {
   } catch (e) { sw.checked = !on; toast(t('toast_set_fail')); }
   sw.disabled = false;
 }
-['#swSaverTime', '#swWeather'].forEach(id => $(id).onchange = () => setting($(id)));
+['#swSaverTime', '#swSaverPlace', '#swWeather'].forEach(id => $(id).onchange = () => setting($(id)));
 document.querySelectorAll('#focus [data-style]').forEach(b => b.onclick = async () => {
   if (b.dataset.style === state.focusStyle) return;
   try { take(await api('api/focus', { style: b.dataset.style })); toast(t('toast_tv_updated')); } catch (e) { toast(t('toast_set_fail')); }

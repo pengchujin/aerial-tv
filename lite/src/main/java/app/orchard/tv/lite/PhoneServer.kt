@@ -111,6 +111,7 @@ class PhoneServer private constructor(private val context: Context, private val 
                     val known = when (f["key"]) {
                         "showWeather" -> { onMain { LiteSettings.chooseShowWeather(on); ops.settingsChanged() }; true }
                         "screensaverClock" -> { onMain { LiteSettings.chooseScreensaverClock(on); ops.settingsChanged() }; true }
+                        "screensaverCaption" -> { onMain { LiteSettings.chooseScreensaverCaption(on); ops.settingsChanged() }; true }
                         else -> false
                     }
                     json(state().put("saved", known))
@@ -219,6 +220,7 @@ class PhoneServer private constructor(private val context: Context, private val 
             .put("kids", onMain { kidsState() })
             .put("showWeather", LiteSettings.showWeather)
             .put("screensaverClock", LiteSettings.screensaverClock)
+            .put("screensaverCaption", LiteSettings.screensaverCaption)
             .put("wallpapers", list)
             .put("apps", JSONArray().apply {
                 // By the name Home shows; [default] is the one a blank name goes back to.

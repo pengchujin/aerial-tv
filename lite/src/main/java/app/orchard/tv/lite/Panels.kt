@@ -591,6 +591,8 @@ class Personalize(
             // The clock screensaver is its clock, and the others show none.
             if (mode == ScreensaverMode.Aerial || mode == ScreensaverMode.Photos) choices(R.string.ss_show_time, string(R.string.ss_show_time_hint),
                 listOf(true to R.string.st_on, false to R.string.st_off), LiteSettings.screensaverClock) { LiteSettings.chooseScreensaverClock(it) }
+            if (mode == ScreensaverMode.Aerial || mode == ScreensaverMode.Photos) choices(R.string.ss_show_caption, string(R.string.ss_show_caption_hint),
+                listOf(true to R.string.st_on, false to R.string.st_off), LiteSettings.screensaverCaption) { LiteSettings.chooseScreensaverCaption(it) }
             choices(R.string.ss_delay, null, LiteSettings.screensaverChoices.map { it to if (it == LiteSettings.NEVER) string(R.string.ss_never) else context.getString(R.string.ss_minutes, it) },
                 LiteSettings.screensaverMinutes) { LiteSettings.chooseScreensaverMinutes(it) }
             choices(R.string.ss_back, string(R.string.ss_back_choice_hint), listOf(true to R.string.ss_back_on, false to R.string.ss_back_off),

@@ -74,6 +74,7 @@ object LiteSettings {
     val PHOTO_MINUTES = listOf(DAY_MINUTES, 60, 15, 5, 1)
     var showWeather = true; private set
     var screensaverClock = true; private set
+    var screensaverCaption = true; private set
     var backStartsScreensaver = true; private set
     var uiSounds = UiSounds.Tv; private set
     var effects = Effects.Auto; private set
@@ -107,6 +108,7 @@ object LiteSettings {
         photoMinutes = prefs.getInt("photo_minutes", DAY_MINUTES).takeIf { it in PHOTO_MINUTES } ?: DAY_MINUTES
         showWeather = prefs.getBoolean("show_weather", true)
         screensaverClock = prefs.getBoolean("screensaver_clock", true)
+        screensaverCaption = prefs.getBoolean("screensaver_caption", true)
         backStartsScreensaver = prefs.getBoolean("back_starts_screensaver", true)
         // As the full app: the TV's own sounds where its key sound switch is on, else Aerial's.
         uiSounds = UiSounds.of(prefs.getString("ui_sounds_kind", null)) ?: if (
@@ -135,6 +137,7 @@ object LiteSettings {
     fun chooseClockHours(v: ClockHours) { clockHours = v; put { putString("clock_hours", v.key) } }
     fun chooseShowWeather(v: Boolean) { showWeather = v; put { putBoolean("show_weather", v) } }
     fun chooseScreensaverClock(v: Boolean) { screensaverClock = v; put { putBoolean("screensaver_clock", v) } }
+    fun chooseScreensaverCaption(v: Boolean) { screensaverCaption = v; put { putBoolean("screensaver_caption", v) } }
     fun chooseBackStartsScreensaver(v: Boolean) { backStartsScreensaver = v; put { putBoolean("back_starts_screensaver", v) } }
     fun chooseUiSounds(v: UiSounds) { uiSounds = v; put { putString("ui_sounds_kind", v.key) } }
     fun chooseEffects(v: Effects) { effects = v; put { putString("effects", v.key) } }

@@ -317,7 +317,7 @@ private fun labelShade(): ImageBitmap {
     return out.asImageBitmap()
 }
 
-/** Place name bottom-left, time top-right: how tvOS labels its screensaver. */
+/** Place name bottom-left, time top-right: how tvOS labels its screensaver. Each can be turned off in Personalize. */
 @Composable
 private fun Labels(
     caption: String?,
@@ -329,7 +329,8 @@ private fun Labels(
     // Fades in where Home's own clock has moved to, as the photos cover it.
     val time by animateFloatAsState(if (showTime) 1f else 0f, tween(2000), label = "time")
     Box(Modifier.fillMaxSize()) {
-        if (shade) Canvas(Modifier.fillMaxSize().diagLayer("shade")) {
+        // Both words turned off in Personalize: nothing to read, so no shade either.
+        if (shade && (AerialSettings.screensaverClock || AerialSettings.screensaverCaption)) Canvas(Modifier.fillMaxSize().diagLayer("shade")) {
             val shade = labelShadeImage
             // Just enough shade under the text to read it over bright sky or snow. Only its two
             // bands: the clear middle would cost the GPU as much to fill (Lite's SaverView.Shade).
@@ -357,7 +358,8 @@ private fun Labels(
                     translationY = drift.y.toPx()
                 },
         )
-        AnimatedContent(
+        // Turned off in Personalize: the place name goes at once, mid-film too.
+        if (AerialSettings.screensaverCaption) AnimatedContent(
             targetState = caption.orEmpty(),
             // One after the other: two names fading across each other in the same place smeared.
             transitionSpec = { fadeIn(tween(600, delayMillis = 400, easing = Motion.EaseOut)) togetherWith fadeOut(tween(400, easing = Motion.EaseOut)) },

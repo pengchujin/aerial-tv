@@ -39,7 +39,7 @@ import kotlin.random.Random
  *
  * Clock: the large clock (date, time, weather) over the wallpaper at 75%, somewhere new each minute.
  *
- * The time shows over the films and photos when Personalize says so.
+ * The time and the place name show over the films and photos when Personalize says so.
  */
 class SaverView(context: Context, mode: ScreensaverMode, private val proxy: FilmProxy, private val wallpaper: Bitmap?) : FrameLayout(context) {
     private val handler = Handler(Looper.getMainLooper())
@@ -56,6 +56,7 @@ class SaverView(context: Context, mode: ScreensaverMode, private val proxy: Film
     private val local = mode == ScreensaverMode.Videos
     private val photos = mode == ScreensaverMode.Photos
     private val showTime = LiteSettings.screensaverClock && (mode == ScreensaverMode.Aerial || photos)
+    private val showCaption = LiteSettings.screensaverCaption
 
     private val pictures = Wallpapers.saverPictures()
     private val frames = arrayOfNulls<ImageView>(2)
@@ -165,11 +166,12 @@ class SaverView(context: Context, mode: ScreensaverMode, private val proxy: Film
 
     /** The shade, the time (when chosen) and the caption over the pictures. */
     private fun addWords() {
-        addView(shade, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
+        // Both words turned off in Personalize: nothing to read, so no shade either.
+        if (showTime || showCaption) addView(shade, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
         if (showTime) addView(time, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT, Gravity.TOP or Gravity.START).apply {
             topMargin = Ui.pxi(40f); leftMargin = Ui.pxi(56f)
         })
-        addView(caption, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT, Gravity.BOTTOM or Gravity.START).apply {
+        if (showCaption) addView(caption, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT, Gravity.BOTTOM or Gravity.START).apply {
             leftMargin = Ui.pxi(56f); bottomMargin = Ui.pxi(44f)
         })
     }

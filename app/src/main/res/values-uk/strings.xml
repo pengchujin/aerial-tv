@@ -262,6 +262,8 @@
     <string name="st_play_hint">У спокої: через 10 секунд на верхньому ряду (у дворядному вигляді — на будь-якому з двох); будь-яка кнопка зупиняє. Завжди: кнопки не зупиняють, тло трохи затемнене; зупиняється, коли ви переходите до застосунків нижче.</string>
     <string name="ss_show_time">Час</string>
     <string name="ss_show_time_hint">Час на заставках з аерозйомкою і фото. Час і назва місця час від часу трохи зсуваються, щоб екран не вигорав.</string>
+    <string name="ss_show_caption">Місце</string>
+    <string name="ss_show_caption_hint">Назва місця зліва внизу на заставці з аерозйомкою і назва знімка на заставці з фото.</string>
 
     <!-- Kids and Elders mode (settings/Restricted) -->
     <string name="kids_title">Діти та літні</string>
