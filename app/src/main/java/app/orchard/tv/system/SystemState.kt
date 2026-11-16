@@ -708,6 +708,14 @@ object SystemProbe {
                 .putExtra(Intent.EXTRA_KEY_EVENT, android.view.KeyEvent(android.view.KeyEvent.ACTION_DOWN, android.view.KeyEvent.KEYCODE_TV_INPUT))
             if (runCatching { context.startService(key) }.getOrNull() != null) return true
         }
+        // MStar's tvsetting has the panel the remote's input key shows (Philips 75PUF6393/T3, TV838,
+        // MStar maxim, Android 6: no inputs in TvInputManager, and SOURCE_INFO below is only a
+        // one-line banner there; the reporter's agent opened this with adb, issue #1580). Before
+        // SOURCE_INFO, only an exported one.
+        val mstarList = Intent(Intent.ACTION_MAIN).setComponent(MSTAR_SOURCE_LIST).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        if (runCatching { pm.getActivityInfo(MSTAR_SOURCE_LIST, 0) }.getOrNull()?.exported == true &&
+            runCatching { context.startActivity(mstarList) }.isSuccess
+        ) return true
         // MStar's own TV player keeps a source panel behind a custom action, on firmware that
         // registers no inputs with Android (Sharp LCD_xxSFFOC470A, MStar mooney, Android 6: the
         // reporter opened it with adb, issue #1342). Only an exported one, as `am start` was, and
@@ -728,6 +736,7 @@ object SystemProbe {
 
     private const val MSTAR_SOURCE_INFO = "com.mstar.tv.tvplayer.ui.intent.action.SOURCE_INFO"
     private val LETV_SOURCES = ComponentName("com.stv.signalsourcemanager", "com.stv.signalsourcemanager.MainActivity")
+    private val MSTAR_SOURCE_LIST = ComponentName("com.mstar.tvsetting", "com.mstar.tvsetting.hotkey.InputSourceListViewActivity")
     private val FOXCONN_SOURCES = ComponentName("com.mstar.tvsetting", "com.foxconn.etvg.inputsource.FxcInputSourceActitvity")
 
     /** ChangHong mt5520_ll (Android 5.1): 2001 shows the menu; 3006 also starts the last input. */
