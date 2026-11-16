@@ -4,7 +4,8 @@
 
 ## 现状（2026-11-16）
 
-- **2026-11-16 巡检（没发版，改在 main 上）**，记录 `local/triage/2026-11-16-full.md`（原始 `raw-2026-11-16/`），回复 `replies-2026-11-16.py`，发出 `posted-2026-11-16.txt`。325 issue / 66 PR，用户最后发言 64（18 个上轮定了不回、没有新内容），新的 46 个逐个读过。在主目录分支 `claude/triage-2026-11-16` 上做，合回 main。
+- **1.99（versionCode 146）+ Aerial Lite 1.31（33），2026-11-16 发布**（[v1.99](https://github.com/pengchujin/aerial-tv/releases/tag/v1.99)）：下面这轮巡检的全部改动。versionCode 跳过 145（两台装过 145 测试包）。三个包签名 e089…。发版前**小米 MFTR0** 装 145 测试包（`install-multiple` + 31.dm，speed-profile / install-dm）补测：`selftest.sh` 守护、主页键（从设置 0.5 秒）、`INPUTS=1` 8 个信号源通过；控制中心音量在 HDMI ARC 功放上 8→10→8（已还原，`volume_external=false`，没误判）；个性化上下移动正常；按返回进屏保、按上键回来，两段录屏逐帧亮度最低 95，没有黑帧；无障碍列表、屏保设置没变。正式包：**小米** `install-multiple -r` standard + 31.dm（speed-profile / install-dm），**TCL** `APK_FILE=… KEEP_ADB=1 tools/install.sh guard`（`adb install` 被拒 `INSTALL_FAILED_VERIFICATION_FAILURE` 后走多屏互动，截图 + uiautomator 确认焦点在「同意」后按确定），compile speed；两台 `selftest.sh` 守护、主页键（TCL 从浏览器 0.3 秒、小米从设置 0.4 秒）、信号源（7 / 8 个）通过，TCL 两个 walleve 服务、屏保 AerialDream 保留。官网已部署：`/download/version.txt` = v1.99，notes.json 有 1.99，三个 APK md5 与 Release 一致，`/diag/aerial-710.apk` 还在。12 个 issue + 2 个 PR 贴了发布链接（`local/triage/release-1.99-posts.py`）。**下次发版 versionCode ≥ 147，Lite ≥ 34。**
+- **2026-11-16 巡检（已随 1.99 发布）**，记录 `local/triage/2026-11-16-full.md`（原始 `raw-2026-11-16/`），回复 `replies-2026-11-16.py`，发出 `posted-2026-11-16.txt`。325 issue / 66 PR，用户最后发言 64（18 个上轮定了不回、没有新内容），新的 46 个逐个读过。在主目录分支 `claude/triage-2026-11-16` 上做，合回 main。
   - 改了（每个单独提交）：
     - #1568 小米 4C（安卓 6）应用商店只有 MAIN + 自家 action → `UNLISTED_ENTRIES` 加 `com.xiaomi.mitv.appstore/.MainActivity`（Lite 同步）。
     - #1580 飞利浦 TV838（MStar maxim，安卓 6，TvInputManager 空）：`SOURCE_INFO` 只是一行横幅 → 在它前面先开 `com.mstar.tvsetting/.hotkey.InputSourceListViewActivity`（Lite 同步）。
@@ -18,8 +19,8 @@
     - PR #1540（乐视 X3-50，jemyzhang）：信号源前写 `DesktopManager` 标签、乐视网络页、乐视亮度行打开乐视设置（`Brightness.isLetv`）、`docs/devices/letv-x3-50.md`，作者保留。**没合**：乐视上整行隐藏亮度（界面取舍，#1567 也要，转户主）。
     - PR #1556（Lite，TCL MS901 安卓 4.2.1，zknb-666）：设置、网络页（`TclMs901Pages`）和亮度（`TclMs901Picture`），作者保留。**没合**信号源：`PORTS` 写死这块板的 8 个口；`backToStorage` 每次回首页都切回 STORAGE，会影响别的 TCL MStar 4.x，请作者改。
     - 文档：ARCHITECTURE（关机标记、外接音量、乐视 / MStar 信号源兜底），`dangbei-box.md`（DBF3 1.98 复测时间线），`skyworth-coocaa.md`（8H57_H5 `cls` 要连 `pkg` 一起改、`filterHomeAlways` 实测）。
-  - 验证：standard、guard 单测各 272 个通过，Lite lint 0 错误，三个包签名 e089…。**TCL MT5879** `tcast-push.py` 推 guard 测试包 **1.99-test（versionCode 145，没提交）**（uiautomator 确认焦点在「同意」后按确定），compile speed：`selftest.sh` 守护、主页键（从 TCL 浏览器 0.4 秒）、`INPUTS=1` 7 个信号源通过；控制中心音量 9→11→9（已还原，没误判成外接音响，`volume_external=false`）；个性化上下移动正常（没按确定，设置没动）；按返回进屏保、按上键回来，两段录屏逐帧亮度最低 83 / 91，没有黑帧；两个 walleve 服务、屏保 AerialDream 保留。**安卓 5.0 模拟器**复现并验证 #1563，音量步进正常。**小米 MFTR0 没测**：整轮都在待机（ping 通、8790 通、5555 拒绝），要户主用遥控器唤醒。**下次发版 versionCode ≥ 146，Lite ≥ 33（Lite 改了）。**
-  - **没有真机验证**：#1568 #1580 #1576 #1497 #1558 #1562 #1567 #1391 的诊断行、PR #1540（作者 X3-50 实测）、PR #1556（作者 MS901 实测），以及全部改动在小米上的回归。
+  - 验证：standard、guard 单测各 272 个通过，Lite lint 0 错误，三个包签名 e089…。**TCL MT5879** `tcast-push.py` 推 guard 测试包 **1.99-test（versionCode 145，没提交）**（uiautomator 确认焦点在「同意」后按确定），compile speed：`selftest.sh` 守护、主页键（从 TCL 浏览器 0.4 秒）、`INPUTS=1` 7 个信号源通过；控制中心音量 9→11→9（已还原，没误判成外接音响，`volume_external=false`）；个性化上下移动正常（没按确定，设置没动）；按返回进屏保、按上键回来，两段录屏逐帧亮度最低 83 / 91，没有黑帧；两个 walleve 服务、屏保 AerialDream 保留。**安卓 5.0 模拟器**复现并验证 #1563，音量步进正常。小米 MFTR0 巡检时在待机，发版前补测（见上一条）。
+  - **没有真机验证**：#1568 #1580 #1576 #1497 #1558 #1562 #1567 #1391 的诊断行、PR #1540（作者 X3-50 实测）、PR #1556（作者 MS901 实测）。
   - 要户主定：乐视整行隐藏亮度（PR #1540、#1567）；#1518 创维 8H57_H5 / #1546 当贝 B3 按型号内置 `filterHomeAlways`；#1490 持久关掉守护的开关（功能）。
   - 查到没修：#1581 小米 4（ANSM0，70 寸 xmen，22.10）HDMI 1 / 3 和 #592 #584 #514 三台正好相反，请报告人用本机配置验证三个口、贴板子信息再区分。#1579 小米 MTSU0 主页键闪：报告人用 `input keyevent` 测，要真遥控器下的日志。#1394 #1572 华为：设置、智能检测等要华为签名权限，第三方打不开；`tvsetting://` 那条的结果还没拿到。#1521 TCL ak30a5 上次让抓 `AerialGuard`，守护记音量键在 `AerialDiag` 标签下，重新要了。#1569 宽 / 窄记录分裂按主页键卡：请 @sln162 在 H3S 实测后提 PR。
   - 关闭：确认 #1537 #1477 #1544，重复 #1573，已知限制 #1571（小米安卓 ≤11 按住音量不连发），车载屏 #1420，华为并入 #1394 的 #1572，十天无回音 #1251 #1097 #115 #561。enhancement：#1555 #1564 #1557。
