@@ -27,4 +27,5 @@
 
 ## DBF3 Air（MStar m7221，安卓 8.0，#1497）
 
-- 关机流程里固件强停 Aerial，守护还绑着、`android.ui` 线程被 `AutoCancelOptionView` 堵了 1.8 秒时，system_server 在 `ViewRootImpl.sendAccessibilityEvent` 空指针崩溃，光机不亮、要拔电。强停前约 0.5 秒固件发 `com.dangbei.action.STR_SHUTDOWN`（non-protected，普通 App 能收）和 `com.dangs.workmode`（`mode=ScreenOff`）。main 上守护收到 `STR_SHUTDOWN` 就 `disableSelf()` 退出列表，亮屏或下次启动再加回。没有用 `com.dangs.workmode`：「关屏」不关机时也可能发它。没有真机验证。
+- 关机流程里固件强停 Aerial，守护还绑着、`android.ui` 线程被 `AutoCancelOptionView` 堵了 1.8 秒时，system_server 在 `ViewRootImpl.sendAccessibilityEvent` 空指针崩溃，光机不亮、要拔电。强停前约 0.5 秒固件发 `com.dangbei.action.STR_SHUTDOWN`（non-protected，普通 App 能收）和 `com.dangs.workmode`（`mode=ScreenOff`）。1.98 起守护收到 `STR_SHUTDOWN` 就 `disableSelf()` 退出列表，亮屏或下次启动再加回。没有用 `com.dangs.workmode`：「关屏」不关机时也可能发它。
+- 1.98 报告人复测仍崩（2026-11-15 时间线）：43.380 退出列表 → 43.784 强停 → 43.815 固件马上按 HOME 把 Aerial 拉起 → 44.283 新进程 `ensureEnabled` 把守护加回 → 45.117 熄屏 → 45.373 崩。也就是「下次启动加回」这一步就在关机途中。main 上（未发版）收到广播时把时间和 boot id 写进存储（`commit`），之后两分钟内、同一次开机里 `ensureEnabled` 不加回，等 SCREEN_ON（清掉记录再加回）；两分钟后没关机就自己加回。当贝的「关机」是 STR 待机，boot id 不变，所以要靠 SCREEN_ON 清记录。没有真机验证。
