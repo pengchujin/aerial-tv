@@ -89,8 +89,11 @@ object ScreensaverVideos {
             metadata.setDataSource(upload.absolutePath)
             metadata.extractMetadata(MediaMetadataRetriever.METADATA_KEY_HAS_VIDEO) == "yes" &&
                 (metadata.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: 0) > 0
-        } catch (_: Exception) { false } finally { runCatching { metadata.release() } }
-        if (!valid) return null
+        } catch (_: Exception) { false } finally { runCatching { metadata.release() } } || hasVideoTrack(upload)
+        if (!valid) {
+            Log.w("AerialVideos", "screensaver video refused: no video track found in $size bytes")
+            return null
+        }
 
         val id = UUID.randomUUID().toString().replace("-", "")
         val staging = File(root, "import-$id")
@@ -108,6 +111,21 @@ object ScreensaverVideos {
             Log.w("AerialVideos", "could not store a screensaver video", e)
             null
         } finally { staging.deleteRecursively() }
+    }
+
+    /**
+     * The container's own reading, for TVs whose MediaMetadataRetriever reads nothing: Skyworth
+     * 8H93 G720S (HiSilicon V600, Android 5.0) refused every film, even a 2 s baseline H.264
+     * MP4, while its player plays them (issue #1558, the reporter's logcat).
+     */
+    private fun hasVideoTrack(file: File): Boolean {
+        val extractor = android.media.MediaExtractor()
+        return try {
+            extractor.setDataSource(file.absolutePath)
+            (0 until extractor.trackCount).any {
+                extractor.getTrackFormat(it).getString(android.media.MediaFormat.KEY_MIME)?.startsWith("video/") == true
+            }
+        } catch (_: Exception) { false } finally { runCatching { extractor.release() } }
     }
 
     @Synchronized
