@@ -18,6 +18,8 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
 import java.util.Locale
+import java.io.IOException
+import java.net.SocketTimeoutException
 import javax.net.ssl.SSLException
 import kotlin.math.roundToInt
 
@@ -39,7 +41,8 @@ object Weather {
     private const val TAG = "AerialWeather"
     private const val PREFS = "weather"
     private const val REFRESH_MS = 60 * 60 * 1000L
-    private const val RETRY_MS = 10 * 60 * 1000L
+    /** After a failed reading; only checked when Home comes to the front (issue #1576). */
+    private const val RETRY_MS = 3 * 60 * 1000L
     private const val RELOCATE_MS = 24 * 60 * 60 * 1000L
     /** A reading older than this is not shown at all. */
     private const val STALE_MS = 3 * 60 * 60 * 1000L
@@ -291,11 +294,15 @@ object Weather {
 
     /**
      * Android before 7.1 does not trust the Let's Encrypt root these hosts use; they answer the
-     * same over plain HTTP (allowed for them in network_security_config.xml).
+     * same over plain HTTP (allowed for them in network_security_config.xml). A handshake that
+     * never answers goes the same way: MiTV-MFTR0 on 1.98 timed out in the TLS handshake to
+     * open-meteo for hours, while a PC on the same network read it in a second (issue #1576, also
+     * #1555 #1487 #1538).
      */
     private fun get(url: String): String = try {
         read(url)
-    } catch (e: SSLException) {
+    } catch (e: IOException) {
+        if (e !is SSLException && e !is SocketTimeoutException) throw e
         read(url.replaceFirst("https://", "http://"))
     }
 

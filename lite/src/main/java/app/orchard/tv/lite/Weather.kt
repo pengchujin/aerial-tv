@@ -17,7 +17,7 @@ import kotlin.math.roundToInt
 object Weather {
     private const val TAG = "AerialLite"
     private const val REFRESH_MS = 60 * 60 * 1000L
-    private const val RETRY_MS = 10 * 60 * 1000L
+    private const val RETRY_MS = 3 * 60 * 1000L
     private const val RELOCATE_MS = 24 * 60 * 60 * 1000L
     private const val STALE_MS = 3 * 60 * 60 * 1000L
     private const val NONE = Int.MIN_VALUE
@@ -167,9 +167,11 @@ object Weather {
         return null
     }
 
+    /** Plain HTTP after a TLS failure or a handshake that never answers, as the full app (#1576). */
     private fun get(url: String): String = try {
         Net.text(url)
-    } catch (e: SSLException) {
+    } catch (e: java.io.IOException) {
+        if (e !is SSLException && e !is java.net.SocketTimeoutException) throw e
         Net.text(url.replaceFirst("https://", "http://"))
     }
 
