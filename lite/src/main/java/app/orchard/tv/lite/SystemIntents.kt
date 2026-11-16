@@ -16,6 +16,11 @@ import android.provider.Settings
 object SystemIntents {
     fun settings(context: Context): Intent = first(
         context,
+        // TCL MS901 / Android 4.2.1 (MStar edison): this firmware's settings app is
+        // com.tcl.mstar.settings; none of the pages below exist on it. Only where its two
+        // activities are present (TclMs901Pages) do they go first; elsewhere this spreads an
+        // empty array and the original list, in its original order, decides as before.
+        *TclMs901Pages.settings(context),
         // Letv (S40 Air and other eUI sets): its own settings, the only one some stripped Letv
         // firmwares ship — com.android.settings is absent there, so the standard action resolved to
         // nothing and the panel's gear did nothing (S40 Air, Android 4.3, 2026-11-02).
@@ -38,6 +43,10 @@ object SystemIntents {
 
     fun network(context: Context, ethernet: Boolean): Intent = first(
         context,
+        // TCL MS901 / Android 4.2.1 (MStar edison): its network page is a separate activity in
+        // com.tcl.mstar.settings, and no standard Wi-Fi/SETTINGS action resolves on this set.
+        // Empty on every other TV, which keeps the original candidates below untouched.
+        *TclMs901Pages.network(context),
         // Letv: the network page is a tab inside its own settings, and com.android.settings is not
         // installed at all, so Settings.ACTION_WIFI_SETTINGS went nowhere (S40 Air, Android 4.3).
         // openNetworkPanel shows that page itself where the TV has it.

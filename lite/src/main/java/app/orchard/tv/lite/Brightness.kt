@@ -1,11 +1,14 @@
 package app.orchard.tv.lite
 
 import android.content.ComponentName
+import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.provider.Settings
+import android.util.Log
 
 /**
  * Panel brightness, as the full app's system/Brightness.kt finds it: Xiaomi's picture_backlight
@@ -32,6 +35,10 @@ object Brightness {
     fun level(context: Context): Float? {
         // Hisense laser: the light source's own level, which screen_brightness does not touch.
         HisenseLaserPanel.level(context)?.let { return it }
+        // TCL MS901 / MStar ONLY: read the TV's own brightness store, not the picture SDK's
+        // getBacklight() (that one returns a scaled MStar register, not a percentage). Every
+        // other TV falls through to the original branches below, byte for byte unchanged.
+        if (TclMs901Picture.available(context)) return TclMs901Picture.level(context) / 100f
         val r = context.contentResolver
         if (installed(context, "com.tcl.settings")) TclPicture.backlight(context)?.let { return it / 100f }
         return when {
@@ -63,6 +70,14 @@ object Brightness {
         val current = level(context) ?: return null
         val percent = Math.round(current * 100)
         val next = (if (direction > 0) (percent / 5 + 1) * 5 else ((percent + 4) / 5 - 1) * 5).coerceIn(1, 100)
+        // TCL MS901 / MStar ONLY: mirror the TV's own brightness page - persist to its settings
+        // provider, then apply to the panel and notify TVOS (see TclMs901Picture below). As in
+        // level(), the generic TCL / Xiaomi / MitvPanel / AOSP paths below are left untouched.
+        if (TclMs901Picture.available(context)) {
+            runCatching { TclMs901Picture.setBacklight(context, next) }
+                .onFailure { Log.w("AerialBrightness", "setBacklight($next) failed", it) }
+            return next / 100f
+        }
         val r = context.contentResolver
         if (!installed(context, "com.tcl.settings") && !usesXiaomiBacklight(context) && MitvPanel.usable(context)) {
             runCatching {
@@ -108,6 +123,106 @@ object Brightness {
             Intent(Settings.ACTION_DISPLAY_SETTINGS),
         ).firstOrNull { runCatching { pm.resolveActivity(it, 0) }.getOrNull() != null } ?: Intent(Settings.ACTION_DISPLAY_SETTINGS)
         return runCatching { context.startActivity(picture.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }.isSuccess
+    }
+}
+
+/**
+ * TCL MS901 / MStar brightness, reverse engineered from the TV's own brightness page
+ * (`com.tcl.tv/com.tcl.system.SysPicActivityActivity` -> `com.tcl.tv.manager.SYSBackLightOperation`).
+ *
+ * Every notch of that page does three things; the old Lite code did only the middle one, and used
+ * its own SharedPreferences instead of the TV's store:
+ *
+ *  1. `ContentResolver.update(content://com.tcl.tv.sys.SYSPicSettings/pic_settings, {"backlight": 0..100})`.
+ *     `SYSSettingsProvider.update()` only writes `pic_settings` in SQLite and calls `notifyChange`.
+ *     This DB value is what the TV restores on boot / input switch and what its settings page shows.
+ *  2. `PictureDesk.SetBacklightDispaly(short)` -> `PictureManager.setBacklight(int)` for the immediate
+ *     hardware change. `TTvPictureManager.setBacklight()` is the addon wrapper of exactly that call.
+ *  3. `TvManager.setTvosInterfaceCommand("Menu_BackLight=<value>")` to notify TVOS.
+ *
+ * Reading is `ContentResolver.query(..., {"backlight"})`. The provider is exported with no
+ * permission, so a launcher can use the same path. `getBacklight()` returns the MStar register
+ * (6912..33280), NOT a percentage, so it is only useful as a log-side confirmation of step 2.
+ *
+ * This is a SEPARATE object from [TclPicture]: existing TCL sets that ship com.tcl.settings keep
+ * using their graphic-backlight branch above, exactly as before this adaptation.
+ */
+private object TclMs901Picture {
+    private const val TAG = "AerialBrightness"
+    private const val MANAGER = "com.tcl.tvmanager.TTvPictureManager"
+    private const val TV_MANAGER = "com.mstar.android.tvapi.common.TvManager"
+    private const val URI = "content://com.tcl.tv.sys.SYSPicSettings/pic_settings"
+    private const val COLUMN = "backlight"
+    private const val PREFS = "settings"
+    private const val KEY = "tcl_ms901_backlight" // fallback only, when the provider is unavailable
+
+    /** True only when the firmware's own brightness store and picture SDK are both usable. */
+    fun available(context: Context): Boolean = runCatching {
+        val c = Class.forName(MANAGER)
+        c.getMethod("getInstance", Context::class.java)
+        c.getMethod("setBacklight", Int::class.javaPrimitiveType)
+        // Only claim this TV when its store answers with a 0..100 percentage; other TCL boards
+        // have no such provider and must keep using the generic brightness path.
+        read(context)?.let { it in 0..100 } ?: false
+    }.getOrDefault(false)
+
+    private fun read(context: Context): Int? {
+        val cursor = runCatching {
+            context.contentResolver.query(Uri.parse(URI), arrayOf(COLUMN), null, null, null)
+        }.getOrNull() ?: return null
+        return runCatching {
+            try {
+                if (!cursor.moveToFirst()) null
+                else cursor.getColumnIndex(COLUMN).takeIf { it >= 0 }?.let { cursor.getInt(it) }
+            } finally {
+                cursor.close()
+            }
+        }.getOrNull()
+    }
+
+    private fun manager(context: Context): Any? = runCatching {
+        val get = Class.forName(MANAGER).getMethod("getInstance", Context::class.java)
+        // Some builds keep the Context, others (verified here) accept null. Try both.
+        runCatching { get.invoke(null, context.applicationContext) }.getOrNull()
+            ?: get.invoke(null, *arrayOfNulls<Any>(1))
+    }.getOrNull()
+
+    /** Register value, for the log only - never a percentage. */
+    private fun rawBacklight(context: Context): Int? = runCatching {
+        val pm = manager(context) ?: return null
+        pm.javaClass.getMethod("getBacklight").invoke(pm) as? Int
+    }.getOrNull()
+
+    /** The TV's own brightness setting, 0..100; sharedPreferences only if the provider is down. */
+    fun level(context: Context): Int =
+        (read(context) ?: context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getInt(KEY, 50))
+            .coerceIn(0, 100)
+
+    fun setBacklight(context: Context, percent: Int) {
+        val value = percent.coerceIn(1, 100)
+
+        // 1. Persist exactly where SYSBackLightOperation.updateDB() writes.
+        val rows = runCatching {
+            context.contentResolver.update(
+                Uri.parse(URI), ContentValues().apply { put(COLUMN, value) }, null, null
+            )
+        }.onFailure { Log.w(TAG, "update pic_settings failed", it) }.getOrDefault(0)
+
+        // 2. Apply to the panel now (SetBacklightDispaly -> PictureManager.setBacklight).
+        val pm = manager(context)
+        if (pm != null) runCatching {
+            pm.javaClass.getMethod("setBacklight", Int::class.javaPrimitiveType).invoke(pm, value)
+        }.onFailure { Log.w(TAG, "setBacklight failed", it) }
+
+        // 3. Same TVOS notification the settings page sends from SetBacklight2DBC().
+        runCatching {
+            val tv = Class.forName(TV_MANAGER).getMethod("getInstance").invoke(null)
+            tv.javaClass.getMethod("setTvosInterfaceCommand", String::class.java)
+                .invoke(tv, "Menu_BackLight=$value")
+        }.onFailure { Log.w(TAG, "Menu_BackLight notify failed", it) }
+
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putInt(KEY, value).apply()
+        Log.i(TAG, "TCL backlight=$value (db rows=$rows, panel=${rawBacklight(context)})")
     }
 }
 
