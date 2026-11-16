@@ -57,9 +57,16 @@ private class LatestBringIntoViewNode(var scroll: ScrollState) : Modifier.Node()
                         ?: throw CancellationException("Bring-into-view target no longer has bounds")
                     // Forward the original bounds (including Group's note), changing only their
                     // coordinate space, exactly as BringIntoViewResponder does.
-                    childRect.translate(
+                    val rect = childRect.translate(
                         coordinates.localBoundingBoxOf(childCoordinates, clipBounds = false).topLeft,
                     )
+                    // Group's note can stretch a row's request past the sheet's height. Without
+                    // the TV pivot (no FEATURE_LEANBACK: Tmall MagicBox M13, Android 5.1, and the
+                    // Android 5.0 emulator), Compose does not scroll to a request that covers the
+                    // whole viewport, so a row reached with Up stayed above the screen (issue
+                    // #1563). Keep its top in view; the note may then stay below.
+                    val viewport = scroll.viewportSize
+                    if (viewport > 0 && rect.height > viewport) rect.copy(bottom = rect.top + viewport) else rect
                 }
             }
         } finally {
