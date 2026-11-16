@@ -11,6 +11,7 @@
     <string name="cc_settings">Настройки</string>
     <string name="cc_volume">Громкость</string>
     <string name="cc_muted">Звук выключен</string>
+    <string name="cc_volume_external">На аудиосистеме</string>
     <string name="cc_home_default">Aerial — ваш главный экран</string>
     <string name="cc_home_guarded">Home Guard включён</string>
     <string name="cc_home_not_default">Не главный экран по умолчанию</string>

@@ -11,6 +11,7 @@
     <string name="cc_settings">Налаштування</string>
     <string name="cc_volume">Гучність</string>
     <string name="cc_muted">Звук вимкнено</string>
+    <string name="cc_volume_external">На аудіосистемі</string>
     <string name="cc_home_default">Aerial — ваш головний екран</string>
     <string name="cc_home_guarded">Home Guard увімкнено</string>
     <string name="cc_home_not_default">Не головний екран за замовчуванням</string>

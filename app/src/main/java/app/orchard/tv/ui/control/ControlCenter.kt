@@ -723,10 +723,16 @@ private fun SliderRow(
 @Composable
 private fun VolumeRow(vm: HomeViewModel, returnTo: FocusRequester) {
     val volume = vm.volume
+    // A sound system over HDMI-CEC holds the volume; the TV's own level stands still, so neither
+    // it nor its mute is shown, and the steps still go to the sound system (issue #1562).
     SliderRow(
-        glyph = if (volume.muted) Glyph.SpeakerMuted else Glyph.Speaker,
-        level = if (volume.muted) 0f else volume.fraction,
-        value = if (volume.muted) stringResource(R.string.cc_muted) else volume.level.toString(),
+        glyph = if (volume.muted && !volume.external) Glyph.SpeakerMuted else Glyph.Speaker,
+        level = if (volume.muted || volume.external) 0f else volume.fraction,
+        value = when {
+            volume.external -> stringResource(R.string.cc_volume_external)
+            volume.muted -> stringResource(R.string.cc_muted)
+            else -> volume.level.toString()
+        },
         steps = volume.max,
         onStep = vm::adjustVolume,
         modifier = Modifier.focusProperties { up = returnTo },

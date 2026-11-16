@@ -37,7 +37,8 @@ fun ConnectivityManager.currentNetwork(): Network? {
 /** [vpn]: a VPN is up, shown beside the network as iOS does (issue #809). */
 data class NetworkStatus(val kind: NetKind = NetKind.Offline, val name: String? = null, val level: Float = 1f, val vpn: Boolean = false)
 
-data class VolumeStatus(val level: Int = 0, val max: Int = 100, val muted: Boolean = false) {
+/** [external]: the steps go to a sound system over HDMI-CEC and [level] says nothing (issue #1562). */
+data class VolumeStatus(val level: Int = 0, val max: Int = 100, val muted: Boolean = false, val external: Boolean = false) {
     val fraction: Float get() = if (max == 0) 0f else level / max.toFloat()
 }
 
@@ -119,8 +120,23 @@ object SystemProbe {
             level = am.getStreamVolume(AudioManager.STREAM_MUSIC),
             max = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC),
             muted = if (Build.VERSION.SDK_INT >= 23) am.isStreamMute(AudioManager.STREAM_MUSIC) else legacyMuted,
+            external = externalVolume,
         )
     }
+
+    /** Steps in a row that left the level where it was; see [stuckStep]. */
+    private var stuckSteps = 0
+    @Volatile private var externalVolume = false
+
+    /**
+     * Whether a step from [before] to [after] went somewhere else: the level stayed though it was
+     * not at the end it moved towards and not muted. Sony BRAVIA AE2 (Android 14) with an eARC
+     * soundbar under System Audio Control turns each step into a CEC volume key and keeps
+     * STREAM_MUSIC at 7, so the row showed 7 while the soundbar moved (issue #1562, the reporter's
+     * TV: three steps, three CEC "Volume up", the level still 7).
+     */
+    internal fun stuckStep(before: Int, after: Int, max: Int, muted: Boolean, direction: Int): Boolean =
+        before == after && !muted && (if (direction > 0) before < max else before > 0)
 
     /** Android 5.x has no way to read the mute state, so remember what Aerial last set. */
     private var legacyMuted = false
@@ -146,6 +162,20 @@ object SystemProbe {
     fun adjustVolume(context: Context, direction: Int, fromKey: Boolean = false, showUi: Boolean = false) {
         val am = context.getSystemService<AudioManager>() ?: return
         val flags = volumeFlags(context, fromKey, showUi)
+        val before = runCatching { am.getStreamVolume(AudioManager.STREAM_MUSIC) }.getOrNull()
+        stepVolume(am, direction, flags)
+        if (before != null) runCatching {
+            val after = am.getStreamVolume(AudioManager.STREAM_MUSIC)
+            val muted = Build.VERSION.SDK_INT >= 23 && am.isStreamMute(AudioManager.STREAM_MUSIC)
+            // Two in a row, so one step the firmware held back for its own reasons does not count.
+            stuckSteps = if (stuckStep(before, after, am.getStreamMaxVolume(AudioManager.STREAM_MUSIC), muted, direction)) stuckSteps + 1 else 0
+            val external = stuckSteps >= 2 || (externalVolume && before == after)
+            if (external != externalVolume) DiagLog.i("volume: steps ${if (external) "go to a sound system; the level stays at $after" else "move the level again"}")
+            externalVolume = external
+        }
+    }
+
+    private fun stepVolume(am: AudioManager, direction: Int, flags: Int) {
         try {
             am.adjustStreamVolume(
                 AudioManager.STREAM_MUSIC,
