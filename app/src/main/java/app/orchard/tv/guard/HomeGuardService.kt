@@ -411,6 +411,12 @@ class HomeGuardService : AccessibilityService() {
      */
     private var sawScreenEvent = false
 
+    /** The event that set [sawScreenEvent] while locked, for the diagnostics (issue #1391). */
+    private var firstLockedScreenEvent: String? = null
+
+    /** The locked-boot start was looked at and held back; written to DiagLog once. */
+    private var bootBlackHeldLogged = false
+
     /**
      * Whether another enabled service filters keys without being marked default (flagDefault), up
      * to Android 6. There a key goes to one service only: AccessibilityManagerService
@@ -498,10 +504,20 @@ class HomeGuardService : AccessibilityService() {
                     bootBlackStarted = true
                     DiagLog.i("guard: still locked, boot animation gone and no window ever; starting Aerial")
                     runCatching { startActivity(MainActivity.bringBackIntent(this@HomeGuardService)) }
-                        .onFailure { Log.w(TAG, "could not start Aerial on a locked boot", it) }
+                        .onFailure {
+                            Log.w(TAG, "could not start Aerial on a locked boot", it)
+                            DiagLog.i("guard: could not start Aerial on a locked boot: ${it.javaClass.simpleName}")
+                        }
                 }
             } else {
                 bootBlackStalls = 0
+                // Why not, once, where logcat cannot be read: XGIMI RS Pro 2 (pig_chivalrous,
+                // Android 9) stayed black on 1.98 with the guard bound and the boot animation gone,
+                // and nobody could tell which condition held the start back (issue #1391).
+                if (!bootBlackStarted && !bootBlackHeldLogged && !screenOff && bootAnimRaw()?.trim() == "stopped") {
+                    bootBlackHeldLogged = true
+                    DiagLog.i("guard: locked boot, boot animation gone; start held back: screenEvent=${firstLockedScreenEvent ?: sawScreenEvent} window=${lastWindow?.first} aerialResumed=$aerialResumed")
+                }
             }
             if (SystemClock.elapsedRealtime() - unlockPolledSince < UNLOCK_POLL_FOR_MS) handler.postDelayed(this, UNLOCK_POLL_MS)
         }
@@ -1888,7 +1904,10 @@ class HomeGuardService : AccessibilityService() {
 
     override fun onAccessibilityEvent(event: AccessibilityEvent) {
         sawEvent = true
-        if (!event.className?.toString().orEmpty().contains("Dialog", ignoreCase = true)) sawScreenEvent = true
+        if (!event.className?.toString().orEmpty().contains("Dialog", ignoreCase = true)) {
+            if (!sawScreenEvent && unlockPending) firstLockedScreenEvent = "${event.packageName}/${event.className}"
+            sawScreenEvent = true
+        }
         deafAfterHome = false
         windowsSeen++
         if (event.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
