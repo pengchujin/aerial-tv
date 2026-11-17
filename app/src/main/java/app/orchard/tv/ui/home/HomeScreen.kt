@@ -574,6 +574,7 @@ fun HomeScreen(
         val maxScroll = with(density) { metrics.scrollFor(rows - 1, rows).toPx() }.coerceAtLeast(0f)
         LaunchedEffect(maxScroll) { scroll.updateBounds(0f, maxScroll) }
         val pastShelf by remember(collapsePx) { derivedStateOf { scroll.value > collapsePx / 2 } }
+        val showDeviceStats = windowFocused && gridEnabled && !inGrid && !pastShelf && !vm.screensaverVisible
         val decay = rememberSplineBasedDecay<Float>()
         LaunchedEffect(target, dragged) {
             if (dragged) return@LaunchedEffect
@@ -774,6 +775,7 @@ fun HomeScreen(
                         toSaver = { clockToSaver.value },
                         saving = vm.screensaverVisible,
                         away = carrying,
+                        showDeviceStats = showDeviceStats,
                     )
                 } else if (!clockRight) {
                     CornerClock(
@@ -787,6 +789,7 @@ fun HomeScreen(
                             },
                         toSaver = { toSaver.value },
                         saving = vm.screensaverVisible,
+                        showDeviceStats = showDeviceStats,
                     )
                 }
 
@@ -885,7 +888,11 @@ fun HomeScreen(
                 .align(Alignment.TopEnd)
                 .padding(top = 28.dp, end = metrics.margin - 14.dp)
                 .graphicsLayer { alpha = if (overlay is Overlay.ControlCenter) 0f else 1f },
-            verticalAlignment = Alignment.CenterVertically,
+            verticalAlignment = if (!AerialSettings.largeClock && AerialSettings.clockRight && showDeviceStats) {
+                Alignment.Top
+            } else {
+                Alignment.CenterVertically
+            },
         ) {
             if (!AerialSettings.largeClock && AerialSettings.clockRight) {
                 CornerClock(
@@ -899,6 +906,7 @@ fun HomeScreen(
                         },
                     toSaver = { toSaver.value },
                     saving = vm.screensaverVisible,
+                    showDeviceStats = showDeviceStats,
                 )
             }
             StatusPill(

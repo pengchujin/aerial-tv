@@ -639,6 +639,7 @@ fun ShelfClock(
     saving: Boolean = false,
     /** The screensaver is carrying Home's wallpaper on: the date and weather go before the time moves. */
     away: Boolean = false,
+    showDeviceStats: Boolean = false,
 ) {
     val drift = heldDrift(saving, now)
     val shadow = Shadow(Color.Black.copy(alpha = 0.28f), Offset(0f, 2f), blurRadius = 18f)
@@ -695,6 +696,10 @@ fun ShelfClock(
                 )
             }
         }
+        if (showDeviceStats) DeviceStatsLine(
+            style = Type.ClockDetail.copy(fontSize = 14.sp, shadow = shadow),
+            modifier = aside.padding(top = 12.dp),
+        )
     }
 }
 
@@ -769,12 +774,18 @@ private fun conditionName(kind: WeatherKind): Int = when (kind) {
 }
 
 /**
- * The small clock: the time and the weather in one quiet line in the top left, level with the status
- * pill, so the wallpaper keeps the rest of the screen. A soft shadow keeps it readable on photos.
+ * The small clock: the time and the weather level with the status pill, with device stats below.
+ * A soft shadow keeps them readable on photos.
  * No date: tried for issue #104, the owner found the line too busy (2026-11-08).
  */
 @Composable
-fun CornerClock(now: LocalDateTime, modifier: Modifier = Modifier, toSaver: () -> Float = { 0f }, saving: Boolean = false) {
+fun CornerClock(
+    now: LocalDateTime,
+    modifier: Modifier = Modifier,
+    toSaver: () -> Float = { 0f },
+    saving: Boolean = false,
+    showDeviceStats: Boolean = false,
+) {
     val drift = heldDrift(saving, now)
     val dim = Color.White.copy(alpha = 0.92f)
     val shadow = Shadow(Color.Black.copy(alpha = 0.5f), blurRadius = 8f)
@@ -783,16 +794,19 @@ fun CornerClock(now: LocalDateTime, modifier: Modifier = Modifier, toSaver: () -
         alpha = 1f - (toSaver() * 2.5f).coerceIn(0f, 1f)
         compositingStrategy = CompositingStrategy.ModulateAlpha
     }
-    Row(modifier.height(34.dp), verticalAlignment = Alignment.CenterVertically) {
-        BasicText(
-            timeText(now), style = Type.SmallClock.copy(fontSize = Type.Title.fontSize, color = dim, shadow = shadow),
-            modifier = Modifier.toSaverClock(toSaver, Type.Title.fontSize, Type.Title.fontSize.value.dp * CAP_TOP, drift),
-        )
-        Weather.now?.takeIf { AerialSettings.showWeather }?.let { w ->
-            GlyphIcon(glyphFor(w), dim, 18.dp, aside.padding(start = 16.dp, end = 6.dp))
-            val place = Weather.place?.takeIf { it.length <= 12 }
-            BasicText(listOfNotNull(place, stringResource(R.string.weather_temperature, w.celsius)).joinToString(" "), style = Type.Headline.copy(color = dim, shadow = shadow), modifier = aside)
+    Column(modifier, horizontalAlignment = if (AerialSettings.clockRight) Alignment.End else Alignment.Start) {
+        Row(Modifier.height(34.dp), verticalAlignment = Alignment.CenterVertically) {
+            BasicText(
+                timeText(now), style = Type.SmallClock.copy(fontSize = Type.Title.fontSize, color = dim, shadow = shadow),
+                modifier = Modifier.toSaverClock(toSaver, Type.Title.fontSize, Type.Title.fontSize.value.dp * CAP_TOP, drift),
+            )
+            Weather.now?.takeIf { AerialSettings.showWeather }?.let { w ->
+                GlyphIcon(glyphFor(w), dim, 18.dp, aside.padding(start = 16.dp, end = 6.dp))
+                val place = Weather.place?.takeIf { it.length <= 12 }
+                BasicText(listOfNotNull(place, stringResource(R.string.weather_temperature, w.celsius)).joinToString(" "), style = Type.Headline.copy(color = dim, shadow = shadow), modifier = aside)
+            }
         }
+        if (showDeviceStats) DeviceStatsLine(Type.Caption.copy(color = dim, shadow = shadow), aside)
     }
 }
 
