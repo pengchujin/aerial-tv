@@ -3,6 +3,7 @@ package app.orchard.tv.lite
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.os.SystemClock
 import android.util.Log
 import java.lang.reflect.Modifier
@@ -38,7 +39,10 @@ import java.lang.reflect.Modifier
  * The restore is NOT unconditional (PR #1556 review): on another TCL MStar board CEC may have
  * selected HDMI at boot, or the viewer may have used the remote's input key, and Lite must not
  * undo a choice it never made. backToStorage() therefore only restores a port Lite itself set,
- * and only while that port is still selected.
+ * and only while that port is still selected. The one exception is a firmware whose Android
+ * picture/audio lives on STORAGE (MS901: without it a video app is silent while the external
+ * input keeps playing in the background); that firmware is detected by capability - its own
+ * pic_settings brightness store plus its com.tcl.mstar.settings pages - not by model string.
  *
  * Enum constants are looked up by NAME, never by ordinal: the order differs between firmwares.
  */
@@ -54,6 +58,12 @@ internal object TclMs901Sources {
     private val ACTION_PANEL = "com.tcl.intent.action.CHOOSE_SOURCE"
     private val PANEL = ComponentName("com.tcl.tv", "com.tcl.insrc.InSrcActivity")
     private val TV_ACTIVITY = ComponentName("com.tcl.tv", "com.tcl.tv.TVActivity")
+    // The same two firmware features upstream's TclMs901Picture / TclMs901Pages use. Together
+    // they identify the STORAGE-backed Android picture without ever naming a model.
+    private const val PIC_SETTINGS = "content://com.tcl.tv.sys.SYSPicSettings/pic_settings"
+    private val MS901_NETWORK_PAGE = ComponentName(
+        "com.tcl.mstar.settings", "com.tcl.mstar.settings.NetworkSettingsActivity"
+    )
     private const val EXTRA_SOURCE = "app.orchard.tv.lite.TCL_SOURCE"
 
     /**
@@ -71,6 +81,9 @@ internal object TclMs901Sources {
     /** The port Lite itself set, and therefore the only one Home is allowed to restore. */
     @Volatile
     private var switchedByUs: String? = null
+
+    @Volatile
+    private var androidNeedsStorageCached: Boolean? = null
 
     /**
      * An explicit Home key always wins over the short "just switched" hold: otherwise pressing
@@ -259,6 +272,11 @@ internal object TclMs901Sources {
      *  - Lite switched to a port: restore STORAGE, but only while that same port is still
      *    selected. If the viewer or CEC moved on to another input afterwards, keep theirs.
      *
+     * The one exception is a firmware whose Android picture and audio live on STORAGE: on MS901
+     * a video app is silent while the external input keeps playing in the background if Home
+     * returns with anything else selected. androidNeedsStorage() recognises that firmware by
+     * capability, and only there an outside switch is restored as well.
+     *
      * The brief hold after an explicit switch is kept for the firmware's own focus bounce:
      * HomeActivity.onResume can fire before the TV screen appears, and an explicit HOME clears
      * that hold in homeRequested().
@@ -270,7 +288,8 @@ internal object TclMs901Sources {
             return true
         }
         val ours = switchedByUs
-        if (ours == null) {
+        val always = androidNeedsStorage(context)
+        if (ours == null && !always) {
             Log.i(TAG, "no Lite-initiated input switch; leaving the input alone")
             return false
         }
@@ -280,7 +299,7 @@ internal object TclMs901Sources {
             switchedByUs = null
             return true
         }
-        if (current != ours) {
+        if (!always && current != ours) {
             Log.i(TAG, "input is now $current (Lite set $ours); leaving the viewer's choice alone")
             switchedByUs = null
             return false
@@ -289,6 +308,28 @@ internal object TclMs901Sources {
         val ok = set(context, "EN_TCL_STORAGE")
         if (ok) switchedByUs = null
         return ok
+    }
+
+    /**
+     * Capability check, not a model string: MS901's system settings keep brightness in this
+     * provider (the same store upstream's TclMs901Picture guards on) and expose the network page
+     * TclMs901Pages opens. Boards answering neither get the strict "only restore what Lite
+     * switched" rule. Cached because HomeActivity calls this from a worker on every resume.
+     */
+    private fun androidNeedsStorage(context: Context): Boolean {
+        androidNeedsStorageCached?.let { return it }
+        val result = runCatching {
+            val store = context.contentResolver.query(
+                Uri.parse(PIC_SETTINGS), arrayOf("backlight"), null, null, null
+            )?.use { c -> c.moveToFirst() && c.getColumnIndex("backlight") >= 0 } == true
+            val pages = runCatching {
+                context.packageManager.getActivityInfo(MS901_NETWORK_PAGE, 0)
+            }.isSuccess
+            store && pages
+        }.onFailure { Log.d(TAG, "not the STORAGE-backed firmware", it) }.getOrDefault(false)
+        androidNeedsStorageCached = result
+        Log.i(TAG, "Android picture/audio lives on STORAGE here: $result")
+        return result
     }
 
     /** The current input's enum name, for the log and for the resume comparison. */
