@@ -4,6 +4,10 @@
 
 ## 现状（2026-11-17）
 
+- **2.0（versionCode 148），Lite 1.32（34），2026-11-17 发布**（[v2.0](https://github.com/pengchujin/aerial-tv/releases/tag/v2.0)）：屏保地点开关（#1583）和下面这轮巡检的全部修复，加上小米 keep_adb 修复。版本名用 2.0 而不是 1.100（1.100 看起来比 1.99 旧；`Updates.newer` 按数字逐段比，2.0 > 1.99）。官网已部署，三个包字节数和 Release 一致，version.txt = v2.0；给 #1580 #1588 #1599 #1584 #1569 #1583 贴了复测链接，PR #1587 发版后关闭。
+  - **keep_adb（户主的小米 MFTR0）**：这台的 `keep_adb` 早就变成 false（多半是 1.89–1.97 的 #1537 那个误判），所以每次唤醒固件关掉 ADB 后没人打开。另外这台待机时进程和守护绑定可能一直活着，唤醒时固件关 ADB 比 SCREEN_ON 先到，`screenOnAt` 还是上次亮屏，「亮屏多久」算成几小时，就会把它当成用户关的、结束 keep_adb。改成：守护记着屏幕已灭（`screenOff`）时，ADB 被关不算用户关的；`ensureAdb` 打开 ADB 时写 DiagLog（小米的 logcat 几分钟就被刷掉）。验证：装 2.0 后用 ConfigReceiver 重新打开户主这台的 keep_adb，`KEYCODE_SLEEP` 待机（这台待机时网络断开），户主遥控器开机：DiagLog `15:32:10 guard: ADB had been switched off; turned it back on (keep_adb)`，端口 5555 开着，keep_adb 仍是 true。注意这次唤醒走的是「待机被杀、复活」路径（`revival: ... guard unbound`），守护整段待机都绑着的那条路径这次没有走到。
+  - 两台回归：小米（install-multiple + 31.dm，speed-profile / install-dm）从小米设置按主页键 1 秒内回 Aerial，信号源列出 HDMI 1/2 等，按返回进屏保、按键退出；TCL（多屏互动推 148，确认焦点在「同意」，compile speed）主页键 2 秒内回、信号源键弹 TCL 面板。
+
 - **2026-11-17 全量巡检**（记录 `local/triage/2026-11-17-full.md`，回复 `replies-2026-11-17.py`）：332 issue / 67 PR，最后是用户发言的 35 个新条目逐个读过。main 上未发版的改动（都在 1.99 之后，和「屏保地点开关」一起发）：
   - **#1580 信号源键**（飞利浦 TV838，MStar，安卓 6）：没有安卓信号源列表时，首页按遥控器信号源键和控制中心「信号源」按钮一样先 `openInputPicker`（固件面板），打不开才显示「信号源」页；`firmwareInputPanel`（TCL、酷开）不变。Lite 本来不接这个键，没改。
   - **#1588 Lite 时钟**（安卓 4.4 盒子）：Lite 监听 `TIME_SET` / `TIMEZONE_CHANGED`，立刻刷新桌面、屏保和控制中心的时间；控制中心开着时每分钟刷新。完整版本来就听。
