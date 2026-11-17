@@ -1088,6 +1088,16 @@ class HomeGuardService : AccessibilityService() {
         val stoppedOverStock = Build.VERSION.SDK_INT >= 24 && SystemClock.elapsedRealtime() >= BOOT_WINDOW_MS &&
             SystemClock.elapsedRealtime() - Process.getStartElapsedRealtime() < 60_000 &&
             GuardSetup.stockHomeSinceHomeLeft(this) && GuardSetup.stockHomeSeenWithin(this, STOPPED_OVER_STOCK_MS)
+        // Stopped by the firmware in the same moment the stock launcher came up, before the guard
+        // could see it: Dangbei Z1 Pro (DBZ1 Pro, w400, Android 9) force-stops every third-party
+        // app on the Home press's CLOSE_SYSTEM_DIALOGS, and when the notification listener brought
+        // the process back 10 s later nothing above held (no window had been seen), so Home stayed
+        // on Dangbei's launcher until the next window change (issue #1584, the reporter's log).
+        // Usage stats saying a stock launcher is in front are enough; the take-over looks again.
+        val stockFrontByUsage = Build.VERSION.SDK_INT >= 24 && SystemClock.elapsedRealtime() >= BOOT_WINDOW_MS &&
+            SystemClock.elapsedRealtime() - Process.getStartElapsedRealtime() < 60_000 && !justUpdated() &&
+            frontByUsage()?.first?.let { it in stockHomes } == true
+        if (stockFrontByUsage) DiagLog.i("guard: bound in a new process with the stock launcher in front by usage stats")
         // Revived with the screen off (standby): the screen-on check takes over at wake.
         // Not gated on being the default Home: Skyworth/Coolita (8R145, Android 11) starts its own
         // launcher at boot whatever Home resolves to (issue #43). The take-over looks first, and
@@ -1095,7 +1105,7 @@ class HomeGuardService : AccessibilityService() {
         // Bound with the screen already lit and SCREEN_ON missed: this binding is the wake itself.
         val wokeUnseen = boundAwakeAt > 0 && SystemClock.elapsedRealtime() >= BOOT_WINDOW_MS && recoveryWindow()
         if (!fastBootTakeOver && !appLeftInFront &&
-            (SystemClock.elapsedRealtime() < BOOT_WINDOW_MS || revived || diedInFront || stoppedOverStock || wokeUnseen) &&
+            (SystemClock.elapsedRealtime() < BOOT_WINDOW_MS || revived || diedInFront || stoppedOverStock || wokeUnseen || stockFrontByUsage) &&
             getSystemService<PowerManager>()?.isInteractive == true
         ) {
             takeOverOnceSettled(
@@ -1104,11 +1114,12 @@ class HomeGuardService : AccessibilityService() {
                     diedInFront -> "back after Aerial died in front"
                     stoppedOverStock -> "back after Aerial was stopped over the stock launcher"
                     wokeUnseen -> "bound after the screen lit"
+                    stockFrontByUsage -> "bound with the stock launcher in front"
                     else -> "bound shortly after boot"
                 },
                 // Back from standby or a boot, not from a crash: the moment to open the input
                 // the owner wants the TV to start on.
-                woke = (!diedInFront && !stoppedOverStock) || revived,
+                woke = (!diedInFront && !stoppedOverStock && !stockFrontByUsage) || revived,
             )
             if (SystemClock.elapsedRealtime() < BOOT_WINDOW_MS) scheduleBootRechecks()
         }
