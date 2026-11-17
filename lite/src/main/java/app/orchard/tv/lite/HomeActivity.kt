@@ -87,6 +87,10 @@ class HomeActivity : Activity(), HomeView.Host {
         })
         @Suppress("DEPRECATION")
         registerReceiver(connectivity, IntentFilter(ConnectivityManager.CONNECTIVITY_ACTION))
+        registerReceiver(clockSet, IntentFilter().apply {
+            addAction(Intent.ACTION_TIME_CHANGED)
+            addAction(Intent.ACTION_TIMEZONE_CHANGED)
+        })
         if (savedInstanceState == null && SystemClock.elapsedRealtime() < 3 * 60 * 1000L) openBootApp()
     }
 
@@ -102,6 +106,7 @@ class HomeActivity : Activity(), HomeView.Host {
         Kids.onNotice = {}
         unregisterReceiver(packages)
         unregisterReceiver(connectivity)
+        unregisterReceiver(clockSet)
         hideSaver()
         proxy.stop()
         PhoneServer.stop()
@@ -205,7 +210,22 @@ class HomeActivity : Activity(), HomeView.Host {
     // ---- loading ----
 
     /** "My Photos, in turn" on to its next photo when due: on coming back to Home and each minute while up. */
-    override fun minute() { if (resumed && Wallpapers.rotationDue()) loadBackdrop() }
+    override fun minute() {
+        panels.forEach { (it as? ControlCenter)?.refreshTime() }
+        if (resumed && Wallpapers.rotationDue()) loadBackdrop()
+    }
+
+    /**
+     * The TV's clock set, or its time zone: a box that boots at 8:00 on 1 January and sets the
+     * time from the network a while later kept 8:00 on Home until the next minute's tick (Android
+     * 4.4 box, Lite 1.30, issue #1588). The full app listens the same way (HomeChrome).
+     */
+    private val clockSet = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            home.refreshClock()
+            saver?.refreshTime()
+        }
+    }
 
     private fun loadBackdrop() {
         work.execute {

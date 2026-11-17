@@ -127,6 +127,16 @@ class ControlCenter(
     private val audio = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
     private val col = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL; setPadding(Ui.pxi(16f), Ui.pxi(16f), Ui.pxi(16f), Ui.pxi(16f)) }
 
+    /** The time and date at the top, kept current while the panel is open (issue #1588). */
+    private var timeLabel: TextView? = null
+    private var dateLabel: TextView? = null
+
+    /** Called by Home on the minute and when the TV's clock is set. */
+    fun refreshTime() {
+        timeLabel?.text = timeText(context)
+        dateLabel?.text = dateText()
+    }
+
     init {
         // The veil over Home: the full app's 45% black.
         addView(View(context).apply { setBackgroundColor(0x73000000) }, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
@@ -154,8 +164,8 @@ class ControlCenter(
 
     /** Kids and Elders mode's page, as the full app's KidsPage: the time, volume, the day's time left, leaving. */
     private fun kidsMain() {
-        col.add(context.label(timeText(context), 27.3f, 600, spacingEm = 0.05f))
-        col.add(context.label(dateText(), 13f, 500, Ui.SECONDARY), top = 4f)
+        col.add(context.label(timeText(context), 27.3f, 600, spacingEm = 0.05f).also { timeLabel = it })
+        col.add(context.label(dateText(), 13f, 500, Ui.SECONDARY).also { dateLabel = it }, top = 4f)
         kidsTimeLine(context)?.let { col.add(context.label(it, 13f, 500, Ui.SECONDARY), top = 6f) }
         // A box or stick with its volume fixed has no sound level of its own (OutputDevice, #1307).
         val volume = if (OutputDevice.showsVolume(context)) volumeRow() else null
@@ -171,8 +181,8 @@ class ControlCenter(
         // The time (Type.SmallClock at LargeTitle × 1.05) and date (Callout); the network on the right.
         val head = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.BOTTOM }
         val times = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
-        times.addView(context.label(timeText(context), 27.3f, 600, spacingEm = 0.05f))
-        times.add(context.label(dateText(), 13f, 500, Ui.SECONDARY), top = 4f)
+        times.addView(context.label(timeText(context), 27.3f, 600, spacingEm = 0.05f).also { timeLabel = it })
+        times.add(context.label(dateText(), 13f, 500, Ui.SECONDARY).also { dateLabel = it }, top = 4f)
         head.addView(times, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
         val (netGlyph, netName, netLevel, netVpn) = network(context)
         val net = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }

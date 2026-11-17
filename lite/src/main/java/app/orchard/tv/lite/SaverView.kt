@@ -77,6 +77,15 @@ class SaverView(context: Context, mode: ScreensaverMode, private val proxy: Film
         }
     }
 
+    /** The TV's clock was set: the time now, the next tick on the new minute (issue #1588). */
+    fun refreshTime() {
+        handler.removeCallbacks(tick)
+        time.text = timeText(context)
+        clock?.refresh()
+        val now = System.currentTimeMillis()
+        handler.postDelayed(tick, 60_000 - now % 60_000 + 50)
+    }
+
     init {
         setBackgroundColor(0xFF000000.toInt())
         keepScreenOn = true
