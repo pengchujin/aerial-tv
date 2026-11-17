@@ -224,6 +224,7 @@ class HomeActivity : Activity(), HomeView.Host {
         override fun onReceive(context: Context, intent: Intent) {
             home.refreshClock()
             saver?.refreshTime()
+            panels.forEach { (it as? ControlCenter)?.refreshTime() }
         }
     }
 
