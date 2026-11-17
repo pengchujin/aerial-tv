@@ -152,6 +152,7 @@
     <string name="st_sounds_aerial">Aerial</string>
     <string name="st_on">Қосулы</string>
     <string name="st_off">Өшірулі</string>
+    <string name="st_temperature">Температура</string>
     <string name="st_hidden_apps">Жасырын қолданбалар</string>
     <string name="st_hidden_apps_hint">Басты экраннан жасырылған қолданбалар қайтару үшін осында сақталады. Ата-аналық PIN-код орнатылған болса, алдымен сол сұралады.</string>
     <string name="st_home_lock">Экранды бекіту</string>
@@ -233,6 +234,8 @@
     <string name="weather_thunder">Найзағай</string>
     <string name="weather_temperature">%1$d°</string>
     <string name="weather_high_low">Макс.: %1$d°  Мин.: %2$d°</string>
+    <string name="weather_temperature_f">%1$d°</string>
+    <string name="weather_high_low_f">Макс.: %1$d°  Мин.: %2$d°</string>
     <string name="st_columns">Қатардағы қолданбалар</string>
     <string name="st_columns_hint">Басты экранда және қалталарда бір қатарға қанша қолданба сыяды. Алты — бірден көбірек көрінеді; төрт — үлкенірек, алыстан жақсы көрінеді.</string>
     <string name="st_peek">Екінші қатар</string>

@@ -160,6 +160,7 @@
     <string name="st_sounds_aerial">Aerial</string>
     <string name="st_on">On</string>
     <string name="st_off">Off</string>
+    <string name="st_temperature">Temperature</string>
     <string name="st_hidden_apps">Hidden Apps</string>
     <string name="st_hidden_apps_hint">Apps hidden from Home are kept here, to put back. With a parental PIN set, it asks for the PIN first.</string>
     <string name="st_home_lock">Lock Home</string>
@@ -241,6 +242,8 @@
     <string name="weather_thunder">Thunderstorms</string>
     <string name="weather_temperature">%1$d°</string>
     <string name="weather_high_low">H:%1$d°  L:%2$d°</string>
+    <string name="weather_temperature_f">%1$d°</string>
+    <string name="weather_high_low_f">H:%1$d°  L:%2$d°</string>
     <string name="st_columns">Apps per Row</string>
     <string name="st_columns_hint">How many apps fit across Home, and in folders. Six shows more at a glance; four makes them larger, easier to see from across the room.</string>
     <string name="st_peek">Second Row</string>
