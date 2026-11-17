@@ -29,3 +29,10 @@
 
 - 关机流程里固件强停 Aerial，守护还绑着、`android.ui` 线程被 `AutoCancelOptionView` 堵了 1.8 秒时，system_server 在 `ViewRootImpl.sendAccessibilityEvent` 空指针崩溃，光机不亮、要拔电。强停前约 0.5 秒固件发 `com.dangbei.action.STR_SHUTDOWN`（non-protected，普通 App 能收）和 `com.dangs.workmode`（`mode=ScreenOff`）。1.98 起守护收到 `STR_SHUTDOWN` 就 `disableSelf()` 退出列表，亮屏或下次启动再加回。没有用 `com.dangs.workmode`：「关屏」不关机时也可能发它。
 - 1.98 报告人复测仍崩（2026-11-15 时间线）：43.380 退出列表 → 43.784 强停 → 43.815 固件马上按 HOME 把 Aerial 拉起 → 44.283 新进程 `ensureEnabled` 把守护加回 → 45.117 熄屏 → 45.373 崩。也就是「下次启动加回」这一步就在关机途中。main 上（未发版）收到广播时把时间和 boot id 写进存储（`commit`），之后两分钟内、同一次开机里 `ensureEnabled` 不加回，等 SCREEN_ON（清掉记录再加回）；两分钟后没关机就自己加回。当贝的「关机」是 STR 待机，boot id 不变，所以要靠 SCREEN_ON 清记录。没有真机验证。
+- 1.99 报告人复测（2026-11-16）：关机能真正断电，system_server 不再崩，#1497 关闭。
+
+## 当贝智慧盒子 Z1 Pro（DBZ1 Pro，w400 / Amlogic A311D，安卓 9，#1584）
+
+- 按主页键时 system_server 里的 OptEngine-ProcessManagementService 收到 `CLOSE_SYSTEM_DIALOGS` 就强停约 20 个第三方 App（含 Aerial），和当贝桌面出来是同一毫秒；守护和通知监听由系统 1 s / 11 s 后重启，10–16 秒才回 Aerial。
+- 这台固件不把按键交给无障碍服务（`filterHomeAlways` 无效，日志里没有 `filtering keys`）。
+- 偶尔卡在当贝桌面：守护复活时那次窗口变化已经过去，又没看到原桌面出来，不接管。main 上（未发版）新进程里绑定时 usage stats 说原桌面在前台也接管（`guard: bound in a new process with the stock launcher in front by usage stats`），不当作唤醒。TCL MT5879 上模拟（`am start` 原桌面同时强停 Aerial）能拉回，在 App 里强停不会盖住 App；没有当贝真机验证。

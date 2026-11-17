@@ -256,7 +256,7 @@ NanoHTTPD 监听 8790 端口，路径前缀是 8 位随机令牌（每次打开�
 
 控制中心的「是不是默认桌面」单独读、先显示，不和亮度一起等（#892：小米盒子上亮度探测 TvService 卡住，状态一直是初值）。`MitvPanel` 在机顶盒上不探测，同一时间只探一个。
 
-屏保（主屏、AerialDream、Lite）收到「没见过按下的抬起」也退出（#915：酷开 C10 的热键服务吃掉按下、只给抬起）。
+屏保（主屏、AerialDream、Lite）收到「没见过按下的抬起」也退出（#915：酷开 C10 的热键服务吃掉按下、只给抬起）。AerialDream 开始 3 秒内来自无设备（`deviceId` ≤ 0）的返回键不退出（海信 VIDAA 启动屏保时自己发一个，#1599）；adb 的 `input keyevent` 也算无设备。
 
 收到这类 issue：把 JSON 加进 `devices.json`（`models` 填上同型号的两种写法，比如 `MiTV-XXXX0` 和 `MiTV_XXXX0`，`note` 写 issue 号），`DeviceProfileTest` 跑一遍。
 
@@ -364,7 +364,7 @@ NanoHTTPD 监听 8790 端口，路径前缀是 8 位随机令牌（每次打开�
   （装有 `com.jamdeo.tv.vod` 或 `com.hisense.vidaaassistant`）和 TCL、索尼一样不显示滑块、
   打开电视自己的设置：`screen_brightness` 写进去面板不变（#1025 #1130 #1133 #1141）。
 - **设置入口**：优先厂商自己的设置（小米 `com.xiaomi.mitv.settings`）。有的厂商的完整设置是服务弹出的面板，先按服务启动：极米 `SettingService`、康佳 `com.konka.service.SettingService` + `SETTING_MAIN_VIEW`（#771，只在服务导出时用，失败退回 Activity）。
-- **没有信号源时**：`TvInputManager` 一个都不列，先试厂商自己的列表（极米 MStar、小米播放器编号：MiTV4C 和 MiTV3 的 HDMI 1/2 = 23/24、海信、康佳、TCL），还是空的，控制中心「信号源」就打开固件自己的信号源面板（`openInputPicker`：极米设置服务、海信 InputsUIService、TCL 面板、酷开 `SOURCE_DIALOG`、酷开 C10 的 `coocaa.intent.aigc.home.tvsource` 和 SkyMovie 的 `LaunchSourceReceiver` 广播，#779）。最后是乐视 EUI 的 `com.stv.signalsourcemanager/.MainActivity`（X3-55，安卓 5.0.1，没有 tv_input 服务；只能回到上次用的口，不认端口参数，#818 #998，未真机验证；打开前先反射写 `letv.desktop.DesktopManager.setEnabledDesktopTags(["signal"])`，否则它在 `enableSignalDesktop()` 里空指针，X3-50 作者实测，PR #1540）。Lite 的 `SystemIntents` 同样两条。再往后是夏普 Foxconn 面板、创维 42X5 的 `com.android.sky.SendHotKey` 广播（发给 ccosservice 导出的 HotKeyReceiver，带信号源键的 `EXTRA_KEY_EVENT`，排在老酷开 HomeService 前面，因为 42X5 上 HomeService 在但不理这个键，#1419，未真机验证）、老酷开 HomeService（#1272）、MStar tvsetting 的 `.hotkey.InputSourceListViewActivity`（飞利浦 TV838 的信号源面板；那台的 `SOURCE_INFO` 只是一行横幅，#1580）、MStar `SOURCE_INFO`（#1342）。Lite 同样。
+- **没有信号源时**：`TvInputManager` 一个都不列，先试厂商自己的列表（极米 MStar、小米播放器编号：MiTV4C 和 MiTV3 的 HDMI 1/2 = 23/24、海信、康佳、TCL），还是空的，控制中心「信号源」和首页的遥控器信号源键（固件自己不弹面板的电视，#1580）就打开固件自己的信号源面板（`openInputPicker`：极米设置服务、海信 InputsUIService、TCL 面板、酷开 `SOURCE_DIALOG`、酷开 C10 的 `coocaa.intent.aigc.home.tvsource` 和 SkyMovie 的 `LaunchSourceReceiver` 广播，#779）。最后是乐视 EUI 的 `com.stv.signalsourcemanager/.MainActivity`（X3-55，安卓 5.0.1，没有 tv_input 服务；只能回到上次用的口，不认端口参数，#818 #998，未真机验证；打开前先反射写 `letv.desktop.DesktopManager.setEnabledDesktopTags(["signal"])`，否则它在 `enableSignalDesktop()` 里空指针，X3-50 作者实测，PR #1540）。Lite 的 `SystemIntents` 同样两条。再往后是夏普 Foxconn 面板、创维 42X5 的 `com.android.sky.SendHotKey` 广播（发给 ccosservice 导出的 HotKeyReceiver，带信号源键的 `EXTRA_KEY_EVENT`，排在老酷开 HomeService 前面，因为 42X5 上 HomeService 在但不理这个键，#1419，未真机验证）、老酷开 HomeService（#1272）、MStar tvsetting 的 `.hotkey.InputSourceListViewActivity`（飞利浦 TV838 的信号源面板；那台的 `SOURCE_INFO` 只是一行横幅，#1580）、MStar `SOURCE_INFO`（#1342）。Lite 同样。
 
 ## 资源与第三方
 

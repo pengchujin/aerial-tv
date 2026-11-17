@@ -164,6 +164,8 @@ Aerial 1.69 standard 版，固件 `TQ1A.230205.002 / eng.www-da.20260205.170347`
 - 7AA49_D4：第三方 App 能执行 `setprop` 写这几个属性；`adb install -r` 后酷开清掉本包的无障碍登记；`com.coocaa.*` 包名会被 SkyProcManager 放过。
 - 65G650P：第三方收不到 `BOOT_COMPLETED`；`pm install` 报 `INSTALL_FAILED_USER_RESTRICTED`，要用 `cmd package install-create/write/commit` 会话装；`cmd notification allow_listener` 报 No shell command implementation，用 `settings put secure enabled_notification_listeners`。
 - 报告人的办法是改包名或多装一个「壳」App 占住 `model.*`，都和原则冲突（只装 Aerial 自己、不冒充厂商包名），Aerial 不做。
+- 9S67_G30（sky8S34 / m7221，Android 8.0，固件 022.008.220，#1600）：`bootintent.xml` 的 `modelhome` 和 #894 一样，属性指向 Aerial 后那次开机全程没出酷开桌面，约 24 秒后被固件清空，下次又回到「酷开桌面 → Aerial」。`filterHomeAlways` 实测主页键不闪、按住音量正常（同 #1462 8R39_K5C）。
+- 8R720_P7F（85P7F，rtd2885p，安卓 13，#1589）：主页键由 `com.tianci.system` 按 `persist.service.homepage.pkg/.cls` 启动，指向 Aerial 就不闪、音量正常，冷启动后被固件改回；`home_component` 不读。
 
 ## 9S89_S8A（MStar，安卓 6.0 / CCOS）：假待机唤醒后 Aerial 回不来（#1173，报告人实测）
 
