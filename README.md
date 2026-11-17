@@ -273,6 +273,7 @@ curl -fsSL https://aerial.qust.me/install.sh | TV=192.168.1.20 bash -s restore
 | 海信 | VIDAA_TV（HZ55E3D-J，Hi3751V551） | Android 7 | ✅ U 盘装 standard 版可用（[#1298](https://github.com/pengchujin/aerial-tv/issues/1298)） |
 | 海信 | HZ55A65 | Android 7 | ✅ U 盘装 standard 版，主页键、开机、待机、信号源、屏保、手机页正常，音量亮度没确认（[#1545](https://github.com/pengchujin/aerial-tv/issues/1545)） |
 | Vidda | 65V1R-Pro | Android 14 | ✅ 主页键、开机、待机、信号源、亮度、屏保都正常（[#1295](https://github.com/pengchujin/aerial-tv/issues/1295)） |
+| Vidda | VL7R-PRO 4K 激光投影仪（MT9655，mt5877） | Android 14 | ✅ 完美可用；Home 键与开机直达 Aerial；com.hisense.screen 不可停用（对焦马达）（[笔记](docs/devices/hisense-vidaa.md#vidda-vl7r-pro-激光投影仪mt9655mt5877安卓-141605报告人-agent-实测-199)、[#1605](https://github.com/pengchujin/aerial-tv/issues/1605)） |
 | 小米 | MiTV-MTTP0（低内存） | Android 9 | ✅ 主页键、开机、待机、信号源通过；内存紧时回 Aerial 要几秒（[#1285](https://github.com/pengchujin/aerial-tv/issues/1285)） |
 | 夏普 | LCD-50SU671A | Android 6 | ✅ 要用 QuickShortcutMaker 打开 ADB |
 | 长虹 | CHiQ 43Q5T（ZLS70Hi5） | — | ❌ ADB 连上但不弹授权框，设置里没有无障碍入口，接管不了主页键；U 盘装上可以当普通 App 用（[#1262](https://github.com/pengchujin/aerial-tv/issues/1262)） |
