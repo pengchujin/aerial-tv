@@ -89,6 +89,11 @@ object SystemIntents {
      */
     fun xiaomiInputs(context: Context): List<Pair<String, Intent>> {
         if (Build.VERSION.SDK_INT >= 21) return emptyList()
+        // TCL MStar 4.x with the TV manager: list the ports the firmware says this board has,
+        // not the fixed Xiaomi HDMI 1-3 set. Only where getSourceList() can be read; the
+        // Intents carry an enum name, which HomeActivity.open switches through the firmware
+        // instead of starting as an Activity. Every other 4.x TV falls through unchanged.
+        TclMs901Sources.inputs(context).takeIf { it.isNotEmpty() }?.let { return it }
         val player = ComponentName("com.xiaomi.mitv.tvplayer", "com.xiaomi.mitv.tvplayer.ExternalSourceActivity")
         if (runCatching { context.packageManager.getActivityInfo(player, 0) }.isFailure) return emptyList()
         val traits = runCatching {
