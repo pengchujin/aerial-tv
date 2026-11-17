@@ -279,7 +279,7 @@ curl -fsSL https://aerial.qust.me/install.sh | TV=192.168.1.20 bash -s restore
 | 长虹 | Android TV（mst838） | Android 6 | ❌ 没有 `tv_input`，列不出信号源；电视设置是盖在当前 App 上的浮层；固件不认 ADB 模拟的主页键，实体遥控器没测；户主最后卸载了（[#1531](https://github.com/pengchujin/aerial-tv/issues/1531)） |
 | 长虹 | 65D7H Ultra（MT9655） | Android 14 | ⚠️ ADB 不弹授权框；报告人用长虹自己的系统接口把 Aerial 设成默认桌面，主页键、待机唤醒正常；要在电视管家里允许 Aerial 后台运行，否则按返回会停在长虹桌面（[#1409](https://github.com/pengchujin/aerial-tv/issues/1409)） |
 | OPPO | K9 | Android 9 | ⚠️ 要改包名才能装（[笔记](docs/devices/oppo-coloros-tv.md)） |
-| 极米 | RS20 Pro Max（XGIMI TV DOHKO，horse_popular） | Android 14 | ✅ guard 守护接管，主页键、待机唤醒、重启都回 Aerial，HDMI1 能切；重启后固件收回悬浮窗授权，不影响开机进 Aerial（[#1483](https://github.com/pengchujin/aerial-tv/issues/1483)） |
+| 极米 | RS20 Pro Max（XGIMI TV DOHKO，horse_popular） | Android 14 | ✅ guard 守护接管，主页键、待机唤醒、重启都回 Aerial，1.98 起 HDMI 1 / 2 一次点击直达；重启后固件收回悬浮窗授权，不影响开机进 Aerial；信号源当壁纸拿不到画面（固件只给自家播放器推流）（[#1483](https://github.com/pengchujin/aerial-tv/issues/1483)） |
 | 极米 | Z9X 4K 高亮版（goat_elegant） | Android 13 | ⚠️ 1.76 有限实测：初次显示、UID app-op 与重启前台恢复；启动画面和待机仍待验（[笔记](docs/devices/xgimi-z9x-4k.md)） |
 | 极米 | Z7X、m7642 | Android 9 | ✅ Z7X 要用第三方工具打开 ADB（[笔记](docs/devices/xgimi-z7x.md)） |
 | 极米 | 神灯 L1（m7642，pig_chivalrous） | Android 9 | ✅ 默认桌面开机后会丢，报告人的双规则办法见[笔记](docs/devices/xgimi-z7x.md)（[#767](https://github.com/pengchujin/aerial-tv/issues/767)） |
