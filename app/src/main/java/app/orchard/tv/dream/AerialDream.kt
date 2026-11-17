@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.os.SystemClock
 import android.service.dreams.DreamService
 import android.view.KeyEvent
 import androidx.compose.runtime.CompositionLocalProvider
@@ -84,7 +85,25 @@ class AerialDream : DreamService(), LifecycleOwner, SavedStateRegistryOwner {
     /** Keys pressed while the dream is up and not lifted yet. */
     private val keysDown = HashSet<Int>()
 
+    /** When this dream came on screen (uptime), for [strayBack]. */
+    private var startedAt = Long.MIN_VALUE / 2
+
+    /**
+     * A Back from no input device in the dream's first seconds: no one pressed it. Hisense VIDAA
+     * (75E3F, NOVA72691, Android 9) sends one about 1.8 s into every system dream with the remote
+     * untouched, even started by PREVIEW_SCREENSAVER from adb; the dream ended, Home flashed, and
+     * the dream came back (issue #1599, the reporter's DiagLog). A press on a remote comes from its
+     * device (an id above 0), so a real Back still wakes the dream. Not tried on that TV.
+     */
+    private fun strayBack(event: KeyEvent): Boolean =
+        event.keyCode == KeyEvent.KEYCODE_BACK && event.deviceId <= 0 &&
+            SystemClock.uptimeMillis() - startedAt < STRAY_BACK_MS
+
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        if (strayBack(event)) {
+            if (event.action == KeyEvent.ACTION_DOWN) DiagLog.i("dream: Back from no device (${event.deviceId}) ${SystemClock.uptimeMillis() - startedAt} ms in; not ending it")
+            return true
+        }
         if (skips.onKey(event)) return true
         // A lift whose press never came here ends the dream too: Coocaa C10's hotkey service keeps
         // the press of some keys and lets only the lift through (issue #915; see MainActivity).
@@ -97,7 +116,7 @@ class AerialDream : DreamService(), LifecycleOwner, SavedStateRegistryOwner {
         if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
             MainActivity.dreamWokeAt = event.eventTime
             MainActivity.dreamWokeKey = event.keyCode
-            DiagLog.i("dream woken by ${KeyEvent.keyCodeToString(event.keyCode)} at ${event.eventTime}")
+            DiagLog.i("dream woken by ${KeyEvent.keyCodeToString(event.keyCode)} at ${event.eventTime} from device ${event.deviceId}")
             finish()
         }
         // The lift, if it comes here while the dream is still up. Not the cancelled one Android sends
@@ -122,6 +141,7 @@ class AerialDream : DreamService(), LifecycleOwner, SavedStateRegistryOwner {
 
     override fun onDreamingStarted() {
         super.onDreamingStarted()
+        startedAt = SystemClock.uptimeMillis()
         running = this
         registry.currentState = Lifecycle.State.RESUMED
         runCatching { registerReceiver(screenOff, IntentFilter(Intent.ACTION_SCREEN_OFF)) }
@@ -144,6 +164,8 @@ class AerialDream : DreamService(), LifecycleOwner, SavedStateRegistryOwner {
     }
 
     companion object {
+        private const val STRAY_BACK_MS = 3_000L
+
         /** The dream on screen in this process, if any. Main thread only. */
         private var running: AerialDream? = null
 
