@@ -135,22 +135,45 @@ object Aerials {
     }
 
     private fun load(context: Context): List<Aerial> {
-        val zh = Locale.getDefault().language == "zh"
+        val lang = Locale.getDefault().language
+        val zh = lang == "zh"
+        val ru = lang == "ru"
+        val ruMap: Map<String, String> = if (ru) {
+            runCatching {
+                val json = JSONObject(context.assets.open("aerials-ru.json").bufferedReader().use { it.readText() })
+                val map = mutableMapOf<String, String>()
+                val keys = json.keys()
+                while (keys.hasNext()) {
+                    val k = keys.next()
+                    map[k] = json.getString(k)
+                }
+                map
+            }.getOrDefault(emptyMap())
+        } else emptyMap()
+
         val root = JSONObject(context.assets.open("aerials.json").bufferedReader().use { it.readText() })
         val arr = root.getJSONArray("videos")
         return (0 until arr.length()).map { i ->
             val o = arr.getJSONObject(i)
             val caps = o.getJSONArray("captions")
+            val rawLabel = o.getString("label")
+            val label = if (ru) ruMap[rawLabel] ?: ruMap[rawLabel.trim()] ?: rawLabel else rawLabel
             Aerial(
                 id = o.getString("id"),
-                label = o.getString("label"),
+                label = label,
                 category = o.getString("category"),
                 url = o.getString("url"),
                 uhd = o.optString("uhd").ifEmpty { o.getString("url") },
                 dolbyVision = o.optString("dv").ifEmpty { o.getString("url") },
                 captions = (0 until caps.length()).map { j ->
                     val c = caps.getJSONArray(j)
-                    c.getInt(0) to (if (zh) c.getString(1) else c.getString(2)).replace(' ', ' ')
+                    val en = c.getString(2).replace(' ', ' ')
+                    val caption = if (ru) {
+                        ruMap[en] ?: ruMap[en.trim()] ?: en
+                    } else if (zh) {
+                        c.getString(1).replace(' ', ' ')
+                    } else en
+                    c.getInt(0) to caption
                 },
             )
         }
