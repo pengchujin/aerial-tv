@@ -843,6 +843,9 @@ class HomeActivity : Activity(), HomeView.Host {
     }
 
     private fun open(intent: Intent) {
+        // A TCL MStar input is switched through the firmware's TV manager, not started as an
+        // Activity. Only Intents that carry the adapter's own enum-name extra are intercepted.
+        if (TclMs901Sources.switch(this, intent)) { closeAll(); return }
         try {
             startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         } catch (t: Throwable) {
