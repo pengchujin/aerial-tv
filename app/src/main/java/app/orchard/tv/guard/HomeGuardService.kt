@@ -836,7 +836,12 @@ class HomeGuardService : AccessibilityService() {
                 // Android 9: STR standby stops Aerial and ADB; from 1.89 keep_adb ended at the
                 // first wake, issue #1537, the reporter's log).
                 val now = SystemClock.elapsedRealtime()
-                val awakeFor = minOf(now - screenOnAt, now - connectedAt)
+                // Nor while the guard has seen the screen go off and not yet come on: on Xiaomi
+                // MiTV-MFTR0 (Android 14) the process and the binding live through standby, and at
+                // the wake the firmware switches ADB off before SCREEN_ON reaches Aerial, so the
+                // screen looked on since the last wake, hours ago. keep_adb ended and ADB stayed off
+                // after every later wake until switched on by hand (the owner's TV, 2026-11-17).
+                val awakeFor = if (screenOff) 0L else minOf(now - screenOnAt, now - connectedAt)
                 if (GuardSetup.adbSwitchedOffInUse(this@HomeGuardService, awakeFor)) return
                 GuardSetup.ensureAdb(this@HomeGuardService)
             }

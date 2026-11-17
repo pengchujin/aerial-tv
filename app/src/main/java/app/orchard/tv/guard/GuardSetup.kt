@@ -429,6 +429,8 @@ object GuardSetup {
             runCatching {
                 Settings.Global.putInt(resolver, Settings.Global.ADB_ENABLED, 1)
                 Log.i(TAG, "ADB debugging had been switched off; turned it back on")
+                // In Aerial's own log too: logcat on Xiaomi rolls over in minutes.
+                DiagLog.i("guard: ADB had been switched off; turned it back on (keep_adb)")
             }.onFailure { Log.w(TAG, "could not turn ADB back on", it) }
             return
         }
