@@ -9,7 +9,10 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <!-- Kids mode: the app in front, up to Android 4.4 (Kids.keepAway); 5.0 answers only for Lite itself. -->
+    <!-- TclSourceWatch reads it too, but only on the STORAGE-backed TCL 4.x firmware. -->
     <uses-permission android:name="android.permission.GET_TASKS" android:maxSdkVersion="20" />
+    <!-- JustTvLauncher's boot-time safety net for the TCL watch; only starts it on MS901. -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <!-- The status pill's and Control Center's Wi-Fi level and name. -->
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <!-- Control Center's brightness: granted at install before Android 6.0, as on every 4.x TV. -->
@@ -64,5 +67,17 @@
                 <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- Only started by TclSourceWatch.start(), which is gated on the TCL firmware's own
+             source table and its STORAGE-backed Android picture/audio (TclMs901Sources). -->
+        <service android:name=".TclSourceWatch" android:exported="false" />
+
+        <!-- BOOT_COMPLETED is a protected broadcast, so exported=true is safe here; the receiver
+             itself does nothing unless the firmware passes TclMs901Sources.watchable(). -->
+        <receiver android:name=".TclSourceBootReceiver" android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
     </application>
 </manifest>

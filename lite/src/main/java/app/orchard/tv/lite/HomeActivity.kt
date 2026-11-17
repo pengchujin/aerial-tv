@@ -78,6 +78,10 @@ class HomeActivity : Activity(), HomeView.Host {
         loadBackdrop()
         loadApps()
         refreshDaily()
+        // TCL MS901: an app opened straight from the external-input screen never resumes Home,
+        // so the STORAGE restore has to run in the background. Capability-checked off the main
+        // thread and a no-op on every other TV.
+        work.execute { TclSourceWatch.start(applicationContext) }
         PhoneServer.listen(this, phoneOps)
         registerReceiver(packages, IntentFilter().apply {
             addAction(Intent.ACTION_PACKAGE_ADDED)

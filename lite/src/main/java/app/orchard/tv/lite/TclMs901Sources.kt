@@ -4,6 +4,7 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import android.os.SystemClock
 import android.util.Log
 import java.lang.reflect.Modifier
@@ -45,6 +46,12 @@ import java.lang.reflect.Modifier
  * pic_settings brightness store plus its com.tcl.mstar.settings pages - not by model string.
  *
  * Enum constants are looked up by NAME, never by ordinal: the order differs between firmwares.
+ *
+ * One path needs a background watch: an app opened straight from the TV's external-input screen
+ * never resumes Home, so backToStorage() cannot run. TclSourceWatch (modelled on the owner's
+ * JustTvLauncher TvMonitorService) reads the app in front on 4.x and calls foreground() here;
+ * it is started from Home, after a switch and on BOOT_COMPLETED, but ONLY on this STORAGE-backed
+ * firmware, and never for the TV's own picture/panels or Lite itself.
  */
 internal object TclMs901Sources {
     private const val TAG = "AerialTclSources"
@@ -121,6 +128,18 @@ internal object TclMs901Sources {
         Class.forName(MANAGER)
         "EN_TCL_STORAGE" in enumNames() && ports(context).isNotEmpty()
     }.onFailure { Log.d(TAG, "TCL TV manager not present", it) }.getOrDefault(false)
+
+    /**
+     * Whether the foreground-app watch may run at all. Three independent gates:
+     *  - API < 21, where getRunningTasks(1) still names another app's task;
+     *  - the firmware's source table is readable (the same gate as available());
+     *  - Android's picture/audio lives on STORAGE, by capability, not by model string.
+     * Every other TV - including TCL MStar boards with a different audio routing - returns false
+     * and never starts TclSourceWatch, so the author's strict "only restore a Lite-initiated
+     * switch" rule stays untouched there.
+     */
+    fun watchable(context: Context): Boolean =
+        Build.VERSION.SDK_INT < 21 && available(context) && androidNeedsStorage(context)
 
     /**
      * The list Control Center shows. The Intent carries only the enum name; HomeActivity.open
@@ -244,6 +263,9 @@ internal object TclMs901Sources {
         switchedByUs = name
         lastSwitchAt = SystemClock.elapsedRealtime()
         showTvScreen(context)
+        // Keep the watch up from the moment Lite sets a port, even if Home is later stopped.
+        // A no-op on every other TV; TclSourceWatch leaves the TV's picture untouched.
+        TclSourceWatch.start(context)
         return true
     }
 
@@ -281,6 +303,7 @@ internal object TclMs901Sources {
      * HomeActivity.onResume can fire before the TV screen appears, and an explicit HOME clears
      * that hold in homeRequested().
      */
+    @Synchronized
     fun backToStorage(context: Context): Boolean {
         if (!available(context)) return false
         if (lastSwitchAt != 0L && SystemClock.elapsedRealtime() - lastSwitchAt < HOLD_RESTORE_MS) {
@@ -305,6 +328,36 @@ internal object TclMs901Sources {
             return false
         }
         Log.i(TAG, "Home resumed on $current, switching back to STORAGE")
+        val ok = set(context, "EN_TCL_STORAGE")
+        if (ok) switchedByUs = null
+        return ok
+    }
+
+    /**
+     * The background watch's restore (TclSourceWatch). Home is behind, so onResume() will not
+     * run: on this firmware an app in front of HDMI is silent until STORAGE is selected again.
+     *
+     * Only reachable from a real Android app in front, only on the STORAGE-backed firmware, and
+     * only while the screen is on. The brief hold after an explicit switch is honoured, and the
+     * current input is re-read first - a viewer watching TVActivity, or an app already on STORAGE,
+     * gets no switch at all. This deliberately restores an input Lite did NOT set too: on MS901 there
+     * is no Android audio without STORAGE, which is the same exception commit 5 made for HOME.
+     * Other TCL boards never get here (watchable()). Serialised with backToStorage() so Home's
+     * resume and the watch cannot both issue a setInputSource for the same event.
+     */
+    @Synchronized
+    fun foreground(context: Context, pkg: String): Boolean {
+        if (!watchable(context)) return false
+        if (lastSwitchAt != 0L && SystemClock.elapsedRealtime() - lastSwitchAt < HOLD_RESTORE_MS) {
+            Log.i(TAG, "just switched to an external input; leaving it on screen")
+            return false
+        }
+        val current = current(context) ?: return false
+        if (current == "EN_TCL_STORAGE" || current == "EN_TCL_STORAGE2") {
+            switchedByUs = null
+            return false
+        }
+        Log.i(TAG, "$pkg in front on $current, switching back to STORAGE for Android audio")
         val ok = set(context, "EN_TCL_STORAGE")
         if (ok) switchedByUs = null
         return ok
