@@ -482,7 +482,6 @@ private fun ScreensaverBrightnessDialog(onDismiss: () -> Unit, onConfirm: (Int) 
                 steps = (range.last - range.first) / 5,
                 onStep = { direction -> draft = (draft + direction * 5).coerceIn(range) },
                 modifier = Modifier.focusRequester(slider),
-                outlinedFocus = true,
                 onClick = { onConfirm(draft) },
             )
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.End)) {
