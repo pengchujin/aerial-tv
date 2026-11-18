@@ -221,7 +221,15 @@ object SystemProbe {
         pkg in SETTINGS_PACKAGES ||
             context.packageManager.resolveActivity(Intent(Settings.ACTION_SETTINGS), 0)?.activityInfo?.packageName == pkg
 
-    private val SETTINGS_PACKAGES = setOf("com.android.settings", "com.android.tv.settings", "com.xiaomi.mitv.settings", "com.tcl.settings", "com.helios.setting", "com.haier.tv.menusetting", BAOFENG_SETTINGS, ChanghongSettings.PACKAGE)
+    private val SETTINGS_PACKAGES = setOf("com.android.settings", "com.android.tv.settings", "com.xiaomi.mitv.settings", "com.tcl.settings", "com.helios.setting", "com.haier.tv.menusetting", SKYWORTH_DIGITAL_SETTINGS, BAOFENG_SETTINGS, ChanghongSettings.PACKAGE)
+
+    /**
+     * Skyworth Digital's settings, the settings app of the boxes it builds: Tencent Aurora Box 7
+     * (BA102, Amlogic, Android 14) answers ACTION_SETTINGS with AOSP's TV Settings, which lack the
+     * box's wired-network page (issues #1597 #1614, both reporters named the package; the main and
+     * Ethernet activities from the second's adb).
+     */
+    private const val SKYWORTH_DIGITAL_SETTINGS = "com.skyworthdigital.settings"
 
     /**
      * Baofeng TV's settings (AML_T962, Android 9): nothing on the firmware answers ACTION_SETTINGS,
@@ -309,6 +317,8 @@ object SystemProbe {
             // AOSP's empty MainSettings; LeTV's own settings have no launcher entry and answer no
             // settings action (the reporter opened them by component, issue #1528).
             Intent(Intent.ACTION_MAIN).setComponent(ComponentName("com.stv.globalsetting", "com.stv.globalsetting.activity.SettingActivity")),
+            // Tencent Aurora Box 7 (issues #1597 #1614): see SKYWORTH_DIGITAL_SETTINGS.
+            Intent(Intent.ACTION_MAIN).setComponent(ComponentName(SKYWORTH_DIGITAL_SETTINGS, "$SKYWORTH_DIGITAL_SETTINGS.activity.MainActivity")),
             // Baofeng AML_T962 (issue #1339): see BAOFENG_SETTINGS.
             Intent(Intent.ACTION_MAIN).setComponent(ComponentName(BAOFENG_SETTINGS, "$BAOFENG_SETTINGS.MainActivity")),
             Intent(Settings.ACTION_SETTINGS),
@@ -381,7 +391,12 @@ object SystemProbe {
             networkSettingsActivityIntents(context, ethernet)
 
     private fun networkSettingsActivityIntents(context: Context, ethernet: Boolean = false): List<Intent> {
-        val wired = listOfNotNull(Intent("com.xiaomi.mitv.settings.ETHERNET_SETTINGS").setPackage("com.xiaomi.mitv.settings").takeIf { ethernet })
+        val wired = listOfNotNull(
+            Intent("com.xiaomi.mitv.settings.ETHERNET_SETTINGS").setPackage("com.xiaomi.mitv.settings").takeIf { ethernet },
+            // Tencent Aurora Box 7 (issue #1614): its wired page, with DHCP or static, gateway and
+            // DNS, is only in Skyworth Digital's settings; AOSP's network page has none of it.
+            Intent(Intent.ACTION_MAIN).setComponent(ComponentName(SKYWORTH_DIGITAL_SETTINGS, "$SKYWORTH_DIGITAL_SETTINGS.activity.EthernetSettingActivity")).takeIf { ethernet },
+        )
         return allResolvable(
             context,
             // LeTV X3-50 (EUI, Android 5.0.1): its own network page, action
