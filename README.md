@@ -247,6 +247,7 @@ curl -fsSL https://aerial.qust.me/install.sh | TV=192.168.1.20 bash -s restore
 | 创维 / 酷开 | 8S26 14U（sky918_14U，MStar） | Android 4.3 | ❌ Aerial Lite 能装能开，但主页键由固件的 `com.tianci.uiservice` 直接打开酷开桌面，不弹选择框，只能当普通 App 用（[#1529](https://github.com/pengchujin/aerial-tv/issues/1529)） |
 | 创维 / 酷开 | 8H83 M6（Hi3751V500） | Android 4.4 | ❌ Aerial Lite 能装能开，但主页键和开机都由固件按组件直接打开酷开桌面，选择框里没有第三方桌面（[#903](https://github.com/pengchujin/aerial-tv/issues/903)） |
 | 创维 / 酷开 | 8H57_H5 | Android 5.1 | ⚠️ 开机先转圈十几秒才进 Aerial（[#785](https://github.com/pengchujin/aerial-tv/issues/785)） |
+| 创维 | 65M9（8H26_M9，Hi3751V553，1 GB） | Android 5.1.1 | ✅ 主页键、断电重启后回 Aerial；开机先出酷开桌面 15–25 秒；待机、信号源、屏保没测（[#1613](https://github.com/pengchujin/aerial-tv/issues/1613)） |
 | 创维 | 1AA46_D4（T963） | Android 9 | ✅（[#796](https://github.com/pengchujin/aerial-tv/issues/796)） |
 | 创维 | 43H30（1MC02，MT5862） | Android 9 | ✅ 冷开机先出原厂桌面 1–2 秒；背光只能在电视自己的图像设置里调（[#1192](https://github.com/pengchujin/aerial-tv/issues/1192)） |
 | 创维 | 55A5F Pro（8R702_A5FP） | Android 13 | ✅ 要用 standard 版、按主页键的方式打开（guard 版在这台黑屏）（[#1349](https://github.com/pengchujin/aerial-tv/issues/1349)） |
