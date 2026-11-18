@@ -104,11 +104,11 @@ object GuardSetup {
     }
 
     /**
-     * Opt-in, over ADB (ConfigReceiver): the guard may start the system dream over another app
-     * once the Personalize delay has passed with nothing playing. For firmwares that never dream
+     * Opt-in, over ADB (ConfigReceiver): the guard may show the screensaver over another app once
+     * the Personalize delay has passed with nothing playing. For firmwares that never dream
      * outside their own launcher, where disabling the maker's screensaver apps for their ads
-     * leaves the screen on whatever was on it (MiTV-AZFP0, Android 9). Only Aerial's own dream
-     * starts, so it follows the screensaver choices made in Personalize.
+     * leaves the screen on whatever was on it (MiTV-AZFP0, Android 9). Only Aerial's own
+     * screensaver shows, so it follows the screensaver choices made in Personalize.
      */
     fun idleDream(context: Context): Boolean =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_IDLE_DREAM, false)

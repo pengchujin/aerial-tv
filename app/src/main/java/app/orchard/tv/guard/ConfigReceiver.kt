@@ -23,9 +23,9 @@ import kotlinx.coroutines.launch
  * Options set from a computer over ADB, e.g.
  *   adb shell am broadcast -a app.orchard.tv.CONFIG -n app.orchard.tv/.guard.ConfigReceiver --ez keep_adb true
  *   ... --ez own_screensaver true   (keep Aerial as the system screensaver; see GuardSetup)
- *   ... --ez idle_dream true        (the Home Guard starts the system screensaver over other
- *                                   apps after the Personalize delay, when nothing is playing;
- *                                   for firmwares that never dream outside their launcher)
+ *   ... --ez idle_dream true        (the Home Guard shows Aerial's screensaver over other apps
+ *                                   after the Personalize delay, when nothing is playing; for
+ *                                   firmwares that never dream outside their launcher)
  *   ... --ez guard_off_in_standby true  (Home Guard leaves at screen off, back at screen on;
  *                                   for TVs that do not wake with it enabled, issue #371)
  *   ... --ez clear_pin true         (turn the parental PIN off, for an owner who forgot it; Kids

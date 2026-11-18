@@ -36,6 +36,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.content.getSystemService
 import app.orchard.tv.MainActivity
 import app.orchard.tv.dream.AerialDream
+import app.orchard.tv.dream.IdleScreensaverActivity
 import app.orchard.tv.settings.AerialSettings
 import app.orchard.tv.system.BootOpen
 import app.orchard.tv.system.CecSwitch
@@ -43,7 +44,6 @@ import app.orchard.tv.system.CoocaaHome
 import app.orchard.tv.system.DeviceProfile
 import app.orchard.tv.system.DiagLog
 import app.orchard.tv.system.SystemProbe
-import app.orchard.tv.system.SystemScreensaver
 
 /**
  * Keeps Aerial as the home screen on firmwares that will not let a third-party app own HOME
@@ -2069,10 +2069,12 @@ class HomeGuardService : AccessibilityService() {
      * launcher. Xiaomi's Android 9 boxes bring their own screensaver (com.mitv.screensaver,
      * tv.gallery) over any app themselves, so once the owner disables those for their ads nothing
      * starts the dream but Home: MiTV-AZFP0 (Android 9), idle in another app with no wake lock
-     * held and screensaver_timeout set, never dreamed. Only Aerial's own dream is started, only
-     * with the flag on (--ez idle_dream true), since a dream over whatever is on screen is not
-     * wanted everywhere (issue #333: one came up over casting on a Haier Android 9); casting
-     * receivers are left alone for the same reason.
+     * held and screensaver_timeout set, never dreamed — and its SystemUI starts Somnambulator
+     * without ever rendering the dream, so SystemScreensaver.startDream is a no-op there. The
+     * guard shows [IdleScreensaverActivity] instead: the same content AerialDream hosts, over
+     * whatever was on screen. Only with the flag on (--ez idle_dream true), since a screensaver
+     * over whatever is on screen is not wanted everywhere (issue #333: one came up over casting
+     * on a Haier Android 9); casting receivers are left alone for the same reason.
      */
     private fun idleDreamCheck() {
         if (!GuardSetup.isUserUnlocked(this)) return
@@ -2087,8 +2089,9 @@ class HomeGuardService : AccessibilityService() {
         val idleMs = SystemClock.elapsedRealtime() - lastActivity
         if (idleMs < minutes * 60_000L) return
         if (mediaPlaying()) return
-        Log.i(TAG, "idle ${idleMs / 60_000} m over $front with nothing playing; starting the system dream")
-        if (SystemScreensaver.startDream(applicationContext)) lastActivity = SystemClock.elapsedRealtime()
+        Log.i(TAG, "idle ${idleMs / 60_000} m over $front with nothing playing; showing the screensaver over it")
+        IdleScreensaverActivity.show(applicationContext)
+        lastActivity = SystemClock.elapsedRealtime()
     }
 
     /** Something is playing when an active media session says so. */
