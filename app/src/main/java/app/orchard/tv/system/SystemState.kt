@@ -851,6 +851,15 @@ object SystemProbe {
     }
 
     /**
+     * TCL's source manager on older Amlogic boards (TCL 55L2, "AOSP on p34a5", Android 5.1.1): the
+     * firmware shows its 信源选择 window on the remote's input key with Aerial in front, and lets
+     * the key through as well, so Aerial's Inputs page came up under it (issue #1612, the reporter's
+     * dumpsys window: the focused window was com.tcl.sourcemananger, sic). Known by the package.
+     */
+    fun tclSourceManagerPanel(context: Context): Boolean =
+        runCatching { context.packageManager.getPackageInfo("com.tcl.sourcemananger", 0) }.isSuccess
+
+    /**
      * Coocaa's Quick Panel (Skyworth 75A7D, 8R134_A7D, Android 11): the firmware opens its own
      * signal-source panel on the remote's input key, from a window of com.coocaa.os.ccosservice,
      * and lets the key through as well, so Aerial's Inputs page was drawn under it.
