@@ -24,3 +24,10 @@
 ## 极光 5S / 创维 A4141（Amlogic newton，#1463）：最近任务
 
 守护能认出长按主页键，但 `GLOBAL_ACTION_RECENTS` 在这台是空的；最近任务是创维自己的 `com.skyworthdigital.recentsmanager/.RecentTaskActivity`（报告人 `am start -n` 能打开，`KEYCODE_APP_SWITCH` 没反应）。1.97 起导出且不要权限时就打开它，我们没实测。
+
+## 极光盒子 7（BA102，Amlogic s7d，安卓 14，#1597 #1614）
+
+- 固件 `block home apk`，Aerial 进不了 HOME 候选，`set-home-activity` / `role` 都失败，主页键靠守护，会先闪约 1 秒固件桌面（`com.xiaopaitech.wallpaperlauncher`）。`filterHomeAlways` 无效。报告人停用两个固件桌面加 `com.android.provision` 后开机卡在开机画面，不要这样做。
+- 系统设置是创维数字的 `com.skyworthdigital.settings`（主界面 `.activity.MainActivity`、有线网络 `.activity.EthernetSettingActivity`），`ACTION_SETTINGS` 却答 AOSP 的 TV Settings（没有有线网络页）。2026-11-18 起控制中心「设置」优先打开前者，有线连接时「网络」打开以太网页（只在导出时），没有真机验证。
+- 没有 HDMI 输入（`TvInputManager` 为空）；开 CEC 音量后控制中心音量条显示「由音响控制」拖不动。这两条的隐藏开关是功能建议。
+
