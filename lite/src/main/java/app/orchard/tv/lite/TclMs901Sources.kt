@@ -319,9 +319,15 @@ internal object TclMs901Sources {
     private fun androidNeedsStorage(context: Context): Boolean {
         androidNeedsStorageCached?.let { return it }
         val result = runCatching {
-            val store = context.contentResolver.query(
+            // Not Cursor.use: a Cursor is Closeable only from Android 4.1, and Lite runs on 4.0.
+            val cursor = context.contentResolver.query(
                 Uri.parse(PIC_SETTINGS), arrayOf("backlight"), null, null, null
-            )?.use { c -> c.moveToFirst() && c.getColumnIndex("backlight") >= 0 } == true
+            )
+            val store = try {
+                cursor != null && cursor.moveToFirst() && cursor.getColumnIndex("backlight") >= 0
+            } finally {
+                cursor?.close()
+            }
             val pages = runCatching {
                 context.packageManager.getActivityInfo(MS901_NETWORK_PAGE, 0)
             }.isSuccess
