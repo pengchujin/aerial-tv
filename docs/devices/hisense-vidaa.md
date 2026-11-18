@@ -9,7 +9,7 @@
 | VIDAA_TV | Android 11，MT9653，1080p | 装得上；改 `persist.vt.use_home_pkg` 后主页键进 Aerial；开机仍先进聚好看 | #40 |
 | VIDAA_TV | Android 10，RTD2851D | 1.21 及以前音量键无效（守护过滤按键）；1.22 起不过滤，#40 的报告人在 1.22 上确认 `A11yInputFilter` 为空、音量正常；微博也有 1 人说新版音量好了 | #7 |
 | VIDAA_TV | Android 14，MT9655 | 控制中心「信号源」为空：固件没把 HDMI 注册进 `TvInputManager`，有私有服务能弹出海信自己的信号源面板 | #84 |
-| Vidda VL7R-PRO | Android 14，MT9655（mt5877），1080p 激光投影仪 | 完美可用；Home 键与开机秒进 Aerial；com.hisense.screen 不可停用（对焦马达）；语音键可重映射 | #1605 |
+| Vidda VL7R-PRO | Android 14，MT9655（mt5877），1080p 激光投影仪 | 主页键由守护稳定接管；开机先出聚好看约 2 秒后切回 Aerial；对焦马达（com.hisense.screen）勿动 | #1605 |
 | Vidda 85V7N-Ultra | 未说 | 装得上，信号源扫不到（同 #84）；开 ADB：声音平衡里连按菜单、确定进工厂模式，To Fac 从 U 改 M 后重启 | #120 |
 | 较老的海信（`com.jamdeo.launcher`，`BaseTileActivity`） | 日志里有 `TaskRecord`，系统应在 Android 7 以前 | 开机先显示海信桌面（智汇中心），过很久才到 Aerial；海信的 `AppManagerHelper` 把 `app.orchard.tv` 列为 `Black package` | #119（只有日志，型号待补） |
 | VIDAA_TV（老款） | Android 5.1.1（SDK 22），MStar MSD6A828 | 装得上；没有 `cmd`；每次开机固件把 `accessibility_enabled` 清成 0，直接写 1 会被静默丢弃，先 `pm unhide` 任一个包触发包变更后再写才生效；GlobalPanel 吃掉主页键，只有守护能接管；设置里没有无障碍入口，每次开机都要用电脑恢复 | #285 |
@@ -279,19 +279,14 @@ adb shell settings put global adb_enabled 0
 ## Vidda VL7R-PRO 激光投影仪（MT9655，mt5877，安卓 14，#1605，报告人 Agent 实测 1.99）
 
 - **芯片与架构**：MT9655（mt5877，mt9952，板型 `LASER_MICRO_3DTOF`），Android 14（API 34），构建号 `UQ1A.240105.004.A1`（07.02.70.202512281739），3.7 GB RAM，1080p UI（320 dpi）。
-- **光学与对焦驱动（重要警告）**：与常规海信电视不同，**绝不能停用 `com.hisense.screen`**（`/system_ext/app/Screen/Screen.apk`）。它包含 `ElectricFocusingActivity`（电动对焦）、`CalibrationFocusActivity`（自动对焦校准）、`KeystoneActivity`（梯形校正）、`AutomaticEntryActivity`（自动入幕）、`LenPositionActivity` / `LenZoomActivity`（镜头位移/变焦）以及 `ProjectorSensorService`（ToF/位移传感器服务）。一旦停用，遥控器对焦键完全失灵，开机自动对焦与梯形校正马达停止工作。保持该包启用即可保证光学对焦与校正 100% 正常。
-- **关于 ToF 与 `com.android.camera2`**：勿将系统底层框架 API `android.hardware.camera2`（系统核心 API，位于 `framework.jar`）与应用包 `com.android.camera2` 混淆。`com.android.camera2` 仅是 AOSP 预装的拍照 App 界面，出厂即被海信系统服务预先冻结（`enabled=2`），ToF 测距与对焦完全不依赖该应用包，走的是联发科 Camera HAL、`cameraserver` 与 `com.hisense.screen`。
+- **光学与对焦驱动**：投影仪特有，`com.hisense.screen`（`/system_ext/app/Screen/Screen.apk`）管对焦与梯形校正，别动它。
 - **桌面接管与 Home 键**：
   - `persist.vt.use_home_pkg = app.orchard.tv`
-  - 原生桌面 `com.jamdeo.tv.vod` 声明优先级为 50，Aerial 声明为 0，JuUI 第二桌面 `com.keylab.speech.view.vidaa` / `com.hisense.widget.pro` 声明为 -150。
-  - 停用 `com.jamdeo.tv.vod`（`pm disable-user --user 0 com.jamdeo.tv.vod`）后，开机与物理遥控器 Home 键直接进入 Aerial。
-- **遥控器语音键拦截与 Key Mapper 映射（解答 #1470 疑问）**：
-  - 物理语音键发送 Linux scancode 166（`HISENSE_VOICE_NANOSIC`）/ Android keycode 4381。
-  - #1470 中提到的语音键拉起 `com.keylab.speech.view.vidaa`：通过停用 6 个语音助手包（`com.keylab.speech.core.vidaa`, `com.keylab.speech.view.vidaa`, `com.hispeech.ai.area`, `com.intelligent.speech`, `com.hisense.msvoicetome`, `com.vt.mic.service`），系统不再弹出海信语音窗口，Key Mapper 可直接捕获 keycode 4381 进行自定义映射。
-  - **切勿停用** `com.hisense.vidaaassistant`（负责应用安装授权与权限分发，否则第三方应用安装会失败）。
+  - 原生聚好看桌面 `com.jamdeo.tv.vod` 声明优先级为 50，Aerial 声明为 0。
+  - 在不停用原桌面的前提下，开机先显示聚好看约 2 秒后由守护平稳切入 Aerial；日常按遥控器主页键由守护稳定接管回到 Aerial。
 - **工厂模式 M 与用户模式 U**：
   - M 模式（设计模式）可打开原生 AOSP 设置且 ADB 常开，但**完全屏蔽 OTA 固件升级**。
-  - U 模式（用户模式）OTA 正常，原生设置被系统冻结（`enabled=2`）。Aerial 及其守护服务在 U 模式下自启与保活均完全稳定。
+  - U 模式（用户模式）OTA 正常，原生设置被系统冻结（`enabled=2`）。Aerial 及其守护服务在 U 模式下自启与保活均完全稳定，建议日常保持 U 模式。
 - **信号源与画质**：
   - 信号源切换依赖 `com.hisense.tv.tiletransition`（`TileAnimationService`），不可停用。
   - 激光亮度与色温：固件通过私有面板控制激光器输出，`screen_brightness` 与 `picture_backlight` 无法直接调控激光器功率。
