@@ -84,6 +84,7 @@ import app.orchard.tv.system.FrameStats
 import app.orchard.tv.wallpaper.AerialFormats
 import app.orchard.tv.wallpaper.ScreensaverMode
 import app.orchard.tv.system.SystemScreensaver
+import app.orchard.tv.system.WhaleyBoot
 import app.orchard.tv.system.Diagnostics
 import app.orchard.tv.system.MissingClipboard
 import app.orchard.tv.system.Sounds
@@ -217,6 +218,7 @@ class MainActivity : ComponentActivity() {
         }
         super.onCreate(savedInstanceState)
         if (savedInstanceState == null && reopenAsHome()) return
+        WhaleyBoot.turnOffPowerLight(this)
         startReal(savedInstanceState)
     }
 
@@ -454,6 +456,16 @@ class MainActivity : ComponentActivity() {
         }
         bootSourceOpenedAt = SystemClock.elapsedRealtime()
         lifecycleScope.launch {
+            // Whaley: open an HDMI input only where something is plugged in (see WhaleyBoot).
+            val chosenPort = WhaleyBoot.hdmiPort(id)?.takeIf { WhaleyBoot.isWhaley(this@MainActivity) }
+            val id = if (chosenPort == null) id else {
+                val port = WhaleyBoot.findPort(chosenPort)
+                if (port == null || !lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
+                    DiagLog.i("$reason: no HDMI device${if (port != null) " or Home left meanwhile" else ""}; staying on Home")
+                    return@launch
+                }
+                WhaleyBoot.sourceId(port)
+            }
             // An app opens from its own entry at once: listing every app took 6.5 s at power-on on
             // Xiaomi MiTV-MFTR0 once Aerial came up earlier in the boot, all of it on PatchWall's
             // heels. Inputs and Aerial's own tiles (AppCatalog.shortcuts) only Home lists.
