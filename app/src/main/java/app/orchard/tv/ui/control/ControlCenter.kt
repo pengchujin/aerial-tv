@@ -58,6 +58,7 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import app.orchard.tv.ui.components.smoothBackground
+import app.orchard.tv.ui.components.smoothBorder
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -661,6 +662,7 @@ internal fun SliderRow(
     steps: Int,
     onStep: (Int) -> Unit,
     modifier: Modifier = Modifier,
+    outlinedFocus: Boolean = false,
     onClick: () -> Unit,
 ) {
     // Each step ticks, as focus does; a step past either end bumps instead. Read through state:
@@ -683,8 +685,11 @@ internal fun SliderRow(
             true
         },
     ) { state ->
-        val bg by animateColorAsState(if (state.focused) Palette.Focus else Palette.Fill, tween(140, easing = Motion.EaseOut), label = "slider-bg")
-        val fg = if (state.focused) Palette.OnFocus else Palette.Label
+        val filledFocus = state.focused && !outlinedFocus
+        val bg by animateColorAsState(if (filledFocus) Palette.Focus else Palette.Fill, tween(140, easing = Motion.EaseOut), label = "slider-bg")
+        val fg = if (filledFocus) Palette.OnFocus else Palette.Label
+        val corner = 14.dp
+        val outline = if (outlinedFocus && state.focused) Modifier.smoothBorder(2.dp, Palette.Focus, corner) else Modifier
         val fraction by animateFloatAsState(level, spring(dampingRatio = 1f, stiffness = 700f), label = "slider-level")
         Row(
             Modifier
@@ -701,7 +706,10 @@ internal fun SliderRow(
                         while (travelled <= -pitch) { step(-1); travelled += pitch }
                     }
                 }
-                .smoothBackground({ bg }, 14.dp).height(40.dp).padding(horizontal = 14.dp),
+                .smoothBackground({ bg }, corner)
+                .then(outline)
+                .height(40.dp)
+                .padding(horizontal = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
