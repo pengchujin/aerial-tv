@@ -35,6 +35,17 @@ import androidx.media3.extractor.text.SubtitleParser
  */
 @OptIn(UnstableApi::class)
 internal object FilmKeyFrame {
+    /**
+     * The software decoders tried for each kind of film. AV1 for the owner's own videos: one
+     * reporter's film was AV1 and no frame of it could be had at all (TCL 75Q9K, MT5879, Android 11,
+     * issue #1622); Android 10 and later carry the AOSP decoder.
+     */
+    private val DECODERS = mapOf(
+        MimeTypes.VIDEO_H264 to listOf("c2.android.avc.decoder", "OMX.google.h264.decoder"),
+        MimeTypes.VIDEO_H265 to listOf("c2.android.hevc.decoder", "OMX.google.hevc.decoder"),
+        MimeTypes.VIDEO_AV1 to listOf("c2.android.av1.decoder", "c2.android.av1-dav1d.decoder"),
+    )
+
     /** A decoded frame, with what it cost, for the diagnostics log. */
     class Frame(val bitmap: Bitmap, val timeMs: Long, val codec: String, val readMs: Long, val decodeMs: Long, val convertMs: Long, val sampleBytes: Int, val indexKept: Boolean)
 
@@ -152,7 +163,7 @@ internal object FilmKeyFrame {
                     val found = map
                     if (found != null) {
                         val mime = video.format?.sampleMimeType
-                        if (mime != MimeTypes.VIDEO_H264 && mime != MimeTypes.VIDEO_H265) error("video is $mime")
+                        if (mime !in DECODERS) error("video is $mime")
                         kept = Index(uri, key, extractor, video, found)
                         break
                     }
@@ -216,8 +227,7 @@ internal object FilmKeyFrame {
     private fun decodeSample(sample: Sample, w: Int, h: Int): Decoded {
         val started = SystemClock.elapsedRealtime()
         val mime = sample.format.sampleMimeType!!
-        val names = if (mime == MimeTypes.VIDEO_H264) listOf("c2.android.avc.decoder", "OMX.google.h264.decoder")
-        else listOf("c2.android.hevc.decoder", "OMX.google.hevc.decoder")
+        val names = DECODERS.getValue(mime)
         var codec: MediaCodec? = null
         var name = ""
         // Only decoders the TV lists: asked for one it lacks, TCL tcl_m7642 (Android 9, which has no

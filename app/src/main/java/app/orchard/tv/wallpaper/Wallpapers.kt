@@ -378,7 +378,7 @@ object Wallpapers {
         val film = videoFilms(id).firstOrNull() ?: return null
         val poster = posterOf(film)
         if (w <= POSTER_W && poster.exists()) Images.decodeCover(poster, w, h)?.let { return it }
-        if (filmGlassless || fileFramesJam(app)) return null
+        if (filmGlassless || fileFramesJam(app)) return keyFrameInApp(film, w, h)
         val mmr = android.media.MediaMetadataRetriever()
         return try {
             mmr.setDataSource(film.file.path)
@@ -389,6 +389,30 @@ object Wallpapers {
             DiagLog.i("video poster: ${film.id} not read (${e.javaClass.simpleName})")
             null
         } finally { runCatching { mmr.release() } }
+    }
+
+    /** Films whose key frame could not be read in this process, not tried again until a restart. */
+    private val keyFrameFailed = java.util.Collections.synchronizedSet(HashSet<String>())
+
+    /**
+     * Where the media server's retriever is not used: the film's first key frame read and decoded
+     * in this process (FilmKeyFrame), kept as the poster. Without it Home's picture under a video
+     * wallpaper stayed the first built-in gradient on TCL MT5879, the retriever shut out by TCL's
+     * extractor (issue #1622, TCL 75Q9K). Once per film; a failure is remembered until a restart.
+     */
+    private fun keyFrameInApp(film: ScreensaverVideo, w: Int, h: Int): Bitmap? {
+        if (film.id in keyFrameFailed) return null
+        return runCatching {
+            val frame = kotlinx.coroutines.runBlocking {
+                AerialStream.keyFrameOfFile(film.file, "poster:${film.id}", 0, maxOf(w, POSTER_W), maxOf(h, POSTER_H))
+            }
+            DiagLog.i("video poster: ${film.id} read in the app (${frame.codec}, ${frame.readMs + frame.decodeMs + frame.convertMs} ms)")
+            keepPoster(film, frame.bitmap)
+            Images.cover(frame.bitmap, w, h)
+        }.onFailure {
+            keyFrameFailed += film.id
+            DiagLog.i("video poster: ${film.id} not read in the app (${it.javaClass.simpleName} ${it.message.orEmpty().take(60)})")
+        }.getOrNull()
     }
 
     /** Drops the thumbnails (about 330 KB each); the picker makes them again when it opens. */
