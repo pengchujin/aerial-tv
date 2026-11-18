@@ -4,6 +4,9 @@
 
 ## 现状（2026-11-18）
 
+- **2.1（versionCode 150），Lite 1.33（35），2026-11-18 发布**（[v2.1](https://github.com/pengchujin/aerial-tv/releases/tag/v2.1)）：下面这轮巡检的全部修复（#1609 #1622 #1612 #1339 #1597/#1614，PR #1556 前 5 个提交）。版本号跳过 149（TCL 装过 149 测试包）。官网已部署，三个包字节数和 Release 一致（standard 3211354、guard 3211292、lite 1005200），version.txt = v2.1；给 #1612 #1339 #1614 #1597 #1609 #1622 和 PR #1556 贴了复测链接，PR #1556 第 6 个提交仍等户主。
+  - 两台回归：小米 MFTR0（install-multiple + 31.dm，speed-profile / install-dm）selftest 主页键从设置 0.4 s 回、信号源 8 个；TCL（install.sh 多屏互动，截图确认焦点在「同意」后确认，compile speed，两个 walleve 服务和 AerialDream 屏保不变）主页键 0.4 s 回、信号源键弹 TCL 面板、按返回回 Aerial。
+
 - **2026-11-18 全量巡检**（记录 `local/triage/2026-11-18-full.md`，回复 `replies-2026-11-18.py`）：340 issue / 67 PR，最后是用户发言的 32 个新条目逐个读过。main 上未发版的改动（都在 2.0 之后）：
   - **#1612 TCL 55L2 信号源键双弹窗**（Amlogic p34a5，安卓 5.1.1）：固件的 `com.tcl.sourcemananger`（原文如此）自己弹信源窗又把键交给 Aerial。装着这个包时首页不接信号源键（`SystemProbe.tclSourceManagerPanel`，并进 `firmwareInputPanel`）。没真机。
   - **#1339 暴风 AML_T962**（安卓 9）：没有信号源列表时 `openInputPicker` 打开 `com.bftv.fui.biu/.views.activity.FRowActivity`；设置、网络打开 `com.baofengtv.settings/.MainActivity`（都只在导出时）。Lite 同步。没真机。
@@ -12,7 +15,7 @@
   - **#1622 「我的视频」底层图**：TCL 解析器 / `filmGlassless` 下 `Wallpapers.firstVideoFrame` 改用 `FilmKeyFrame`（经 `AerialStream.keyFrameOfFile`，和玻璃串行）读第一帧关键帧存海报，失败的片子这次运行里不再试；`FilmKeyFrame` 加 AV1（只用 AOSP 软件解码器）。验证：TCL MT5879 测试包 149，H.264 片 414 ms 读出、首页网格下面变成影片画面；AV1 片仍落回渐变（这台只有硬件 AV1 解码器）。
   - **合 PR #1556 前 5 个提交**（zknb-666，Lite TCL MS901 信号源：固件口表、只回 Lite 切过的源、MS901 的 STORAGE 能力例外），补了一处 `Cursor.use`（API 14 lint）。第 6 个提交（常驻 `TclSourceWatch` 每 2 秒读前台 App + 开机广播）交户主决定。没有 MS901；Lite 在 aerial21 模拟器上启动、开控制中心不崩。
   - README 两份补创维 65M9（#1613）。
-- 验证：`assembleStandardRelease assembleGuardRelease :lite:assembleRelease`、两套单测、`:lite:lintRelease` 通过，签名 e089…6685。小米 MFTR0 装了本地 standard release（versionCode 仍 148，install-multiple + 31.dm，speed-profile / install-dm）：selftest 主页键 0.3 s 回、信号源 8 个、按返回进航拍屏保再退出。TCL MT5879 多屏互动推了 **guard 测试包 versionCode 149（没提交）**，compile speed，两个 walleve 服务保留：主页键 0.4 s 回、信号源键弹 TCL 面板、按返回进屏保再退出、`Somnambulator` 系统屏保按键回 Aerial。**下次发版 versionCode ≥ 150。**
+- 验证：`assembleStandardRelease assembleGuardRelease :lite:assembleRelease`、两套单测、`:lite:lintRelease` 通过，签名 e089…6685。小米 MFTR0 装了本地 standard release（versionCode 仍 148，install-multiple + 31.dm，speed-profile / install-dm）：selftest 主页键 0.3 s 回、信号源 8 个、按返回进航拍屏保再退出。TCL MT5879 多屏互动推了 **guard 测试包 versionCode 149（没提交）**，compile speed，两个 walleve 服务保留：主页键 0.4 s 回、信号源键弹 TCL 面板、按返回进屏保再退出、`Somnambulator` 系统屏保按键回 Aerial。（已随 2.1 发版，versionCode 150。）
 - 测试时动过的户主数据：小米上在航拍屏保里按了一次右键，片子集合从 `9CCB8297,2B30E324,DE851E6D` 变成 `024891DE,9CCB8297,2B30E324`（右键会立刻换进一段新片，和每天自动换一段是同一个机制，没有接口改回）。以后在小米屏保里退出用返回 / 确定，不要按左右。TCL 上临时把壁纸换成两段自己上传的测试视频，已改回 aerial:live，两段视频（5441259…、879a56b…）已按 id 删除。
 - 不合 / 交户主：PR #1607（Vidda VL7R-PRO 文档，含停用聚好看、语音包和 Key Mapper，请作者删掉）、PR #1620 #1610（功能）、PR #1556 第 6 个提交。
 
