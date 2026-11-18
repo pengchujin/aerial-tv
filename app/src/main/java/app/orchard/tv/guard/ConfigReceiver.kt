@@ -23,6 +23,9 @@ import kotlinx.coroutines.launch
  * Options set from a computer over ADB, e.g.
  *   adb shell am broadcast -a app.orchard.tv.CONFIG -n app.orchard.tv/.guard.ConfigReceiver --ez keep_adb true
  *   ... --ez own_screensaver true   (keep Aerial as the system screensaver; see GuardSetup)
+ *   ... --ez idle_dream true        (the Home Guard starts the system screensaver over other
+ *                                   apps after the Personalize delay, when nothing is playing;
+ *                                   for firmwares that never dream outside their launcher)
  *   ... --ez guard_off_in_standby true  (Home Guard leaves at screen off, back at screen on;
  *                                   for TVs that do not wake with it enabled, issue #371)
  *   ... --ez clear_pin true         (turn the parental PIN off, for an owner who forgot it; Kids
@@ -184,6 +187,7 @@ class ConfigReceiver : BroadcastReceiver() {
         if (intent.hasExtra("adb_probe_port")) GuardSetup.adbProbePort = intent.getIntExtra("adb_probe_port", 5555)
         if (intent.hasExtra("guard_off_in_standby")) GuardSetup.setOffInStandby(context, intent.getBooleanExtra("guard_off_in_standby", false))
         if (intent.hasExtra("own_screensaver")) GuardSetup.setOwnScreensaver(context, intent.getBooleanExtra("own_screensaver", false))
+        if (intent.hasExtra("idle_dream")) GuardSetup.setIdleDream(context, intent.getBooleanExtra("idle_dream", false))
         // aerial, photos, clock, videos or system.
         intent.getStringExtra("screensaver")?.let { key ->
             Wallpapers.init(context)
@@ -227,6 +231,7 @@ class ConfigReceiver : BroadcastReceiver() {
             HomeGuardService.refreshCecHome()
         }
         GuardSetup.ensureEnabled(context)
-        resultData = "keep_adb=${GuardSetup.keepAdb(context)} guard_off_in_standby=${GuardSetup.offInStandby(context)}"
+        resultData = "keep_adb=${GuardSetup.keepAdb(context)} guard_off_in_standby=${GuardSetup.offInStandby(context)}" +
+            " idle_dream=${GuardSetup.idleDream(context)}"
     }
 }

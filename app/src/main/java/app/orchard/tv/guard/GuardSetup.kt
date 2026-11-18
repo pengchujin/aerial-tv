@@ -87,6 +87,7 @@ object GuardSetup {
     private const val KEY_SCREENSAVER_SWITCHED_OFF = "screensaver_switched_off"
     private const val KEY_SCREENSAVER_ENABLED = "screensaver_enabled"
     private const val KEY_OFF_IN_STANDBY = "guard_off_in_standby"
+    private const val KEY_IDLE_DREAM = "idle_dream"
 
     /**
      * Opt-in, over ADB (ConfigReceiver): Home Guard takes itself out of the accessibility list when
@@ -100,6 +101,20 @@ object GuardSetup {
 
     fun setOffInStandby(context: Context, off: Boolean) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(KEY_OFF_IN_STANDBY, off).commit()
+    }
+
+    /**
+     * Opt-in, over ADB (ConfigReceiver): the guard may start the system dream over another app
+     * once the Personalize delay has passed with nothing playing. For firmwares that never dream
+     * outside their own launcher, where disabling the maker's screensaver apps for their ads
+     * leaves the screen on whatever was on it (MiTV-AZFP0, Android 9). Only Aerial's own dream
+     * starts, so it follows the screensaver choices made in Personalize.
+     */
+    fun idleDream(context: Context): Boolean =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_IDLE_DREAM, false)
+
+    fun setIdleDream(context: Context, on: Boolean) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(KEY_IDLE_DREAM, on).commit()
     }
 
     /** Whether the guard is to stay out now: opted in and the screen is off. */
