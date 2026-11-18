@@ -184,6 +184,9 @@ object AerialSettings {
     /** The place name (or the daily picture's title) bottom left over the aerial and photo screensavers. */
     var screensaverCaption by mutableStateOf(true); private set
 
+    val screensaverBrightnessRange = 20..100
+    var screensaverBrightness by mutableStateOf(screensaverBrightnessRange.last); private set
+
     /** Every app's name under its tile, not only the focused one's (issue #28), the top row's on the glass plate too. */
     private var chosenAllNames by mutableStateOf(false)
 
@@ -263,6 +266,8 @@ object AerialSettings {
         showWeather = prefs.getBoolean("show_weather", true)
         screensaverClock = prefs.getBoolean("screensaver_clock", true)
         screensaverCaption = prefs.getBoolean("screensaver_caption", true)
+        screensaverBrightness = prefs.getInt("screensaver_brightness", screensaverBrightnessRange.last)
+            .coerceIn(screensaverBrightnessRange)
         // Before 1.28 this was on or off; on meant whichever sounds Aerial played.
         uiSounds = UiSounds.of(prefs.getString("ui_sounds_kind", null)) ?: when {
             !prefs.getBoolean("ui_sounds", true) -> UiSounds.Off
@@ -393,6 +398,11 @@ object AerialSettings {
     fun chooseScreensaverCaption(on: Boolean) {
         screensaverCaption = on
         app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit { putBoolean("screensaver_caption", on) }
+    }
+
+    fun chooseScreensaverBrightness(percent: Int) {
+        screensaverBrightness = percent.coerceIn(screensaverBrightnessRange)
+        app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit { putInt("screensaver_brightness", screensaverBrightness) }
     }
 
     fun chooseBackStartsScreensaver(on: Boolean) {

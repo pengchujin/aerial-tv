@@ -1109,6 +1109,7 @@ fun HomeScreen(
 
         WallpaperSheet(
             visible = overlay is Overlay.Wallpaper,
+            previewAllowed = vm.resumed && !vm.screensaverVisible,
             onSettled = { sheetIn = it },
             warm = sheetWarm,
             onDismiss = { vm.overlay = Overlay.ControlCenter() },
