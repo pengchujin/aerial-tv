@@ -636,7 +636,7 @@ adb -s $XIAOMI_TV:5555 shell "dumpsys package dexopt | grep -A2 'app.orchard.tv\
 
 ## 发版
 
-1. `app/build.gradle.kts` 里 `versionCode` 加 1，并更新 `versionName`。
+1. `app/build.gradle.kts` 里 `versionCode` 加 1，并更新 `versionName`。2.1 之后版本名每次加 0.01：2.11、2.12、2.13……（户主 2026-11-19 定）。不要在 2.11 之后写 2.2：`Updates.newer` 按数字逐段比，2.2 比 2.11 旧，电视不会提示升级；到 2.99 之后怎么排先问户主。
 2. `./gradlew assembleStandardRelease assembleGuardRelease`（必须有 `local/signing.*`，否则签名不一致，用户无法覆盖安装）。
 3. 发布时 APK 要改名为 `aerial-standard.apk` 和 `aerial-guard.apk`，`tools/install.sh` 和官网都按这两个名字从 `releases/latest/download/` 下载：
    ```bash
