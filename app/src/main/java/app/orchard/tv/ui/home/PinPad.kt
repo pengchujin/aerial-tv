@@ -212,7 +212,7 @@ private fun PinPanel(mode: PinMode, onDone: () -> Unit, onCancel: () -> Unit) {
                         row.forEach { key ->
                             when (key) {
                                 ' ' -> Spacer(Modifier.size(64.dp, 48.dp))
-                                '<' -> PinKey(onClick = ::erase) { fg -> GlyphIcon(Glyph.ChevronLeft, fg, 18.dp) }
+                                '<' -> PinKey(onClick = ::erase, label = stringResource(R.string.a11y_delete)) { fg -> GlyphIcon(Glyph.ChevronLeft, fg, 18.dp) }
                                 else -> PinKey(onClick = { type(key) }, focusRequester = if (key == '1') one else null) { fg ->
                                     BasicText(key.toString(), style = Type.Title.copy(color = fg))
                                 }
@@ -234,8 +234,8 @@ private val ARROWS = mapOf(
 )
 
 @Composable
-private fun PinKey(onClick: () -> Unit, focusRequester: FocusRequester? = null, width: Dp = 64.dp, content: @Composable (Color) -> Unit) {
-    Pressable(onClick = onClick, focusRequester = focusRequester, focusedScale = 1.08f) { state ->
+private fun PinKey(onClick: () -> Unit, focusRequester: FocusRequester? = null, width: Dp = 64.dp, label: String? = null, content: @Composable (Color) -> Unit) {
+    Pressable(onClick = onClick, focusRequester = focusRequester, focusedScale = 1.08f, label = label) { state ->
         val bg by animateColorAsState(if (state.focused) Palette.Focus else Palette.Fill, tween(140, easing = Motion.EaseOut), label = "pin-key")
         Box(Modifier.size(width, 48.dp).smoothBackground({ bg }, 12.dp), contentAlignment = Alignment.Center) {
             content(if (state.focused) Palette.OnFocus else Palette.Label)

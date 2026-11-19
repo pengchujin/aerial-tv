@@ -68,6 +68,12 @@ import androidx.compose.ui.graphics.GraphicsLayerScope
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.onLongClick
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.boundsInWindow
@@ -398,6 +404,14 @@ fun AppTile(
                     )
                 }
                 .focusProperties { if (rowEnd) right = FocusRequester.Cancel }
+                // The tile's name for a screen reader (TalkBack, issue #1476), whether or not it is
+                // drawn under the tile; double tap opens the app, a long one opens its menu.
+                .semantics {
+                    contentDescription = app.label
+                    role = Role.Button
+                    onClick { Sounds.select(); click(bounds); true }
+                    onLongClick { Sounds.select(); longPress(bounds); true }
+                }
                 .focusable(enabled),
         ) {
             Spacer(Modifier.fillMaxSize().drawWithCache {

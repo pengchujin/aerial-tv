@@ -839,6 +839,7 @@ fun StatusPill(
         focusRequester = focusRequester,
         focusedScale = 1.08f,
         modifier = modifier,
+        label = stringResource(R.string.cc_title),
     ) { state ->
         LaunchedEffect(state.focused) { onFocused(state.focused) }
         val bg by animateColorAsState(
