@@ -395,6 +395,7 @@ class PhoneServer private constructor(private val context: Context, private val 
         appendLine("Aerial Lite ${runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull()}")
         appendLine("Device      ${Build.MANUFACTURER} ${Build.MODEL} (${Build.DEVICE}), Android ${Build.VERSION.RELEASE} (SDK ${Build.VERSION.SDK_INT})")
         appendLine("Screen      ${Ui.screenW}x${Ui.screenH}")
+        appendLine("Output      ${OutputDevice.describe(context)}")
         appendLine("Wallpaper   ${Wallpapers.selectedId}  screensaver=${Wallpapers.screensaver.key}  after=${LiteSettings.screensaverMinutes}")
         appendLine("Settings    focus=${LiteSettings.focusStyle.key} one_row=${LiteSettings.oneRowHome} columns=${LiteSettings.homeColumns} peek=${LiteSettings.peekNextRow} plate=${LiteSettings.homePlate} names=${LiteSettings.showAllNames} effects=${LiteSettings.effects.key} boot_app=${LiteSettings.bootApp}")
         appendLine("Apps        ${loaded().size}")

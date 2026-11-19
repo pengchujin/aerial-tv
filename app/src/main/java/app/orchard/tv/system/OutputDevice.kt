@@ -1,7 +1,10 @@
 package app.orchard.tv.system
 
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.media.AudioManager
+import android.os.BatteryManager
 import android.os.Build
 
 /**
@@ -35,6 +38,34 @@ object OutputDevice {
 
     /** Control Center shows a brightness row (a slider or the way to the picture settings): not on a box. */
     fun showsBrightness(): Boolean = !isPlaybackDevice()
+
+    /**
+     * One line for diagnostics: each sign [isPlaybackDevice] reads, and others that could tell a box
+     * from a TV, so a change to these checks can be weighed on reports. Reports up to 2.11 gave only
+     * the verdict, and it was "true" on TVs (TCL 55L2 #1612, Baofeng AML_T962 #1460) without saying
+     * which sign said so. The battery is there for battery-powered players (GOOVIS D4, #1426).
+     */
+    fun describe(context: Context): String {
+        val pm = context.packageManager
+        val features = listOf(
+            "live_tv" to "android.software.live_tv",
+            "leanback" to "android.software.leanback",
+            "hdmi_cec" to "android.hardware.hdmi.cec",
+            "television" to "android.hardware.type.television",
+        ).joinToString(" ") { (name, feature) -> "$name=${runCatching { pm.hasSystemFeature(feature) }.getOrDefault(false)}" }
+        fun shown(key: String) = prop(key).orEmpty().ifEmpty { "-" }
+        return "playback_device=${isPlaybackDevice()} (hdmi device_type=${shown("ro.hdmi.device_type")}, " +
+            "characteristics=${shown("ro.build.characteristics")}) volume_fixed=${volumeFixed(context)}\n" +
+            "            features $features; battery ${battery(context)}"
+    }
+
+    /** The last battery broadcast, without registering for more. */
+    private fun battery(context: Context): String {
+        val b = runCatching { context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED)) }.getOrNull() ?: return "-"
+        return "present=${b.getBooleanExtra(BatteryManager.EXTRA_PRESENT, false)}" +
+            " level=${b.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)}/${b.getIntExtra(BatteryManager.EXTRA_SCALE, -1)}" +
+            " plugged=${b.getIntExtra(BatteryManager.EXTRA_PLUGGED, -1)} status=${b.getIntExtra(BatteryManager.EXTRA_STATUS, -1)}"
+    }
 
     private fun prop(key: String): String? = runCatching {
         Class.forName("android.os.SystemProperties").getMethod("get", String::class.java).invoke(null, key) as String
