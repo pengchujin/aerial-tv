@@ -84,6 +84,7 @@ import app.orchard.tv.system.FrameStats
 import app.orchard.tv.wallpaper.AerialFormats
 import app.orchard.tv.wallpaper.ScreensaverMode
 import app.orchard.tv.system.SystemScreensaver
+import app.orchard.tv.system.WhaleyBoot
 import app.orchard.tv.system.Diagnostics
 import app.orchard.tv.system.MissingClipboard
 import app.orchard.tv.system.Sounds
@@ -217,6 +218,7 @@ class MainActivity : ComponentActivity() {
         }
         super.onCreate(savedInstanceState)
         if (savedInstanceState == null && reopenAsHome()) return
+        WhaleyBoot.turnOffPowerLight(this)
         startReal(savedInstanceState)
     }
 
