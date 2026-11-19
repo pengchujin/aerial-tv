@@ -578,6 +578,19 @@ object SystemProbe {
      * picture_backlight setting and no display settings screen to open (MiTV-ASTP0, Android 9,
      * found in PR #85; MiTV-MFTP0, Mi TV 4A, #23, #130, #185), and MiTV-MFTR0 has the receiver too.
      */
+    /**
+     * TCL's settings panel, asked for the way the remote's settings key asks: TCL's
+     * TclShortCutKeyManager.keySetShortPress puts Type=Settings and flag="1" (read from
+     * tcl-service.jar of TCL MT5879, Android 11). Sent bare, the panel came up on MT5879 but not on
+     * TCL r34a0 (T968, Android 5.1.1, com.tcl.settings 4.7): there ShowWindowService started, showed
+     * nothing and stayed, and every later settings key went to it unseen until Home (issue #1625,
+     * the reporter's dumpsys). With these extras MT5879 still opens on its picture page.
+     */
+    private fun tclSettingsWindow(): Intent =
+        Intent("com.tcl.settings.SHOW_WINDOW").setPackage("com.tcl.settings")
+            .putExtra("Type", "Settings")
+            .putExtra("flag", "1")
+
     fun openPictureSettings(context: Context): Boolean {
         ChanghongSettings.intent(context, ChanghongSettings.PICTURE)?.let {
             if (ChanghongSettings.open(context, it)) return true
@@ -601,9 +614,7 @@ object SystemProbe {
             }.isSuccess
             if (activityShown) return true
 
-            val shown = runCatching {
-                context.startService(Intent("com.tcl.settings.SHOW_WINDOW").setPackage("com.tcl.settings"))
-            }.getOrNull() != null
+            val shown = runCatching { context.startService(tclSettingsWindow()) }.getOrNull() != null
             if (shown) return true
         }
         if (skyworthPicturePanel(context)) {

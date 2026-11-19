@@ -112,7 +112,12 @@ object Brightness {
             if (runCatching { context.sendBroadcast(backlight) }.isSuccess) return true
         }
         if (installed(context, "com.tcl.settings")) {
-            val shown = runCatching { context.startService(Intent("com.tcl.settings.SHOW_WINDOW").setPackage("com.tcl.settings")) }.getOrNull() != null
+            // With the extras TCL's own settings key sends; bare, the panel showed nothing on TCL
+            // r34a0 (Android 5.1.1) and took the settings key with it (the full app's
+            // SystemProbe.tclSettingsWindow, issue #1625).
+            val panel = Intent("com.tcl.settings.SHOW_WINDOW").setPackage("com.tcl.settings")
+                .putExtra("Type", "Settings").putExtra("flag", "1")
+            val shown = runCatching { context.startService(panel) }.getOrNull() != null
             if (shown) return true
         }
         val pm = context.packageManager
