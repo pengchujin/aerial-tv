@@ -2289,6 +2289,10 @@ class HomeGuardService : AccessibilityService() {
         CoocaaHome.launcher(this)?.takeIf { isActivity(it.packageName, it.className) }?.let { own ->
             stockHomes = stockHomes + (own.packageName to (setOf(own.className) + stockHomes[own.packageName].orEmpty()))
         }
+        // And the screen of the mode it is in (elder, kids), which the Home key opens instead.
+        CoocaaHome.modeScreen(this)?.takeIf { isActivity(it.packageName, it.className) }?.let { mode ->
+            stockHomes = stockHomes + (mode.packageName to (stockHomes[mode.packageName].orEmpty() + mode.className))
+        }
         // Kept in the companion: a tile pressed while the guard is unbound still has to be
         // recognised as the stock launcher (see knownStockHomes).
         knownStockHomes = stockHomes
@@ -2751,7 +2755,13 @@ class HomeGuardService : AccessibilityService() {
             "com.coocaa.aigc.home" to listOf("com.coocaa.aigc.home.home.rootpage.HomeActivity"),
             // What Tianci shows as its home, named only in persist.service.homepage.cls; the
             // package's HOME.CC is on MainActivity (Skyworth 7S70_A9, Android 8, issues #106 #461).
-            "com.tianci.movieplatform" to listOf("com.coocaa.homepage.vast.HomePageActivity"),
+            // Its elder mode's home, ElderMainActivity, is the one com.tianci.system starts on the
+            // Home key once that mode is on (Skyworth 8R40_G20, RTD2852, Android 8, issue #1626;
+            // persist.service.model.cls names it, see CoocaaHome.modeScreen).
+            "com.tianci.movieplatform" to listOf(
+                "com.coocaa.homepage.vast.HomePageActivity",
+                "com.ccos.cooui.movieplatform.ElderMainActivity",
+            ),
             // China Mobile "Mobile HD Box 6" 2024 (Skyworth E900V21F, S905L3S, Android 9): the
             // firmware starts LeJia's DesktopActivity by component at power-on and on the Home
             // key. It declares CATEGORY_HOME, but queryIntentActivities(HOME) from a third-party
