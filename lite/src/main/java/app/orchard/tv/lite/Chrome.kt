@@ -176,8 +176,18 @@ class StatusPill(context: Context) : View(context) {
     /** A VPN is up: the full app's VpnBadge after the network glyph (issue #809). */
     var vpn = false
         set(v) { if (field != v) { field = v; requestLayout(); invalidate() } }
+    /**
+     * The battery's percent where the device runs on one and is not plugged in full, else -1; and
+     * whether it charges (the full app's BatteryBadge, issue #1426).
+     */
+    var battery = -1
+        set(v) { if (field != v) { field = v; requestLayout(); invalidate() } }
+    var charging = false
+        set(v) { if (field != v) { field = v; invalidate() } }
 
     private val text = Ui.text(15f, 600)
+    private val small = Ui.text(13f, 500)
+    private val stroke = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
     private val bg = Paint(Paint.ANTI_ALIAS_FLAG)
     private val rect = RectF()
     private val bitmapPaint = Paint(Paint.FILTER_BITMAP_FLAG)
@@ -189,6 +199,7 @@ class StatusPill(context: Context) : View(context) {
         val gap = Ui.px(10f)
         var w = pad * 2 + g * 2 + gap
         if (vpn) w += badge.width + gap
+        if (battery >= 0) w += small.measureText("$battery%") + Ui.px(4f + 22f) + gap
         if (showTime) w += text.measureText(timeText(context)) + gap
         setMeasuredDimension(w.toInt() + 1, Ui.pxi(34f))
     }
@@ -210,6 +221,7 @@ class StatusPill(context: Context) : View(context) {
         canvas.drawBitmap(Glyphs.image(network, g, fg, level), x, top, bitmapPaint)
         x += g + Ui.px(10f)
         if (vpn) x += badge.draw(canvas, x, height / 2f, fg) + Ui.px(10f)
+        if (battery >= 0) x += drawBattery(canvas, x, fg) + Ui.px(10f)
         if (showTime) {
             text.color = fg
             val t = timeText(context)
@@ -217,6 +229,25 @@ class StatusPill(context: Context) : View(context) {
             x += text.measureText(t) + Ui.px(10f)
         }
         canvas.drawBitmap(Glyphs.image(Glyph.Switches, g, fg), x, top, bitmapPaint)
+    }
+
+    /** The percent, then an outline filled to the level; red at 20% and under unless charging. Its width. */
+    private fun drawBattery(canvas: Canvas, x0: Float, fg: Int): Float {
+        small.color = fg
+        val label = "$battery%"
+        canvas.drawText(label, x0, height / 2f - (small.descent() + small.ascent()) / 2, small)
+        var x = x0 + small.measureText(label) + Ui.px(4f)
+        val w = Ui.px(22f - 2.5f); val h = Ui.px(11f); val y = (height - h) / 2f
+        val dim = (fg and 0x00FFFFFF) or (0x8C shl 24)
+        stroke.strokeWidth = Ui.px(1.2f); stroke.color = dim
+        rect.set(x, y, x + w, y + h); canvas.drawRoundRect(rect, Ui.px(3f), Ui.px(3f), stroke)
+        bg.color = dim
+        rect.set(x + w + Ui.px(0.8f), y + h * 0.32f, x + w + Ui.px(2.5f), y + h * 0.68f); canvas.drawRoundRect(rect, Ui.px(1f), Ui.px(1f), bg)
+        val inset = Ui.px(2.2f)
+        bg.color = if (battery <= 20 && !charging) 0xFFFF453A.toInt() else fg
+        rect.set(x + inset, y + inset, x + inset + (w - 2 * inset) * battery.coerceIn(0, 100) / 100f, y + h - inset)
+        canvas.drawRoundRect(rect, Ui.px(1.5f), Ui.px(1.5f), bg)
+        return x + Ui.px(22f) - x0
     }
 }
 
