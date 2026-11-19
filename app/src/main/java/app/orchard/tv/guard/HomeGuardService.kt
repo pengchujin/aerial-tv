@@ -407,7 +407,8 @@ class HomeGuardService : AccessibilityService() {
      * com.open.ui.widget.dialog.TVUIDialog during its automatic focus and keystone at boot, while
      * locked; counted, it kept the start back for good and the screen stayed black (PR #1449, the
      * author's boot log of 1.97). A dialog does not cover the screen, so it says nothing of whether
-     * something is shown; an activity not found before unlock still counts, by its name.
+     * something is shown. Only an activity's window counts (isScreenEvent): a view's event did not
+     * mean anything was drawn (issue #1391).
      */
     private var sawScreenEvent = false
 
@@ -488,10 +489,11 @@ class HomeGuardService : AccessibilityService() {
             // this binding: the screen is on and nothing is coming. XGIMI H3S (pig_chivalrous,
             // Android 9) sits here (issues #942 #1377; PR #1449, verified by its author on an H3S):
             // the firmware drops the HOME record, the resolver it falls to never draws, and
-            // onAccessibilityEvent returns at its unlock guard, so nothing takes over. Not after
-            // any event but a dialog's (sawScreenEvent): a window that came while locked, from an
-            // activity not found before unlock, leaves lastWindow empty though the screen shows
-            // something; XGIMI's boot-time focus dialog, on the other hand, covers nothing.
+            // onAccessibilityEvent returns at its unlock guard, so nothing takes over. Not after an
+            // activity's window came (sawScreenEvent): one that came while locked, from an activity
+            // not found by isActivity before unlock, leaves lastWindow empty though the screen
+            // shows something; XGIMI's boot-time focus dialog and RS Pro 2's CellView, on the
+            // other hand, showed nothing (PR #1449, issue #1391).
             if (!bootBlackStarted && !screenOff && !sawScreenEvent && lastWindow == null && !aerialResumed &&
                 bootAnimRaw()?.trim() == "stopped"
             ) {
@@ -552,6 +554,8 @@ class HomeGuardService : AccessibilityService() {
         updateKeyFilter()
         // The ADB and screensaver checks were skipped while locked.
         GuardSetup.ensureEnabled(this@HomeGuardService)
+        // The diagnostic file, with the locked boot's lines, before Home or a revival opens it.
+        runCatching { DiagLog.init(this@HomeGuardService) }
         // Not bounded by the boot window: the unlock is where a boot ends for apps, however late
         // it comes. XGIMI Play 6 (GMUI, Android 11, low RAM) unlocked 5 min 35 s into a boot,
         // and the guard, bound since Direct Boot, left the firmware's Home chooser on screen
@@ -1920,8 +1924,8 @@ class HomeGuardService : AccessibilityService() {
 
     override fun onAccessibilityEvent(event: AccessibilityEvent) {
         sawEvent = true
-        if (!event.className?.toString().orEmpty().contains("Dialog", ignoreCase = true)) {
-            if (!sawScreenEvent && unlockPending) firstLockedScreenEvent = "${event.packageName}/${event.className}"
+        if (!sawScreenEvent && isScreenEvent(event)) {
+            if (unlockPending) firstLockedScreenEvent = "${event.packageName}/${event.className}"
             sawScreenEvent = true
         }
         deafAfterHome = false
@@ -2144,6 +2148,25 @@ class HomeGuardService : AccessibilityService() {
     }
 
     private val activityCache = HashMap<Pair<String, String>, Boolean>()
+
+    /**
+     * Whether [event] says an activity's window came to the front, for [sawScreenEvent]: a window
+     * state change, of a class that is an activity (looked up past Direct Boot, so an app that is not
+     * direct-boot aware is found while locked too), and neither a dialog nor a FallbackHome, which
+     * cover nothing or show nothing. XGIMI RS Pro 2 (pig_chivalrous, Android 9) sent one event at
+     * boot from com.android.newsettings/CellView, a view and no activity, while not one window was
+     * on the black screen; counted, it held the locked-boot start back for good (issue #1391, the
+     * reporter's 2.1 log).
+     */
+    private fun isScreenEvent(event: AccessibilityEvent): Boolean {
+        if (event.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return false
+        val pkg = event.packageName?.toString() ?: return false
+        val cls = event.className?.toString() ?: return false
+        if (cls.contains("Dialog", ignoreCase = true) || cls.endsWith("FallbackHome")) return false
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) return isActivity(pkg, cls)
+        val flags = PackageManager.MATCH_DIRECT_BOOT_AWARE or PackageManager.MATCH_DIRECT_BOOT_UNAWARE
+        return runCatching { packageManager.getActivityInfo(android.content.ComponentName(pkg, cls), flags) }.isSuccess
+    }
 
     private fun isActivity(pkg: String, cls: String): Boolean = activityCache.getOrPut(pkg to cls) {
         runCatching { packageManager.getActivityInfo(android.content.ComponentName(pkg, cls), 0) }.isSuccess
