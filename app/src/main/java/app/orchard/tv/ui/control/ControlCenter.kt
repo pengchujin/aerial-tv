@@ -654,7 +654,7 @@ private fun RoundButton(
  * and a sideways drag steps the level, [steps] steps across the width of the row.
  */
 @Composable
-private fun SliderRow(
+internal fun SliderRow(
     glyph: Glyph,
     level: Float,
     value: String,

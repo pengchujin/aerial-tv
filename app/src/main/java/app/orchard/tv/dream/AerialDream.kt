@@ -13,6 +13,7 @@ import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
 import app.orchard.tv.MainActivity
+import app.orchard.tv.settings.AerialSettings
 import app.orchard.tv.system.DiagLog
 import app.orchard.tv.system.MissingClipboard
 import app.orchard.tv.ui.theme.canvasDensity
@@ -64,6 +65,7 @@ class AerialDream : DreamService(), LifecycleOwner, SavedStateRegistryOwner {
         // Home's wallpaper film holds the decoder the dream's film needs (TCL MT5879).
         LiveFilm.onHome?.letDecoderGo()
         Wallpapers.init(this)
+        AerialSettings.init(this)
         Wallpapers.fitScreen(this)
         Weather.init(this)
         val canvas = canvasDensity(resources.displayMetrics)

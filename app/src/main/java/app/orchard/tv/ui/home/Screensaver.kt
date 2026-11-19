@@ -142,6 +142,10 @@ fun Screensaver(visible: Boolean, apps: List<AppEntry>, now: LocalDateTime, skip
             }
         }
     }
+    val brightness = AerialSettings.screensaverBrightness
+    if (visible && Wallpapers.screensaver != ScreensaverMode.System && brightness < AerialSettings.screensaverBrightnessRange.last) {
+        Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 1f - brightness / 100f)))
+    }
 }
 
 /**
