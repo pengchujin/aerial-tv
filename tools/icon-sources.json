@@ -3,7 +3,7 @@
   "sources": [
     {"key": "le5inioo", "dir": "local/icons/le5inioo", "name": "le5inioo", "url": "https://github.com/le5inioo",
      "//": "Drawn by le5inioo and shared in #706; fetched with tools/icon-import.py tools/icons/le5inioo.tsv local/icons/le5inioo"},
-    {"key": "tvos", "dir": "local/icons/tvos", "name": "tvOS app", "names": {"zh": "tvOS 版", "ru": "Приложение tvOS", "uk": "Застосунок tvOS", "kk": "tvOS қолданбасы"},
+    {"key": "tvos", "dir": "local/icons/tvos", "name": "tvOS app", "names": {"zh": "tvOS 版", "ru": "Приложение tvOS", "uk": "Застосунок tvOS", "kk": "tvOS қолданбасы", "es": "App de tvOS"},
      "//": "The icon of the app's own Apple TV version, from the App Store; fetched with tools/icon-tvos.py"},
     {"key": "aerial", "dir": "local/icons/aerial", "name": "Aerial",
      "//": "tools/icon-make.py tools/icons/aerial.json local/icons/aerial"},
