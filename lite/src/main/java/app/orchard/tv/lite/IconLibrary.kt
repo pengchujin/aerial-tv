@@ -12,7 +12,8 @@ import java.io.File
  * apps from the website, keyed by package, several per app with index v2 (#706), each credited to
  * its source; the first is the default and the phone page can pick another. The index is read at
  * most twice a day, and only the pictures of apps installed here are downloaded, into
- * files/library. Off the main thread.
+ * files/library. Off the main thread. As there, the phone page can give an app another app's
+ * picture ("borrow:<package>" = "<other package>/<id>", issue #1486).
  */
 object IconLibrary {
     private const val TAG = "AerialLite"
@@ -41,12 +42,39 @@ object IconLibrary {
 
     private fun here(c: Choice): File? = File(dir, c.fileName).takeIf { it.exists() }
 
+    /** Every app the library has pictures of, for the phone page's whole-library picker. */
+    fun catalog(): Map<String, List<Choice>> = index
+
+    /** The site's address of the pictures. */
+    const val PICTURES = BASE
+
+    /** Another app's picture given to [pkg] on the phone page: (its app, it). */
+    fun borrowed(pkg: String): Pair<String, Choice>? {
+        if (!::dir.isInitialized) return null
+        val parts = picks.getString("borrow:$pkg", null)?.split('/', limit = 2)?.takeIf { it.size == 2 } ?: return null
+        val c = index[parts[0]]?.firstOrNull { it.id == parts[1] } ?: return null
+        return Pair(parts[0], c)
+    }
+
+    /** Fetches [c] now if it is not here, for a picture borrowed from another app. Off the main thread. */
+    fun fetch(c: Choice): Boolean {
+        if (!::dir.isInitialized) return false
+        val file = File(dir, c.fileName)
+        if (file.exists()) return true
+        return runCatching {
+            Net.download(BASE + c.path, file)
+            val ok = BitmapFactory.Options().apply { inJustDecodeBounds = true }.also { BitmapFactory.decodeFile(file.path, it) }.outWidth > 0
+            if (!ok) { file.delete(); error("not a picture") }
+        }.onFailure { Log.w(TAG, "could not fetch ${c.path}", it) }.isSuccess
+    }
+
     /** The pictures of [pkg] that are on this TV, the default first. */
     fun choices(pkg: String): List<Choice> =
         if (::dir.isInitialized) index[pkg].orEmpty().filter { here(it) != null } else emptyList()
 
     /** The picture [pkg]'s tile uses from the library: the phone page's pick, else the default. */
     fun chosen(pkg: String): Choice? {
+        borrowed(pkg)?.second?.takeIf { here(it) != null }?.let { return it }
         val here = choices(pkg)
         val id = if (::dir.isInitialized) picks.getString("choice:$pkg", null) else null
         return here.firstOrNull { it.id == id } ?: here.firstOrNull()
@@ -58,6 +86,7 @@ object IconLibrary {
     /** The library's picture of [pkg] as stored, for the phone page: [id]'s, or the chosen one. */
     fun file(pkg: String, id: String? = null): File? {
         val c = if (id == null) chosen(pkg) else choices(pkg).firstOrNull { it.id == id }
+            ?: borrowed(pkg)?.second?.takeIf { it.id == id }
         return c?.let(::here)
     }
 
@@ -79,15 +108,20 @@ object IconLibrary {
     }
 
     /** From the phone page, as the full app's IconLibrary.choose. */
-    fun choose(pkg: String, pick: Pick?, choice: String? = null) {
+    fun choose(pkg: String, pick: Pick?, choice: String? = null, from: String? = null) {
         val library = picks.getStringSet("use_library", emptySet())!! - pkg
         val own = picks.getStringSet("use_own", emptySet())!! - pkg
         val default = index[pkg]?.firstOrNull()?.id
         val edit = picks.edit()
             .putStringSet("use_library", if (pick == Pick.Library) library + pkg else library)
             .putStringSet("use_own", if (pick == Pick.Own) own + pkg else own)
-        if (pick != Pick.Own) {
-            if (choice == null || choice == default) edit.remove("choice:$pkg") else edit.putString("choice:$pkg", choice)
+        if (pick == Pick.Library && from != null && from != pkg && choice != null) {
+            edit.putString("borrow:$pkg", "$from/$choice")
+        } else {
+            edit.remove("borrow:$pkg")
+            if (pick != Pick.Own) {
+                if (choice == null || choice == default) edit.remove("choice:$pkg") else edit.putString("choice:$pkg", choice)
+            }
         }
         edit.apply()
     }
@@ -126,7 +160,7 @@ object IconLibrary {
         }
         val keep = HashSet<String>()
         for (pkg in installed) {
-            for (c in index[pkg].orEmpty()) {
+            for (c in index[pkg].orEmpty() + listOfNotNull(borrowed(pkg)?.second)) {
                 val file = File(dir, c.fileName)
                 keep += file.name
                 if (file.exists() || now - (failedAt[file.name] ?: 0L) < RETRY_MS) continue

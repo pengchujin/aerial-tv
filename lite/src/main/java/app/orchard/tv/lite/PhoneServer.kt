@@ -151,6 +151,7 @@ class PhoneServer private constructor(private val context: Context, private val 
                     if (known && name.isNotEmpty()) onMain { ops.renameFolder(id, name) }
                     json(state().put("saved", known && name.isNotEmpty()))
                 }
+                path == "/api/library/all" -> json(libraryCatalog())
                 post && path == "/api/icon/pick" -> {
                     val f = form(session)
                     val pkg = f["app"].orEmpty()
@@ -160,13 +161,21 @@ class PhoneServer private constructor(private val context: Context, private val 
                         else -> null
                     }
                     val choice = f["choice"]?.takeIf { it.isNotEmpty() }
-                    val ok = installed(pkg) && pick != null && (pick != IconLibrary.Pick.Library ||
-                        IconLibrary.choices(pkg).any { choice == null || it.id == choice })
+                    // Another app's picture, from the whole library (#1486), fetched first.
+                    val from = f["from"]?.takeIf { it.isNotEmpty() && it != pkg }
+                    val ok = installed(pkg) && pick != null && when {
+                        pick != IconLibrary.Pick.Library -> true
+                        from != null -> choice != null && IconLibrary.catalog()[from].orEmpty().any { it.id == choice }
+                        else -> IconLibrary.choices(pkg).any { choice == null || it.id == choice }
+                    }
+                    if (ok && from != null && !IconLibrary.fetch(IconLibrary.catalog()[from].orEmpty().first { it.id == choice })) {
+                        return@runCatching json(state().put("saved", false))
+                    }
                     if (ok) {
                         CustomIcons.clear(pkg)
                         // Kept even for the library: a firmware app drawn as Aerial's own tile
                         // takes it only when picked, as in the full app.
-                        IconLibrary.choose(pkg, pick, choice)
+                        IconLibrary.choose(pkg, pick, choice, from)
                         onMain { ops.iconsChanged() }
                     }
                     json(state().put("saved", ok))
@@ -326,11 +335,29 @@ class PhoneServer private constructor(private val context: Context, private val 
     /** The library's pictures of an app on this TV, as the full app's PhoneServer.libraryChoices. */
     private fun libraryChoices(pkg: String, inUse: Boolean) = JSONArray().apply {
         val on = IconLibrary.chosen(pkg)?.id
+        val borrowed = IconLibrary.borrowed(pkg)
         IconLibrary.choices(pkg).forEach { c ->
             put(JSONObject().put("id", c.id).put("by", IconLibrary.credits.optJSONObject(c.by) ?: JSONObject())
+                .put("on", inUse && borrowed == null && c.id == on))
+        }
+        // Another app's picture given to this one, with the app it is from (as the full app).
+        if (borrowed != null && IconLibrary.file(pkg, borrowed.second.id) != null) {
+            val c = borrowed.second
+            put(JSONObject().put("id", c.id).put("from", borrowed.first).put("by", IconLibrary.credits.optJSONObject(c.by) ?: JSONObject())
                 .put("on", inUse && c.id == on))
         }
     }
+
+    /** The whole icon library for the phone page's picker (#1486), as the full app. */
+    private fun libraryCatalog(): JSONObject = JSONObject()
+        .put("base", IconLibrary.PICTURES)
+        .put("apps", JSONArray().apply {
+            IconLibrary.catalog().toSortedMap().forEach { (pkg, choices) ->
+                put(JSONObject().put("app", pkg).put("choices", JSONArray().apply {
+                    choices.forEach { put(JSONObject().put("id", it.id).put("p", it.path)) }
+                }))
+            }
+        })
 
     private fun libraryPicture(pkg: String, choice: String?): Response {
         val f = IconLibrary.file(pkg, choice) ?: return text(Response.Status.NOT_FOUND, "")

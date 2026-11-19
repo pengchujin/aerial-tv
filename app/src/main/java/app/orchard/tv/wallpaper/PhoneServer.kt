@@ -186,6 +186,7 @@ class PhoneServer private constructor(private val context: Context, private val 
                     if (known && name.isNotEmpty() && rename != null) runBlocking(Dispatchers.Main) { rename(id, name) }
                     json(state().put("saved", known && name.isNotEmpty() && rename != null))
                 }
+                path == "/api/library/all" -> json(libraryCatalog())
                 session.method == Method.POST && path == "/api/icon/pick" -> {
                     // One of the library's pictures or the app's own art for one app; either
                     // replaces a picture sent from the phone.
@@ -197,13 +198,24 @@ class PhoneServer private constructor(private val context: Context, private val 
                         else -> null
                     }
                     val choice = f["choice"]?.takeIf { it.isNotEmpty() }
-                    val ok = installed(pkg) && pick != null && (pick != IconLibrary.Pick.Library ||
-                        IconLibrary.choices(pkg).any { choice == null || it.id == choice })
+                    // Another app's picture, picked from the whole library (issue #1486).
+                    val from = f["from"]?.takeIf { it.isNotEmpty() && it != pkg }
+                    val ok = installed(pkg) && pick != null && when {
+                        pick != IconLibrary.Pick.Library -> true
+                        from != null -> choice != null && IconLibrary.catalog()[from].orEmpty().any { it.id == choice }
+                        else -> IconLibrary.choices(pkg).any { choice == null || it.id == choice }
+                    }
+                    // A borrowed picture is fetched before the pick is kept, so a failed download
+                    // leaves the tile as it was rather than on a picture that is not there.
+                    if (ok && from != null) {
+                        val picture = IconLibrary.catalog()[from].orEmpty().first { it.id == choice }
+                        if (!IconLibrary.fetch(picture)) return@runCatching json(state().put("saved", false))
+                    }
                     if (ok) {
                         CustomIcons.clear(pkg)
                         // Kept even for the library, which most apps use anyway: a firmware app
                         // drawn as Aerial's own tile takes it only when picked.
-                        IconLibrary.choose(pkg, pick, choice)
+                        IconLibrary.choose(pkg, pick, choice, from)
                         runBlocking(Dispatchers.Main) { CustomIcons.changed(); IconLibrary.changed() }
                     }
                     json(state().put("saved", ok))
@@ -393,11 +405,32 @@ class PhoneServer private constructor(private val context: Context, private val 
      */
     private fun libraryChoices(pkg: String, inUse: Boolean) = JSONArray().apply {
         val on = IconLibrary.chosen(pkg)?.id
+        val borrowed = IconLibrary.borrowed(pkg)
         IconLibrary.choices(pkg).forEach { c ->
             put(JSONObject().put("id", c.id).put("by", IconLibrary.credits.optJSONObject(c.by) ?: JSONObject())
+                .put("on", inUse && borrowed == null && c.id == on))
+        }
+        // Another app's picture given to this one: listed too, with the app it is from.
+        borrowed?.let { (from, c) ->
+            if (IconLibrary.file(pkg, c.id) == null) return@let
+            put(JSONObject().put("id", c.id).put("from", from).put("by", IconLibrary.credits.optJSONObject(c.by) ?: JSONObject())
                 .put("on", inUse && c.id == on))
         }
     }
+
+    /**
+     * The whole icon library for the phone page's picker (issue #1486): each app's pictures by
+     * their place on the website, which the phone loads from there; the TV has only its own apps'.
+     */
+    private fun libraryCatalog(): JSONObject = JSONObject()
+        .put("base", IconLibrary.PICTURES)
+        .put("apps", JSONArray().apply {
+            IconLibrary.catalog().toSortedMap().forEach { (pkg, choices) ->
+                put(JSONObject().put("app", pkg).put("choices", JSONArray().apply {
+                    choices.forEach { put(JSONObject().put("id", it.id).put("p", it.path)) }
+                }))
+            }
+        })
 
     /** The icon library's picture of an app, as downloaded: [choice]'s, or the one its tile uses. */
     private fun libraryPicture(pkg: String, choice: String?): Response {
