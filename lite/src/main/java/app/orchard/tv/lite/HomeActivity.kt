@@ -135,6 +135,19 @@ class HomeActivity : Activity(), HomeView.Host {
         root.systemUiVisibility = if (navBar) android.view.View.SYSTEM_UI_FLAG_HIDE_NAVIGATION else android.view.View.SYSTEM_UI_FLAG_LOW_PROFILE
     }
 
+    /**
+     * While Home stays in front (its screensaver too), a reading that fell due is fetched: looked at
+     * only as Home came to the front, a failed one was not tried again all night (the full app's
+     * Weather.whileShown, issue #1576). Weather decides whether anything is due.
+     */
+    private val weatherTick = object : Runnable {
+        override fun run() {
+            if (!resumed) return
+            Weather.refreshIfStale({ work.execute(it) }) { handler.post { showWeather() } }
+            handler.postDelayed(this, WEATHER_TICK_MS)
+        }
+    }
+
     override fun onResume() {
         super.onResume()
         resumed = true
@@ -144,6 +157,8 @@ class HomeActivity : Activity(), HomeView.Host {
         showWeather()
         refreshDaily()
         Weather.refreshIfStale({ work.execute(it) }) { handler.post { showWeather() } }
+        handler.removeCallbacks(weatherTick)
+        handler.postDelayed(weatherTick, WEATHER_TICK_MS)
         resetIdle()
         // TCL MStar: off the main thread, ask the adapter whether Home may restore STORAGE.
         // It only does so after Lite itself switched the input (or on the STORAGE-backed
@@ -158,6 +173,7 @@ class HomeActivity : Activity(), HomeView.Host {
         resumed = false
         Kids.homeInFront = false
         handler.removeCallbacks(idle)
+        handler.removeCallbacks(weatherTick)
         hideSaver()
         // Back on Home the PIN is asked again (the full app relocks when an app opens).
         LiteSettings.relock()
@@ -900,6 +916,7 @@ class HomeActivity : Activity(), HomeView.Host {
         private const val TAG = "AerialLite"
         private const val SCREENSAVER_HOLD_MS = 4 * 60 * 60 * 1000L
         private const val DAILY_RETRY_MS = 30 * 60 * 1000L
+        private const val WEATHER_TICK_MS = 3 * 60 * 1000L
         private const val HOME_LAYER = 1
         private const val GRID_LAYER = 2
         /** The TVs' settings apps, kept behind the PIN (the full app's SystemProbe.isSettingsApp). */

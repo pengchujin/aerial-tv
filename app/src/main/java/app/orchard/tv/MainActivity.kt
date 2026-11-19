@@ -1021,6 +1021,7 @@ class MainActivity : ComponentActivity() {
             minuteReceiverOn = true
         }
         KidsWatch.homeInFront = true
+        Weather.whileShown(true)
         idleHandler.removeCallbacks(endHomeBounce)
         vm.homeBounce = false
         DiagLog.i("onResume; screensaver after ${idleBeforeScreensaver() / 1000} s")
@@ -1069,6 +1070,7 @@ class MainActivity : ComponentActivity() {
         vm.resumed = false
         if (minuteReceiverOn) { runCatching { unregisterReceiver(minuteReceiver) }; minuteReceiverOn = false }
         KidsWatch.homeInFront = false
+        Weather.whileShown(false)
         Updates.onHomePaused()
         DiagLog.i("onPause")
         leftForAnApp = openedAppSinceHome

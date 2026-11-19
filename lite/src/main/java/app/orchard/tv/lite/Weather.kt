@@ -12,7 +12,8 @@ import kotlin.math.roundToInt
  * The weather beside the clock, as the full app's weather/Weather.kt: Open-Meteo (no key, reachable
  * from China) for a place guessed from the network's address (ipinfo.io), named in Chinese from the
  * city list when the TV speaks Chinese. Lite has no phone page, so the place is always the guess.
- * Fetched when Home comes to the front, at most once an hour; nothing runs while the TV is idle.
+ * Fetched when Home comes to the front, at most once an hour, and checked again while Home stays
+ * in front (HomeActivity's weatherTick); nothing runs while Lite is in the back.
  */
 object Weather {
     private const val TAG = "AerialLite"
@@ -33,7 +34,12 @@ object Weather {
     private lateinit var prefs: SharedPreferences
     private lateinit var app: Context
     private var lastAttempt = 0L
-    private var failed = false
+    @Volatile private var failed = false
+    /** Failed readings in a row: the retry waits 3, 6, 12 ... minutes, at most an hour (issue #1576). */
+    @Volatile private var failures = 0
+    @Volatile private var inFlight = false
+
+    private fun retryMs(): Long = (RETRY_MS shl (failures - 1).coerceIn(0, 5)).coerceAtMost(REFRESH_MS)
 
     fun init(context: Context) {
         if (::prefs.isInitialized) return
@@ -56,11 +62,15 @@ object Weather {
         val since = System.currentTimeMillis() - lastAttempt
         // A network come up after a failed try is tried at once: Home started at boot before Wi-Fi
         // joined kept the weather of the day before (ZTE W152D, issue #1443).
-        if (!force && since < REFRESH_MS && !(failed && (since >= RETRY_MS || networkUp))) return
+        if (inFlight) return
+        if (!force && since < REFRESH_MS && !(failed && (since >= retryMs() || networkUp))) return
         lastAttempt = System.currentTimeMillis()
+        inFlight = true
         run(Runnable {
             val reading = runCatching { fetch() }.onFailure { Log.w(TAG, "weather unavailable", it) }.getOrNull()
             failed = reading == null
+            failures = if (reading == null) failures + 1 else 0
+            inFlight = false
             if (reading != null) {
                 now = reading
                 place = prefs.getString("place", null)

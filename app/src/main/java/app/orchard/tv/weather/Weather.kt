@@ -10,6 +10,8 @@ import androidx.core.content.edit
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -34,14 +36,18 @@ data class WeatherNow(val celsius: Int, val kind: WeatherKind, val day: Boolean,
  * The guess is often wrong behind a proxy (a whole home behind one shows another country), which
  * is why the phone page shows it and lets the owner correct it.
  *
- * Fetched when Home comes to the front, at most once an hour; nothing runs while the TV is idle.
- * Compose state, written on the main thread only.
+ * Fetched when Home comes to the front, at most once an hour, and on the same terms while Home stays
+ * in front ([whileShown]); nothing runs while Aerial is in the back. Compose state, written on the
+ * main thread only.
  */
 object Weather {
     private const val TAG = "AerialWeather"
     private const val PREFS = "weather"
     private const val REFRESH_MS = 60 * 60 * 1000L
-    /** After a failed reading; only checked when Home comes to the front (issue #1576). */
+    /**
+     * After a failed reading, doubled after each further failure up to [REFRESH_MS] (issue #1576:
+     * a line that blocks Open-Meteo's address for a while, then lets it through).
+     */
     private const val RETRY_MS = 3 * 60 * 1000L
     private const val RELOCATE_MS = 24 * 60 * 60 * 1000L
     /** A reading older than this is not shown at all. */
@@ -83,11 +89,44 @@ object Weather {
 
     private var failed = false
 
+    /** Failed readings in a row, for the retry's back-off. */
+    private var failures = 0
+
+    private fun retryMs(): Long = (RETRY_MS shl (failures - 1).coerceIn(0, 5)).coerceAtMost(REFRESH_MS)
+
+    /** How long until [refreshIfStale] would fetch, at the earliest. */
+    private fun dueInMs(): Long {
+        val since = System.currentTimeMillis() - lastAttempt
+        return ((if (failed) retryMs() else REFRESH_MS) - since).coerceAtLeast(0L)
+    }
+
     /** Like the daily photos: a failed reading is retried when the network connects (issue #129). */
     fun refreshIfStale(networkCameUp: Boolean = false) {
         if (!started) return
+        if (job?.isActive == true) return
         val since = System.currentTimeMillis() - lastAttempt
-        if (since >= REFRESH_MS || (failed && (networkCameUp || since >= RETRY_MS))) refresh()
+        if (since >= REFRESH_MS || (failed && (networkCameUp || since >= retryMs()))) refresh()
+    }
+
+    private var ticker: Job? = null
+
+    /**
+     * Checks again whenever a reading falls due while Home stays in front. Home was only looked at as
+     * it came to the front: left on Home or its screensaver, a TV whose reading had failed tried once
+     * in 13 hours, and the old reading went off the screen after [STALE_MS] (issue #1576, TCL 65T8E
+     * and MiTV-MFTR0, both on lines that blocked Open-Meteo for a while).
+     */
+    fun whileShown(shown: Boolean) {
+        ticker?.cancel()
+        ticker = null
+        if (!shown || !started) return
+        ticker = scope.launch {
+            while (isActive) {
+                delay(dueInMs() + 1_000L)
+                job?.join()
+                refreshIfStale()
+            }
+        }
     }
 
     private var lastResult = "none"
@@ -116,6 +155,7 @@ object Weather {
             }
             prefs.getString("place", null)?.let { place = it }
             failed = reading == null
+            failures = if (reading == null) failures + 1 else 0
             lastResult = if (reading != null) "success" else "failed ($why)"
             if (reading != null) {
                 Log.i(TAG, "weather read")
