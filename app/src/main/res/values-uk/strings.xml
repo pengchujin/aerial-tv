@@ -233,6 +233,9 @@
     <string name="weather_thunder">Грози</string>
     <string name="weather_temperature">%1$d°</string>
     <string name="weather_high_low">Макс.: %1$d°  Мін.: %2$d°</string>
+    <string name="home_stats_cpu">ЦП %1$s</string>
+    <string name="home_stats_memory">Пам’ять %1$s</string>
+    <string name="home_stats_storage">Сховище %1$s</string>
     <string name="st_columns">Програм у ряду</string>
     <string name="st_columns_hint">Скільки програм уміщується в ряд на головному екрані й у папках. Шість — більше видно одразу; чотири — більші, їх краще видно здалеку.</string>
     <string name="st_peek">Другий ряд</string>
