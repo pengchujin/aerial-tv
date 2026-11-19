@@ -4,6 +4,9 @@
 
 ## 现状（2026-11-19）
 
+- **2.11（versionCode 152），Lite 1.34（36），2026-11-19 发布**（[v2.11](https://github.com/pengchujin/aerial-tv/releases/tag/v2.11)）：下面这轮巡检的全部改动。版本名从这版起每次加 0.01（见「发版」第 1 步）；versionCode 跳过 151（两台装过 151 测试包）。三个包签名 e089…6685，官网已部署，字节数和 Release 一致（standard 3212338、guard 3212169、lite 1005466），version.txt=v2.11。修过的 #1391 #1626 #1625 #1576 #1383、PR #1624 贴了发布链接（`release-2.11-posts.py`）。
+  - 两台回归：小米 MFTR0（install-multiple + 31.dm，speed-profile / install-dm）selftest 主页键从设置 0.5 s 回、8 个信号源；TCL（install.sh 多屏互动，截图确认焦点在「同意」后确定，compile speed，两个 walleve 服务和 AerialDream 屏保不变）selftest 7 个信号源，主页键装完后第一次 5.2 s（同 1.96 记过的现象），之后三次 0.3–0.4 s；信号源键弹 TCL 面板、按返回回 Aerial。下次发版 versionCode ≥ 153，Lite ≥ 37。
+
 - **2026-11-19 全量巡检**（记录 `local/triage/2026-11-19-full.md`，回复 `replies-2026-11-19.py`，发出 `posted-2026-11-19.txt`）：349 issue / 69 PR，有新内容的 33 个逐个读过；维护者最后、超过 10 天没回音的 26 个关掉。main 上未发版的改动（都在 2.1 之后，每个一个提交）：
   - **#1391 极米 RS Pro 2 开机黑屏**：锁定开机兜底的 `sawScreenEvent` 以前在看事件类型之前就置位，开机时 `com.android.newsettings/CellView`（View，不是 Activity）一条事件就永久挡住兜底。现在只认窗口状态变化 + 类名能解析成 Activity（`MATCH_DIRECT_BOOT_AWARE|UNAWARE`）+ 非 Dialog、非 FallbackHome（`HomeGuardService.isScreenEvent`）。`DiagLog.init` 建文件时补写内存里更早的行，守护在解锁时建文件。没真机。
   - **#1626 创维 8R40_G20 老年模式**：`ElderMainActivity` 加进 `FIRMWARE_HOMES_WITHOUT_FILTER`，`CoocaaHome.modeScreen` 按 `persist.service.model.cls` 补。没真机。
