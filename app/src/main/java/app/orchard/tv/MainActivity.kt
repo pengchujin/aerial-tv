@@ -707,6 +707,12 @@ class MainActivity : ComponentActivity() {
             if (asked && !SystemScreensaver.startFirmware(this)) DiagLog.i("no system screensaver to start")
             return
         }
+        // Standby instead of a screensaver (issue #1436), on the timer only: Back must not put the
+        // TV to sleep. Where the guard cannot do it (it went off since), the clock shows instead.
+        if (Wallpapers.screensaver == ScreensaverMode.Sleep && !asked) {
+            if (HomeGuardService.sleep("screensaver")) return
+            DiagLog.i("standby chosen, but the guard cannot put the TV to sleep; the clock instead")
+        }
         // Aerials over the aerial wallpaper, or the owner's videos over their video wallpaper: Home
         // carries the wallpaper's film on, the same player in the same format, so there is no black
         // between them; the dream would be a new player in a new window, and showed black even in

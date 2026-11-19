@@ -2814,6 +2814,32 @@ class HomeGuardService : AccessibilityService() {
         }
 
         /**
+         * Whether [sleep] can put the TV to sleep: the guard is running, on Android 9+, where
+         * GLOBAL_ACTION_LOCK_SCREEN exists. No other way is open to an app: the power key cannot be
+         * sent and goToSleep needs DEVICE_POWER.
+         */
+        val canSleep: Boolean get() = instance != null && Build.VERSION.SDK_INT >= 28
+
+        /**
+         * Puts the TV to sleep as its power key does, for the phone page's "Turn Off the TV"
+         * (issue #1615) and the Standby screensaver (#1436). GLOBAL_ACTION_LOCK_SCREEN has the
+         * system call PowerManager.goToSleep and lock (AOSP SystemActionPerformer.lockScreen); what
+         * sleep means is the firmware's: standby on most TVs, after which the power key, not any
+         * key, wakes it. Not tried on the TVs at hand: nothing could wake them again from afar.
+         * False where it cannot be done ([canSleep]).
+         */
+        fun sleep(why: String): Boolean {
+            val s = instance ?: return false
+            if (Build.VERSION.SDK_INT < 28) return false
+            DiagLog.i("sleep asked ($why)")
+            s.handler.post {
+                val done = s.performGlobalAction(GLOBAL_ACTION_LOCK_SCREEN)
+                DiagLog.i("sleep: lock screen action ${if (done) "taken" else "refused"}")
+            }
+            return true
+        }
+
+        /**
          * A line at the top of the screen over whatever app is in front (Kids mode's warnings),
          * drawn as the accessibility service's own overlay: no other permission is needed. False
          * where it cannot be (no guard, Android 5.0).

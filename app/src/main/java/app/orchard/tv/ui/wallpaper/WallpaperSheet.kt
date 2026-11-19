@@ -70,6 +70,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import app.orchard.tv.R
+import app.orchard.tv.guard.HomeGuardService
 import app.orchard.tv.settings.AerialSettings
 import app.orchard.tv.settings.ClockHours
 import app.orchard.tv.settings.Restricted
@@ -309,6 +310,7 @@ fun WallpaperSheet(
                         when {
                             Wallpapers.screensaver == ScreensaverMode.Videos -> stringResource(R.string.ss_videos_hint)
                             Wallpapers.screensaver == ScreensaverMode.System -> stringResource(R.string.ss_system_hint)
+                            Wallpapers.screensaver == ScreensaverMode.Sleep -> stringResource(R.string.ss_sleep_hint)
                             Wallpapers.screensaverFollows -> stringResource(R.string.ss_follow_hint)
                             AerialSettings.backStartsScreensaver -> stringResource(R.string.ss_back_hint)
                             else -> null
@@ -686,7 +688,7 @@ private fun WeatherValue() {
 
 /** A pill to pick one of a few options: a check on the chosen one, white when focused. */
 @Composable
-private fun Chip(label: String, on: Boolean, onFocused: (() -> Unit)? = null, onClick: () -> Unit) {
+private fun Chip(label: String, on: Boolean, onFocused: (() -> Unit)? = null, compact: Boolean = false, onClick: () -> Unit) {
     Pressable(onClick = onClick, focusedScale = 1.06f) { state ->
         if (onFocused != null) LaunchedEffect(state.focused) { if (state.focused) onFocused() }
         val bg by animateColorAsState(
@@ -699,9 +701,9 @@ private fun Chip(label: String, on: Boolean, onFocused: (() -> Unit)? = null, on
         )
         val fg = if (state.focused) Palette.OnFocus else Palette.Label
         Row(
-            Modifier.clip(RoundedCornerShape(50)).drawBehind { drawRect(bg) }.height(40.dp).padding(horizontal = 20.dp),
+            Modifier.clip(RoundedCornerShape(50)).drawBehind { drawRect(bg) }.height(40.dp).padding(horizontal = if (compact) 15.dp else 20.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(if (compact) 6.dp else 8.dp),
         ) {
             if (on) GlyphIcon(Glyph.Check, fg, 14.dp)
             BasicText(label, style = Type.Body.copy(color = fg))
@@ -728,28 +730,35 @@ private fun ActionChip(label: String, glyph: Glyph, onClick: () -> Unit) {
 
 @Composable
 private fun ScreensaverChoice(onStart: () -> Unit) {
+    // Standby only where the guard can put the TV to sleep (issue #1436), or still chosen.
+    val sleep = remember { HomeGuardService.canSleep } || Wallpapers.screensaver == ScreensaverMode.Sleep
     // The choice first, then the action that tries it.
-    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+    // Six choices with Standby: narrower chips and gaps, so the row's label keeps its room.
+    Row(horizontalArrangement = Arrangement.spacedBy(if (sleep) 8.dp else 10.dp)) {
         listOf(
             ScreensaverMode.Aerial to R.string.ss_aerial,
             ScreensaverMode.Photos to R.string.ss_photos,
             ScreensaverMode.Clock to R.string.ss_clock,
             ScreensaverMode.Videos to R.string.ss_videos,
             ScreensaverMode.System to R.string.ss_system,
-        ).forEach { (mode, label) ->
-            Chip(stringResource(label), on = Wallpapers.screensaver == mode) { Wallpapers.chooseScreensaver(mode) }
+        ).let { if (sleep) it + (ScreensaverMode.Sleep to R.string.ss_sleep) else it }.forEach { (mode, label) ->
+            Chip(stringResource(label), on = Wallpapers.screensaver == mode, compact = sleep) { Wallpapers.chooseScreensaver(mode) }
         }
-        Spacer(Modifier.width(6.dp))
-        Pressable(onClick = onStart, focusedScale = 1.06f) { state ->
+        if (!sleep) Spacer(Modifier.width(6.dp))
+        // Nothing to try with Standby: starting it puts the TV to sleep. With its chip the row has
+        // no room for "Start Now" in words (it wrapped to two lines and pushed the row's label out,
+        // TCL MT5879): the play glyph alone then, still read out by its name.
+        val start = stringResource(R.string.ss_start)
+        if (Wallpapers.screensaver != ScreensaverMode.Sleep) Pressable(onClick = onStart, focusedScale = 1.06f, label = start) { state ->
             val bg by animateColorAsState(if (state.focused) Palette.Focus else Palette.FillStrong, tween(140, easing = Motion.EaseOut), label = "ss-start")
             val fg = if (state.focused) Palette.OnFocus else Palette.Label
             Row(
-                Modifier.clip(RoundedCornerShape(50)).drawBehind { drawRect(bg) }.height(40.dp).padding(horizontal = 20.dp),
+                Modifier.clip(RoundedCornerShape(50)).drawBehind { drawRect(bg) }.height(40.dp).then(if (sleep) Modifier.width(40.dp) else Modifier.padding(horizontal = 20.dp)),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = if (sleep) Arrangement.Center else Arrangement.spacedBy(8.dp),
             ) {
                 GlyphIcon(Glyph.Play, fg, 14.dp)
-                BasicText(stringResource(R.string.ss_start), style = Type.Body.copy(color = fg))
+                if (!sleep) BasicText(start, style = Type.Body.copy(color = fg), maxLines = 1)
             }
         }
     }

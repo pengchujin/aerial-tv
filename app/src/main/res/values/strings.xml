@@ -332,4 +332,6 @@
     <string name="cc_about_update">Software Update</string>
     <string name="cc_about_latest">Up to Date</string>
     <string name="cc_about_version">Version %1$s</string>
+    <string name="ss_sleep">Standby</string>
+    <string name="ss_sleep_hint">No screensaver: when the time comes, the TV goes to standby, as with its power button. Many TVs then wake only with the power button.</string>
 </resources>

@@ -324,4 +324,6 @@
     <string name="cc_about_update">Оновлення</string>
     <string name="cc_about_latest">Остання версія</string>
     <string name="cc_about_version">Версія %1$s</string>
+    <string name="ss_sleep">Сон</string>
+    <string name="ss_sleep_hint">Без заставки: коли мине час, телевізор переходить у режим очікування, як від кнопки живлення. Багато телевізорів потім вмикаються лише кнопкою живлення.</string>
 </resources>

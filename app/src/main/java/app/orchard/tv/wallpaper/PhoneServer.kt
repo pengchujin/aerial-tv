@@ -65,7 +65,8 @@ class PhoneServer private constructor(private val context: Context, private val 
             // In Kids and Elders mode the page changes nothing without the parental PIN: anyone on
             // the network with the address (a child with a phone) could otherwise undo the mode.
             // The page sends it with each change once it is entered (header X-Aerial-Pin).
-            if (session.method == Method.POST && path != "/api/kids/unlock" && (Restricted.active || path.startsWith("/api/kids/")) &&
+            // Turning the TV off undoes nothing, and is what a parent away from it may want most.
+            if (session.method == Method.POST && path != "/api/kids/unlock" && path != "/api/power/off" && (Restricted.active || path.startsWith("/api/kids/")) &&
                 path != "/api/kids/start" && !pinOk(session.headers["x-aerial-pin"])
             ) return json(state().put("saved", false).put("kidsLocked", true))
             when {
@@ -96,6 +97,11 @@ class PhoneServer private constructor(private val context: Context, private val 
                     val id = form(session)["id"].orEmpty()
                     onMain { Wallpapers.select(id) }
                     json(state())
+                }
+                // Turn the TV off from the phone (issue #1615): standby through the guard, as the
+                // power key; where the guard cannot, the page does not offer it ("canSleep").
+                session.method == Method.POST && path == "/api/power/off" -> {
+                    json(state().put("saved", HomeGuardService.sleep("phone page")))
                 }
                 session.method == Method.POST && path == "/api/screensaver" -> {
                     val mode = ScreensaverMode.of(form(session)["mode"])
@@ -238,6 +244,7 @@ class PhoneServer private constructor(private val context: Context, private val 
             .put("latestDaily", Wallpapers.LATEST_DAILY)
             .put("rotatePhotos", Wallpapers.ROTATE_PHOTOS)
             .put("screensaver", Wallpapers.screensaver.key)
+            .put("canSleep", HomeGuardService.canSleep)
             .put("screensaverFollows", Wallpapers.screensaverFollows)
             .put("videos", JSONArray().apply {
                 ScreensaverVideos.all(context).forEach { put(JSONObject().put("id", it.id).put("name", it.name)) }

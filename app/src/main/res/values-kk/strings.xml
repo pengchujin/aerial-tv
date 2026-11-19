@@ -324,4 +324,6 @@
     <string name="cc_about_update">Жаңарту</string>
     <string name="cc_about_latest">Соңғы нұсқа</string>
     <string name="cc_about_version">Нұсқа %1$s</string>
+    <string name="ss_sleep">Ұйқы</string>
+    <string name="ss_sleep_hint">Экран сақтағышсыз: уақыт келгенде теледидар қуат түймесін басқандай күту режиміне өтеді. Көп теледидар кейін тек қуат түймесімен қосылады.</string>
 </resources>

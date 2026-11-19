@@ -328,6 +328,7 @@
     <button class="item" role="radio" data-mode="photos"><span class="txt"><span data-i18n="ss_photos"></span><span class="sub" data-i18n="hint_photos"></span></span><svg class="tick" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></button>
     <button class="item" role="radio" data-mode="clock"><span class="txt"><span data-i18n="ss_clock"></span><span class="sub" data-i18n="hint_clock"></span></span><svg class="tick" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></button>
     <button class="item" role="radio" data-mode="videos"><span class="txt"><span data-i18n="ss_videos"></span><span class="sub" data-i18n="hint_videos"></span></span><svg class="tick" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></button>
+    <button class="item" role="radio" data-mode="sleep" hidden><span class="txt"><span data-i18n="ss_sleep"></span><span class="sub" data-i18n="hint_sleep"></span></span><svg class="tick" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></button>
   </div>
   <p class="foot" id="ssFoot"></p>
   <div class="list" id="ssTimeBox" style="margin-top:10px">
@@ -373,6 +374,10 @@
     <div class="item"><span class="txt" data-i18n="language"></span><span class="val" id="langName"></span><svg class="chev" width="8" height="14" viewBox="0 0 8 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 1l6 6-6 6"/></svg><select id="lang" data-i18n-aria-label="language"></select></div>
   </div>
 
+  <!-- Its own group, after what only describes the TV: an action, not a fact about it. Blue as
+       iOS Settings' Shut Down: it turns the TV off for now, it deletes nothing. -->
+  <div class="list" id="powerBox" hidden style="margin-top:10px"><button class="item tint center" id="powerOff" data-i18n="power_off"></button></div>
+
   <h2 data-i18n="feedback_h"></h2>
   <div class="list"><button class="item tint center" id="diagBtn" data-i18n="diag_show"></button></div>
   <pre class="diag" id="diag" hidden></pre>
@@ -408,7 +413,7 @@ let state = null, stateJson = '';
 
 // The language: ?lang=ru in the address, else the one picked under More (kept on the phone), else the
 // first of the phone's preferred languages that has a table, else English. Keys are in KEYS, one array of texts per language.
-const KEYS = ["screensaver", "screensaver_short", "ss_aerial", "ss_photos", "ss_clock", "focus", "focus_high", "focus_standard", "weather", "city_ph", "set", "upload_label", "feedback_h", "feedback_hint", "diag_show", "diag_copy", "diag_github", "hint_aerial", "hint_photos", "hint_clock", "g_live", "g_live_sub", "g_daily", "g_daily_sub", "g_photo", "g_builtin", "g_auto", "toast_wallpaper", "aria_delete", "confirm_delete", "wx_clear", "wx_partlycloudy", "wx_cloudy", "wx_fog", "wx_rain", "wx_snow", "wx_thunder", "wx_chosen", "wx_auto_btn", "toast_auto", "wx_guessed", "wx_none", "tag_source", "aria_rename", "toast_renamed", "toast_name_reset", "toast_rename_fail", "aria_reset_icon", "toast_icon_reset", "focus_hint_standard", "focus_hint_high", "daily_title", "daily_caption", "rotate_title", "rotate_caption", "empty_photos", "add_second", "toast_tv_updated", "sending_n", "toast_added", "toast_no_photos", "toast_send_fail", "toast_city_set", "toast_city_nf", "toast_set_fail", "toast_sending_icon", "toast_icon_set", "toast_icon_bad", "diag_collecting", "toast_diag_fail", "toast_copied", "toast_copy_manual", "language", "hint_follows", "ss_videos", "hint_videos", "videos_h", "videos_upload", "videos_hint", "videos_empty", "confirm_video_delete", "toast_videos_added", "toast_video_bad", "sending_video", "hint_system", "tab_home", "tab_more", "current_wp", "cancel", "save", "name_ph", "rename_hint", "change_icon", "this_tv", "folder_count", "folder_ph", "inputs_h", "inputs_hint", "rename_hint_app", "was_named", "arrange_hint", "arrange_unready", "hidden_h", "hidden_none", "hidden_locked", "show_app", "hide_app", "to_folder", "new_folder", "out_of_folder", "ungroup", "ungroup_confirm", "folder_hint", "toast_hidden", "toast_shown", "toast_in_folder", "toast_out_folder", "toast_ungrouped", "tab_looks", "looks_title", "show_on_home", "source_device", "source_plain", "source_device_hint", "tv_model", "sw_always", "sw_always_sub", "sw_weather", "sw_saver_time", "sw_saver_time_sub", "sw_saver_place", "sw_saver_place_sub", "g_source_sub", "icon_h", "icon_library", "icon_own", "icon_custom", "toast_icon_picked", "drop_hint", "drop_sub", "drop_none", "toast_diag_paste", "kids_h", "elders_h", "kids_used", "kids_left", "kids_nolimit", "kids_allowed", "kids_lock_day", "kids_lock_late", "kids_lock_break", "kids_pin_ph", "kids_unlock", "kids_wrong", "kids_need_pin", "kids_locked_foot", "kids_add", "kids_day", "kids_leave_k", "kids_leave_e", "kids_paused", "kids_resume", "kids_min", "kids_hm", "kids_erase", "kids_hr", "kids_both", "kids_off_line", "kids_settings", "kids_no_pin", "kids_pin_foot", "ks_meta", "ks_on", "ks_on_sub", "ks_block", "ks_block_sub", "ks_block_noguard", "ks_time_h", "ks_weekday", "ks_weekend", "ks_minutes", "ks_nolimit", "ks_window", "ks_from", "ks_to", "ks_break", "ks_break_every", "ks_break_len", "ks_time_foot", "ks_apps", "ks_apps_sub", "ks_input", "ks_save", "ks_saved", "ks_invalid", "ks_for", "wx_temp"];
+const KEYS = ["screensaver", "screensaver_short", "ss_aerial", "ss_photos", "ss_clock", "focus", "focus_high", "focus_standard", "weather", "city_ph", "set", "upload_label", "feedback_h", "feedback_hint", "diag_show", "diag_copy", "diag_github", "hint_aerial", "hint_photos", "hint_clock", "g_live", "g_live_sub", "g_daily", "g_daily_sub", "g_photo", "g_builtin", "g_auto", "toast_wallpaper", "aria_delete", "confirm_delete", "wx_clear", "wx_partlycloudy", "wx_cloudy", "wx_fog", "wx_rain", "wx_snow", "wx_thunder", "wx_chosen", "wx_auto_btn", "toast_auto", "wx_guessed", "wx_none", "tag_source", "aria_rename", "toast_renamed", "toast_name_reset", "toast_rename_fail", "aria_reset_icon", "toast_icon_reset", "focus_hint_standard", "focus_hint_high", "daily_title", "daily_caption", "rotate_title", "rotate_caption", "empty_photos", "add_second", "toast_tv_updated", "sending_n", "toast_added", "toast_no_photos", "toast_send_fail", "toast_city_set", "toast_city_nf", "toast_set_fail", "toast_sending_icon", "toast_icon_set", "toast_icon_bad", "diag_collecting", "toast_diag_fail", "toast_copied", "toast_copy_manual", "language", "hint_follows", "ss_videos", "hint_videos", "videos_h", "videos_upload", "videos_hint", "videos_empty", "confirm_video_delete", "toast_videos_added", "toast_video_bad", "sending_video", "hint_system", "tab_home", "tab_more", "current_wp", "cancel", "save", "name_ph", "rename_hint", "change_icon", "this_tv", "folder_count", "folder_ph", "inputs_h", "inputs_hint", "rename_hint_app", "was_named", "arrange_hint", "arrange_unready", "hidden_h", "hidden_none", "hidden_locked", "show_app", "hide_app", "to_folder", "new_folder", "out_of_folder", "ungroup", "ungroup_confirm", "folder_hint", "toast_hidden", "toast_shown", "toast_in_folder", "toast_out_folder", "toast_ungrouped", "tab_looks", "looks_title", "show_on_home", "source_device", "source_plain", "source_device_hint", "tv_model", "sw_always", "sw_always_sub", "sw_weather", "sw_saver_time", "sw_saver_time_sub", "sw_saver_place", "sw_saver_place_sub", "g_source_sub", "icon_h", "icon_library", "icon_own", "icon_custom", "toast_icon_picked", "drop_hint", "drop_sub", "drop_none", "toast_diag_paste", "kids_h", "elders_h", "kids_used", "kids_left", "kids_nolimit", "kids_allowed", "kids_lock_day", "kids_lock_late", "kids_lock_break", "kids_pin_ph", "kids_unlock", "kids_wrong", "kids_need_pin", "kids_locked_foot", "kids_add", "kids_day", "kids_leave_k", "kids_leave_e", "kids_paused", "kids_resume", "kids_min", "kids_hm", "kids_erase", "kids_hr", "kids_both", "kids_off_line", "kids_settings", "kids_no_pin", "kids_pin_foot", "ks_meta", "ks_on", "ks_on_sub", "ks_block", "ks_block_sub", "ks_block_noguard", "ks_time_h", "ks_weekday", "ks_weekend", "ks_minutes", "ks_nolimit", "ks_window", "ks_from", "ks_to", "ks_break", "ks_break_every", "ks_break_len", "ks_time_foot", "ks_apps", "ks_apps_sub", "ks_input", "ks_save", "ks_saved", "ks_invalid", "ks_for", "wx_temp", "ss_sleep", "hint_sleep", "power_off", "power_off_confirm", "power_off_done", "power_off_fail"];
 const TEXTS = {
  "zh": [
   "屏幕保护程序",
@@ -607,7 +612,13 @@ const TEXTS = {
   "已保存，电视已更新",
   "保存失败：时段的结束要晚于开始，分钟数在 0–1440 之间；开启时至少选一个 App。",
   "给谁用",
-  "{n}℃"
+  "{n}℃",
+  "待机",
+  "不放屏保，时间到了让电视待机，和按电源键一样。很多电视之后只能用电源键开机。",
+  "关闭电视",
+  "关闭电视？电视会待机，和按电源键一样；之后要用遥控器的电源键开机，这个页面打不开电视。",
+  "已让电视待机",
+  "关不了：桌面守护没在运行"
  ],
  "en": [
   "Screensaver",
@@ -806,7 +817,13 @@ const TEXTS = {
   "Saved; the TV is updated",
   "Not saved: the hours must end after they start, minutes must be 0–1440, and the mode needs at least one app to be on.",
   "For",
-  "{n}°"
+  "{n}°",
+  "Standby",
+  "No screensaver: when the time comes, the TV goes to standby, as with its power button. Many TVs then wake only with the power button.",
+  "Turn Off the TV",
+  "Turn off the TV? It goes to standby, as with its power button. Turn it on again with the remote's power button: this page cannot.",
+  "The TV is going to standby",
+  "Cannot: Home Guard is not running"
  ],
  "ru": [
   "Заставка",
@@ -1005,7 +1022,13 @@ const TEXTS = {
   "Сохранено, телевизор обновлён",
   "Не сохранено: конец должен быть позже начала, минуты — от 0 до 1440, а для включения нужно хотя бы одно приложение.",
   "Для кого",
-  "{n}°"
+  "{n}°",
+  "Сон",
+  "Без заставки: по истечении времени телевизор уходит в режим ожидания, как от кнопки питания. Многие телевизоры потом включаются только кнопкой питания.",
+  "Выключить телевизор",
+  "Выключить телевизор? Он уйдёт в режим ожидания, как от кнопки питания. Включить его снова можно кнопкой питания на пульте: эта страница не сможет.",
+  "Телевизор уходит в режим ожидания",
+  "Не удалось: Home Guard не запущен"
  ],
  "uk": [
   "Заставка",
@@ -1204,7 +1227,13 @@ const TEXTS = {
   "Збережено, телевізор оновлено",
   "Не збережено: кінець має бути пізніше за початок, хвилини — від 0 до 1440, а для ввімкнення потрібен хоча б один застосунок.",
   "Для кого",
-  "{n}°"
+  "{n}°",
+  "Сон",
+  "Без заставки: коли мине час, телевізор переходить у режим очікування, як від кнопки живлення. Багато телевізорів потім вмикаються лише кнопкою живлення.",
+  "Вимкнути телевізор",
+  "Вимкнути телевізор? Він перейде в режим очікування, як від кнопки живлення. Увімкнути знову можна кнопкою живлення на пульті: ця сторінка не зможе.",
+  "Телевізор переходить у режим очікування",
+  "Не вдалося: Home Guard не запущено"
  ],
  "kk": [
   "Экран қорғаушы",
@@ -1403,7 +1432,13 @@ const TEXTS = {
   "Сақталды, теледидар жаңартылды",
   "Сақталмады: соңы басынан кеш болуы керек, минуттар 0–1440 аралығында, ал қосу үшін кемінде бір қолданба керек.",
   "Кімге",
-  "{n}°"
+  "{n}°",
+  "Ұйқы",
+  "Экран сақтағышсыз: уақыт келгенде теледидар қуат түймесін басқандай күту режиміне өтеді. Көп теледидар кейін тек қуат түймесімен қосылады.",
+  "Теледидарды өшіру",
+  "Теледидарды өшіру керек пе? Ол қуат түймесін басқандай күту режиміне өтеді. Қайта қосу үшін пульттің қуат түймесін басыңыз: бұл бет қоса алмайды.",
+  "Теледидар күту режиміне өтуде",
+  "Болмады: Home Guard іске қосылмаған"
  ]
 };
 const LANGS = Object.keys(TEXTS);
@@ -1441,7 +1476,7 @@ function applyI18n() {
 }
 
 
-const hints = { aerial: t('hint_aerial'), photos: t('hint_photos'), clock: t('hint_clock'), videos: t('hint_videos'), system: t('hint_system') };
+const hints = { aerial: t('hint_aerial'), photos: t('hint_photos'), clock: t('hint_clock'), videos: t('hint_videos'), system: t('hint_system'), sleep: t('hint_sleep') };
 const groups = [
   ['live', t('g_live'), t('g_live_sub')],
   ['daily', t('g_daily'), t('g_daily_sub')],
@@ -1673,6 +1708,9 @@ async function sendPhotos(files) {
 let sendingVideo = '';
 function renderScreensaver() {
   document.querySelectorAll('#ss [data-mode]').forEach(b => b.setAttribute('aria-checked', b.dataset.mode === state.screensaver ? 'true' : 'false'));
+  // Standby only where the TV's guard can put it to sleep (Android 9+), or while still chosen.
+  $('#ss [data-mode="sleep"]').hidden = !state.canSleep && state.screensaver !== 'sleep';
+  $('#powerBox').hidden = !state.canSleep;
   $('#ssFoot').textContent = state.screensaverFollows ? t('hint_follows') : state.screensaver === 'system' ? hints.system : '';
   $('#ssFoot').hidden = !$('#ssFoot').textContent;
   // The time only over the aerial and photo screensavers; the clock one is its clock.
@@ -1700,6 +1738,10 @@ document.querySelectorAll('#ss [data-mode]').forEach(b => b.onclick = async () =
   if (b.dataset.mode === state.screensaver && !state.screensaverFollows) return;
   try { take(await api('api/screensaver', { mode: b.dataset.mode })); toast(t('toast_tv_updated')); } catch (e) { toast(t('toast_set_fail')); }
 });
+$('#powerOff').onclick = async () => {
+  if (!confirm(t('power_off_confirm'))) return;
+  try { const next = await api('api/power/off', {}); toast(t(next.saved ? 'power_off_done' : 'power_off_fail')); } catch (e) { toast(t('power_off_fail')); }
+};
 $('#videoFile').onchange = e => sendVideos([...e.target.files]);
 async function sendVideos(files) {
   const input = $('#videoFile'); if (!files.length || input.disabled) return;

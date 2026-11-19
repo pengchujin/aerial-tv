@@ -49,7 +49,14 @@ data class Wallpaper(
 
 /** System: none of Aerial's; the TV's own screensaver starts as the firmware has it (SystemScreensaver). */
 enum class ScreensaverMode(val key: String) {
-    Aerial("aerial"), Photos("photos"), Clock("clock"), Videos("videos"), System("system");
+    Aerial("aerial"), Photos("photos"), Clock("clock"), Videos("videos"), System("system"),
+
+    /**
+     * No screensaver: when the time comes the TV goes to sleep, through the guard
+     * (HomeGuardService.sleep, issue #1436). Offered only where the guard can; where it cannot
+     * when the time comes, the clock shows instead.
+     */
+    Sleep("sleep");
 
     companion object {
         fun of(key: String?) = entries.firstOrNull { it.key == key } ?: Aerial

@@ -331,4 +331,6 @@
     <string name="cc_about_update">软件更新</string>
     <string name="cc_about_latest">已是最新</string>
     <string name="cc_about_version">版本 %1$s</string>
+    <string name="ss_sleep">待机</string>
+    <string name="ss_sleep_hint">不放屏保：时间到了让电视待机，和按电源键一样。很多电视之后只能用电源键开机。</string>
 </resources>
