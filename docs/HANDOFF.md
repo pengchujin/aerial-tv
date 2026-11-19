@@ -2,6 +2,21 @@
 
 写给接手 Aerial 的人或 AI。先读这份，再读 [ARCHITECTURE.md](ARCHITECTURE.md) 和 [devices/](devices/)。
 
+## 现状（2026-11-19）
+
+- **2026-11-19 全量巡检**（记录 `local/triage/2026-11-19-full.md`，回复 `replies-2026-11-19.py`，发出 `posted-2026-11-19.txt`）：349 issue / 69 PR，有新内容的 33 个逐个读过；维护者最后、超过 10 天没回音的 26 个关掉。main 上未发版的改动（都在 2.1 之后，每个一个提交）：
+  - **#1391 极米 RS Pro 2 开机黑屏**：锁定开机兜底的 `sawScreenEvent` 以前在看事件类型之前就置位，开机时 `com.android.newsettings/CellView`（View，不是 Activity）一条事件就永久挡住兜底。现在只认窗口状态变化 + 类名能解析成 Activity（`MATCH_DIRECT_BOOT_AWARE|UNAWARE`）+ 非 Dialog、非 FallbackHome（`HomeGuardService.isScreenEvent`）。`DiagLog.init` 建文件时补写内存里更早的行，守护在解锁时建文件。没真机。
+  - **#1626 创维 8R40_G20 老年模式**：`ElderMainActivity` 加进 `FIRMWARE_HOMES_WITHOUT_FILTER`，`CoocaaHome.modeScreen` 按 `persist.service.model.cls` 补。没真机。
+  - **#1625 TCL r34a0（安卓 5.1）**：`SHOW_WINDOW` 不带参数会让 `ShowWindowService` 空转、设置键失灵 → 带设置键的 `Type=Settings`、`flag="1"`（MT5879 `tcl-service.jar` 的 `TclShortCutKeyManager.keySetShortPress`），Lite 同步。TCL MT5879 上从控制中心亮度行实测仍开图像页；r34a0 没真机。
+  - **#1576 天气**：首页一直在前台（包括 Aerial 自己的屏保）时以前不再检查，失败后 13 小时只试一次、读数 3 小时后消失 → `Weather.whileShown`：到期就取，失败后 3/6/12…分钟退避到 1 小时；Lite 每 3 分钟问一次是否到期。备用天气源 / 显示过期读数交户主。
+  - **#1383**：`dumpsys activity service app.orchard.tv/.guard.RevivalListener` 也打印守护状态（首页不在时的诊断入口，小米 MFTR0 实测有输出）。
+  - **合 PR #1607**（kanshurichard，Vidda VL7R-PRO 文档，squash，作者保留）；**合 PR #1624 第一部分**（icandy7272，微鲸开机关电源呼吸灯，`WhaleyBoot`，作者 WTV55K1J 实测；第二部分按 HDMI 有无设备选开机口留功能轮次）。
+- 验证：`assembleStandardRelease assembleGuardRelease :lite:assembleRelease`、standard 单测、`:lite:lintRelease` 通过，签名 e089…6685。测试包 versionCode **151**（没提交）：**TCL MT5879** 多屏互动推 guard（截图确认焦点在「同意」后确定，compile speed）：selftest 主页键从 TCL 浏览器 0.4 s 回、7 个信号源；控制中心亮度行开 TCL 图像页；按返回进航拍屏保（接着壁纸那段片）、按键回首页（这次 screenrecord 只录到 6–10 帧，过渡没能逐帧看，靠日志 + 截图）。**小米 MFTR0**（户主在电视上重新点了 ADB 授权；install-multiple + 31.dm，speed-profile / install-dm）：selftest 主页键从设置 0.4 s 回、8 个信号源；按返回进屏保、按返回回首页；RevivalListener dump 有守护行。下次发版 versionCode ≥ 152（两台都装过 151），Lite ≥ 36。
+- 没真机验证：#1391 #1626 #1625（r34a0）、PR #1624 第一部分；天气「被封后自己恢复」没复现，两台只确认这版能正常取到天气。开机（REBOOT）没在两台上跑。
+- 要信息：#1638 小米 2.1 电源键关不了机（App 里没有电源键处理，2.0/2.1 没改按键；户主的 MFTR0 上没用实体遥控器试）、#1636 索尼首页冻结（`Activity pause timeout`，要 RevivalListener dump）、#1635 ak30a4 固件自己切 Live TV、#1631 雷鸟雀4 亮度、#1629 #1630 #1623 #1599 #1552。
+- 复查（`raw-2026-11-19b`）：新 issue #1641（海信 T963D4 U 盘装、没授权，重启回聚好看）、#1639（只有标题）要了信息；最后仍是用户发言的只剩定了不回的 21 个。
+- 交户主：PR #1637（其他 App 闲置时显示 Aerial 屏保）、PR #1632（西班牙语）、PR #1624 第二部分、#1576 备用天气源 / 显示过期读数。
+
 ## 现状（2026-11-18）
 
 - **2.1（versionCode 150），Lite 1.33（35），2026-11-18 发布**（[v2.1](https://github.com/pengchujin/aerial-tv/releases/tag/v2.1)）：下面这轮巡检的全部修复（#1609 #1622 #1612 #1339 #1597/#1614，PR #1556 前 5 个提交）。版本号跳过 149（TCL 装过 149 测试包）。官网已部署，三个包字节数和 Release 一致（standard 3211354、guard 3211292、lite 1005200），version.txt = v2.1；给 #1612 #1339 #1614 #1597 #1609 #1622 和 PR #1556 贴了复测链接，PR #1556 第 6 个提交仍等户主。

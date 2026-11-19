@@ -135,3 +135,5 @@ TCL 手机 App 有一个「把手机里的 APK 推到电视」的功能。电视
 ## 手机遥控的虚拟输入设备（#1234，雷鸟鹤6 tcl_m7642）
 
 tcl_m7642（安卓 9）上即使什么都没接，也有 `sim-kb`（classes 0x63）和 `sim-mouse`（0x6b）两个设备，带 GAMEPAD 位（0x40）和字母键位（0x2），像是 TCL 手机遥控用的；另有 `sim-TP`（0x115，带 JOYSTICK）和名字里带 virtual 的 `TCL-virtual`。1.63–1.82 把 `sim-kb` / `sim-mouse` 算成手柄，别的 App 里不过滤按键，主页键先到 TCL 桌面、5 秒后才回 Aerial。现在字母键盘不算手柄。MT5879（本机）没有这些设备，只有 MTK 键盘、IR 接收器、`gIrTouch_Mouse` 和蓝牙遥控 `FF_RC902N_C1`（都没有 GAMEPAD 位）。
+
+- 设置键（`KEYCODE_TCL_SET` 短按，没有 QsPanel 功能时）发 `com.tcl.settings.SHOW_WINDOW` 带 `Type=Settings`、`flag="1"`；背光键带 `ITEM=picture_backlight`、`MOTION=UP/DOWN`（`TclShortCutKeyManager`）。Aerial 2.1 之后也带 `Type` / `flag` 发（#1625，TCL r34a0 安卓 5.1 上不带参数会卡住设置服务），这台实测仍开图像页。

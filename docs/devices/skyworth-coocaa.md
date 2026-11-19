@@ -206,3 +206,9 @@ Aerial 是默认桌面、守护绑定，主页键正常；但重启后一分钟�
 ## 8H57_H5（Hi3751V551，安卓 5.1.1，#1518）、8R720_P7F / 8R710_A6E（安卓 13，#1427）：Aerial 是默认桌面仍闪酷开桌面
 
 酷开固件按主页键照样直接启动自家桌面，守护事后拉回，约 0.2–0.5 秒。1.95 起 `filterHomeAlways` 在 Aerial 是默认桌面时也开过滤（#1462），可以试；代价是有的机型按住音量只走一格。开机：解锁后先等 1.5 秒（防止 CEC 切源被打断）再接管，加上冷启动约 3 秒。
+
+## 8R40_G20（RTD2852，安卓 8，#1626，2026-11-19）
+
+- 老年模式下主页键打开 `com.tianci.movieplatform/com.ccos.cooui.movieplatform.ElderMainActivity`，`persist.service.model.cls` 写的就是它（`homepage.cls` 仍是 `HomePageActivity`）。守护把它当原桌面（内置表 + `CoocaaHome.modeScreen`），没真机。
+- 报告人看到固件掉回自家桌面后把 Aerial 的守护从 `enabled_accessibility_services` 里清掉并强停 Aerial，复活没生效；等日志。
+- `set-home-activity` 报 cannot be home，固件用私有类别 `android.intent.category.HOME.CC`。

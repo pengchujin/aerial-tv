@@ -91,3 +91,8 @@
 - 主页键闪原桌面：乐视固件按键时用 uid 1000 显式启动 `com.stv.launcher/.Launcher`，默认桌面挡不住；`filterHomeAlways` 有效（实体遥控器不闪，按住音量也正常）。
 - 设置：`android.settings.SETTINGS` 落到 AOSP 的空页面，乐视自己的 `com.stv.globalsetting/.activity.SettingActivity` 没有桌面入口；1.97 起排在 AOSP 之前（Lite 同）。
 - 没有 `tv_input`，信号源列不出来。
+
+## 2026-11-19（#1623，X4-55 Curved，安卓 6，Aerial 2.0）
+
+- 从 App 按返回退到桌面时先闪乐视桌面约 1 秒：逐帧采样里守护很快拉回，慢在 Aerial 冷启动（`Displayed +1.1–1.4 s`），进程多半已被回收，待确认。
+- 首页包名写死在 `key.sys.prop.launcher`（`com.stv.deskplatform`）；`setprop` 改成 Aerial 时效果不稳定，已还原。`com.stv.appdaemon` 在桌面缺失时弹「系统抛锚」接管前台，不要卸载 / 停用 deskplatform。
