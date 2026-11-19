@@ -101,7 +101,7 @@ private fun LinearLayout.add(v: View, w: Int = LinearLayout.LayoutParams.MATCH_P
 }
 
 /** Control Center's pages, as the full app's CcPage: inputs only where Lite can list them, no updates. */
-enum class CcPage { Main, Boot, Inputs }
+enum class CcPage { Main, Boot, Inputs, About }
 
 /**
  * Control Center, as the full app's ControlCenter main page: the time and date with the network,
@@ -149,6 +149,7 @@ class ControlCenter(
             CcPage.Main -> if (Kids.active) kidsMain() else main()
             CcPage.Boot -> boot()
             CcPage.Inputs -> inputs()
+            CcPage.About -> about()
         }
         // In Kids mode on leaving it, as the full app.
         focusFirst(if (page == CcPage.Main && Kids.active && OutputDevice.showsVolume(context)) 1 else 0)
@@ -278,14 +279,25 @@ class ControlCenter(
             row(boot)
         }
 
-        // Whether Lite is the TV's Home, and the version.
+        // Whether Lite is the TV's Home, and the version, one page down, as the full app (#1606).
+        val about = MenuRow(context, Glyph.Info, context.getString(R.string.cc_about), version(context) + " ›").apply { action = { goTo(CcPage.About) } }
+        col.addView(about)
+        row(about)
+    }
+
+    /** About: whether Lite is the TV's Home, and the version (the full app's AboutPage, no updates). */
+    private fun about() {
+        val back = MenuRow(context, Glyph.ChevronLeft, context.getString(R.string.cc_about)).apply { action = { goTo(CcPage.Main) } }
+        col.addView(back)
+        row(back)
         val status = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(Ui.pxi(14f), 0, Ui.pxi(14f), 0) }
         val home = isHome(context)
         status.addView(Dot(context, if (home) Ui.GREEN else 0xFFFF9F0A.toInt()), LinearLayout.LayoutParams(Ui.pxi(7f), Ui.pxi(7f)))
         status.addView(context.label(context.getString(if (home) R.string.cc_home_default else R.string.cc_home_not_default), 11f, 500, Ui.SECONDARY),
             LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply { leftMargin = Ui.pxi(8f) })
-        status.addView(context.label("Aerial Lite " + version(context), 11f, 500, Ui.TERTIARY))
-        col.add(status, top = 8f)
+        col.add(status, top = 10f)
+        col.add(context.label(context.getString(R.string.cc_about_version, version(context)) + " · Lite", 11f, 500, Ui.TERTIARY)
+            .apply { setPadding(Ui.pxi(14f), 0, Ui.pxi(14f), 0) }, top = 6f)
     }
 
     /** What the TV starts on: an app is chosen from its tile's menu; here it shows, and "nothing" clears it. */

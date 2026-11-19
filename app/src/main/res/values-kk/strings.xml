@@ -320,4 +320,8 @@
     <string name="kids_warn">%d мин қалды</string>
     <string name="kids_warn_break">%d минуттан кейін үзіліс</string>
     <string name="a11y_delete">Жою</string>
+    <string name="cc_about">Aerial туралы</string>
+    <string name="cc_about_update">Жаңарту</string>
+    <string name="cc_about_latest">Соңғы нұсқа</string>
+    <string name="cc_about_version">Нұсқа %1$s</string>
 </resources>

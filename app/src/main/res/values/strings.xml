@@ -328,4 +328,8 @@
     <string name="kids_warn">%d min of TV left</string>
     <string name="kids_warn_break">A break in %d min</string>
     <string name="a11y_delete">Delete</string>
+    <string name="cc_about">About Aerial</string>
+    <string name="cc_about_update">Software Update</string>
+    <string name="cc_about_latest">Up to Date</string>
+    <string name="cc_about_version">Version %1$s</string>
 </resources>

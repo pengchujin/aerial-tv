@@ -320,4 +320,8 @@
     <string name="kids_warn">Осталось %d мин</string>
     <string name="kids_warn_break">Перерыв через %d мин</string>
     <string name="a11y_delete">Удалить</string>
+    <string name="cc_about">Об Aerial</string>
+    <string name="cc_about_update">Обновление</string>
+    <string name="cc_about_latest">Последняя версия</string>
+    <string name="cc_about_version">Версия %1$s</string>
 </resources>

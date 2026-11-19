@@ -327,4 +327,8 @@
     <string name="kids_warn">还能看 %d 分钟</string>
     <string name="kids_warn_break">%d 分钟后休息一下</string>
     <string name="a11y_delete">删除</string>
+    <string name="cc_about">关于 Aerial</string>
+    <string name="cc_about_update">软件更新</string>
+    <string name="cc_about_latest">已是最新</string>
+    <string name="cc_about_version">版本 %1$s</string>
 </resources>
