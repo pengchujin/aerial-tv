@@ -952,7 +952,7 @@ object Wallpapers {
 
     // ---- uploads ----
 
-    /** Stores an uploaded picture, downscaled to at most 2560 px wide, and returns its id. */
+    /** Stores an uploaded picture, halved until its longer side is under 5120 px, and returns its id. */
     suspend fun addPhoto(input: InputStream): String? = io.withLock {
         val id = withContext(Dispatchers.IO) {
             val tmp = File.createTempFile("upload", ".bin", app.cacheDir)
@@ -963,9 +963,12 @@ object Wallpapers {
                 if (bounds.outWidth <= 0) return@withContext null
                 // Stored upright: the JPEG written below keeps no EXIF, so the turn is applied now.
                 val orientation = Images.exifOrientation(tmp)
-                val wide = if (Images.quarterTurn(orientation)) bounds.outHeight else bounds.outWidth
+                // By the longer side, turned or not: by the width alone a tall, narrow picture (a long
+                // screenshot, a portrait panorama) was decoded whole, tens of MB on a TV with little memory
+                // (issue #1651, Null9797's review).
+                val longest = maxOf(bounds.outWidth, bounds.outHeight)
                 var sample = 1
-                while (wide / (sample * 2) >= 2560) sample *= 2
+                while (longest / (sample * 2) >= 2560) sample *= 2
                 val decoded = BitmapFactory.decodeFile(tmp.path, BitmapFactory.Options().apply { inSampleSize = sample }) ?: return@withContext null
                 val bmp = Images.upright(decoded, orientation)
                 val name = System.currentTimeMillis().toString(36)
