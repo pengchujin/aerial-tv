@@ -290,3 +290,4 @@ adb shell settings put global adb_enabled 0
 - **信号源与画质**：
   - 信号源切换依赖 `com.hisense.tv.tiletransition`（`TileAnimationService`），不可停用。
   - 激光亮度与色温：固件通过私有面板控制激光器输出，`screen_brightness` 与 `picture_backlight` 无法直接调控激光器功率。
+- **系统屏保开始时闪一下首页**（75E3F / NOVA72691，Android 9，#1599）：屏保开始后约 0.4 秒 `mCurrentFocus=null`，随后 `Sys2023:dream` 才拿到焦点，中间露出首页一次；是固件把 dream 窗口拆下再装回，Aerial 拿不到重新装上的时机，暂时改不了（报告人的窗口采样和慢动作视频，没有真机）。
