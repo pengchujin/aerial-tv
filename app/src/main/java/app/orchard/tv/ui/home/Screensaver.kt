@@ -41,6 +41,7 @@ import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.withTransform
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import app.orchard.tv.MainActivity
@@ -346,13 +347,21 @@ private fun Labels(
             )
         }
         val drift = saverDrift(now)
+        // Laid out at Home's size and scaled up, as Home's own clock is when it is carried here
+        // (HomeChrome's toSaverClock): laid out at the large size, the digits' advances came out
+        // wider than in the carried one, and the spacing grew when this clock took over with the
+        // first photo (Google TV, Android 14, issue #1646).
         if (time > 0f && AerialSettings.screensaverClock) BasicText(
             timeText(now),
-            style = SaverClockStyle,
+            style = SaverClockStyle.copy(fontSize = Type.Title.fontSize),
             modifier = Modifier
                 .align(if (AerialSettings.clockRight) Alignment.TopEnd else Alignment.TopStart)
                 .padding(top = SaverClockTop, start = SaverClockSide, end = SaverClockSide)
                 .graphicsLayer {
+                    val s = SaverClockStyle.fontSize.toPx() / Type.Title.fontSize.toPx()
+                    transformOrigin = TransformOrigin(if (AerialSettings.clockRight) 1f else 0f, 0f)
+                    scaleX = s
+                    scaleY = s
                     alpha = time
                     translationX = drift.x.toPx()
                     translationY = drift.y.toPx()
