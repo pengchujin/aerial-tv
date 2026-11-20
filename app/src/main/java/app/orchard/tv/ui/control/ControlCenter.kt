@@ -231,7 +231,7 @@ private fun KidsPage(vm: HomeViewModel, now: LocalDateTime, takeFocus: Boolean) 
     val context = LocalContext.current
     val laser = remember { HisenseLaserPanel.usable(context) }
     val showsVolume = remember { OutputDevice.showsVolume(context) }
-    val showsBrightness = remember { OutputDevice.showsBrightness() }
+    val showsBrightness = remember { OutputDevice.showsBrightness() && !SystemProbe.hidesBrightness(context) }
     PollBrightness(vm, laser, enabled = takeFocus)
     LaunchedEffect(Unit) {
         if (!takeFocus) return@LaunchedEffect
@@ -276,7 +276,7 @@ private fun MainPage(
     // the brightness row it had.
     val laser = remember { HisenseLaserPanel.usable(context) }
     val showsVolume = remember { OutputDevice.showsVolume(context) }
-    val showsBrightness = remember { OutputDevice.showsBrightness() }
+    val showsBrightness = remember { OutputDevice.showsBrightness() && !SystemProbe.hidesBrightness(context) }
     PollBrightness(vm, laser, poll)
     val first = remember { FocusRequester() }
     val networkFocus = remember { FocusRequester() }

@@ -241,7 +241,7 @@ class ControlCenter(
         }
 
         // Brightness where Lite can set the panel's (Brightness), else the TV's own picture settings.
-        if (!OutputDevice.showsBrightness()) Unit
+        if (!OutputDevice.showsBrightness() || Brightness.hidden(context)) Unit
         else if (Brightness.level(context) != null) {
             val brightness = SliderRow(
                 context,

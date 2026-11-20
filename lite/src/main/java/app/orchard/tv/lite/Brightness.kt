@@ -31,8 +31,16 @@ object Brightness {
     private fun storedLevel(context: Context): Int? =
         context.getSharedPreferences("settings", Context.MODE_PRIVATE).getInt("mitv_backlight", -1).takeIf { it in 1..100 }
 
+    /**
+     * FengOS projectors: no brightness in their own settings, and a screen_brightness other than
+     * the framework default leaves the DLP light engine dark after the next standby (the full
+     * app's SystemProbe.hidesBrightness, issue #1668). No row there, and nothing written.
+     */
+    fun hidden(context: Context): Boolean = installed(context, "cn.formovie.fengos.settings")
+
     /** Current level as 0..1, or null when Lite cannot change it on this TV. */
     fun level(context: Context): Float? {
+        if (hidden(context)) return null
         // Hisense laser: the light source's own level, which screen_brightness does not touch.
         HisenseLaserPanel.level(context)?.let { return it }
         // TCL MS901 / MStar ONLY: read the TV's own brightness store, not the picture SDK's
@@ -60,6 +68,7 @@ object Brightness {
 
     /** One notch (5%) up or down, never to 0 (Xiaomi turns the backlight off there, issue #174). */
     fun adjust(context: Context, direction: Int): Float? {
+        if (hidden(context)) return null
         // Hisense laser: 11 notches of the TV's own level, where 5% would land on the same notch
         // twice and the row would seem to stick.
         HisenseLaserPanel.level(context)?.let { current ->

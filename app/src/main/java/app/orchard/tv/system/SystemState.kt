@@ -294,6 +294,21 @@ object SystemProbe {
     private fun fengOsNetworkIntent(context: Context): Intent? =
         if (fengOsSettingsIntent(context) == null) null else resolvable(context, Intent(Settings.ACTION_WIFI_SETTINGS))
 
+    /**
+     * FengOS projectors: no brightness anywhere in their own settings, and a screen_brightness
+     * other than the framework default (102) leaves the DLP light engine dark after the next
+     * standby, even after Aerial is gone (Xiaomi Q3 Pro, device peppa, Android 9: the Lights HAL
+     * clamps 2 to 10 and refuses it, `bl_enable` stays 0; issue #1668, the reporter's patch and
+     * logs). So Aerial shows no brightness row there and never writes the setting. Known by the
+     * FengOS settings panel being there, as for the settings and network buttons above.
+     */
+    fun hidesBrightness(context: Context): Boolean =
+        fengOs ?: (fengOsSettingsIntent(context) != null).also { fengOs = it }
+
+    /** A system panel: looked for once a process, as Brightness.level asks on every poll. */
+    @Volatile
+    private var fengOs: Boolean? = null
+
     private fun konkaSettingsIntent(context: Context): Intent? {
         val intent = Intent("com.konka.settings.action.SETTING_MAIN_VIEW").setComponent(KONKA_SETTINGS)
         return intent.takeIf { context.packageManager.resolveService(it, 0)?.serviceInfo?.exported == true }
