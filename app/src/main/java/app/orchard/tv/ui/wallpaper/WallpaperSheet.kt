@@ -69,7 +69,10 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import app.orchard.tv.BuildConfig
 import app.orchard.tv.R
+import app.orchard.tv.system.HomeStatus
+import app.orchard.tv.update.Updates
 import app.orchard.tv.guard.HomeGuardService
 import app.orchard.tv.settings.AerialSettings
 import app.orchard.tv.settings.ClockHours
@@ -125,6 +128,10 @@ fun WallpaperSheet(
     onPin: (on: Boolean) -> Unit,
     /** Kids and Elders mode's setup (behind the PIN). */
     onKids: () -> Unit,
+    /** Whether Aerial is the home screen or guarded, for the About group. */
+    homeStatus: HomeStatus,
+    /** Control Center's update page, for a new version. */
+    onUpdate: () -> Unit,
     /** The sheet is all the way in (true) or not: Home need not draw under it then ([SheetCovers]). */
     onSettled: (Boolean) -> Unit = {},
     /** Draw the closed sheet once, nearly clear, so that its first opening is not its first draw (HomeScreen). */
@@ -399,6 +406,34 @@ fun WallpaperSheet(
                                 onKids,
                             )
                         }
+                    }
+                }
+                // About Aerial, last (issue #1606): Control Center shows only a new version.
+                Spacer(Modifier.height(22.dp))
+                SectionTitle(R.string.cc_about)
+                Group(stringResource(R.string.cc_about_version, Updates.current) + " · " + BuildConfig.FLAVOR) { note ->
+                    val latest = Updates.available
+                    SettingRow(R.string.cc_about_update, null, note, first = true) {
+                        // Now the last row that takes focus: bring the note under it into view too.
+                        Box(Modifier.onFocusChanged { if (it.hasFocus) scope.launch { scroll.animateScrollTo(scroll.maxValue) } }) {
+                            ActionChip(
+                                latest?.let { stringResource(R.string.cc_update_to, it) } ?: stringResource(R.string.cc_about_latest),
+                                Glyph.ChevronRight,
+                                // Nothing newer known: look again now.
+                                onClick = { if (latest != null) onUpdate() else Updates.checkIfStale(force = true) },
+                            )
+                        }
+                    }
+                    val (dot, label) = when (homeStatus) {
+                        HomeStatus.Default -> Palette.Green to R.string.cc_home_default
+                        HomeStatus.Guarded -> Palette.Green to R.string.cc_home_guarded
+                        HomeStatus.NotDefault -> Palette.Orange to R.string.cc_home_not_default
+                    }
+                    // Not a control: shown as a row of the group, without focus.
+                    Box(Modifier.padding(start = 18.dp).fillMaxWidth().height(1.dp).background(Palette.Hairline))
+                    Row(Modifier.fillMaxWidth().height(58.dp).padding(start = 18.dp, end = 24.dp), verticalAlignment = Alignment.CenterVertically) {
+                        BasicText(stringResource(label), style = Type.Body, modifier = Modifier.weight(1f), maxLines = 1)
+                        Box(Modifier.size(10.dp).clip(CircleShape).background(dot))
                     }
                 }
                 Spacer(Modifier.height(24.dp))

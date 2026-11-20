@@ -144,8 +144,7 @@ fun ControlCenter(
             CcPage.Main -> onClose()
             CcPage.Inputs -> vm.overlay = Overlay.ControlCenter(CcPage.Main)
             CcPage.InputSettings -> vm.overlay = Overlay.ControlCenter(CcPage.Inputs)
-            CcPage.About, CcPage.Setup -> vm.overlay = Overlay.ControlCenter(CcPage.Main)
-            CcPage.Update -> vm.overlay = Overlay.ControlCenter(CcPage.About)
+            CcPage.Update, CcPage.Setup -> vm.overlay = Overlay.ControlCenter(CcPage.Main)
         }
     }
 
@@ -212,7 +211,6 @@ fun ControlCenter(
                             }
                             CcPage.Inputs -> InputsPage(vm, visible, onOpen)
                             CcPage.InputSettings -> InputSettingsPage(vm, visible)
-                            CcPage.About -> AboutPage(vm, visible)
                             CcPage.Update -> UpdatePage(vm, visible)
                             CcPage.Setup -> SetupPage(vm, visible, onOpen)
                         }
@@ -408,57 +406,17 @@ private fun MainPage(
             MenuRow(Glyph.Shield, stringResource(R.string.cc_setup_title), onClick = { vm.overlay = Overlay.ControlCenter(CcPage.Setup) }, trailing = "›")
         }
 
-        // The version, the home status and the update live one page down (issue #1606); a new
-        // version still shows here, in the row's trailing text, as the update row used to.
-        MenuRow(
-            Glyph.Info,
-            stringResource(R.string.cc_about),
-            onClick = { vm.overlay = Overlay.ControlCenter(CcPage.About) },
-            trailing = (Updates.available?.let { stringResource(R.string.cc_update_available, it) } ?: Updates.current) + " ›",
-        )
-    }
-}
-
-/**
- * About Aerial: the version, whether Aerial is the home screen or guarded, and the update, moved
- * off the main page so that it holds controls only (issue #1606).
- */
-@Composable
-private fun AboutPage(vm: HomeViewModel, takeFocus: Boolean) {
-    val first = remember { FocusRequester() }
-    LaunchedEffect(Unit) {
-        if (!takeFocus) return@LaunchedEffect
-        withFrameNanos { }
-        runCatching { first.requestFocus() }
-    }
-    Column {
-        MenuRow(Glyph.ChevronLeft, stringResource(R.string.cc_about), focusRequester = first, onClick = { vm.overlay = Overlay.ControlCenter(CcPage.Main) })
-        Spacer(Modifier.height(4.dp))
-        val latest = Updates.available
-        MenuRow(
-            Glyph.Download,
-            stringResource(R.string.cc_about_update),
-            // Nothing newer known: look again now rather than open a page with nothing to install.
-            onClick = { if (latest != null) vm.overlay = Overlay.ControlCenter(CcPage.Update) else Updates.checkIfStale(force = true) },
-            trailing = latest?.let { stringResource(R.string.cc_update_available, it) + " ›" } ?: stringResource(R.string.cc_about_latest),
-        )
-        Spacer(Modifier.height(10.dp))
-        val (dot, text) = when (vm.homeStatus) {
-            HomeStatus.Default -> Palette.Green to stringResource(R.string.cc_home_default)
-            HomeStatus.Guarded -> Palette.Green to stringResource(R.string.cc_home_guarded)
-            HomeStatus.NotDefault -> Palette.Orange to stringResource(R.string.cc_home_not_default)
+        // Only when there is a new version (issue #1606): the version, the home status and the
+        // update check live at the bottom of Personalize, so this page holds controls only.
+        Updates.available?.let { latest ->
+            MenuRow(
+                Glyph.Download,
+                stringResource(R.string.cc_update_to, latest),
+                onClick = { vm.overlay = Overlay.ControlCenter(CcPage.Update) },
+                dot = Palette.Blue,
+                trailing = "›",
+            )
         }
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 14.dp)) {
-            Box(Modifier.size(7.dp).clip(CircleShape).background(dot))
-            Spacer(Modifier.width(8.dp))
-            BasicText(text, style = Type.Caption, modifier = Modifier.weight(1f))
-        }
-        Spacer(Modifier.height(6.dp))
-        BasicText(
-            stringResource(R.string.cc_about_version, Updates.current) + " · " + BuildConfig.FLAVOR,
-            style = Type.Caption.copy(color = Palette.TertiaryLabel),
-            modifier = Modifier.padding(horizontal = 14.dp),
-        )
     }
 }
 
@@ -490,7 +448,7 @@ private fun UpdatePage(vm: HomeViewModel, takeFocus: Boolean) {
         MenuRow(
             Glyph.ChevronLeft, stringResource(R.string.cc_update_title, Updates.available ?: Updates.current),
             focusRequester = if (canInstall) null else first,
-            onClick = { vm.overlay = Overlay.ControlCenter(CcPage.About) },
+            onClick = { vm.overlay = Overlay.ControlCenter(CcPage.Main) },
         )
         if (canInstall) {
             val state = Updates.install
