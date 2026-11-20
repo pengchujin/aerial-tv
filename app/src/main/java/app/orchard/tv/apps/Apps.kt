@@ -151,6 +151,12 @@ object AppCatalog {
         // category; MFTR0's declares APPSTORE_LAUNCHER and is found above (MiTV4C, Android 6.0.1,
         // issue #1568, the reporter's pm dump).
         ComponentName("com.xiaomi.mitv.appstore", "com.xiaomi.mitv.appstore.MainActivity"),
+        // Baofeng BAOFENG_TV AML_T962 (Android 5.1, Funshion firmware): its live TV player and its
+        // own inputs bar, both MAIN only with no category, started by explicit name from an app
+        // (issue #1378, the reporter's dumpsys and logcat). The TV registers no TvInputManager
+        // inputs, so the bar is the one way to its HDMI ports from Home.
+        ComponentName("com.baofengtv.tvplayer", "com.baofengtv.tvplayer.MainActivity"),
+        ComponentName("com.bftv.fui.biu", "com.bftv.fui.biu.views.activity.FRowActivity"),
     )
 
     /**

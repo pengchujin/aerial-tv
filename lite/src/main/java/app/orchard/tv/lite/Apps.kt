@@ -70,6 +70,8 @@ object AppCatalog {
         ComponentName("com.sony.dtv.searchapp", "com.ktcp.aiagent.xwability.activity.VoipHomeActivity"), // #1074
         ComponentName("com.gitv.dvb.live", "com.gitv.dvb.live.activity.PlayActivity"), // 宽带电视, #1378
         ComponentName("com.xiaomi.mitv.appstore", "com.xiaomi.mitv.appstore.MainActivity"), // 应用商店, MiTV4C, #1568
+        ComponentName("com.baofengtv.tvplayer", "com.baofengtv.tvplayer.MainActivity"), // Baofeng AML_T962 live TV, #1378
+        ComponentName("com.bftv.fui.biu", "com.bftv.fui.biu.views.activity.FRowActivity"), // Baofeng AML_T962 inputs bar, #1378
     )
 
     /** Firmware apps drawn as Aerial's own tiles, by package, as in the full app. */
