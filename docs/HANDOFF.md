@@ -2,12 +2,15 @@
 
 写给接手 Aerial 的人或 AI。先读这份，再读 [ARCHITECTURE.md](ARCHITECTURE.md) 和 [devices/](devices/)。
 
-## 现状（2026-11-19）
+## 现状（2026-11-20）
+
+- **2.12（versionCode 153），Lite 1.35（37），2026-11-20 发布**（[v2.12](https://github.com/pengchujin/aerial-tv/releases/tag/v2.12)）：下面「2.11 之后」的全部改动（诊断 Output 行、#1476 #1606 #1436 #1615 #1486 #1426）。三个包签名 e089…6685，standard、guard 单测和 Lite lint 通过。官网已部署：version.txt=v2.12，notes.json 第一条是 2.12，三个 APK 字节数和 Release 一致（standard 3228923、guard 3228862、lite 1009782），`/diag/aerial-710.apk` 还在。**没有给 issue 贴发布链接**（等户主决定）。
+  - 两台回归：小米 MFTR0（install-multiple + 31.dm，speed-profile / install-dm，长辈模式仍开着、没动）selftest 守护、主页键从设置 0.4 s、8 个信号源；TCL（`tcast-push.py`，uiautomator 确认焦点在「同意」后确定，compile speed）selftest 守护、主页键从浏览器 0.3 s、7 个信号源，两个 walleve 服务和 AerialDream 屏保不变。「待机」「关闭电视」两台都没真的触发过（户主不在电视旁）。adb 一度对两台都报 `No route to host`（端口其实是通的），`adb kill-server` 后恢复。下次发版 versionCode ≥ 154，Lite ≥ 38。
 
 - **2.11（versionCode 152），Lite 1.34（36），2026-11-19 发布**（[v2.11](https://github.com/pengchujin/aerial-tv/releases/tag/v2.11)）：下面这轮巡检的全部改动。版本名从这版起每次加 0.01（见「发版」第 1 步）；versionCode 跳过 151（两台装过 151 测试包）。三个包签名 e089…6685，官网已部署，字节数和 Release 一致（standard 3212338、guard 3212169、lite 1005466），version.txt=v2.11。修过的 #1391 #1626 #1625 #1576 #1383、PR #1624 贴了发布链接（`release-2.11-posts.py`）。
   - 两台回归：小米 MFTR0（install-multiple + 31.dm，speed-profile / install-dm）selftest 主页键从设置 0.5 s 回、8 个信号源；TCL（install.sh 多屏互动，截图确认焦点在「同意」后确定，compile speed，两个 walleve 服务和 AerialDream 屏保不变）selftest 7 个信号源，主页键装完后第一次 5.2 s（同 1.96 记过的现象），之后三次 0.3–0.4 s；信号源键弹 TCL 面板、按返回回 Aerial。下次发版 versionCode ≥ 153，Lite ≥ 37。
 
-- **2.11 之后 main 上未发版**：
+- **2.11 之后（已随 2.12 发布）**：
   - **诊断加 `Output` 行**（完整版和 Lite 都调用 `OutputDevice.describe`）：`ro.hdmi.device_type`、`ro.build.characteristics` 各自的值和 `playback_device` 判定、`volume_fixed`、`live_tv` / `leanback` / `hdmi_cec` / `television` 四个 feature、电池广播。原来 Settings 行里的 `playback_device`、`volume_fixed` 挪到这里。目的是给「没有信号源的盒子隐藏信号源 / 亮度」的重新设计收集数据：1.89–2.11 的报告里 `playback_device=true` 的有电视（TCL 55L2 #1612、暴风 AML_T962 #1460，大概率是 `characteristics=mbx` 造成的），但以前没打出是哪个信号判的；`TvInputManager` 没有输入的大多是海信、TCL 等真电视，不能用来判断是不是盒子。小米 MFTR0 实测：`device_type=0, characteristics=tv`，四个 feature 都是 true；没有电池却报 `level=100 plugged=1 status=2`，只有 `present=false` 能说明没电池（以后做 #1426 电量要按 `present` 判断）。TCL、Lite 没上真机。
   - **功能轮次（户主 2026-11-19 定：除完全自动更新外都做）**，测试包 versionCode 仍是 152（没提交）：小米 MFTR0 install-multiple + 31.dm（speed-profile / install-dm）；TCL 多屏互动推 guard（uiautomator 确认焦点在「同意」，compile speed，守护还在）。小米开着户主的长辈模式（临时退出后，Aerial 重启 / 屏保 / 息屏会自动恢复，这是设计），所以界面截图都在 TCL 上拍。
     - **#1476 读屏**：`Pressable` 加 `semantics(mergeDescendants)`（角色、点击，新参数 `label`），磁贴用 App 名作 `contentDescription`（双击打开、长按菜单），状态按钮读「控制中心」，滑条读「音量」「亮度」，密码键盘删除键读「删除」。TCL 上 uiautomator 看得到 `content-desc`；两台电视都没有读屏 App，没听过 TalkBack 实际朗读。Lite 没做：控件是自绘 View、焦点自己管，要改焦点模型。
