@@ -233,6 +233,8 @@ NanoHTTPD 监听 8790 端口，路径前缀是 8 位随机令牌（每次打开�
 
 三个出口：手机页 `GET api/diagnostics`（页面最下面「反馈问题」，可复制，局域网 HTTP 没有 `navigator.clipboard`，用 `execCommand`）；`adb shell dumpsys activity app.orchard.tv/.MainActivity report`；`tools/report.sh` 在它前面再加只有 shell 能读的：getprop、包信息和 appops、HOME 候选和 role、相关 settings、无障碍绑定、tv_input 硬件、系统服务里关于 Aerial 的 logcat（只按 tag 取：小米应用商店会在日志里打印已装 App 列表）。
 
+首页不在、拿不到 MainActivity 的 dump 时：`adb shell dumpsys activity service app.orchard.tv/.guard.HomeGuardService`（守护在运行就有，打印守护状态和 DiagLog），或 `…/.guard.RevivalListener`（只有固件真的绑定了通知监听才是运行中的服务；极米 H3、RS Pro 2 上是 `No services match`，#1383 #1391）。
+
 ## 机型修正（system/DeviceProfile.kt）
 
 框架看不出来、只能按机型写的修正，以数据形式放在 `assets/devices.json`：按 `ro.product.model` 匹配，第一条命中的生效，`buildMajorBelow` 限定 `Build.DISPLAY` 第一个数字低于它的固件。字段：`hidden`（不显示的硬件编号）、`labels`（改名）、`xiaomiSources` / `xiaomiFallbackSources`（小米播放器的信号源编号，后者只在固件没有 `hdmiN_order` 时用）、`ignoresPictureBacklight`（有 `picture_backlight` 但不跟着变，亮度交给电视自己的滑块；`Brightness` 和 `MitvPanel` 都看它）。信号源按 TvInputInfo id 末尾的 `HWn` 编号。每条的 `note` 写明是哪台电视、哪个 issue 验证的。Lite 构建时复制 `DeviceProfile.kt` 和 `devices.json`。

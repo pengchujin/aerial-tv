@@ -1327,6 +1327,19 @@ class HomeGuardService : AccessibilityService() {
         goHome(woke)
     }
 
+    /**
+     * `adb shell dumpsys activity service app.orchard.tv/.guard.HomeGuardService`: the guard's state
+     * and Aerial's log, as RevivalListener's dump. The notification listener is only a running
+     * service where the firmware binds it, and some never do: XGIMI H3 (Android 8) and RS Pro 2
+     * (Android 9) answered "No services match" for it (issues #1383, #1391). The guard, bound by
+     * the accessibility manager, is there whenever it runs.
+     */
+    override fun dump(fd: java.io.FileDescriptor?, writer: java.io.PrintWriter, args: Array<out String>?) {
+        writer.println("Aerial guard")
+        if (GuardSetup.isUserUnlocked(this)) runCatching { writer.println(diagnosticState()) }
+        DiagLog.dump(writer)
+    }
+
     override fun onDestroy() {
         if (usageThread.isInitialized()) usageThread.value.quitSafely()
         handler.removeCallbacks(refreshHomesAfterPackageChange)
