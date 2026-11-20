@@ -41,7 +41,7 @@ fun dateText(millis: Long = System.currentTimeMillis()): String {
 }
 
 /** The weather beside the clock, once known: its glyph, the temperature, and the rest dimmed. */
-class WeatherLine(val glyph: Glyph, val celsius: Int, val place: String?, val detail: String)
+class WeatherLine(val glyph: Glyph, val celsius: Int, val place: String?, val detail: String, val old: String? = null)
 
 /**
  * The full app's clocks (HomeChrome): the small one, the time and the weather in one quiet line
@@ -81,7 +81,9 @@ class ClockView(context: Context) : View(context) {
         setMeasuredDimension(w, Ui.pxi(if (large) 200f else 34f))
     }
 
-    private fun smallWeatherText(w: WeatherLine) = listOfNotNull(w.place?.takeIf { it.length <= 12 }, context.getString(R.string.weather_temperature, w.celsius)).joinToString(" ")
+    private fun smallWeatherText(w: WeatherLine) =
+        listOfNotNull(w.place?.takeIf { it.length <= 12 }, context.getString(R.string.weather_temperature, w.celsius)).joinToString(" ") +
+            w.old?.let { " · $it" }.orEmpty()
 
     private fun smallWidth(): Float {
         var x = Ui.width(time, smallPaint, 0.05f)

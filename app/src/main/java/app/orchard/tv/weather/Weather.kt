@@ -28,7 +28,11 @@ import kotlin.math.roundToInt
 enum class WeatherKind { Clear, PartlyCloudy, Cloudy, Fog, Rain, Snow, Thunder }
 
 /** [high] and [low] are today's, shown under the large clock; null in a reading saved by an older version. */
-data class WeatherNow(val celsius: Int, val kind: WeatherKind, val day: Boolean, val high: Int? = null, val low: Int? = null)
+data class WeatherNow(
+    val celsius: Int, val kind: WeatherKind, val day: Boolean, val high: Int? = null, val low: Int? = null,
+    /** When it was read, in wall-clock millis. */
+    val readAt: Long = 0L,
+)
 
 /**
  * The weather beside the home clock, from Open-Meteo: no key, reachable from China. The place is
@@ -50,8 +54,10 @@ object Weather {
      */
     private const val RETRY_MS = 3 * 60 * 1000L
     private const val RELOCATE_MS = 24 * 60 * 60 * 1000L
-    /** A reading older than this is not shown at all. */
+    /** A reading older than this is shown with its age ([hoursOld]). */
     private const val STALE_MS = 3 * 60 * 60 * 1000L
+    /** A reading older than this is not shown at all. */
+    private const val SHOWN_MS = 12 * 60 * 60 * 1000L
     /** Stands for "no high or low" in the prefs. */
     private const val NONE = Int.MIN_VALUE
 
@@ -77,15 +83,28 @@ object Weather {
         prefs = app.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         place = prefs.getString("place", null)
         chosen = prefs.getBoolean("chosen", false)
-        if (System.currentTimeMillis() - prefs.getLong("fetched_at", 0) < STALE_MS) {
+        val readAt = prefs.getLong("fetched_at", 0)
+        if (System.currentTimeMillis() - readAt < SHOWN_MS) {
             val kind = runCatching { WeatherKind.valueOf(prefs.getString("kind", null) ?: "") }.getOrNull()
             if (kind != null) now = WeatherNow(
                 prefs.getInt("celsius", 0), kind, prefs.getBoolean("day", true),
                 high = prefs.getInt("high", NONE).takeIf { it != NONE },
                 low = prefs.getInt("low", NONE).takeIf { it != NONE },
+                readAt = readAt,
             )
         }
     }
+
+    /**
+     * The reading to show at [atMs], or null once it is over [SHOWN_MS] old. Up to that it stays,
+     * with its age beside it past [STALE_MS] ([hoursOld]): a line that blocks Open-Meteo for a few
+     * hours left the row blank, and a blank row read as broken (issue #1576, two reporters).
+     */
+    fun shown(atMs: Long): WeatherNow? = now?.takeIf { atMs - it.readAt < SHOWN_MS }
+
+    /** Whole hours since [w] was read, once that is over [STALE_MS]; else null. */
+    fun hoursOld(w: WeatherNow, atMs: Long): Int? =
+        (atMs - w.readAt).takeIf { it >= STALE_MS }?.let { (it / (60 * 60 * 1000L)).toInt() }
 
     private var failed = false
 
@@ -159,9 +178,10 @@ object Weather {
             lastResult = if (reading != null) "success" else "failed ($why)"
             if (reading != null) {
                 Log.i(TAG, "weather read")
-                now = reading
+                val at = System.currentTimeMillis()
+                now = reading.copy(readAt = at)
                 prefs.edit {
-                    putLong("fetched_at", System.currentTimeMillis())
+                    putLong("fetched_at", at)
                     putInt("celsius", reading.celsius)
                     putString("kind", reading.kind.name)
                     putBoolean("day", reading.day)

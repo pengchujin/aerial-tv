@@ -145,6 +145,8 @@ class HomeActivity : Activity(), HomeView.Host {
     private val weatherTick = object : Runnable {
         override fun run() {
             if (!resumed) return
+            // Also redrawn when nothing was fetched: the reading's age moves on (the full app's #1576).
+            showWeather()
             Weather.refreshIfStale({ work.execute(it) }) { handler.post { showWeather() } }
             handler.postDelayed(this, WEATHER_TICK_MS)
         }

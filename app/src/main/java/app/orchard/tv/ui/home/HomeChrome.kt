@@ -683,10 +683,12 @@ fun ShelfClock(
                 .toSaverClock(toSaver, Type.Clock.fontSize, 0.dp, drift)
                 .capBox(Type.Clock.fontSize),
         )
-        Weather.now?.takeIf { AerialSettings.showWeather }?.let { w ->
+        val atMs = now.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+        Weather.shown(atMs)?.takeIf { AerialSettings.showWeather }?.let { w ->
             val place = Weather.place?.takeIf { it.length <= 12 }
             val range = if (w.high != null && w.low != null) stringResource(R.string.weather_high_low, w.high, w.low) else null
-            val detail = listOfNotNull(place, stringResource(conditionName(w.kind)), range).joinToString(" · ")
+            val age = Weather.hoursOld(w, atMs)?.let { stringResource(R.string.weather_hours_ago, it) }
+            val detail = listOfNotNull(place, stringResource(conditionName(w.kind)), range, age).joinToString(" · ")
             Row(aside.padding(top = 18.dp).capBox(Type.ClockDetail.fontSize), verticalAlignment = Alignment.CenterVertically) {
                 GlyphIcon(glyphFor(w), Color.White, 18.dp, Modifier.padding(end = 7.dp))
                 BasicText(
@@ -791,10 +793,12 @@ fun CornerClock(now: LocalDateTime, modifier: Modifier = Modifier, toSaver: () -
             timeText(now), style = Type.SmallClock.copy(fontSize = Type.Title.fontSize, color = dim, shadow = shadow),
             modifier = Modifier.toSaverClock(toSaver, Type.Title.fontSize, Type.Title.fontSize.value.dp * CAP_TOP, drift),
         )
-        Weather.now?.takeIf { AerialSettings.showWeather }?.let { w ->
+        val atMs = now.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+        Weather.shown(atMs)?.takeIf { AerialSettings.showWeather }?.let { w ->
             GlyphIcon(glyphFor(w), dim, 18.dp, aside.padding(start = 16.dp, end = 6.dp))
             val place = Weather.place?.takeIf { it.length <= 12 }
-            BasicText(listOfNotNull(place, stringResource(R.string.weather_temperature, w.celsius)).joinToString(" "), style = Type.Headline.copy(color = dim, shadow = shadow), modifier = aside)
+            val age = Weather.hoursOld(w, atMs)?.let { " · " + stringResource(R.string.weather_hours_ago, it) }.orEmpty()
+            BasicText(listOfNotNull(place, stringResource(R.string.weather_temperature, w.celsius)).joinToString(" ") + age, style = Type.Headline.copy(color = dim, shadow = shadow), modifier = aside)
         }
     }
 }
