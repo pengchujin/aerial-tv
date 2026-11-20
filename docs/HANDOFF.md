@@ -4,6 +4,14 @@
 
 ## 现状（2026-11-20）
 
+- **2.13（versionCode 154），Lite 1.36（38），2026-11-20 晚上发布**（[v2.13](https://github.com/pengchujin/aerial-tv/releases/tag/v2.13)）：下午巡检的全部修复，加上户主 2026-11-20 定的几件事：
+  - **天气过期读数**（#1576，90f3f1c 83d586c）：读数最多保留 12 小时（`Weather.SHOWN_MS`，重启后也读回来），超过 3 小时在后面标「N 小时前」（`weather_hours_ago`，五种语言）；诊断的 `shown=` 和屏幕一致。Lite 同步，`weatherTick` 每次也重画，让小时数往前走。GoogleTV 模拟器（安卓 13）验证：私有 DNS 指向不存在的主机断网、`cmd alarm set-time` 往后拨，5 小时显示「Singapore 26°C · 5 小时前」（重启 Aerial 后同样），13 小时隐藏，恢复 DNS 后重新取到；模拟器的 DNS 和自动时间已改回。单测 `WeatherAgeTest`。Lite 没上机。
+  - **城市提示**（9e3d11a）：手机页原来就有定位不准的提示，补上「宽带出口在外地」。不加备用天气源（第三方服务器）。
+  - **PR #1556 第 6 个提交**（常驻 `TclSourceWatch` 每 2 秒轮询）不合，PR 关掉。PR #1643 屏保亮度留功能轮次。
+  - **删掉 `adb-by-brand.md` 里第三方开 ADB 工具的链接**（95cd723），和「不推荐其他工具」的原则一致。
+  - 三个包签名 e089…6685，standard 单测 278 个、Lite lint 通过。两台回归：小米 MFTR0（install-multiple + 31.dm，speed-profile / install-dm）selftest 守护、主页键从设置 0.4 s、8 个信号源，亮度行照常；TCL（`tcast-push.py`，uiautomator 确认焦点在「同意」后确定，compile speed）selftest 守护、主页键从浏览器 0.4 s、7 个信号源，屏保预览进出正常，两个 walleve 服务和 AerialDream 不变。官网已部署：version.txt=v2.13，notes.json 第一条 2.13，两个域名上三个 APK 字节数和 Release 一致（standard 3232113、guard 3231931、lite 1010570），`/diag/aerial-710.apk` 还在。#1668 #1630 #1383 #1646 #1651 #1378 #1576 贴了发布链接（`local/triage/release-2.13-posts.py`），都留着开着等确认（#1576 已关，只回复）。下次发版 versionCode ≥ 155，Lite ≥ 39。
+  - **还没修：#1671**（魔百盒谎报电池，2.12 起状态按钮显示电量），等报告人的 `dumpsys battery`。
+
 - **2026-11-20 下午全量巡检**（记录 `local/triage/2026-11-20-full.md`，回复 `replies-2026-11-20.py` / `replies-2026-11-20b.py`，发出 `posted-2026-11-20.txt`）：345 issue / 70 PR，新的或有新回复的 45 个逐个读过；关闭 21 个（含 13 个十天无回音）。main 上未发版的改动（每个一个提交，已推送）：
   - **#1668 峰米 FengOS 投影亮度**（1c4b7a9）：有 `cn.formovie.fengos.settings` 面板时不显示亮度行、不读写 `screen_brightness`（`SystemProbe.hidesBrightness`，进程内缓存），Lite 同步（`Brightness.hidden`）。报告人 Q3 Pro 实测 FengOS 只认 102，别的值让光机待机唤醒后不亮、卸载也不恢复。我们没真机。#1661 小明 Q1 Pro（olaf，没有那个面板，`screen_brightness=255`，开机黑屏）请报告人写回 102 并断电确认，确认后再按机型加。
   - **#1630 每日壁纸过零点不换**（f39a5a2）：必应 `startdate` 是 UTC 日期（中国 20 日零点上线那张标 19 日，`fullstartdate` 202611191600），以前拿中国日期比，「今天的图」永远不在。索引存 `start`，上一张上线 24 小时后才该换（`DailyDates.kt`，单测 `DailyDatesTest`），Lite 同步。没等零点实测。
