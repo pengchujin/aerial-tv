@@ -158,7 +158,7 @@ object Weather {
     fun diagnostics(): String {
         if (!started) return "not started in this process"
         fun ago(at: Long) = if (at == 0L) "never" else "${(System.currentTimeMillis() - at) / 60_000} min ago"
-        return "shown=${now != null} chosen=$chosen located=${!prefs.getFloat("lat", Float.NaN).isNaN()}; " +
+        return "shown=${shown(System.currentTimeMillis()) != null} chosen=$chosen located=${!prefs.getFloat("lat", Float.NaN).isNaN()}; " +
             "read ${ago(prefs.getLong("fetched_at", 0))}; attempt ${ago(lastAttempt)}, result=$lastResult, " +
             "inFlight=${job?.isActive == true}"
     }
