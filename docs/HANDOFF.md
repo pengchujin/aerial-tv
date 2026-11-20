@@ -4,6 +4,17 @@
 
 ## 现状（2026-11-20）
 
+- **2026-11-20 下午全量巡检**（记录 `local/triage/2026-11-20-full.md`，回复 `replies-2026-11-20.py` / `replies-2026-11-20b.py`，发出 `posted-2026-11-20.txt`）：345 issue / 70 PR，新的或有新回复的 45 个逐个读过；关闭 21 个（含 13 个十天无回音）。main 上未发版的改动（每个一个提交，已推送）：
+  - **#1668 峰米 FengOS 投影亮度**（1c4b7a9）：有 `cn.formovie.fengos.settings` 面板时不显示亮度行、不读写 `screen_brightness`（`SystemProbe.hidesBrightness`，进程内缓存），Lite 同步（`Brightness.hidden`）。报告人 Q3 Pro 实测 FengOS 只认 102，别的值让光机待机唤醒后不亮、卸载也不恢复。我们没真机。#1661 小明 Q1 Pro（olaf，没有那个面板，`screen_brightness=255`，开机黑屏）请报告人写回 102 并断电确认，确认后再按机型加。
+  - **#1630 每日壁纸过零点不换**（f39a5a2）：必应 `startdate` 是 UTC 日期（中国 20 日零点上线那张标 19 日，`fullstartdate` 202611191600），以前拿中国日期比，「今天的图」永远不在。索引存 `start`，上一张上线 24 小时后才该换（`DailyDates.kt`，单测 `DailyDatesTest`），Lite 同步。没等零点实测。
+  - **#1383 / #1391**（affd296）：`dumpsys activity service app.orchard.tv/.guard.HomeGuardService` 打印守护状态和 DiagLog（极米不绑定通知监听，RevivalListener 是 `No services match`）。小米 MFTR0 实测有输出。
+  - **#1646 照片屏保时钟字距**（cba1725）：屏保自己的时钟改成按首页字号排版再放大，和首页带过去的时钟一致。按代码推断，没在照片屏保上实测（两台都是航拍壁纸，没改户主设置）。
+  - **#1651**（e468dce）上传照片按长边算采样；**#1378**（cbfe660）暴风 AML_T962 的直播和信号源栏进「全部 App」，都 Lite 同步，都没真机。README 加大眼橙 C2 Ultra（#1642）；adb-by-brand 加酷开 85A10H、海信笔记加 dream 拆装闪首页（#1599）。
+- 验证：三个包编译、standard 单测 276 个、Lite lint 通过，签名 e089…。测试包 versionCode 仍是 153（没改）：**小米 MFTR0** install-multiple + 31.dm（speed-profile / install-dm），selftest 守护、主页键从设置 0.3 s、8 个信号源，亮度行照常（`Aerial can set it: true`），返回进航拍屏保、按键回首页，录屏没有黑帧（只录到约每秒一帧）。**TCL MT5879** 多屏互动推 guard（uiautomator 确认焦点在「同意」，compile speed），selftest 守护、主页键从浏览器 0.4 s、7 个信号源，屏保预览进出正常，两个 walleve 服务和 AerialDream 不变。下次发版 versionCode ≥ 154，Lite ≥ 38（Lite 改了）。
+- **新的 2.12 回归 #1671**：魔百盒报告「有电池、没插电、42%」，状态按钮显示了电量。已要诊断（`Output` 行）和 `dumpsys battery`，发版前最好修：可能要在 `present` 之外再看电压 / 技术 / 是否播放设备。
+- PR #1660（极米唤醒后关选择框 + 主页键焦点）：请作者拆开，焦点部分会让守护看不到主页键的机型丢掉「首页按主页键回第一行」。交户主：#1576 城市提示 / 旧读数、PR #1556 第 6 个提交、PR #1643 屏保亮度（功能轮次）。
+- 顺带发现：`docs/devices/adb-by-brand.md`「打不开 ADB 的机型」末尾链接了一个第三方开 ADB 工具，和「不推荐其他 App / 工具」的原则冲突，没动，等户主决定是否删掉。
+
 - **2.12（versionCode 153），Lite 1.35（37），2026-11-20 发布**（[v2.12](https://github.com/pengchujin/aerial-tv/releases/tag/v2.12)）：下面「2.11 之后」的全部改动（诊断 Output 行、#1476 #1606 #1436 #1615 #1486 #1426）。三个包签名 e089…6685，standard、guard 单测和 Lite lint 通过。官网已部署：version.txt=v2.12，notes.json 第一条是 2.12，三个 APK 字节数和 Release 一致（standard 3228923、guard 3228862、lite 1009782），`/diag/aerial-710.apk` 还在。#1606 #1436 #1615 #1486 #1426 #1476 贴了发布链接（`local/triage/release-2.12-posts.py`，记录 `posted-2026-11-20.txt`），都留着开着，等报告人确认；#1426 请报告人在 GOOVIS 上确认电量，#1476 请报告人试 TalkBack。
   - 两台回归：小米 MFTR0（install-multiple + 31.dm，speed-profile / install-dm，长辈模式仍开着、没动）selftest 守护、主页键从设置 0.4 s、8 个信号源；TCL（`tcast-push.py`，uiautomator 确认焦点在「同意」后确定，compile speed）selftest 守护、主页键从浏览器 0.3 s、7 个信号源，两个 walleve 服务和 AerialDream 屏保不变。「待机」「关闭电视」两台都没真的触发过（户主不在电视旁）。adb 一度对两台都报 `No route to host`（端口其实是通的），`adb kill-server` 后恢复。下次发版 versionCode ≥ 154，Lite ≥ 38。
 
