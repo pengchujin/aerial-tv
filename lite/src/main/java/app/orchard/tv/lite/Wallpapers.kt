@@ -11,7 +11,6 @@ import java.io.File
 import java.io.FileOutputStream
 import java.io.InputStream
 import java.text.SimpleDateFormat
-import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
 
@@ -206,11 +205,20 @@ object Wallpapers {
         }.filter { File(dailyDir, it.first + ".jpg").exists() }
     }.getOrDefault(emptyList())
 
-    /** Bing's dates are China's, as yyyyMMdd. */
-    private fun hasTodaysDaily(): Boolean {
-        val fmt = SimpleDateFormat("yyyyMMdd", Locale.US).apply { timeZone = TimeZone.getTimeZone("Asia/Shanghai") }
-        return File(dailyDir, fmt.format(Date()) + ".jpg").exists()
-    }
+    /**
+     * Whether the newest photo on hand is still the current one. Bing's `startdate` is not China's
+     * day: the photo up from 00:00 on the 20th is dated the 19th, its `fullstartdate` 202611191600
+     * being UTC (the full app's issue #1630), so today's never seemed to be there. The next one is
+     * due a day after the newest one's start; an index from before has no start and is fetched.
+     */
+    private fun hasTodaysDaily(): Boolean = runCatching {
+        val arr = JSONArray(File(dailyDir, "index.json").readText())
+        val fmt = SimpleDateFormat("yyyyMMddHHmm", Locale.US).apply { timeZone = TimeZone.getTimeZone("UTC"); isLenient = false }
+        val newest = (0 until arr.length()).mapNotNull { i ->
+            arr.getJSONObject(i).optString("start").takeIf { it.length == 12 }?.let { runCatching { fmt.parse(it)?.time }.getOrNull() }
+        }.maxOrNull() ?: return@runCatching false
+        System.currentTimeMillis() - newest < 24 * 60 * 60 * 1000L
+    }.getOrDefault(false)
 
     /**
      * Fetches the last eight of Bing's photos (cn.bing.com, reachable from China), as the full app:
@@ -244,7 +252,7 @@ object Wallpapers {
                 }
                 val copyright = img.optString("copyright")
                 val title = img.optString("title").ifBlank { copyright.substringBefore(" (").ifBlank { date } }
-                index.put(JSONObject().put("date", date).put("title", title).put("caption", copyright))
+                index.put(JSONObject().put("date", date).put("title", title).put("caption", copyright).put("start", img.optString("fullstartdate")))
             }
             File(dailyDir, "index.json").writeText(index.toString())
             val keep = (0 until index.length()).map { index.getJSONObject(it).getString("date") + ".jpg" }.toSet()

@@ -867,12 +867,19 @@ object Wallpapers {
         if (due) scope.launch { refreshDaily() }
     }
 
-    /** Bing's dates are China's, as yyyyMMdd. */
-    private fun hasTodaysDaily(): Boolean {
-        val today = java.time.LocalDate.now(java.time.ZoneId.of("Asia/Shanghai"))
-            .format(java.time.format.DateTimeFormatter.BASIC_ISO_DATE)
-        return readDailyIndex().any { it.first >= today }
-    }
+    /**
+     * Whether the newest photo on hand is still the current one. Bing's `startdate` is not the day
+     * the photo is shown in China: the one up from 00:00 on the 20th (China time) is dated the 19th,
+     * its `fullstartdate` 202611191600 being UTC (checked against cn.bing.com 2026-11-20). Compared
+     * with China's date, today's photo never seemed to be there: the half-hourly retry ran all day,
+     * and a Home coming back after midnight within half an hour of one did not look again, so the
+     * new photo waited for the next round (Sony BRAVIA 2015, Android 7, issue #1630). The next photo
+     * is due a day after the newest one's start; an index from before has no start and is fetched.
+     */
+    private fun hasTodaysDaily(): Boolean = runCatching {
+        val arr = JSONArray(File(dailyDir, "index.json").readText())
+        dailyIsCurrent((0 until arr.length()).map { arr.getJSONObject(it).optString("start") }, System.currentTimeMillis())
+    }.getOrDefault(false)
 
     private var dailyRetry: Job? = null
 
@@ -916,7 +923,10 @@ object Wallpapers {
                     }
                     val copyright = img.optString("copyright")
                     val title = img.optString("title").ifBlank { copyright.substringBefore(" (").ifBlank { date } }
-                    index.put(JSONObject().put("date", date).put("title", title).put("caption", copyright))
+                    index.put(
+                        JSONObject().put("date", date).put("title", title).put("caption", copyright)
+                            .put("start", img.optString("fullstartdate")),
+                    )
                 }
                 File(dailyDir, "index.json").writeText(index.toString())
                 // Keep only what Bing still lists.
