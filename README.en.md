@@ -292,6 +292,7 @@ Most TVs sold in China only accept their own home screen and clear third-party a
 | XGIMI | H3, m7221 | Android 8 | ✅ Needs a third-party tool to open ADB; boot handover and screensaver match Z7X ([notes](docs/devices/xgimi-h3.md)) |
 | OBE | X7, X7D projectors | Android 9 / 5.1 | ✅ Home inside HDMI can go to the Apple TV's home screen ([notes](docs/devices/obe-x7.md)) |
 | OBE | OBE_R3Ultra high-brightness projector (MT5879) | Android 11 | ✅ Developer options show only "USB debugging", and turning it on opens ADB on port 5555; Home first goes to the firmware's Youku launcher, the guard brings Aerial back about 13 s later ([notes](docs/devices/obe-r3-ultra.md)) |
+| OBE | C2 Ultra projector | Android 9 | ✅ Reported working: Home, power cycle, standby, inputs, volume and brightness, screensaver; ADB is turned on in the stock Android settings, reached from Aerial's Control Center "Settings" once Aerial is installed (#1642) |
 | Tencent Aurora box | 6 / 6SE / 7S | Android 10 / 14 | ✅ 6 works; ⚠️ 7S stays on the stock home at boot ([notes](docs/devices/tencent-aurora-box.md)) |
 | Dangbei | Box Max1, H5, HAQU K2 (Dangbei OS) | Android 9 | ✅ |
 | Dangbei | H3S box (RK3566) | Android 11 | ⚠️ The firmware stops third-party apps on Home; Aerial comes back after 7–12 s ([#849](https://github.com/pengchujin/aerial-tv/issues/849)) |
