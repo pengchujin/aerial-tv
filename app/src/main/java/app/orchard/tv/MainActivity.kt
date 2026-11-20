@@ -118,6 +118,17 @@ class MainActivity : ComponentActivity() {
         override fun onReceive(context: Context, intent: Intent) = vm.refreshVolume()
     }
 
+    /**
+     * The Home press Home Guard heard but the TV answered with its Home chooser: that Home never
+     * reached this activity, so nothing here would take the focus back to the top row.
+     */
+    private val homePressedReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            if (locked) return
+            vm.onHomePressed(resetFocus = intent.getBooleanExtra(EXTRA_RESET_FOCUS, true))
+        }
+    }
+
     /** Midnight, or the clock set at boot: a new daily photo, and the next of the rotating ones. */
     private val dayReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
@@ -988,6 +999,9 @@ class MainActivity : ComponentActivity() {
             },
             ContextCompat.RECEIVER_NOT_EXPORTED,
         )
+        ContextCompat.registerReceiver(
+            this, homePressedReceiver, IntentFilter(ACTION_HOME_PRESSED), ContextCompat.RECEIVER_NOT_EXPORTED,
+        )
         getSystemService<ConnectivityManager>()?.let { cm ->
             if (Build.VERSION.SDK_INT >= 24) cm.registerDefaultNetworkCallback(networkCallback)
             // A request leaves VPNs out unless told otherwise; the status pill shows one coming up (issue #809).
@@ -1111,6 +1125,7 @@ class MainActivity : ComponentActivity() {
         unregisterReceiver(packageReceiver)
         unregisterReceiver(volumeReceiver)
         unregisterReceiver(dayReceiver)
+        runCatching { unregisterReceiver(homePressedReceiver) }
         runCatching { getSystemService<ConnectivityManager>()?.unregisterNetworkCallback(networkCallback) }
     }
 
@@ -1452,6 +1467,12 @@ class MainActivity : ComponentActivity() {
          * opened: its boot screen, or its home activity that comes before it (issue #963).
          */
         const val EXTRA_REOPEN_BOOT = "app.orchard.tv.REOPEN_BOOT"
+
+        /** Sent by Home Guard for a Home press the TV answered with its chooser; see homePressedReceiver. */
+        const val ACTION_HOME_PRESSED = "app.orchard.tv.HOME_PRESSED"
+
+        /** With it: Home on Home takes the focus back to the top row, Home from an app leaves it on that tile. */
+        const val EXTRA_RESET_FOCUS = "app.orchard.tv.RESET_FOCUS"
 
         /** How long after the key that woke a screensaver other keys are still taken as waking it. */
         const val WAKE_QUIET_MS = 400L

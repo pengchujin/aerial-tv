@@ -2,6 +2,7 @@ package app.orchard.tv.guard
 
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.AccessibilityServiceInfo
+import android.app.ActivityManager
 import android.app.AppOpsManager
 import android.app.PendingIntent
 import android.app.usage.UsageEvents
@@ -589,6 +590,9 @@ class HomeGuardService : AccessibilityService() {
     private val screenOn = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             screenOff = intent.action == Intent.ACTION_SCREEN_OFF
+            // The sleep the standby key began is under way (or over, on the way up): the move is
+            // allowed again, a wake right after the key included (see STANDBY_KEY).
+            standbyKeyAt = Long.MIN_VALUE / 2
             updateKeyFilter()
             if (screenOff) {
                 // Credential storage, like the Home note below: not while locked.
@@ -634,6 +638,13 @@ class HomeGuardService : AccessibilityService() {
             }
             if (backOnPause) noteHomeInAerial()
             val front = lastWindow?.first
+            // Home pressed on Home: the TV's resolution of it may answer with the chooser, which
+            // Aerial never sees; told here, before any window change, so the focus still goes back
+            // to the top row. Only where Aerial is not the Home the system answers itself, though:
+            // there the Home reaches Aerial anyway, and a second one would redo its own handling
+            // (an overlay it just closed, the focus it just took). Every other machine is left as
+            // it was.
+            if (front == packageName && !isDefaultHome()) tellAerialHomeWasPressed(resetFocus = true)
             if (front != null && front !in stockHomes) {
                 windowsAtHome = windowsSeen
                 homePressedAt = SystemClock.uptimeMillis()
@@ -672,6 +683,9 @@ class HomeGuardService : AccessibilityService() {
     private var windowsSeen = 0L
     private var windowsAtHome = 0L
     private var homePressedAt = Long.MIN_VALUE / 2
+
+    /** When the XGIMI standby key was last pressed; see STANDBY_KEY. */
+    private var standbyKeyAt = Long.MIN_VALUE / 2
 
     /**
      * Home pressed in another app, and no window change since: the guard may have gone deaf. On
@@ -1562,6 +1576,11 @@ class HomeGuardService : AccessibilityService() {
     override fun onKeyEvent(event: KeyEvent): Boolean {
         keySeen = true
         if (!GuardSetup.isUserUnlocked(this)) return false
+        // The standby key goes to the firmware, which goes Home on it: noted here, while the
+        // filter still sees it, so the move is left alone until the screen goes off (STANDBY_KEY).
+        if (event.keyCode == STANDBY_KEY && event.action == KeyEvent.ACTION_DOWN) {
+            standbyKeyAt = SystemClock.uptimeMillis()
+        }
         if (event.keyCode in VOLUME_KEYS) {
             return if (filteringForCecOnly || (isDefaultHome() && defaultHomeNeedsHomeFilter)) {
                 false
@@ -1972,6 +1991,19 @@ class HomeGuardService : AccessibilityService() {
         // Home after it is answered by the system, which is the same chooser again. Those machines
         // had this chooser before #1523 and are left with it, nothing added.
         if (isHomeChooser(pkg, cls) && wideResolvedHome() != packageName) {
+            // Moving Aerial's own task over the chooser comes first, and needs no Back: Back closes
+            // the chooser, which resumes whatever ran under it (the app the viewer left, so Home
+            // from a film put the film back up), and with no Home record the system answers the
+            // closed chooser with a new one, press after press. Moving it keeps the chooser as it
+            // is and brings Aerial up all the same (XGIMI H3S: 20-47 ms).
+            if (moveSelfToFront()) {
+                handler.removeCallbacks(frontAfterHome)
+                handler.removeCallbacks(frontAfterHomeAgain)
+                // The Home that brought the chooser up never reached Aerial: Home on Home wants the
+                // top row back, Home from an app leaves the mark on the tile it was opened from.
+                tellAerialHomeWasPressed(resetFocus = before == null || before == packageName)
+                return
+            }
             // Answered once per Home press: Aerial restarts itself on that press, which also refreshes
             // broughtBackAt, so a cooldown on it would skip the Back on every ordinary press.
             if (before == packageName &&
@@ -2407,11 +2439,47 @@ class HomeGuardService : AccessibilityService() {
             return
         }
         broughtBackAt = SystemClock.uptimeMillis()
+        if (moveSelfToFront()) return
         runCatching {
             val intent = MainActivity.bringBackIntent(this).putExtra(MainActivity.EXTRA_WOKE, woke)
                 .putExtra(MainActivity.EXTRA_REOPEN_BOOT, reopenBoot)
             if (!startPastHomeHold(intent)) startActivity(intent)
         }.onFailure { Log.w(TAG, "could not bring Aerial Home to the front", it) }
+    }
+
+    /**
+     * A Home press stops app switches for 5 s: an app started after it does not come up until the
+     * hold runs out, whatever it is, so the guard's own start of Aerial waited the whole five
+     * seconds (XGIMI H3S, pig_chivalrous, Android 9: 4.98-5.00 s on every Home with no Home record
+     * left, the stock launcher in front and the remote dead meanwhile). Moving Aerial's own task
+     * to the front is not an activity start and is not held: it took 4-90 ms there. False when
+     * Aerial has no task of its own, the system refused, or the TV is going into standby: the start
+     * above then runs as before.
+     */
+    private fun moveSelfToFront(): Boolean = runCatching {
+        // The standby key: the TV goes Home on it by itself, and moving Aerial back over that
+        // chooser is what the firmware kills Aerial for (see STANDBY_KEY). Left alone until the
+        // screen goes off, which is well under a second later there.
+        if (SystemClock.uptimeMillis() - standbyKeyAt < STANDBY_KEY_MS) return false
+        val task = getSystemService(ActivityManager::class.java)?.appTasks?.firstOrNull() ?: return false
+        task.moveToFront()
+        Log.i(TAG, "brought Aerial back by moving its own task to the front")
+        true
+    }.getOrDefault(false)
+
+    /**
+     * The Home a press was, told to Aerial when the TV's resolution of that press answered with the
+     * Home chooser instead: the Home itself never reached Aerial then, and without this the grid
+     * keeps the focus it had (XGIMI H3S: the mark stayed on the fifth tile for 5 s until the
+     * firmware's own second Home came around).
+     */
+    private fun tellAerialHomeWasPressed(resetFocus: Boolean) {
+        runCatching {
+            sendBroadcast(
+                Intent(MainActivity.ACTION_HOME_PRESSED).setPackage(packageName)
+                    .putExtra(MainActivity.EXTRA_RESET_FOCUS, resetFocus),
+            )
+        }
     }
 
     /**
@@ -2469,6 +2537,17 @@ class HomeGuardService : AccessibilityService() {
         private const val UNSEEN_APP_WATCH_MS = 2 * 60_000L
         /** How long a stock launcher's window change may take to arrive after Home (see frontAfterHome). */
         private const val FRONT_AFTER_HOME_MS = 1_500L
+        /**
+         * The XGIMI remote's standby key. The firmware goes Home on that key itself, so the chooser
+         * it pushes up is answered here as a Home press would be; moving Aerial back to the front
+         * while the TV heads into standby gets Aerial killed (XGIMI H3S, pig_chivalrous, Android 9,
+         * 2026-11-20: the process was gone 0.1 s after the move, nothing in the crash log, and on
+         * the next wake the chooser held the screen with Home and Back both dead). Not moved between
+         * that key and the screen going off; SCREEN_OFF and SCREEN_ON clear it, so a wake right
+         * after the key is not held back.
+         */
+        private const val STANDBY_KEY = 2100
+        private const val STANDBY_KEY_MS = 10_000L
         /** How often usage stats are read after Home once the guard has been found deaf. */
         private const val DEAF_LOOK_MS = 150L
         /** How recently PatchWall must have come to the front, and how often and how long to look; see uiBoostChanged. */
