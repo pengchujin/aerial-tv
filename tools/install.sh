@@ -440,13 +440,19 @@ resolve_home() {
 
 if [ "$FLAVOR" = standard ]; then
   # Hisense VIDAA (MT9653, Android 11, #40) starts the launcher named in this property by explicit
-  # component, past the HOME role and unseen by Home Guard. Only firmwares that have it; the old
-  # value is kept on the TV for restore.sh.
+  # component, past the HOME role and unseen by Home Guard. Firmwares that have it set; and where
+  # it is empty but 聚好看 (com.jamdeo.tv.vod) is the launcher: VIDAA_TV MT9603 (Android 11, #1679)
+  # left it empty, opened 聚好看 by explicit component on Home all the same, has no key filter for
+  # the guard, and took the property (Home straight to Aerial, kept over a reboot). The old value
+  # is kept on the TV for restore.sh, "-" for empty.
   VT_HOME=$(adb shell getprop persist.vt.use_home_pkg | tr -d '\r')
+  if [ -z "$VT_HOME" ] && adb shell pm path com.jamdeo.tv.vod 2>/dev/null | grep -q package:; then
+    VT_HOME=-
+  fi
   if [ -n "$VT_HOME" ] && [ "$VT_HOME" != "$PKG" ]; then
     adb shell settings put global aerial_vt_home_pkg "$VT_HOME"
     adb shell setprop persist.vt.use_home_pkg "$PKG"
-    echo "Hisense: Home now opens Aerial instead of $VT_HOME."
+    echo "Hisense: Home now opens Aerial instead of ${VT_HOME/#-/com.jamdeo.tv.vod}."
   fi
   # Not on Xiaomi (PatchWall, com.mitv.tvhome installed): most firmwares ignore it, but one Android 9
   # set took it, PatchWall then ran as an ordinary app outside the home stack, and Xiaomi's short

@@ -12,7 +12,7 @@ ANOTHER = 'org.example.second/org.example.second.Listener'
 
 
 class RestoreListenerTest(unittest.TestCase):
-    def run_restore(self, listeners, cmd_status=127):
+    def run_restore(self, listeners, cmd_status=127, vt_saved=''):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             log = root / 'calls'
@@ -25,7 +25,8 @@ case "$*" in
   'shell settings get secure enabled_notification_listeners') printf '%s\\n' "$LISTENERS" ;;
   'shell settings get secure screensaver_components') echo org.example/.Screensaver ;;
   'shell settings get secure enabled_accessibility_services') echo app.orchard.tv/app.orchard.tv.guard.HomeGuardService ;;
-  'shell settings get global aerial_vt_home_pkg') echo null ;;
+  'shell settings get global aerial_vt_home_pkg') echo "${VT_SAVED:-null}" ;;
+  "shell setprop persist.vt.use_home_pkg ''") ;;
   'shell settings get global aerial_boot_app_componentname') echo null ;;
   'shell settings get system boot_app_componentname') echo null ;;
   'shell getprop persist.vt.use_home_pkg') ;;
@@ -40,7 +41,7 @@ esac
             adb.chmod(0o755)
             env = dict(os.environ, PATH=str(root) + os.pathsep + os.environ['PATH'],
                        TV='example.invalid', CALL_LOG=str(log),
-                       LISTENERS=listeners, CMD_STATUS=str(cmd_status))
+                       LISTENERS=listeners, CMD_STATUS=str(cmd_status), VT_SAVED=vt_saved)
             for name in ('SHELLOPTS', 'BASHOPTS', 'BASH_ENV', 'POSIXLY_CORRECT'):
                 env.pop(name, None)
             result = subprocess.run(['bash', str(SCRIPT)], env=env,
@@ -71,6 +72,13 @@ esac
                 self.assert_restored(result, calls)
                 self.assertIn('shell settings put secure enabled_notification_listeners ' + OTHER + ':' + ANOTHER, calls)
                 self.assertNotIn('shell settings delete secure enabled_notification_listeners', calls)
+
+    def test_vidaa_home_property_that_was_empty_is_emptied(self):
+        # Issue #1679: install.sh kept "-" for a persist.vt.use_home_pkg that was empty.
+        result, calls = self.run_restore(LISTENER, vt_saved='-')
+        self.assert_restored(result, calls)
+        self.assertIn("shell setprop persist.vt.use_home_pkg ''", calls)
+        self.assertIn('shell settings delete global aerial_vt_home_pkg', calls)
 
     def test_absent_listener_does_not_change_the_setting(self):
         for listeners in (OTHER, 'null', ''):
