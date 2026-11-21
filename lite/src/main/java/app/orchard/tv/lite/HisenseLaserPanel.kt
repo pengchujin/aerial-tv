@@ -17,8 +17,9 @@ import android.content.Context
  * Only laser sets are taken over: `getLaserOverLapOrCL0Mode` belongs to the laser light path
  * (CL0 is the laser source), so a set without it keeps its existing behaviour.
  *
- * Lite has no row of picture modes, so it cannot say why a slider stopped; a step in 超新 or 超频
- * still drops the set into 自定义 at the level asked for.
+ * Lite has no row of picture modes, so it cannot say why a slider stopped, and it keeps taking the
+ * step in 超新 and 超频 — which drops the set into 自定义 at the level asked for. The full app greys
+ * its row out in those two modes instead and says so on the mode page.
  */
 object HisenseLaserPanel {
     /** The TV's own 0..10 brightness, the same scale as its 图像 → 亮度 slider. */

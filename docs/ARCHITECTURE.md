@@ -29,7 +29,7 @@ app/src/main/java/app/orchard/tv/
 │   ├── home/PinPad.kt       家长密码键盘（设置 / 解锁 / 只核对，遥控器数字键或屏幕键盘）
 │   ├── home/KidsMode.kt     儿童与长辈模式的设置面板（KidsSetupSheet）和锁屏（KidsLockScreen）
 │   ├── home/Screensaver.kt  屏保 UI：航拍（Media3 ExoPlayer，见 wallpaper/AerialStream.kt）/ 照片（Ken Burns）/ 时钟
-│   ├── control/ControlCenter.kt  控制中心：按钮、音量/亮度滑块、「个性化」入口、有新版本时的提示和升级说明页、底部版本号；信号源页（只负责切换）和信号源设置页（显示在主屏幕、开机时打开）
+│   ├── control/ControlCenter.kt  控制中心：按钮、音量/亮度滑块、海信激光机型的亮度模式页、「个性化」入口、有新版本时的提示和升级说明页、底部版本号；信号源页（只负责切换）和信号源设置页（显示在主屏幕、开机时打开）
 │   └── wallpaper/WallpaperSheet.kt  个性化面板（壁纸、屏保和开始时间、焦点样式、家长密码、天气）+ 手机扫码卡片
 ├── wallpaper/
 │   ├── Wallpapers.kt        壁纸单例：来源（每日/内置/照片/照片每天换一张/跟随App）、选择、首页背景烘焙（结果存在 files/backdrop/，冷启动直接读回）、缩略图、上传
