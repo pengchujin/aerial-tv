@@ -15,8 +15,6 @@ import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.database.ContentObserver
 import android.media.AudioManager
-import android.media.session.MediaSessionManager
-import android.media.session.PlaybackState
 import android.media.tv.TvInputManager
 import android.os.Build
 import android.os.Handler
@@ -2005,23 +2003,21 @@ class HomeGuardService : AccessibilityService() {
         if (aerialResumed) return // Home starts its own screensaver.
         val power = getSystemService<PowerManager>() ?: return
         if (!power.isInteractive) return
-        val front = lastWindow?.first ?: return
+        // The window seen last, or — bound with the screen already on an app and no change since
+        // (an update while a player sat in front) — what usage stats say came to the front. Unknown
+        // still goes ahead: Aerial in front is already ruled out by aerialResumed above, and
+        // staying put would leave the box showing whatever was there, the thing this replaces.
+        val front = lastWindow?.first ?: frontByUsage()?.first
         if (front == packageName || front in castFronts) return
         val idleMs = SystemClock.elapsedRealtime() - lastActivity
         if (idleMs < minutes * 60_000L) return
-        if (mediaPlaying()) return
+        if (MediaPlaying.playing(this)) {
+            Log.i(TAG, "idle ${idleMs / 60_000} m over $front, but a media session says it is playing; leaving it alone")
+            return
+        }
         Log.i(TAG, "idle ${idleMs / 60_000} m over $front with nothing playing; showing the screensaver over it")
         IdleScreensaverActivity.show(applicationContext)
         lastActivity = SystemClock.elapsedRealtime()
-    }
-
-    /** Something is playing when an active media session says so. */
-    private fun mediaPlaying(): Boolean {
-        val listener = ComponentName(this, RevivalListener::class.java)
-        return runCatching {
-            val manager = getSystemService<MediaSessionManager>() ?: return@runCatching false
-            manager.getActiveSessions(listener).any { it.playbackState?.state == PlaybackState.STATE_PLAYING }
-        }.getOrDefault(false)
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent) {
