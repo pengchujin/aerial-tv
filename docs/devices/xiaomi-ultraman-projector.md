@@ -122,3 +122,7 @@ ADB 调试打开前，这台电视上**没有任何 adbd 端口**。全端口扫
 - 打包/安装的通用注意事项见 [tcl-mt5879-cn.md](tcl-mt5879-cn.md) 的「安装限制」一节；
   这台没有那些限制，`adb install -r` 一次就过。
 - 未验证：亮度、音量、信号源、HDMI CEC、Aerial 的航拍屏保是否正常播放、天气功能。
+
+## 亮度（峰米系统通用，2026-11-21）
+
+峰米的投影（小明 Q3 Pro `peppa`、Q1 Pro `olaf`）只认安卓默认的 `screen_brightness=102`，写成别的值后下次待机唤醒光机不亮，卸载 Aerial 也不恢复，`adb shell settings put system screen_brightness 102` 再拔电源开机才好（#1668 #1661）。Aerial 在有 FengOS 设置面板（`cn.formovie.fengos.settings`）或有峰米桌面（`com.tvfengmi.launcher`）的机器上不显示亮度行、不读不写这个值，所以这台 Ultraman 也一样不显示亮度。Q1 Pro 没有 FengOS 设置面板，2.13 上亮度行还在，2.14 起按峰米桌面判断。

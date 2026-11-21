@@ -34,9 +34,11 @@ object Brightness {
     /**
      * FengOS projectors: no brightness in their own settings, and a screen_brightness other than
      * the framework default leaves the DLP light engine dark after the next standby (the full
-     * app's SystemProbe.hidesBrightness, issue #1668). No row there, and nothing written.
+     * app's SystemProbe.hidesBrightness, issue #1668). No row there, and nothing written. Known by
+     * the FengOS settings panel or Fengmi's launcher (Q1 Pro, olaf, has only the launcher; #1661).
      */
-    fun hidden(context: Context): Boolean = installed(context, "cn.formovie.fengos.settings")
+    fun hidden(context: Context): Boolean =
+        installed(context, "cn.formovie.fengos.settings") || installed(context, "com.tvfengmi.launcher")
 
     /** Current level as 0..1, or null when Lite cannot change it on this TV. */
     fun level(context: Context): Float? {

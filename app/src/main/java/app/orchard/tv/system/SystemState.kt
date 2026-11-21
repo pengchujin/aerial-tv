@@ -300,10 +300,17 @@ object SystemProbe {
      * standby, even after Aerial is gone (Xiaomi Q3 Pro, device peppa, Android 9: the Lights HAL
      * clamps 2 to 10 and refuses it, `bl_enable` stays 0; issue #1668, the reporter's patch and
      * logs). So Aerial shows no brightness row there and never writes the setting. Known by the
-     * FengOS settings panel being there, as for the settings and network buttons above.
+     * FengOS settings panel being there, as for the settings and network buttons above, or by
+     * Fengmi's own launcher: Q1 Pro (device olaf, Amlogic, Android 9) has no such panel but goes
+     * dark the same way with 255 written (issue #1661, 102 brought it back).
      */
     fun hidesBrightness(context: Context): Boolean =
-        fengOs ?: (fengOsSettingsIntent(context) != null).also { fengOs = it }
+        fengOs ?: (fengOsSettingsIntent(context) != null || installed(context, FENGMI_LAUNCHER)).also { fengOs = it }
+
+    private const val FENGMI_LAUNCHER = "com.tvfengmi.launcher"
+
+    private fun installed(context: Context, pkg: String): Boolean =
+        runCatching { context.packageManager.getPackageInfo(pkg, 0) }.isSuccess
 
     /** A system panel: looked for once a process, as Brightness.level asks on every poll. */
     @Volatile
