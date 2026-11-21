@@ -5,6 +5,8 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.view.KeyEvent
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
@@ -13,6 +15,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
+import app.orchard.tv.guard.MediaPlaying
 import app.orchard.tv.system.DiagLog
 import app.orchard.tv.system.MissingClipboard
 import app.orchard.tv.ui.home.LiveFilm
@@ -33,6 +36,7 @@ import app.orchard.tv.wallpaper.Wallpapers
  */
 class IdleScreensaverActivity : ComponentActivity() {
     private val skips = ScreensaverSkips()
+    private val handler = Handler(Looper.getMainLooper())
 
     // See MissingClipboard.
     override fun getSystemService(name: String): Any? =
@@ -83,19 +87,46 @@ class IdleScreensaverActivity : ComponentActivity() {
         override fun onReceive(context: Context, intent: Intent) = finish()
     }
 
+    /**
+     * Something playing ends it too. The guard looked before showing it, but a film can start on
+     * the app underneath right after (a player whose next episode begins on its own, a cast
+     * starting), and the screensaver must not sit over it: its sound plays through the aerial
+     * film, which is what "watching the screensaver with the film's sound" looks like.
+     */
+    private val playingCheck = object : Runnable {
+        override fun run() {
+            if (!watchingForPlaying) return
+            if (MediaPlaying.playing(this@IdleScreensaverActivity)) {
+                DiagLog.i("idle screensaver ended: something is playing")
+                finish()
+                return
+            }
+            handler.postDelayed(this, PLAYING_POLL_MS)
+        }
+    }
+
+    private var watchingForPlaying = false
+
     override fun onStart() {
         super.onStart()
         running = this
         runCatching { registerReceiver(screenOff, IntentFilter(Intent.ACTION_SCREEN_OFF)) }
+        watchingForPlaying = true
+        handler.postDelayed(playingCheck, PLAYING_POLL_MS)
     }
 
     override fun onStop() {
         if (running === this) running = null
+        watchingForPlaying = false
+        handler.removeCallbacks(playingCheck)
         runCatching { unregisterReceiver(screenOff) }
         super.onStop()
     }
 
     companion object {
+        /** How often [playingCheck] asks; a film's first sound is caught within this. */
+        private const val PLAYING_POLL_MS = 2_000L
+
         /** The idle screensaver on screen in this process, if any. Main thread only. */
         private var running: IdleScreensaverActivity? = null
 
