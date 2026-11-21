@@ -2,6 +2,19 @@
 
 写给接手 Aerial 的人或 AI。先读这份，再读 [ARCHITECTURE.md](ARCHITECTURE.md) 和 [devices/](devices/)。
 
+## 现状（2026-11-21）
+
+- **2026-11-21 上午全量巡检**（记录 `local/triage/2026-11-21-full.md`，回复 `replies-2026-11-21.py`，发出 `posted-2026-11-21.txt`，39 条，关闭 20 个）：337 issue / 69 PR，新的或有新回复的 25 个（复查又来 #1554）逐个读过。main 上**未发版**的改动（每个一个提交，已推送）：
+  - **峰米亮度**（#1661，8199f4e）：2.13 只认 FengOS 设置面板，小明 Q1 Pro（olaf）没有面板，亮度行还在；现在装有峰米桌面 `com.tvfengmi.launcher` 也算（Ultraman 投影也有这个桌面，同样不显示）。Lite 同步。没有真机。
+  - **电量**（#1671 #1673 #1681，6d639dc）：插着电就不显示（MECOOL 盒子一直报「有电池、USB、充电中 42%」，平板改的盒子插电 85%），只在用电池时显示；去掉了「充电中」状态。Lite 同步。两台测试电视都没电池，这个场景没在真机上验证。
+  - **个性化页上下乱窜**（#1606，d337d47）：「关于 Aerial」加到最底以后，「家长密码」「儿童模式」两行还留着获得焦点就滚到底的旧逻辑，和焦点自己的滚动打架。去掉。小米 MFTR0 上录屏逐帧复现、修后验证。Lite 没有对应代码。
+  - **海信 `persist.vt.use_home_pkg` 为空也写**（#1679，4bb7b9b）：属性为空但装有聚好看时，`install.sh` 也改成 Aerial，`aerial_vt_home_pkg` 记 `-`，`restore.sh` 还原时清空；agent.md 中英同步；`tools/test_install.py` / `test_restore.py` 加了用例。属性本身是报告人 Agent 在 MT9603 真机上验证的，脚本没上过海信；**发版时跑 deploy-site 后官网脚本才更新**。
+  - **PR #1660 合入**（a31d5f8）：极米 H3S 唤醒 / 开机后前台是 Home 选择框时守护发一次返回。没有极米真机，报告人实测。
+  - 文档：乐视 X43（7cb2553）、MFTR0 安卓 11 / OS2 开机先出 PatchWall（dd2865d）、峰米亮度、海信两台（MT9603、Hi3751 4.4 Lite）、README 机型表加乐视 C1S（1946b22）。
+- 验证：standard 单测 278 个、Lite lint、install / restore 离线测试 14 个通过；standard / guard 测试包 versionCode 155（**未提交**，`build.gradle.kts` 已改回 154），签名 e089…6685。小米 MFTR0（install-multiple + 31.dm，speed-profile / install-dm）selftest 守护、主页键从设置 0.4 s、8 个信号源，屏保进出录屏无黑帧；TCL（`tcast-push.py`，uiautomator 确认焦点在「同意」后确定，compile speed）selftest 守护、主页键从浏览器 0.3 s、7 个信号源，两个 walleve 服务不变，屏保进出无黑帧（退出那一下 TCL 的录屏没录到，退出后画面停在同一段影片上）。**下次发版 versionCode ≥ 156，Lite ≥ 39（Lite 改了）**。
+- 小米测试时的现场：音频输出在 HDMI ARC 上（小米 QuickMute 静音），控制中心音量行显示「已静音」，不是测试改的，没动。测试中按 OK 打开过一次首页的 HDMI 信号源磁贴，已按主页键回到 Aerial。
+- 等回复：#1683（没写哪里不对）、#1677 海尔 T966 的 RootActivity、#1658 `soft_layer` 试验、#1656 撤掉 Aerial 后 USB 2.0 口、#1682 role 写入后几天的观察、#1629 卡住时的诊断。
+
 ## 现状（2026-11-20）
 
 - **2.13（versionCode 154），Lite 1.36（38），2026-11-20 晚上发布**（[v2.13](https://github.com/pengchujin/aerial-tv/releases/tag/v2.13)）：下午巡检的全部修复，加上户主 2026-11-20 定的几件事：
