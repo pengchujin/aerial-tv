@@ -4,7 +4,9 @@
 
 ## 现状（2026-11-21）
 
-- **2026-11-21 上午全量巡检**（记录 `local/triage/2026-11-21-full.md`，回复 `replies-2026-11-21.py`，发出 `posted-2026-11-21.txt`，39 条，关闭 20 个）：337 issue / 69 PR，新的或有新回复的 25 个（复查又来 #1554）逐个读过。main 上**未发版**的改动（每个一个提交，已推送）：
+- **2.14（versionCode 156），Lite 1.37（39），2026-11-21 上午发布**（[v2.14](https://github.com/pengchujin/aerial-tv/releases/tag/v2.14)）：下面巡检的全部修复。三个包签名 e089…6685。两台装正式包回归：小米 MFTR0（install-multiple + 31.dm，speed-profile / install-dm）selftest 守护、主页键从设置 0.3 s、8 个信号源；TCL（`tcast-push.py`，uiautomator 确认焦点在「同意」后确定，compile speed）selftest 守护、主页键从浏览器 0.3 s、7 个信号源，两个 walleve 服务不变。官网已部署：两个域名 version.txt=v2.14，notes.json 第一条 2.14，三个 APK 字节数和 Release 一致（standard 3231699、guard 3231548、lite 1010547），`tools/install.sh` 带上了海信空属性的改动，`/diag/aerial-710.apk` 还在。#1661 #1668 #1671 #1673 #1681 #1606 #1679 和 PR #1660 贴了发布链接（`local/triage/release-2.14-posts.py`），issue 都留着等确认。下次发版 versionCode ≥ 157，Lite ≥ 40。
+
+- **2026-11-21 上午全量巡检**（记录 `local/triage/2026-11-21-full.md`，回复 `replies-2026-11-21.py`，发出 `posted-2026-11-21.txt`，39 条，关闭 20 个）：337 issue / 69 PR，新的或有新回复的 25 个（复查又来 #1554）逐个读过。改动（每个一个提交，已随 2.14 发布）：
   - **峰米亮度**（#1661，8199f4e）：2.13 只认 FengOS 设置面板，小明 Q1 Pro（olaf）没有面板，亮度行还在；现在装有峰米桌面 `com.tvfengmi.launcher` 也算（Ultraman 投影也有这个桌面，同样不显示）。Lite 同步。没有真机。
   - **电量**（#1671 #1673 #1681，6d639dc）：插着电就不显示（MECOOL 盒子一直报「有电池、USB、充电中 42%」，平板改的盒子插电 85%），只在用电池时显示；去掉了「充电中」状态。Lite 同步。两台测试电视都没电池，这个场景没在真机上验证。
   - **个性化页上下乱窜**（#1606，d337d47）：「关于 Aerial」加到最底以后，「家长密码」「儿童模式」两行还留着获得焦点就滚到底的旧逻辑，和焦点自己的滚动打架。去掉。小米 MFTR0 上录屏逐帧复现、修后验证。Lite 没有对应代码。
