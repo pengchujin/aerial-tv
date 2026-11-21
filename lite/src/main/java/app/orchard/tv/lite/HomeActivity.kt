@@ -353,7 +353,10 @@ class HomeActivity : Activity(), HomeView.Host {
         }
     }
 
-    /** The battery, for the pill: shown only where there is one and it is not plugged in full (#1426). */
+    /**
+     * The battery, for the pill: shown only where there is one and the device runs on it (#1426).
+     * Plugged in, nothing: boxes on mains power claim a battery charging at 42% for good (#1671).
+     */
     private val battery = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) = showBattery(intent)
     }
@@ -363,8 +366,7 @@ class HomeActivity : Activity(), HomeView.Host {
         val scale = i?.getIntExtra(android.os.BatteryManager.EXTRA_SCALE, 100)?.coerceAtLeast(1) ?: 100
         val percent = (i?.getIntExtra(android.os.BatteryManager.EXTRA_LEVEL, -1) ?: -1) * 100 / scale
         val plugged = (i?.getIntExtra(android.os.BatteryManager.EXTRA_PLUGGED, 0) ?: 0) != 0
-        home.pill.battery = if (!present || percent < 0 || (plugged && percent >= 100)) -1 else percent
-        home.pill.charging = plugged
+        home.pill.battery = if (!present || percent < 0 || plugged) -1 else percent
     }
 
     private val dailyRetry = Runnable { refreshDaily() }
