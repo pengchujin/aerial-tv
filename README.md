@@ -260,6 +260,7 @@ curl -fsSL https://aerial.qust.me/install.sh | TV=192.168.1.20 bash -s restore
 | 康佳 | Android TV 551（Hi3751V551） | Android 5.1.1 | ✅ 在康佳「设置 → 通用 → 快捷 → 开机直达」里选 Aerial 后开机直达，主页键由守护接管；固件没有 `cmd` 命令（[#1089](https://github.com/pengchujin/aerial-tv/issues/1089)）；Hi3751V551E 1.95 守护版可用，开机后壁纸要十几秒才出来（[#1504](https://github.com/pengchujin/aerial-tv/issues/1504)） |
 | 乐视 | 超4 X55（f608） | Android 6 | ✅ 安装、开机自启、主页键接管；切到别的应用约 4 秒后被强停、返回先回原桌面约 4 秒；开机有固件原生广告（[笔记](docs/devices/letv-x4-55.md)、[#510](https://github.com/pengchujin/aerial-tv/issues/510)） |
 | 乐视 | 超3 X65（X65-168CQ） | Android 5.0.1 | ⚠️ 能装能显示；按主页键时系统会强杀第三方桌面，接管不稳定（[笔记](docs/devices/letv-x3-65.md)） |
+| 乐视 | C1S 机顶盒（刷 c1s v3.0.35s 精简固件） | Android 4.x | ✅ Aerial Lite 装得上；原厂固件打不开 ADB，要刷开了 ADB 的固件（[#1554](https://github.com/pengchujin/aerial-tv/issues/1554)） |
 | 海信 / Vidda | VIDAA 各型号 | Android 5–14 | ⚠️ 主页键能接管，开机多数先进聚好看；VIDAA C1 投影接管不了（[笔记](docs/devices/hisense-vidaa.md)） |
 | 海信 | 27GX 显示器（MT9655） | Android 14 | ✅ 开 ADB 要先在工厂菜单里把 To Fac 设成 M；界面按 1080p 绘制（[#1466](https://github.com/pengchujin/aerial-tv/issues/1466) [#1461](https://github.com/pengchujin/aerial-tv/issues/1461)） |
 | 海信 | 65E52D | Android 8 | ✅ 开机直接进 Aerial（[#672](https://github.com/pengchujin/aerial-tv/issues/672)） |
