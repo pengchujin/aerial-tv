@@ -472,7 +472,7 @@ object AppCatalog {
         val stamp = runCatching { pm.getPackageInfo(pkg, 0).lastUpdateTime }.getOrDefault(0L) + CustomIcons.stamp(pkg) +
             IconLibrary.stamp(pkg) + if (stockHome) 1 else 0
         val system = (info.applicationInfo.flags and ApplicationInfo.FLAG_SYSTEM) != 0
-        val ownTile = if (stockHome) SystemTile.Home else if (system) SYSTEM_TILES[pkg] ?: byCategory[pkg] else null
+        val ownTile = if (stockHome) SystemTile.Home else if (system) SYSTEM_TILES[pkg] ?: byCategory[pkg]?.takeIf { TileRecipes.of(pkg)?.keepColors != true } else null
         if (ownTile != null) drawnByAerial[pkg] = ownTile else drawnByAerial.remove(pkg)
         val inMemory = synchronized(cache) { cache[pkg] }?.takeIf { it.stamp == stamp && it.width == TileArtFactory.W }
         if (inMemory == null && later) {
@@ -495,7 +495,7 @@ object AppCatalog {
             // A launcher declared only as a Home has an icon for phones at best (TCL's cyberui: the
             // default robot), so it is drawn as Aerial's own.
             val own = if (stockHome) SystemTile.Home
-                else if (system) SYSTEM_TILES[pkg] ?: byCategory[pkg]?.takeIf { banner == null } else null
+                else if (system) SYSTEM_TILES[pkg] ?: byCategory[pkg]?.takeIf { banner == null && TileRecipes.of(pkg)?.keepColors != true } else null
             val custom = CustomIcons.load(pkg)
             // Aerial's own tiles for the firmware's apps keep their look; any other app's
             // ready-made picture comes before what Aerial would draw from its banner or icon.

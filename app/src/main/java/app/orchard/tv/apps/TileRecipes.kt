@@ -42,6 +42,12 @@ object TileRecipes {
         "com.ucmobile.yun.tv" to TileRecipe(keepColors = true), // UC网盘: a shaded logo that turns to mist in white
         "com.zmg.ott" to TileRecipe(top = 0xFF3FA9FF.toInt(), bottom = 0xFF1747E0.toInt(), white = true), // Z视介: its white Z, without the facets behind it
         "com.sohuott.tv.vod" to TileRecipe(keepColors = true), // 云视听悦厅TV: a shaded logo that turns to mist in white
+        // Hisense VIDAA (MT9603), checked on the TV. These icons carry a detail in the plate's own
+        // color (聚好看's eye, 日历's header), which Aerial's one look would turn inside out.
+        "com.jamdeo.tv.vod" to TileRecipe(useIcon = true, keepColors = true), // 聚好看
+        "com.android.wechathci" to TileRecipe(useIcon = true, keepColors = true), // 微信电视
+        "com.jamdeo.calendar" to TileRecipe(useIcon = true, keepColors = true), // 日历 (Cinesense)
+        "com.android.calendar" to TileRecipe(useIcon = true, keepColors = true), // 日历 (AOSP)
     )
 
     fun of(pkg: String): TileRecipe? = byPackage[pkg]

@@ -478,7 +478,7 @@ object TileArtFactory {
         val iconBitmap = createBitmap(sample, sample)
         icon.setBounds(0, 0, sample, sample)
         icon.draw(Canvas(iconBitmap))
-        val square = opaqueCorners(iconBitmap)
+        val square = opaqueCorners(iconBitmap) || fillsCanvas(iconBitmap)
         val tint = dominant(iconBitmap)
         iconBitmap.recycle()
         val (top, bottom) = if (recipe?.top != null && recipe.bottom != null) recipe.top to recipe.bottom else tileFromTint(tint)
@@ -664,6 +664,20 @@ object TileArtFactory {
         val e = b.width - 1 - i
         return listOf(b.getPixel(i, i), b.getPixel(e, i), b.getPixel(i, e), b.getPixel(e, e))
             .all { android.graphics.Color.alpha(it) > 200 }
+    }
+
+    /**
+     * True for an icon whose solid part is (nearly) the whole canvas: a plate, also when its
+     * corners are rounded and transparent. [opaqueCorners] misses those, and a plate with a
+     * decorated edge (the arcs around 语音专区's microphone) can then fall through [plate] and
+     * be taken for a logo, which [unify] whitens whole and leaves the tile blank.
+     */
+    private fun fillsCanvas(b: Bitmap): Boolean {
+        val n = b.width
+        val px = IntArray(n * n).also { b.getPixels(it, 0, n, 0, 0, n, n) }
+        val box = solidBox(px, n) ?: return false
+        val w = box.width()
+        return w >= n * 0.88f && kotlin.math.abs(w - box.height()) <= w * 0.06f
     }
 
     // ---- Logos: found in a sample of the icon, then drawn sharp at their size on the tile ----
