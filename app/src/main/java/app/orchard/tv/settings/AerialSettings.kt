@@ -97,6 +97,14 @@ object AerialSettings {
     var pinnedSources by mutableStateOf<Set<String>>(emptySet()); private set
 
     /**
+     * Players that announce no media session of their own (Dangbei's player among them), by package:
+     * while one of them is in front, its audio stream stands in for the missing announcement, and the
+     * idle screensaver stays away while sound plays (see MediaPlaying). Chosen in Personalize, empty
+     * by default — a player that does announce needs no entry here.
+     */
+    var noSessionPlayers by mutableStateOf<Set<String>>(emptySet()); private set
+
+    /**
      * The input to open when the TV is switched on (a set-top box, an Apple TV), by TvSource id;
      * null for none. Home still comes back to Aerial. Issue #25.
      */
@@ -243,6 +251,7 @@ object AerialSettings {
         chosenFocusStyle = FocusStyle.of(prefs.getString("focus_style", null))
         pinnedSources = prefs.getStringSet("pinned_sources", null)?.toSet() ?: emptySet()
         hiddenSources = prefs.getStringSet("hidden_sources", null)?.toSet() ?: emptySet()
+        noSessionPlayers = prefs.getStringSet("no_session_players", null)?.toSet() ?: emptySet()
         cecSwitch = prefs.getBoolean("cec_switch", false)
         bootSource = prefs.getString("boot_source", null)
         bootApp = prefs.getString("boot_app", null)
@@ -424,6 +433,11 @@ object AerialSettings {
     fun setPinned(inputId: String, pinned: Boolean) {
         pinnedSources = if (pinned) pinnedSources + inputId else pinnedSources - inputId
         app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit { putStringSet("pinned_sources", pinnedSources) }
+    }
+
+    fun chooseNoSessionPlayer(packageName: String, chosen: Boolean) {
+        noSessionPlayers = if (chosen) noSessionPlayers + packageName else noSessionPlayers - packageName
+        app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit { putStringSet("no_session_players", noSessionPlayers) }
     }
 
 

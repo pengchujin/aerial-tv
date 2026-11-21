@@ -126,6 +126,7 @@ fun WallpaperSheet(
     onDismiss: () -> Unit,
     hiddenCount: Int,
     onHiddenApps: () -> Unit,
+    onNoSessionPlayers: () -> Unit,
     onHomeLock: (on: Boolean) -> Unit,
     onStartScreensaver: () -> Unit,
     onPin: (on: Boolean) -> Unit,
@@ -395,6 +396,16 @@ fun WallpaperSheet(
                         },
                         AerialSettings.screensaverMinutes, AerialSettings::chooseScreensaverMinutes,
                     )
+                    // Players that announce no session of their own, for the idle screensaver to
+                    // excuse while they sound busy (see MediaPlaying).
+                    SettingRow(R.string.ss_no_session_players, stringResource(R.string.ss_no_session_players_hint), note) {
+                        ActionChip(
+                            if (AerialSettings.noSessionPlayers.isEmpty()) stringResource(R.string.ss_no_session_players_none)
+                            else stringResource(R.string.ss_no_session_players_count, AerialSettings.noSessionPlayers.size),
+                            Glyph.ChevronRight,
+                            onNoSessionPlayers,
+                        )
+                    }
                     Choices(
                         R.string.ss_back, stringResource(R.string.ss_back_choice_hint), note,
                         listOf(true to R.string.ss_back_on, false to R.string.ss_back_off),

@@ -423,6 +423,89 @@ fun HiddenAppsSheet(
 }
 
 /**
+ * Players that announce no media session of their own (Personalize): a tile tapped joins the
+ * chosen, tapped again leaves. Chosen players' sound stands in for the missing announcement in
+ * the idle check (see MediaPlaying), so the idle screensaver does not come over their films.
+ */
+@Composable
+fun NoSessionPlayersSheet(
+    visible: Boolean,
+    apps: List<AppEntry>,
+    chosen: Set<String>,
+    onChoose: (String, Boolean) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val first = remember { FocusRequester() }
+    BackHandler(enabled = visible, onBack = onDismiss)
+    LaunchedEffect(visible, apps.size) {
+        if (visible) {
+            withFrameNanos { }
+            runCatching { first.requestFocus() }
+        }
+    }
+    AnimatedVisibility(
+        visible = visible,
+        enter = fadeIn(tween(200, easing = Motion.EaseOut)) + scaleIn(tween(300, easing = Motion.Drawer), initialScale = 0.94f),
+        exit = fadeOut(tween(150, easing = Motion.EaseOut)) + scaleOut(tween(150, easing = Motion.EaseOut), targetScale = 0.97f),
+        modifier = Modifier.fillMaxSize(),
+    ) {
+        Box(Modifier.fillMaxSize().dismissOnTap(onDismiss).background(Color.Black.copy(alpha = 0.35f)), contentAlignment = Alignment.Center) {
+            Column(
+                Modifier
+                    .width(660.dp)
+                    .consumeTaps()
+                    // The canvas is 540 dp tall: past three rows the grid scrolls inside the sheet.
+                    .heightIn(max = 480.dp)
+                    .liquidGlass(28.dp)
+                    .padding(28.dp),
+            ) {
+                BasicText(stringResource(R.string.ss_no_session_players), style = Type.LargeTitle)
+                BasicText(
+                    if (apps.isEmpty()) stringResource(R.string.hidden_empty) else stringResource(R.string.ss_no_session_players_hint),
+                    style = Type.Callout, modifier = Modifier.padding(top = 4.dp, bottom = 20.dp),
+                )
+                // Focus moving to a row out of view scrolls it in (Compose brings focused items into view).
+                Column(
+                    Modifier
+                        .weight(1f, fill = false)
+                        .verticalScroll(rememberScrollState())
+                        // Room for the focused tile's 1.1x scale, so the edge rows are not clipped.
+                        .padding(horizontal = 8.dp, vertical = 8.dp),
+                ) {
+                    apps.chunked(4).forEachIndexed { r, row ->
+                        Row(horizontalArrangement = Arrangement.spacedBy(20.dp), modifier = Modifier.padding(bottom = 18.dp)) {
+                            row.forEachIndexed { c, app ->
+                                Pressable(
+                                    onClick = { onChoose(app.key, app.key !in chosen) },
+                                    focusRequester = if (r == 0 && c == 0) first else null,
+                                    focusedScale = 1.1f,
+                                ) { state ->
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Box {
+                                            MiniTile(app, state.focused, Modifier.size(132.dp, 74.dp))
+                                            if (app.key in chosen) GlyphIcon(
+                                                Glyph.Check, Palette.Label, 22.dp,
+                                                Modifier.align(Alignment.TopEnd).padding(6.dp),
+                                            )
+                                        }
+                                        Spacer(Modifier.height(8.dp))
+                                        BasicText(
+                                            app.label, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                                            style = Type.Caption.copy(color = if (state.focused || app.key in chosen) Palette.Label else Palette.SecondaryLabel),
+                                            modifier = Modifier.width(132.dp),
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
  * A line at the top of the screen that confirms a choice and goes away by itself (HomeViewModel
  * .notify): glass, like the menus, falling in from the top edge.
  */

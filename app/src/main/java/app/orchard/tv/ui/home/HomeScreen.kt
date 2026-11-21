@@ -1112,6 +1112,15 @@ fun HomeScreen(
             onDismiss = { vm.overlay = Overlay.Wallpaper(WallpaperFocus.HiddenApps) },
         )
 
+        // Players that announce no media session, reached from Personalization; Back returns there.
+        NoSessionPlayersSheet(
+            visible = overlay is Overlay.NoSessionPlayers,
+            apps = vm.apps + vm.hiddenApps,
+            chosen = AerialSettings.noSessionPlayers,
+            onChoose = { key, on -> AerialSettings.chooseNoSessionPlayer(key, on) },
+            onDismiss = { vm.overlay = Overlay.Wallpaper },
+        )
+
         WallpaperSheet(
             visible = overlay is Overlay.Wallpaper,
             focusTarget = (overlay as? Overlay.Wallpaper)?.focus ?: WallpaperFocus.Default,
@@ -1120,6 +1129,7 @@ fun HomeScreen(
             onDismiss = { vm.overlay = Overlay.ControlCenter(CcPage.Main, focus = ControlCenterFocus.Personalize) },
             hiddenCount = vm.hiddenApps.size,
             onHiddenApps = { vm.whenUnlocked { vm.overlay = Overlay.HiddenApps } },
+            onNoSessionPlayers = { vm.whenUnlocked { vm.overlay = Overlay.NoSessionPlayers } },
             // Locking needs nothing; unlocking, the PIN where one is set.
             onHomeLock = { on ->
                 if (on == AerialSettings.homeLocked) Unit
