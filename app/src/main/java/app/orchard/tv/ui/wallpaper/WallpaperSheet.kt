@@ -391,21 +391,20 @@ fun WallpaperSheet(
                 Spacer(Modifier.height(10.dp))
                 Group(stringResource(R.string.st_pin_hint)) { note ->
                     SettingRow(R.string.st_pin, null, note, first = true) {
-                        PinChoice(onPin, onFocused = { scope.launch { scroll.animateScrollTo(scroll.maxValue) } })
+                        // No scroll of its own here: About sits below now, and a scroll to the
+                        // bottom after the focus's own made the sheet jump on every Up (#1606).
+                        PinChoice(onPin)
                     }
                     SettingRow(R.string.st_kids, stringResource(R.string.st_kids_hint), note) {
-                        // The last row that takes focus: bring the note under it into view too.
-                        Box(Modifier.onFocusChanged { if (it.hasFocus) scope.launch { scroll.animateScrollTo(scroll.maxValue) } }) {
-                            ActionChip(
-                                when {
-                                    !Restricted.enabled -> stringResource(R.string.st_off)
-                                    Restricted.kind == RestrictedKind.Kids -> stringResource(R.string.kids_kind_kids)
-                                    else -> stringResource(R.string.kids_kind_elders)
-                                },
-                                Glyph.ChevronRight,
-                                onKids,
-                            )
-                        }
+                        ActionChip(
+                            when {
+                                !Restricted.enabled -> stringResource(R.string.st_off)
+                                Restricted.kind == RestrictedKind.Kids -> stringResource(R.string.kids_kind_kids)
+                                else -> stringResource(R.string.kids_kind_elders)
+                            },
+                            Glyph.ChevronRight,
+                            onKids,
+                        )
                     }
                 }
                 // About Aerial, last (issue #1606): Control Center shows only a new version.
@@ -686,10 +685,10 @@ private fun <T> Choices(
 
 /** Parental PIN on or off; either way goes through the PIN pad (issue #10). */
 @Composable
-private fun PinChoice(onPin: (on: Boolean) -> Unit, onFocused: () -> Unit) {
+private fun PinChoice(onPin: (on: Boolean) -> Unit) {
     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         listOf(false to R.string.st_pin_off, true to R.string.st_pin_on).forEach { (on, label) ->
-            Chip(stringResource(label), on = AerialSettings.pinSet == on, onFocused = onFocused) {
+            Chip(stringResource(label), on = AerialSettings.pinSet == on) {
                 if (AerialSettings.pinSet != on) onPin(on)
             }
         }
