@@ -338,5 +338,7 @@
     <string name="ss_no_session_players_hint">这些应用在前台时，用声音代替媒体通告：有声音就不弹闲置屏保。给当贝播放器这类从不发媒体通告的播放器用。</string>
     <string name="ss_no_session_players_none">还没选</string>
     <string name="ss_no_session_players_count">已选 %d 个</string>
+    <string name="ss_standby_after">屏保后待机</string>
+    <string name="ss_standby_after_hint">屏保放了这么久之后，电视像按了电源键一样待机。选“从不”则屏保一直放。</string>
     <string name="cc_update_to">更新到 %1$s</string>
 </resources>

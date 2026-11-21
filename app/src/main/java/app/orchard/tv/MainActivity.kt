@@ -739,8 +739,23 @@ class MainActivity : ComponentActivity() {
         // screensaver, Xiaomi's a minute later, 4 h into Aerial's (MiTV-MFTR0, 2026-10-27 03:35).
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         if (!screenNeverOff()) idleHandler.postDelayed(releaseScreen, SCREENSAVER_HOLD_MS)
+        // Personalize's 屏保后待机 (standbyAfterScreensaver): after the chosen stretch of
+        // screensaving, standby through the guard, as the power button would. Every end of the
+        // screensaver cancels it (hideScreensaver), and the run re-checks the flag, so a key press
+        // a minute before never puts the TV down under the user's hands.
+        val standbyAfter = AerialSettings.standbyAfterScreensaver
+        if (standbyAfter > 0) idleHandler.postDelayed(standbyAfterSaver, standbyAfter * 60_000L)
     }
     private val releaseScreen = Runnable { window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) }
+
+    /** Personalize's 屏保后待机 (standbyAfterScreensaver): fires only while the screensaver still shows. */
+    private val standbyAfterSaver = Runnable {
+        if (isDestroyed || !vm.screensaverVisible) return@Runnable
+        val minutes = AerialSettings.standbyAfterScreensaver
+        if (minutes <= 0) return@Runnable
+        DiagLog.i("screensaver: going to standby after $minutes m of screensaving")
+        HomeGuardService.sleep("screensaver standby")
+    }
 
     /**
      * When Aerial last asked the system for its dream. The dream's starter closes at once and Home
@@ -857,6 +872,7 @@ class MainActivity : ComponentActivity() {
         if (vm.screensaverVisible) DiagLog.i("screensaver ends")
         vm.screensaverVisible = false
         idleHandler.removeCallbacks(releaseScreen)
+        idleHandler.removeCallbacks(standbyAfterSaver)
         window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
     }
 
