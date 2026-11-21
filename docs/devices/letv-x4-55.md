@@ -96,3 +96,12 @@
 
 - 从 App 按返回退到桌面时先闪乐视桌面约 1 秒：逐帧采样里守护很快拉回，慢在 Aerial 冷启动（`Displayed +1.1–1.4 s`），进程多半已被回收，待确认。
 - 首页包名写死在 `key.sys.prop.launcher`（`com.stv.deskplatform`）；`setprop` 改成 Aerial 时效果不稳定，已还原。`com.stv.appdaemon` 在桌面缺失时弹「系统抛锚」接管前台，不要卸载 / 停用 deskplatform。
+
+## 2026-11-21（#1127 #1623 #1528，超4 X43 原厂 EUI，同固件 V2401RCN02C080080B04121S，Aerial 2.13，另一位报告人的 Agent 实测）
+
+- #1623 确认：从设置按返回前后 Aerial 的进程号变了（3001 → 5458），是 EUI 回收了进程再由通知监听复活；这台 2.13 上逐帧采样没看到乐视桌面出帧（守护日志有一次 `stock launcher com.stv.deskplatform in front by usage stats; bringing Aerial back`）。
+- 这台的 `pidof` 不按包名过滤（`pidof app.orchard.tv` 返回整张进程表，`-s` 返回 1），查进程号用 `adb shell ps | grep orchard`。
+- 重启：开机约 55 秒后 60 秒内都是 Aerial，没有先出原桌面；`screensaver_components`、无障碍、通知监听都保持。
+- 原厂 EUI 上不加 `filterHomeAlways`，实体遥控器主页键也停在 Aerial（`input keyevent` 在这台是假阴性）。和 #1528 的当贝精简系统不同，所以乐视全系自动打开 `filterHomeAlways` 仍不做。
+- 没有 `tv_input`：控制中心「信号源」打开 `com.stv.signalsourcemanager/.MainActivity`（Aerial 自己起的独立任务），用户看到的「乐视桌面」就是它的全屏界面。
+- `uiautomator dump` 返回 0 个节点，Agent 没法按文字找控件。
