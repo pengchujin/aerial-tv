@@ -64,6 +64,8 @@ object IconLibrary {
     @Volatile private var index: Map<String, List<Choice>> = emptyMap()
     /** Source key → {"name": …, "<language>": …}, from the last index read. */
     @Volatile var credits: JSONObject = JSONObject(); private set
+    /** Package → its names, for the phone page's picker to show and search apps not on this TV. */
+    @Volatile var names: JSONObject = JSONObject(); private set
     private val refreshing = Mutex()
     @Volatile private var lastAttempt = 0L
     /** Pictures that failed to download (by file name), and when: not tried on every reload. */
@@ -73,7 +75,8 @@ object IconLibrary {
         if (::dir.isInitialized) return
         dir = File(context.filesDir, "library").apply { mkdirs() }
         prefs = context.applicationContext.getSharedPreferences("icon_library", Context.MODE_PRIVATE)
-        read(File(dir, "index.json").takeIf { it.exists() }?.readText())?.let { (i, c) -> index = i; credits = c }
+        val text = File(dir, "index.json").takeIf { it.exists() }?.readText()
+        read(text)?.let { (i, c) -> index = i; credits = c; names = names(text) }
     }
 
     private fun here(c: Choice): File? = File(dir, c.fileName).takeIf { it.exists() }
@@ -210,6 +213,7 @@ object IconLibrary {
                             changed = fresh.mapValues { e -> e.value.map { it.path } } != index.mapValues { e -> e.value.map { it.path } }
                             index = fresh
                             credits = c
+                            names = names(text)
                             prefs.edit { putLong("checked_at", now); putInt("checked_by", app.orchard.tv.BuildConfig.VERSION_CODE) }
                             Log.i(TAG, "icon index: ${fresh.size} apps, ${fresh.values.sumOf { it.size }} pictures")
                         }
@@ -233,6 +237,10 @@ object IconLibrary {
             refreshing.unlock()
         }
     }
+
+    /** The apps' names in the index ({"<package>": {"zh": …, "en": …, "also": …}}), empty when it has none. */
+    internal fun names(text: String?): JSONObject =
+        runCatching { JSONObject(text ?: return JSONObject()).optJSONObject("names") }.getOrNull() ?: JSONObject()
 
     /** The index's pictures and credits; null when [text] is not an index. */
     @androidx.annotation.VisibleForTesting

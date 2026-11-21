@@ -10,5 +10,6 @@
     {"key": "dangbei", "dir": "local/dangbei-icons/icons", "name": "Dangbei", "names": {"zh": "当贝桌面"},
      "//": "Dangbei Launcher 4.1.7's pictures (local/dangbei-icons/README.md)"}
   ],
-  "defaults": {}
+  "defaults": {},
+  "names": "tools/icons/names.tsv"
 }

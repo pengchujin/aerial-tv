@@ -216,9 +216,17 @@
   .grab { width: 36px; height: 5px; border-radius: 3px; background: var(--tertiary); margin: 0 auto 14px; }
   .sheet .pic { border-radius: 12px; overflow: hidden; aspect-ratio: 16 / 9; background: var(--fill); width: 62%; margin: 0 auto; }
   .sheet .pic img { display: block; width: 100%; height: 100%; object-fit: cover; }
-  .libgrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; max-height: 52vh; overflow-y: auto; padding: 2px; }
-  .libpic { padding: 0; border: 0; background: var(--fill); border-radius: 8px; overflow: hidden; aspect-ratio: 16 / 9; }
-  .libpic img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  /* The scroll is on a box around the grid: a grid with a max-height of its own has WebKit squeeze
+     its rows into that height, the pictures stacked as thin strips (iPhone, 2.14). */
+  .libscroll { max-height: 52vh; overflow-y: auto; overscroll-behavior: contain; margin: 0 -4px; padding: 2px 4px; }
+  .libgrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-auto-rows: max-content; gap: 12px 8px; }
+  .libpic { padding: 0; border: 0; background: none; display: block; min-width: 0; text-align: center; cursor: pointer; }
+  .libpic img { width: 100%; aspect-ratio: 16 / 9; height: auto; object-fit: cover; display: block; border-radius: 8px; background: var(--fill); }
+  .libpic span { display: block; font-size: 11px; color: var(--secondary); margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .libpic:active img { opacity: .6; }
+  .libsearch { background: var(--card); border-radius: 10px; padding: 8px 12px; margin-bottom: 10px; }
+  @media (prefers-color-scheme: dark) { .libsearch { background: #2c2c2e; } }
+  .libsearch input { font-size: 16px; }
   .item .ithumb { width: 64px; aspect-ratio: 16 / 9; border-radius: 6px; object-fit: cover; margin-right: 12px; flex: none; background: var(--fill); }
   .sheet h3 { text-align: center; font-size: 17px; font-weight: 600; margin: 12px 0 2px; }
   .sheet .meta { text-align: center; font-size: 13px; color: var(--secondary); margin: 0 0 16px; }
@@ -416,7 +424,7 @@ let state = null, stateJson = '';
 
 // The language: ?lang=ru in the address, else the one picked under More (kept on the phone), else the
 // first of the phone's preferred languages that has a table, else English. Keys are in KEYS, one array of texts per language.
-const KEYS = ["screensaver", "screensaver_short", "ss_aerial", "ss_photos", "ss_clock", "focus", "focus_high", "focus_standard", "weather", "city_ph", "set", "upload_label", "feedback_h", "feedback_hint", "diag_show", "diag_copy", "diag_github", "hint_aerial", "hint_photos", "hint_clock", "g_live", "g_live_sub", "g_daily", "g_daily_sub", "g_photo", "g_builtin", "g_auto", "toast_wallpaper", "aria_delete", "confirm_delete", "wx_clear", "wx_partlycloudy", "wx_cloudy", "wx_fog", "wx_rain", "wx_snow", "wx_thunder", "wx_chosen", "wx_auto_btn", "toast_auto", "wx_guessed", "wx_none", "tag_source", "aria_rename", "toast_renamed", "toast_name_reset", "toast_rename_fail", "aria_reset_icon", "toast_icon_reset", "focus_hint_standard", "focus_hint_high", "daily_title", "daily_caption", "rotate_title", "rotate_caption", "empty_photos", "add_second", "toast_tv_updated", "sending_n", "toast_added", "toast_no_photos", "toast_send_fail", "toast_city_set", "toast_city_nf", "toast_set_fail", "toast_sending_icon", "toast_icon_set", "toast_icon_bad", "diag_collecting", "toast_diag_fail", "toast_copied", "toast_copy_manual", "language", "hint_follows", "ss_videos", "hint_videos", "videos_h", "videos_upload", "videos_hint", "videos_empty", "confirm_video_delete", "toast_videos_added", "toast_video_bad", "sending_video", "hint_system", "tab_home", "tab_more", "current_wp", "cancel", "save", "name_ph", "rename_hint", "change_icon", "this_tv", "folder_count", "folder_ph", "inputs_h", "inputs_hint", "rename_hint_app", "was_named", "arrange_hint", "arrange_unready", "hidden_h", "hidden_none", "hidden_locked", "show_app", "hide_app", "to_folder", "new_folder", "out_of_folder", "ungroup", "ungroup_confirm", "folder_hint", "toast_hidden", "toast_shown", "toast_in_folder", "toast_out_folder", "toast_ungrouped", "tab_looks", "looks_title", "show_on_home", "source_device", "source_plain", "source_device_hint", "tv_model", "sw_always", "sw_always_sub", "sw_weather", "sw_saver_time", "sw_saver_time_sub", "sw_saver_place", "sw_saver_place_sub", "g_source_sub", "icon_h", "icon_library", "icon_own", "icon_custom", "toast_icon_picked", "drop_hint", "drop_sub", "drop_none", "toast_diag_paste", "kids_h", "elders_h", "kids_used", "kids_left", "kids_nolimit", "kids_allowed", "kids_lock_day", "kids_lock_late", "kids_lock_break", "kids_pin_ph", "kids_unlock", "kids_wrong", "kids_need_pin", "kids_locked_foot", "kids_add", "kids_day", "kids_leave_k", "kids_leave_e", "kids_paused", "kids_resume", "kids_min", "kids_hm", "kids_erase", "kids_hr", "kids_both", "kids_off_line", "kids_settings", "kids_no_pin", "kids_pin_foot", "ks_meta", "ks_on", "ks_on_sub", "ks_block", "ks_block_sub", "ks_block_noguard", "ks_time_h", "ks_weekday", "ks_weekend", "ks_minutes", "ks_nolimit", "ks_window", "ks_from", "ks_to", "ks_break", "ks_break_every", "ks_break_len", "ks_time_foot", "ks_apps", "ks_apps_sub", "ks_input", "ks_save", "ks_saved", "ks_invalid", "ks_for", "wx_temp", "ss_sleep", "hint_sleep", "power_off", "power_off_confirm", "power_off_done", "power_off_fail", "icon_more", "icon_more_hint", "icon_more_fail"];
+const KEYS = ["screensaver", "screensaver_short", "ss_aerial", "ss_photos", "ss_clock", "focus", "focus_high", "focus_standard", "weather", "city_ph", "set", "upload_label", "feedback_h", "feedback_hint", "diag_show", "diag_copy", "diag_github", "hint_aerial", "hint_photos", "hint_clock", "g_live", "g_live_sub", "g_daily", "g_daily_sub", "g_photo", "g_builtin", "g_auto", "toast_wallpaper", "aria_delete", "confirm_delete", "wx_clear", "wx_partlycloudy", "wx_cloudy", "wx_fog", "wx_rain", "wx_snow", "wx_thunder", "wx_chosen", "wx_auto_btn", "toast_auto", "wx_guessed", "wx_none", "tag_source", "aria_rename", "toast_renamed", "toast_name_reset", "toast_rename_fail", "aria_reset_icon", "toast_icon_reset", "focus_hint_standard", "focus_hint_high", "daily_title", "daily_caption", "rotate_title", "rotate_caption", "empty_photos", "add_second", "toast_tv_updated", "sending_n", "toast_added", "toast_no_photos", "toast_send_fail", "toast_city_set", "toast_city_nf", "toast_set_fail", "toast_sending_icon", "toast_icon_set", "toast_icon_bad", "diag_collecting", "toast_diag_fail", "toast_copied", "toast_copy_manual", "language", "hint_follows", "ss_videos", "hint_videos", "videos_h", "videos_upload", "videos_hint", "videos_empty", "confirm_video_delete", "toast_videos_added", "toast_video_bad", "sending_video", "hint_system", "tab_home", "tab_more", "current_wp", "cancel", "save", "name_ph", "rename_hint", "change_icon", "this_tv", "folder_count", "folder_ph", "inputs_h", "inputs_hint", "rename_hint_app", "was_named", "arrange_hint", "arrange_unready", "hidden_h", "hidden_none", "hidden_locked", "show_app", "hide_app", "to_folder", "new_folder", "out_of_folder", "ungroup", "ungroup_confirm", "folder_hint", "toast_hidden", "toast_shown", "toast_in_folder", "toast_out_folder", "toast_ungrouped", "tab_looks", "looks_title", "show_on_home", "source_device", "source_plain", "source_device_hint", "tv_model", "sw_always", "sw_always_sub", "sw_weather", "sw_saver_time", "sw_saver_time_sub", "sw_saver_place", "sw_saver_place_sub", "g_source_sub", "icon_h", "icon_library", "icon_own", "icon_custom", "toast_icon_picked", "drop_hint", "drop_sub", "drop_none", "toast_diag_paste", "kids_h", "elders_h", "kids_used", "kids_left", "kids_nolimit", "kids_allowed", "kids_lock_day", "kids_lock_late", "kids_lock_break", "kids_pin_ph", "kids_unlock", "kids_wrong", "kids_need_pin", "kids_locked_foot", "kids_add", "kids_day", "kids_leave_k", "kids_leave_e", "kids_paused", "kids_resume", "kids_min", "kids_hm", "kids_erase", "kids_hr", "kids_both", "kids_off_line", "kids_settings", "kids_no_pin", "kids_pin_foot", "ks_meta", "ks_on", "ks_on_sub", "ks_block", "ks_block_sub", "ks_block_noguard", "ks_time_h", "ks_weekday", "ks_weekend", "ks_minutes", "ks_nolimit", "ks_window", "ks_from", "ks_to", "ks_break", "ks_break_every", "ks_break_len", "ks_time_foot", "ks_apps", "ks_apps_sub", "ks_input", "ks_save", "ks_saved", "ks_invalid", "ks_for", "wx_temp", "ss_sleep", "hint_sleep", "power_off", "power_off_confirm", "power_off_done", "power_off_fail", "icon_more", "icon_more_hint", "icon_more_fail", "icon_search_ph", "icon_search_none"];
 const TEXTS = {
  "zh": [
   "屏幕保护程序",
@@ -624,7 +632,9 @@ const TEXTS = {
   "关不了：桌面守护没在运行",
   "从图标库选…",
   "图标库里所有的图，任何一张都能给这个 App 用。图片从 Aerial 官网加载，手机要能上网。",
-  "图标库没加载出来：电视或手机连不上 Aerial 官网。"
+  "图标库没加载出来：电视或手机连不上 Aerial 官网。",
+  "搜索 App 名称或包名",
+  "没有找到。换个叫法试试，或者输入包名。"
  ],
  "en": [
   "Screensaver",
@@ -832,7 +842,9 @@ const TEXTS = {
   "Cannot: Home Guard is not running",
   "Choose from the Icon Library…",
   "Every picture in the icon library; any of them can be this app's. They load from Aerial's website, so the phone needs the internet.",
-  "The icon library did not load: the TV or the phone cannot reach Aerial's website."
+  "The icon library did not load: the TV or the phone cannot reach Aerial's website.",
+  "Search an app name or package",
+  "Nothing found. Try another name for it, or its package name."
  ],
  "ru": [
   "Заставка",
@@ -1040,7 +1052,9 @@ const TEXTS = {
   "Не удалось: Home Guard не запущен",
   "Выбрать из библиотеки значков…",
   "Все картинки библиотеки значков; любую можно назначить этому приложению. Они загружаются с сайта Aerial, телефону нужен интернет.",
-  "Библиотека значков не загрузилась: телевизор или телефон не может связаться с сайтом Aerial."
+  "Библиотека значков не загрузилась: телевизор или телефон не может связаться с сайтом Aerial.",
+  "Найти по названию или пакету",
+  "Ничего не найдено. Попробуйте другое название или имя пакета."
  ],
  "uk": [
   "Заставка",
@@ -1248,7 +1262,9 @@ const TEXTS = {
   "Не вдалося: Home Guard не запущено",
   "Вибрати з бібліотеки значків…",
   "Усі картинки бібліотеки значків; будь-яку можна призначити цьому застосунку. Вони завантажуються з сайту Aerial, телефону потрібен інтернет.",
-  "Бібліотека значків не завантажилася: телевізор або телефон не може з'єднатися із сайтом Aerial."
+  "Бібліотека значків не завантажилася: телевізор або телефон не може з'єднатися із сайтом Aerial.",
+  "Знайти за назвою або пакетом",
+  "Нічого не знайдено. Спробуйте іншу назву або назву пакета."
  ],
  "kk": [
   "Экран қорғаушы",
@@ -1456,7 +1472,9 @@ const TEXTS = {
   "Болмады: Home Guard іске қосылмаған",
   "Белгішелер кітапханасынан таңдау…",
   "Белгішелер кітапханасындағы барлық сурет; кез келгенін осы қолданбаға беруге болады. Олар Aerial сайтынан жүктеледі, телефонға интернет керек.",
-  "Белгішелер кітапханасы жүктелмеді: теледидар не телефон Aerial сайтына қосыла алмайды."
+  "Белгішелер кітапханасы жүктелмеді: теледидар не телефон Aerial сайтына қосыла алмайды.",
+  "Қолданба атауын не бумасын іздеу",
+  "Ештеңе табылмады. Басқа атауын не бума атауын жазып көріңіз."
  ]
 };
 const LANGS = Object.keys(TEXTS);
@@ -2150,25 +2168,39 @@ function tileSheet(e, inFolder, hidden) {
 }
 /* The device on an input: its mark and colours on the tile, its name on the caption (as on the TV). */
 /*
- * The whole icon library, as a grid of its pictures (each shows its app's logo, and the index has
- * no names). The phone loads them from the website; the TV fetches only the one picked.
+ * The whole icon library, as a grid of its pictures, each with its app's name: the one on this TV,
+ * else the index's (an older index has none; those apps are found by package). The phone loads the
+ * pictures from the website; the TV fetches only the one picked.
  */
 async function libraryChooser(a) {
   const body = $('#sheetBody'); body.replaceChildren();
   body.appendChild(el('h3', '', t('icon_more'))); body.appendChild(el('p', 'meta', a.label));
-  const grid = el('div', 'libgrid'); body.appendChild(grid);
+  // 16px keeps iOS from zooming the page when the field is focused.
+  const search = el('label', 'field libsearch'); const q = el('input');
+  q.type = 'search'; q.placeholder = t('icon_search_ph'); q.autocomplete = 'off'; q.enterKeyHint = 'search';
+  q.setAttribute('autocapitalize', 'off'); q.spellcheck = false;
+  search.appendChild(q); body.appendChild(search);
+  const scroll = el('div', 'libscroll'); const grid = el('div', 'libgrid'); scroll.appendChild(grid); body.appendChild(scroll);
+  const none = el('p', 'empty', t('icon_search_none')); none.hidden = true; body.appendChild(none);
   const foot = body.appendChild(el('p', 'foot', t('icon_more_hint'))); foot.style.marginBottom = '12px';
   const c = el('div', 'list'); body.appendChild(c);
   action(c, t('cancel'), 'tint', closeSheet).style.fontWeight = '600';
   let lib;
   try { lib = await api('api/library/all'); } catch (err) { foot.textContent = t('icon_more_fail'); return; }
-  // This app's own pictures first, then every other app's.
-  const apps = (lib.apps || []).slice().sort((x, y) => (y.app === a.key) - (x.app === a.key));
+  // The apps on this TV by the names the owner sees; the rest by the index's names.
+  const names = new Map((state.apps || []).map(x => [x.key, [x.label, x.default, x.name].filter(Boolean)]));
+  const named = n => n ? (LANG === 'zh' ? [n.zh, n.en] : [n.en, n.zh]).filter(Boolean) : [];
+  // This app's own pictures first, then the other apps on this TV, then the rest.
+  const rank = x => x.app === a.key ? 0 : names.has(x.app) ? 1 : 2;
+  const apps = (lib.apps || []).slice().sort((x, y) => rank(x) - rank(y));
   for (const app of apps) for (const pic of app.choices) {
-    const b = el('button', 'libpic'); b.setAttribute('aria-label', app.app);
-    const img = el('img'); img.alt = ''; img.loading = 'lazy'; img.src = lib.base + pic.p;
+    const label = (names.get(app.app) || [])[0] || named(app.name)[0] || '';
+    const b = el('button', 'libpic'); b.setAttribute('aria-label', label || app.app);
+    b.dataset.find = [app.app, ...(names.get(app.app) || []), ...named(app.name), (app.name || {}).also || ''].join(' ').toLowerCase();
+    const img = el('img'); img.alt = ''; img.loading = 'lazy'; img.decoding = 'async'; img.src = lib.base + pic.p;
     img.onerror = () => b.remove();
     b.appendChild(img);
+    if (label) b.appendChild(el('span', '', label));
     b.onclick = async () => {
       closeSheet(); toast(t('toast_sending_icon'));
       try {
@@ -2179,7 +2211,16 @@ async function libraryChooser(a) {
     };
     grid.appendChild(b);
   }
-  if (!grid.children.length) foot.textContent = t('icon_more_fail');
+  if (!grid.children.length) { foot.textContent = t('icon_more_fail'); return; }
+  q.oninput = () => {
+    const words = q.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    let shown = 0;
+    for (const b of grid.children) {
+      const on = words.every(w => b.dataset.find.includes(w));
+      b.hidden = !on; if (on) shown++;
+    }
+    none.hidden = shown > 0; scroll.hidden = shown === 0; scroll.scrollTop = 0;
+  };
 }
 function deviceChooser(a, e) {
   const body = $('#sheetBody'); body.replaceChildren();

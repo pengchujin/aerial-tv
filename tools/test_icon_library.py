@@ -10,7 +10,7 @@ SCRIPT = Path(__file__).with_name('icon-library.py').resolve()
 
 
 class IconLibraryTest(unittest.TestCase):
-    def build(self, files, sources, defaults=None):
+    def build(self, files, sources, defaults=None, names=None):
         """Runs the script on [files] (path → bytes) under a fake repo; (exit code, index, out dir)."""
         tmp = Path(tempfile.mkdtemp())
         (tmp/'tools').mkdir()
@@ -19,7 +19,11 @@ class IconLibraryTest(unittest.TestCase):
             (tmp/path).parent.mkdir(parents=True, exist_ok=True)
             (tmp/path).write_bytes(data)
         manifest = tmp/'tools/icon-sources.json'
-        manifest.write_text(json.dumps({'sources': sources, 'defaults': defaults or {}}))
+        spec = {'sources': sources, 'defaults': defaults or {}}
+        if names is not None:
+            (tmp/'tools/names.tsv').write_text(names, encoding='utf-8')
+            spec['names'] = 'tools/names.tsv'
+        manifest.write_text(json.dumps(spec))
         out = tmp/'site/icons'
         run = subprocess.run([sys.executable, '-I', str(tmp/'tools/icon-library.py'), str(manifest), str(out)],
                              capture_output=True, text=True)
@@ -73,6 +77,28 @@ class IconLibraryTest(unittest.TestCase):
         run, _, _ = self.build({'local/icons/aerial/com.a.b.jpg': b'x'}, self.SOURCES)
         self.assertNotEqual(run.returncode, 0)
         self.assertIn('local/icons/le5inioo is missing', run.stderr)
+
+    def test_names_of_apps_with_pictures(self):
+        files = {'local/icons/le5inioo/com.a.b.png': b'one', 'local/icons/aerial/com.c.d.jpg': b'two'}
+        run, index, _ = self.build(files, self.SOURCES, names=(
+            '# a comment\n'
+            'com.a.b\t云视听小电视\tBilibili\t哔哩哔哩 B站\n'
+            'com.c.d\t天气\t-\n'
+            'com.not.here\t别的\tOther\n'))
+        self.assertEqual(run.returncode, 0, run.stderr)
+        self.assertEqual(index['names'], {
+            'com.a.b': {'zh': '云视听小电视', 'en': 'Bilibili', 'also': '哔哩哔哩 B站'},
+            'com.c.d': {'zh': '天气'},
+        })
+        # No names file: an empty table, as before.
+        run, index, _ = self.build(files, self.SOURCES)
+        self.assertEqual(index['names'], {})
+
+    def test_bad_names_line_stops(self):
+        files = {'local/icons/le5inioo/com.a.b.png': b'one', 'local/icons/aerial/com.c.d.jpg': b'two'}
+        for bad in ('com.a.b only-two\n', 'not a package\tx\ty\n', 'com.a.b\ta\tb\ncom.a.b\tc\td\n'):
+            run, _, _ = self.build(files, self.SOURCES, names=bad)
+            self.assertNotEqual(run.returncode, 0, bad)
 
 
 if __name__ == '__main__':

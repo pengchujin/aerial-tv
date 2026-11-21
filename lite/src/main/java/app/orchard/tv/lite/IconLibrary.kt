@@ -30,6 +30,8 @@ object IconLibrary {
     private lateinit var context: Context
     @Volatile private var index: Map<String, List<Choice>> = emptyMap()
     @Volatile var credits: JSONObject = JSONObject(); private set
+    /** Package → its names, for the phone page's picker to show and search apps not on this TV. */
+    @Volatile var names: JSONObject = JSONObject(); private set
     @Volatile private var lastAttempt = 0L
     private val failedAt = HashMap<String, Long>()
 
@@ -37,7 +39,8 @@ object IconLibrary {
         if (::dir.isInitialized) return
         this.context = context.applicationContext
         dir = File(context.filesDir, "library").apply { mkdirs() }
-        read(File(dir, "index.json").takeIf { it.exists() }?.readText())?.let { index = it.first; credits = it.second }
+        val text = File(dir, "index.json").takeIf { it.exists() }?.readText()
+        read(text)?.let { index = it.first; credits = it.second; names = names(text) }
     }
 
     private fun here(c: Choice): File? = File(dir, c.fileName).takeIf { it.exists() }
@@ -154,6 +157,7 @@ object IconLibrary {
                         changed = fresh.mapValues { e -> e.value.map { it.path } } != index.mapValues { e -> e.value.map { it.path } }
                         index = fresh
                         credits = c
+                        names = names(text)
                         prefs.edit().putLong("checked_at", now).putInt("checked_by", code).apply()
                     }
                 }
@@ -177,6 +181,10 @@ object IconLibrary {
         dir.listFiles()?.forEach { if (it.name != "index.json" && it.name !in keep && !it.name.endsWith(".part")) it.delete() }
         return changed
     }
+
+    /** The apps' names in the index ({"<package>": {"zh": …, "en": …, "also": …}}), empty when it has none. */
+    private fun names(text: String?): JSONObject =
+        runCatching { JSONObject(text ?: return JSONObject()).optJSONObject("names") }.getOrNull() ?: JSONObject()
 
     /** The index's pictures and credits; null when [text] is not an index. */
     private fun read(text: String?): Pair<Map<String, List<Choice>>, JSONObject>? = runCatching {

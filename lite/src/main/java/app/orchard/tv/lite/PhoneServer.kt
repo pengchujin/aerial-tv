@@ -353,7 +353,7 @@ class PhoneServer private constructor(private val context: Context, private val 
         .put("base", IconLibrary.PICTURES)
         .put("apps", JSONArray().apply {
             IconLibrary.catalog().toSortedMap().forEach { (pkg, choices) ->
-                put(JSONObject().put("app", pkg).put("choices", JSONArray().apply {
+                put(JSONObject().put("app", pkg).put("name", IconLibrary.names.optJSONObject(pkg)).put("choices", JSONArray().apply {
                     choices.forEach { put(JSONObject().put("id", it.id).put("p", it.path)) }
                 }))
             }
