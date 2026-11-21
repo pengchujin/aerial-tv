@@ -105,6 +105,14 @@ object AerialSettings {
     var noSessionPlayers by mutableStateOf<Set<String>>(emptySet()); private set
 
     /**
+     * How long the screensaver runs before the TV goes to standby (as with its power button, through
+     * HomeGuardService.sleep), in minutes; 0 keeps the screensaver running, the default. Applies to
+     * Home's screensaver and the idle one over other apps alike; the Sleep screensaver mode needs no
+     * value here, it goes to standby without a screensaver in the first place.
+     */
+    var standbyAfterScreensaver by mutableStateOf(0); private set
+
+    /**
      * The input to open when the TV is switched on (a set-top box, an Apple TV), by TvSource id;
      * null for none. Home still comes back to Aerial. Issue #25.
      */
@@ -226,6 +234,9 @@ object AerialSettings {
 
     const val NEVER = 0
 
+    /** The choices for [standbyAfterScreensaver], in minutes; 0 is "never". */
+    val standbyAfterChoices = listOf(0, 10, 30, 60, 120)
+
     val screensaverChoices = listOf(2, 5, 10, 20, NEVER)
 
     /** Which of Apple's files the aerial screensaver plays; Auto is the best this TV decodes (issues #198, #217). */
@@ -252,6 +263,7 @@ object AerialSettings {
         pinnedSources = prefs.getStringSet("pinned_sources", null)?.toSet() ?: emptySet()
         hiddenSources = prefs.getStringSet("hidden_sources", null)?.toSet() ?: emptySet()
         noSessionPlayers = prefs.getStringSet("no_session_players", null)?.toSet() ?: emptySet()
+        standbyAfterScreensaver = prefs.getInt("screensaver_standby_after", 0)
         cecSwitch = prefs.getBoolean("cec_switch", false)
         bootSource = prefs.getString("boot_source", null)
         bootApp = prefs.getString("boot_app", null)
@@ -438,6 +450,11 @@ object AerialSettings {
     fun chooseNoSessionPlayer(packageName: String, chosen: Boolean) {
         noSessionPlayers = if (chosen) noSessionPlayers + packageName else noSessionPlayers - packageName
         app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit { putStringSet("no_session_players", noSessionPlayers) }
+    }
+
+    fun chooseStandbyAfterScreensaver(minutes: Int) {
+        standbyAfterScreensaver = minutes
+        app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit { putInt("screensaver_standby_after", minutes) }
     }
 
 

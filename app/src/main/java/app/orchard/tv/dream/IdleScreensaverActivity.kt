@@ -16,7 +16,9 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
+import app.orchard.tv.guard.HomeGuardService
 import app.orchard.tv.guard.MediaPlaying
+import app.orchard.tv.settings.AerialSettings
 import app.orchard.tv.system.DiagLog
 import app.orchard.tv.system.MissingClipboard
 import app.orchard.tv.ui.home.LiveFilm
@@ -41,6 +43,14 @@ class IdleScreensaverActivity : ComponentActivity() {
 
     /** Lets the firmware's power policy back in after Home's own long hold (MainActivity.SCREENSAVER_HOLD_MS). */
     private val releaseScreen = Runnable { window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) }
+
+    /** Standby after the chosen stretch of screensaving (Personalize's 屏保后待机); 0 or unset never fires. */
+    private val standbyAfterSaver = Runnable {
+        val minutes = AerialSettings.standbyAfterScreensaver
+        if (minutes <= 0) return@Runnable
+        DiagLog.i("idle screensaver: going to standby after $minutes m of screensaving")
+        HomeGuardService.sleep("screensaver standby")
+    }
 
     // See MissingClipboard.
     override fun getSystemService(name: String): Any? =
@@ -121,6 +131,8 @@ class IdleScreensaverActivity : ComponentActivity() {
         runCatching { registerReceiver(screenOff, IntentFilter(Intent.ACTION_SCREEN_OFF)) }
         watchingForPlaying = true
         handler.postDelayed(playingCheck, PLAYING_POLL_MS)
+        val standbyAfter = AerialSettings.standbyAfterScreensaver
+        if (standbyAfter > 0) handler.postDelayed(standbyAfterSaver, standbyAfter * 60_000L)
     }
 
     override fun onStop() {
@@ -128,6 +140,7 @@ class IdleScreensaverActivity : ComponentActivity() {
         watchingForPlaying = false
         handler.removeCallbacks(playingCheck)
         handler.removeCallbacks(releaseScreen)
+        handler.removeCallbacks(standbyAfterSaver)
         runCatching { unregisterReceiver(screenOff) }
         super.onStop()
     }

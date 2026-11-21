@@ -339,5 +339,7 @@
     <string name="ss_no_session_players_hint">While one of these is in front, its sound stands in for a media announcement, and the idle screensaver stays away — for players that never announce one, Dangbei\'s player among them.</string>
     <string name="ss_no_session_players_none">None chosen</string>
     <string name="ss_no_session_players_count">%d chosen</string>
+    <string name="ss_standby_after">Standby After</string>
+    <string name="ss_standby_after_hint">After the screensaver has run this long, the TV goes to standby, as with its power button. Never keeps the screensaver running.</string>
     <string name="cc_update_to">Update to %1$s</string>
 </resources>
