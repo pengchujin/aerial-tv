@@ -2,9 +2,11 @@ package app.orchard.tv.guard
 
 import android.content.ComponentName
 import android.content.Context
+import android.media.AudioManager
 import android.media.session.MediaSessionManager
 import android.media.session.PlaybackState
 import androidx.core.content.getSystemService
+import app.orchard.tv.settings.AerialSettings
 
 /**
  * Whether a player has announced that it is playing — the one thing the idle screensaver goes by
@@ -38,4 +40,18 @@ internal object MediaPlaying {
         val listener = ComponentName(context, RevivalListener::class.java)
         manager.getActiveSessions(listener).any { it.playbackState?.state in busyStates }
     }.getOrDefault(false)
+
+    /**
+     * [playing], plus the players the owner excused from announcing ([AerialSettings.noSessionPlayers],
+     * chosen in Personalize): some players announce no session at all — Dangbei's player runs its own
+     * ffmpeg and says nothing, not even paused — and for these the audio stream stands in for the
+     * missing announcement while one is in front. [front] is what the guard sees in front; null
+     * leaves the sessions to answer alone.
+     */
+    fun playing(context: Context, front: String?): Boolean {
+        if (playing(context)) return true
+        if (front == null || front !in AerialSettings.noSessionPlayers) return false
+        val audio = context.getSystemService<AudioManager>() ?: return false
+        return audio.isMusicActive
+    }
 }

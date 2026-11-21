@@ -36,6 +36,8 @@ import app.orchard.tv.MainActivity
 import app.orchard.tv.dream.AerialDream
 import app.orchard.tv.dream.IdleScreensaverActivity
 import app.orchard.tv.settings.AerialSettings
+import app.orchard.tv.wallpaper.ScreensaverMode
+import app.orchard.tv.wallpaper.Wallpapers
 import app.orchard.tv.system.BootOpen
 import app.orchard.tv.system.CecSwitch
 import app.orchard.tv.system.CoocaaHome
@@ -2011,8 +2013,18 @@ class HomeGuardService : AccessibilityService() {
         if (front == packageName || front in castFronts) return
         val idleMs = SystemClock.elapsedRealtime() - lastActivity
         if (idleMs < minutes * 60_000L) return
-        if (MediaPlaying.playing(this)) {
-            Log.i(TAG, "idle ${idleMs / 60_000} m over $front, but a media session says it is playing; leaving it alone")
+        if (MediaPlaying.playing(this, front)) {
+            Log.i(TAG, "idle ${idleMs / 60_000} m over $front, but it is playing (a session announces it, or a chosen silent player has audio); leaving it alone")
+            return
+        }
+        // The screensaver chosen in Personalize governs here too: Standby (Sleep) puts the TV to
+        // sleep on the timer, as Home does on its own (see MainActivity.startScreensaver) — and
+        // this is the guard itself, so sleep() is at hand. Where it cannot, the film shows as
+        // usual instead. lastActivity resets either way, so a firmware that stayed awake is not
+        // asked again at every poll.
+        if (Wallpapers.screensaver == ScreensaverMode.Sleep && sleep("idle screensaver")) {
+            Log.i(TAG, "idle ${idleMs / 60_000} m over $front with nothing playing; going to standby")
+            lastActivity = SystemClock.elapsedRealtime()
             return
         }
         Log.i(TAG, "idle ${idleMs / 60_000} m over $front with nothing playing; showing the screensaver over it")

@@ -61,6 +61,8 @@ sealed interface Overlay {
     data class AppMenu(val key: String, val anchor: Rect, val inFolder: String? = null) : Overlay
     data class Folder(val id: String) : Overlay
     data object HiddenApps : Overlay
+    /** Players that announce no media session, chosen in Personalize (the idle screensaver's exceptions). */
+    data object NoSessionPlayers : Overlay
     data object Wallpaper : Overlay
     data class Pin(val mode: PinMode, val onDone: () -> Unit) : Overlay
     /** Setting up Kids and Elders mode (Restricted), from Personalize. */

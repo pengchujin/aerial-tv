@@ -1107,6 +1107,15 @@ fun HomeScreen(
             onDismiss = { vm.overlay = Overlay.Wallpaper },
         )
 
+        // Players that announce no media session, reached from Personalization; Back returns there.
+        NoSessionPlayersSheet(
+            visible = overlay is Overlay.NoSessionPlayers,
+            apps = vm.apps + vm.hiddenApps,
+            chosen = AerialSettings.noSessionPlayers,
+            onChoose = { key, on -> AerialSettings.chooseNoSessionPlayer(key, on) },
+            onDismiss = { vm.overlay = Overlay.Wallpaper },
+        )
+
         WallpaperSheet(
             visible = overlay is Overlay.Wallpaper,
             onSettled = { sheetIn = it },
@@ -1114,6 +1123,7 @@ fun HomeScreen(
             onDismiss = { vm.overlay = Overlay.ControlCenter() },
             hiddenCount = vm.hiddenApps.size,
             onHiddenApps = { vm.whenUnlocked { vm.overlay = Overlay.HiddenApps } },
+            onNoSessionPlayers = { vm.whenUnlocked { vm.overlay = Overlay.NoSessionPlayers } },
             // Locking needs nothing; unlocking, the PIN where one is set.
             onHomeLock = { on ->
                 if (on == AerialSettings.homeLocked) Unit

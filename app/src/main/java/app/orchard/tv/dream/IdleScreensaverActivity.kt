@@ -7,6 +7,7 @@ import android.content.IntentFilter
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.provider.Settings
 import android.view.KeyEvent
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
@@ -38,6 +39,9 @@ class IdleScreensaverActivity : ComponentActivity() {
     private val skips = ScreensaverSkips()
     private val handler = Handler(Looper.getMainLooper())
 
+    /** Lets the firmware's power policy back in after Home's own long hold (MainActivity.SCREENSAVER_HOLD_MS). */
+    private val releaseScreen = Runnable { window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) }
+
     // See MissingClipboard.
     override fun getSystemService(name: String): Any? =
         super.getSystemService(name) ?: if (name == CLIPBOARD_SERVICE) MissingClipboard.standIn else null
@@ -45,8 +49,12 @@ class IdleScreensaverActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         // Holding the screen on keeps the firmware's idle standby out of the way while the
-        // screensaver plays, as Home does for its own (see MainActivity.startScreensaver).
+        // screensaver plays, as Home does for its own (see MainActivity.startScreensaver). Like
+        // Home's, the hold ends after a long stretch, so the TV's power policy can still turn the
+        // panel off — the screen going off ends this activity too (screenOff). Not where the
+        // screen never goes off on its own: there Home never lets go either.
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        if (!screenNeverOff()) handler.postDelayed(releaseScreen, HOLD_MS)
         // Home's wallpaper film holds the decoder the film here needs (TCL MT5879), as in AerialDream.
         LiveFilm.onHome?.letDecoderGo()
         Wallpapers.init(this)
@@ -119,13 +127,22 @@ class IdleScreensaverActivity : ComponentActivity() {
         if (running === this) running = null
         watchingForPlaying = false
         handler.removeCallbacks(playingCheck)
+        handler.removeCallbacks(releaseScreen)
         runCatching { unregisterReceiver(screenOff) }
         super.onStop()
     }
 
+    /** Where the screen never goes off on its own (a screen_off_timeout of a day or more), keep holding. */
+    private fun screenNeverOff(): Boolean =
+        runCatching { Settings.System.getLong(contentResolver, Settings.System.SCREEN_OFF_TIMEOUT) }
+            .getOrDefault(0L) >= 24 * 60 * 60 * 1000L
+
     companion object {
         /** How often [playingCheck] asks; a film's first sound is caught within this. */
         private const val PLAYING_POLL_MS = 2_000L
+
+        /** How long the screen is held for, as Home holds it (MainActivity.SCREENSAVER_HOLD_MS). */
+        private const val HOLD_MS = 4 * 60 * 60 * 1000L
 
         /** The idle screensaver on screen in this process, if any. Main thread only. */
         private var running: IdleScreensaverActivity? = null
