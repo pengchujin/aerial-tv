@@ -426,7 +426,7 @@ object AppCatalog {
         val label = ai.loadLabel(pm).toString().trim().ifEmpty { pi.packageName }
         val bannerId = ai.banner.takeIf { it != 0 } ?: pi.activities?.firstOrNull { it.bannerResource != 0 }?.bannerResource ?: 0
         val banner = drawable(bannerId)?.takeIf { it.intrinsicWidth >= it.intrinsicHeight * 4 / 3 }
-        val recipe = TileRecipes.of(pi.packageName)
+        val recipe = TileRecipes.of(pi.packageName, pm)
         val drawn = recipe?.glyph?.let { TileArtFactory.glyphTile(recipe.top ?: 0, recipe.bottom ?: 0, it) }
         val art = drawn ?: if (banner != null && recipe?.useIcon != true) TileArtFactory.fromBanner(banner)
             else TileArtFactory.fromIcon(drawable(ai.icon) ?: return null, recipe)
@@ -459,7 +459,7 @@ object AppCatalog {
         drawnByAerial[entry.packageName]?.let { return@runCatching TileArtFactory.forSystem(it) }
         val pm = context.packageManager
         val info = pm.getActivityInfo(entry.component, 0)
-        fromApp(pm, info, banner(pm, info, entry.leanback), TileRecipes.of(entry.packageName))
+        fromApp(pm, info, banner(pm, info, entry.leanback), TileRecipes.of(entry.packageName, pm))
     }.getOrNull()
 
     private fun entry(
@@ -472,7 +472,7 @@ object AppCatalog {
         val stamp = runCatching { pm.getPackageInfo(pkg, 0).lastUpdateTime }.getOrDefault(0L) + CustomIcons.stamp(pkg) +
             IconLibrary.stamp(pkg) + if (stockHome) 1 else 0
         val system = (info.applicationInfo.flags and ApplicationInfo.FLAG_SYSTEM) != 0
-        val ownTile = if (stockHome) SystemTile.Home else if (system) SYSTEM_TILES[pkg] ?: byCategory[pkg] else null
+        val ownTile = if (stockHome) SystemTile.Home else if (system) SYSTEM_TILES[pkg] ?: byCategory[pkg]?.takeIf { TileRecipes.of(pkg, pm)?.keepsOwnArt != true } else null
         if (ownTile != null) drawnByAerial[pkg] = ownTile else drawnByAerial.remove(pkg)
         val inMemory = synchronized(cache) { cache[pkg] }?.takeIf { it.stamp == stamp && it.width == TileArtFactory.W }
         if (inMemory == null && later) {
@@ -495,12 +495,12 @@ object AppCatalog {
             // A launcher declared only as a Home has an icon for phones at best (TCL's cyberui: the
             // default robot), so it is drawn as Aerial's own.
             val own = if (stockHome) SystemTile.Home
-                else if (system) SYSTEM_TILES[pkg] ?: byCategory[pkg]?.takeIf { banner == null } else null
+                else if (system) SYSTEM_TILES[pkg] ?: byCategory[pkg]?.takeIf { banner == null && TileRecipes.of(pkg, pm)?.keepsOwnArt != true } else null
             val custom = CustomIcons.load(pkg)
             // Aerial's own tiles for the firmware's apps keep their look; any other app's
             // ready-made picture comes before what Aerial would draw from its banner or icon.
             val library = if (custom == null && (own == null || IconLibrary.pick(pkg) == IconLibrary.Pick.Library)) IconLibrary.load(pkg) else null
-            val recipe = TileRecipes.of(pkg)
+            val recipe = TileRecipes.of(pkg, pm)
             // A tile that cannot be drawn used to drop the app from Home altogether, without a word
             // in the log (com.fongmi.androidtv on TCL MT5879, issue #415). Its icon then, or
             // Android's default one, so it is always there.
