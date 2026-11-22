@@ -1061,6 +1061,7 @@ object SystemProbe {
                     ?: generic.takeIf { resolves(context, it) }
                     ?: droidLogicRoute(context, info)
                     ?: jmgoRoute(context, info, label)
+                    ?: haierRoute(context, info)
                     ?: tclPlayer?.let { tclRoute(it, kind, label, hw(info.id)) }
                     ?: generic
                 val device = cec
@@ -1158,6 +1159,30 @@ object SystemProbe {
                 (activity.permission == null || ContextCompat.checkSelfPermission(context, activity.permission) == PackageManager.PERMISSION_GRANTED)
         }
     }
+
+    /**
+     * Haier's own source switch, for its YunOS TVs where nothing answers the passthrough VIEW
+     * intent: RootActivity tunes the DroidLogic input whose HW number is the int "sourceid" when
+     * "isNewSource" is 1, which is how the TV's own source menu starts it. Haier_T966_4Gen (YunOS
+     * 4.1, Android 5.1, Amlogic): HDMI 1 and 2 opened from a third-party app, the reporter's agent
+     * with adb and logcat (issue #1677). The Huanglong 统帅 L65F8 guards the same activity with a
+     * signature permission, so it is only used where Aerial may start it.
+     */
+    private fun haierRoute(context: Context, info: TvInputInfo): Intent? {
+        if (info.type != TvInputInfo.TYPE_HDMI || !info.id.startsWith(DROIDLOGIC_INPUTS)) return null
+        val hw = hw(info.id) ?: return null
+        val intent = Intent().setComponent(ComponentName(HAIER_MENU, "$HAIER_MENU.RootActivity"))
+            .putExtra("isNewSource", 1)
+            .putExtra("sourceid", hw)
+        val activity = runCatching { context.packageManager.getActivityInfo(intent.component!!, 0) }.getOrNull() ?: return null
+        return intent.takeIf {
+            activity.exported && activity.enabled && activity.applicationInfo.enabled &&
+                (activity.permission == null || ContextCompat.checkSelfPermission(context, activity.permission) == PackageManager.PERMISSION_GRANTED)
+        }
+    }
+
+    private const val HAIER_MENU = "com.haier.tv.menusetting"
+    private const val DROIDLOGIC_INPUTS = "com.droidlogic.tvinput/"
 
     private const val JMGO_TV = "com.jmgo.tv"
     private val JMGO_PORT = Regex("""\.Hdmi(\d)InputService/""")
