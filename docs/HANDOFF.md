@@ -2,6 +2,19 @@
 
 写给接手 Aerial 的人或 AI。先读这份，再读 [ARCHITECTURE.md](ARCHITECTURE.md) 和 [devices/](devices/)。
 
+## 现状（2026-11-22）
+
+- **2026-11-22 上午全量巡检**（记录 `local/triage/2026-11-22-full.md`，回复 `replies-2026-11-22.py` / `replies-2026-11-22b.py`，发出 `posted-2026-11-22.txt`，42 条，关闭 13 个，合 PR #1698）：343 issue / 70 PR，新的或有新回复的 41 个逐个读过，复查又来 #1485。改动（每个一个提交，**main 上，未发版**）：
+  - **小米 ASTP0 亮度**（#1707，4ade1ef）：固件 24.7.4.3982 上 `getAccessoryService` 是 81（80 是 `getTvEventLogService`）；80、81 都试，返回的 binder 描述符是 `ITvSettingManager` 才用。Lite 共用 `MitvPanel`。没有真机。
+  - **4.4 上没电池显示 0%**（#1708 #1701，6c73200）：电量 0 或状态未知不显示，完整版和 Lite 都改。没有真机。
+  - **自身升级后顶掉别的 App**（#1689，500d4a5）：升级后守护的接管只在前台是安装器 / 应用商店 / 原厂桌面时做。没在真机复现升级场景。
+  - **海尔 YunOS 信号源**（#1677，f0f4342）：passthrough 打不开、`com.haier.tv.menusetting/.RootActivity` 导出且无权限要求时，HDMI 磁贴带 `isNewSource=1`、`sourceid=<HW>` 启动它。没有真机。
+  - **屏保时钟字距**（#1646，e72f6ea）：首页是大时钟时屏保自己的时钟用大时钟字形和字距。GoogleTV 模拟器（安卓 14）录屏验证：大时钟 + 每日精选 + 照片屏保，换照片、跨分钟前后宽度位置不变。Lite 没有时钟接力，不用改。
+  - 文档：README 中英加影科 T8 投影（#1706）、东芝 55U3800C（#1687）；创维 8H651_F1P / 7T633_A3F / 9S94_S9A、bigfish 上的 `filterHomeAlways`（#1518）；海信 MSD6A828 主页键先闪聚好看（#1703）；海尔 T966。
+  - PR：#1698 合入（TCL 65V8M Pro 文档）；#1713 不合（Lite 的 Glyph 没有 Mic 会编不过，`plate()` / `edgeColors()` / `square` 改动影响所有磁贴，通用 AOSP 包名），回了修改意见；#1637 留功能轮次。
+- 验证：standard 单测 278 个、Lite lint 通过；standard / guard / lite 测试包（versionCode 158 / Lite 41，**未提交**，已改回 157 / 40），签名 e089…。小米 MFTR0（install-multiple + 31.dm，speed-profile / install-dm）selftest 守护、主页键从设置 0.3 s、8 个信号源，屏保进入录屏无黑帧；TCL（`tcast-push.py`，uiautomator 确认焦点在「同意」后确定，compile speed）selftest 守护、主页键从浏览器 0.4 s、7 个信号源，两个 walleve 服务不变，屏保进入录屏无黑帧。两台现在装的都是测试包 158，**下次发版 versionCode ≥ 159，Lite ≥ 41**（Lite 改了）。
+- 等回复：#1712（红米 2.15 起 HDMI 只有声音？）、#1485（ASTR0 Amlogic 取帧黑图、图标抖动，要对照和录屏）、#1697（索尼 DV 图像模式）、#1696 #1693 #1684（创维黑屏）、#1695（长虹实体主页键）、#1691、#1709、#1704、#1510、#1654。
+
 ## 现状（2026-11-21）
 
 - **2.15（versionCode 157），Lite 1.38（40），2026-11-21 下午发布**（[v2.15](https://github.com/pengchujin/aerial-tv/releases/tag/v2.15)）：「从图标库选…」挤成细条、不能搜（微博评论）。iPhone Safari 里网格自己带 `max-height` 和滚动，WebKit 把 262 张图的行全压进 52vh，每张只剩几像素高。现在滚动放在外面一层 `.libscroll`，16:9 设在图片上，每张下面写 App 名，顶部加搜索框（16px，不触发放大），这个 App 自己的图在前、电视上装了的其次。索引加 `names`（`tools/icons/names.tsv`：中文名、英文名、别的叫法，208 个 App 写了 155 个，来源是两台电视上的名字、TCL APK 用 aapt2 读的名字、le5inioo.tsv、图上的字；认不准的没写），电视记下后 `api/library/all` 带 `name`，Lite 同步。验证：`tools/test_icon_library.py` 6 个、`IconLibraryTest`、三个 release 包编译、Lite lint；iOS 模拟器 Safari 通过本机代理打开小米 MFTR0 的手机页（页面用新文件，名字由代理按新索引补上），中英文、深浅色，搜「bili」「b站」「腾讯」「芒果」「music」都对，没装的 App 也有名字。三个包签名 e089…6685，standard / guard 单测、Lite lint 通过。两台装正式包回归：小米 MFTR0（install-multiple + 31.dm，speed-profile / install-dm）selftest 守护、主页键从设置 0.3 s、8 个信号源；TCL（`tcast-push.py`，uiautomator 确认焦点在「同意」后确定，compile speed）selftest 守护、主页键从浏览器 0.5 s、7 个信号源，两个 walleve 服务不变。Release 三个 APK 字节数：standard 3232749、guard 3232640、lite 1011615。**没做**：没在真 iPhone 上看、没替户主换图标；官网已部署（户主自己跑的 `tools/deploy-site.sh`，自动模式不让代理部署）：两个域名 version.txt=v2.15，notes.json 第一条 2.15，三个 APK 字节数和 Release 一致，`icons/index.json` 有 155 个 `names`，`/diag/aerial-710.apk` 还在。两台电视是在部署前装的 2.15，当时读到的是没有名字的旧索引、`checked_by` 已记成 157，所以要等 12 小时一到重读才有名字（部署后才升级的电视马上就有）；小米上手机页名称这一步还没在真机上看到。下次发版 versionCode ≥ 158，Lite ≥ 41。

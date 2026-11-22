@@ -256,7 +256,7 @@ NanoHTTPD 监听 8790 端口，路径前缀是 8 位随机令牌（每次打开�
 
 守护每秒查用量统计（`foregroundCheck`）的条件：Android 6 及以下，或原桌面里有不发窗口事件的桌面（`INVISIBLE_LAUNCHERS`：海信聚好看、腾讯极光 `com.ktcp.launcher`，#928）。唤醒和开机后的接管都会查「Aerial 被原桌面静默盖住」（`coveredAerial`：Aerial 没在前台，用量统计里最后到前台的是原桌面）。
 
-控制中心的「是不是默认桌面」单独读、先显示，不和亮度一起等（#892：小米盒子上亮度探测 TvService 卡住，状态一直是初值）。`MitvPanel` 在机顶盒上不探测，同一时间只探一个。
+控制中心的「是不是默认桌面」单独读、先显示，不和亮度一起等（#892：小米盒子上亮度探测 TvService 卡住，状态一直是初值）。`MitvPanel` 在机顶盒上不探测，同一时间只探一个。`getAccessoryService` 的事务号因固件而异（80 或 81，#1707），按返回 binder 的描述符认 `ITvSettingManager`。
 
 屏保（主屏、AerialDream、Lite）收到「没见过按下的抬起」也退出（#915：酷开 C10 的热键服务吃掉按下、只给抬起）。AerialDream 开始 3 秒内来自无设备（`deviceId` ≤ 0）的返回键不退出（海信 VIDAA 启动屏保时自己发一个，#1599）；adb 的 `input keyevent` 也算无设备。
 
