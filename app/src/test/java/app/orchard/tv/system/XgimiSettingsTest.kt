@@ -18,7 +18,10 @@ import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.Shadows.shadowOf
+import android.content.IntentFilter
 import org.robolectric.annotation.Config
+import org.robolectric.annotation.Implementation
+import org.robolectric.annotation.Implements
 import org.robolectric.shadows.ShadowToast
 import org.robolectric.util.ReflectionHelpers
 
@@ -37,6 +40,45 @@ class XgimiSettingsTest {
         pm.addServiceIfNotPresent(service).exported = true
         assertService(SystemProbe.settingsIntent(context), "Settings://com.xgimi.misckey.main/mainPage")
     }
+
+    @Test
+    @Config(sdk = [34], shadows = [RejectingActivityShadow::class])
+    fun rejectedExplicitPlayerFallsBackToSourcePageOnce() {
+        val caller = RecordingContext()
+        val activity = Robolectric.buildActivity(MainActivity::class.java).get()
+        // The @Config(34) test runs in its own sandbox: register on the activity's PackageManager,
+        // with the filter the source page resolves through.
+        shadowOf(activity.packageManager).apply {
+            addServiceIfNotPresent(service).apply { exported = true; enabled = true; applicationInfo.enabled = true }
+            addIntentFilterForService(service, IntentFilter("com.xgimi.settings.SETTINGS"))
+        }
+        ReflectionHelpers.setField(activity, "mBase", caller)
+        val player = Intent("com.xgimi.action.hdmiPlayer")
+            .setComponent(ComponentName("com.xgimi.xhplayer", "com.xgimi.xhplayer.InputActivity"))
+        open(activity, player)
+        // The explicit player is started once and not retried here; the source page follows.
+        assertEquals(1, rejectedStarts(activity))
+        assertService(caller.services.single(), "Settings://com.xgimi.settings.signalSource/hdmi_misckey")
+        assertEquals(0, ShadowToast.shownToastCount())
+    }
+
+    @Test
+    @Config(sdk = [34], shadows = [RejectingActivityShadow::class])
+    fun unrelatedFailedActivityDoesNotOpenInputPicker() {
+        val caller = RecordingContext()
+        val activity = Robolectric.buildActivity(MainActivity::class.java).get()
+        ReflectionHelpers.setField(activity, "mBase", caller)
+        // Neither the player's component alone nor its action on another app identifies HDMI.
+        for (intent in listOf(
+            Intent("com.xgimi.action.hdmiPlayer").setComponent(ComponentName("other.app", "other.app.Player")),
+            Intent(Intent.ACTION_MAIN).setComponent(ComponentName("com.xgimi.xhplayer", "com.xgimi.xhplayer.InputActivity")),
+        )) open(activity, intent)
+        assertTrue(caller.services.isEmpty())
+        assertEquals(2, rejectedStarts(activity))
+    }
+
+    private fun rejectedStarts(activity: MainActivity): Int =
+        org.robolectric.shadow.api.Shadow.extract<RejectingActivityShadow>(activity).attempts
 
     @Test
     fun networkSelectsExportedServiceWithoutAnyActivity() {
@@ -233,4 +275,22 @@ class XgimiSettingsTest {
 
     private fun explicit(action: String, pkg: String, name: String) =
         Intent(action).setComponent(ComponentName(pkg, name))
+}
+
+/** Simulates firmware rejecting Activity starts after PackageManager accepted the component. */
+@Implements(android.app.Activity::class)
+class RejectingActivityShadow : org.robolectric.shadows.ShadowActivity() {
+    var attempts = 0
+        private set
+
+    @Implementation
+    protected fun startActivity(intent: Intent) {
+        startActivity(intent, null)
+    }
+
+    @Implementation
+    protected fun startActivity(intent: Intent, options: android.os.Bundle?) {
+        attempts++
+        throw SecurityException("Firmware rejected activity start")
+    }
 }
