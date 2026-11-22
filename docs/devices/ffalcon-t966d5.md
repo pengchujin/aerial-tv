@@ -57,7 +57,7 @@ TCL Q9L Pro（安卓 14）和这台一样，系统登记 HDMI 1–4 = HW15–18�
 
 ### 别的 App 里按主页键会先闪 TCL 桌面，`filterHomeAlways` 可以消除
 
-2026-11-22 傍晚在同一台 65V8M Pro 上实测（仍为 `2.15-local.3-guard`，`192.168.31.120:5555`）：
+2026-11-22 傍晚在同一台 65V8M Pro 上实测：
 
 - Aerial 在前台时短按主页键不闪：守护在 `onKeyEvent` 里吃掉按键并重新拉起 Aerial，系统根本没收到 Home，日志里 `AerialGuard: Home key taken before the system saw it`，没有 `com.tcl.cyberui` 进前台。
 - 电视版哔哩哔哩（com.xiaodianshi.tv.yst）在前台时短按主页键会闪原桌面：固件在 WindowManager 层直接执行 `start home ... reason is startDockOrHome`、启动 `com.tcl.cyberui/.MainActivity`（与 HOME 解析、开机应用设置都无关），守护要等窗口变化事件到了才拉回 Aerial，两轮分别约 1.3 s 和 1.6 s。原桌面进程当时没被杀，这 1–2 秒是 Activity 反复重建（`from:DESTROYED to:RESUMED`）的开销。
