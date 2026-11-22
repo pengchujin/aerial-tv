@@ -215,3 +215,7 @@ Aerial 是默认桌面、守护绑定，主页键正常；但重启后一分钟�
 - 老年模式下主页键打开 `com.tianci.movieplatform/com.ccos.cooui.movieplatform.ElderMainActivity`，`persist.service.model.cls` 写的就是它（`homepage.cls` 仍是 `HomePageActivity`）。守护把它当原桌面（内置表 + `CoocaaHome.modeScreen`），没真机。
 - 报告人看到固件掉回自家桌面后把 Aerial 的守护从 `enabled_accessibility_services` 里清掉并强停 Aerial，复活没生效；等日志。
 - `set-home-activity` 报 cannot be home，固件用私有类别 `android.intent.category.HOME.CC`。
+
+## bigfish 平台的 `filterHomeAlways`（#1518）
+
+两台创维（8H57_H5 / Hi3751V551、8H26_M9 / Hi3751V553，都是酷开、安卓 5.1.1）上报告人实测：device profile `{"filterHomeAlways":true}` 后实体主页键直接回 Aerial、不闪酷开桌面，按住音量连续变化，重启后配置和效果都保留。这台固件会吞掉 ADB 注入的 `KEYCODE_HOME`（`CheckTid`），要用实体遥控器测。P7F 上有按住音量只走一格的代价，看来和机型有关。按型号内置还等户主定。
