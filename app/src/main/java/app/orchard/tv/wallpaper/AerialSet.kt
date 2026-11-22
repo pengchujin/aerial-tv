@@ -88,7 +88,18 @@ object AerialSet {
     fun due(context: Context): Boolean = prefs(context).getString("day", null) != today()
 
     /** Today's new film, if today has not had one: it joins the set (see [addNew]). */
+    @Synchronized
     fun takeDaily(context: Context): Aerial? = if (due(context)) addNew(context) else null
+
+    /** Consume the day only after the existing player accepted the new film. */
+    @Synchronized
+    internal fun takeDailyWhen(context: Context, accept: (Aerial) -> Boolean): Boolean {
+        if (!due(context)) return false
+        val next = nextNew(context)
+        if (!accept(next)) return false
+        addNew(context)
+        return true
+    }
 
     /** Today's date; a test moves it on. */
     internal var today: () -> String = { LocalDate.now().toString() }

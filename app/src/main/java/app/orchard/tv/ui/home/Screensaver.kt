@@ -117,7 +117,7 @@ fun Screensaver(visible: Boolean, apps: List<AppEntry>, now: LocalDateTime, skip
         val held = remember { mutableStateOf(carry) }
         if (visible) held.value = carry
         when (val carried = held.value) {
-            is SaverCarry.Film -> { FilmCarry(carried.film, now, skips.steps); return@AnimatedVisibility }
+            is SaverCarry.Film -> { FilmCarry(carried.film, now, skips.steps, visible); return@AnimatedVisibility }
             is SaverCarry.Video -> {
                 LaunchedEffect(skips.steps) { skips.steps.collect { carried.film.skip(it) } }
                 return@AnimatedVisibility
@@ -279,7 +279,7 @@ object AerialStart {
  * black for 1–3.5 s (Xiaomi MiTV-MFTR0), which only an owner who asked for Dolby Vision should get.
  */
 @Composable
-private fun FilmCarry(film: LiveFilm, now: LocalDateTime, steps: SharedFlow<Int>) {
+private fun FilmCarry(film: LiveFilm, now: LocalDateTime, steps: SharedFlow<Int>, visible: Boolean) {
     var caption by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(film.film) {
         while (true) {
@@ -289,9 +289,22 @@ private fun FilmCarry(film: LiveFilm, now: LocalDateTime, steps: SharedFlow<Int>
     }
     val context = LocalContext.current
     LaunchedEffect(steps) { steps.collect { film.skip(context, it) } }
-    // A new day's film comes in as the screensaver starts, over the wallpaper's film (AerialSet).
-    LaunchedEffect(Unit) { if (AerialSet.due(context)) film.skip(context, 1) }
+    DailyCarriedFilm(film, visible, now.toLocalDate())
     Labels(caption, now, showTime = false, shade = false)
+}
+
+/** Wait for the wallpaper's existing decoder; never allocate another or poll while it starts. */
+@Composable
+internal fun DailyCarriedFilm(film: LiveFilm, visible: Boolean, day: java.time.LocalDate) {
+    val context = LocalContext.current
+    LaunchedEffect(film, visible, film.readyForDaily, day) {
+        if (!visible) return@LaunchedEffect
+        when {
+            !AerialSet.due(context) -> DiagLog.i("daily film: continuing today's film")
+            !film.readyForDaily -> DiagLog.i("daily film: waiting for wallpaper player")
+            film.advanceDaily(context) -> DiagLog.i("daily film: accepted by wallpaper player")
+        }
+    }
 }
 
 /** Where the labels' shade ends at the top and starts at the bottom, of the screen's height. */
