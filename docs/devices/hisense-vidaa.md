@@ -293,3 +293,8 @@ adb shell settings put global adb_enabled 0
   - 信号源切换依赖 `com.hisense.tv.tiletransition`（`TileAnimationService`），不可停用。
   - 激光亮度与色温：固件通过私有面板控制激光器输出，`screen_brightness` 与 `picture_backlight` 无法直接调控激光器功率。
 - **系统屏保开始时闪一下首页**（75E3F / NOVA72691，Android 9，#1599）：屏保开始后约 0.4 秒 `mCurrentFocus=null`，随后 `Sys2023:dream` 才拿到焦点，中间露出首页一次；是固件把 dream 窗口拆下再装回，Aerial 拿不到重新装上的时机，暂时改不了（报告人的窗口采样和慢动作视频，没有真机）。
+
+## VIDAA_TV（MSD6A828，Android 5.1.1，固件 01.02.40.01，#1703，报告人 Agent 实测）
+
+- 实体遥控器按主页键：固件先按组件拉起聚好看（`com.jamdeo.tv.vod/com.ju.main.launcher.LauncherActivity`）约 0.5–1 秒，再把 MAIN 交给 Aerial（`persist.vt.use_home_pkg=app.orchard.tv`，日志里没有守护拉回）。ADB 注入的 HOME 不经过这段，测不出来。
+- 装有 VIDAA 包时守护不开按键过滤（`keysPassThrough`）。报告人试 `filterHomeAlways`：重启前不闪，重启后主页键被吞、停在聚好看，已撤回。这一下闪是固件行为，目前没办法。
