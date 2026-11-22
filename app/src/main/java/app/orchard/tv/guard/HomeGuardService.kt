@@ -88,6 +88,8 @@ class HomeGuardService : AccessibilityService() {
 
     /** The last window that came to the front, as package to class; null until one does. */
     private var lastWindow: Pair<String, String>? = null
+    /** [windowsSeen] when an activity last came to the front; a later one is current evidence. */
+    private var lastActivityWindowSequence = -1L
 
     private val handler = Handler(Looper.getMainLooper())
 
@@ -268,10 +270,6 @@ class HomeGuardService : AccessibilityService() {
         homeKeyReachesAerial = false
         goHome()
     }
-
-    /** A package installer or app store, what an update from Control Center leaves in front. */
-    private fun isInstaller(pkg: String): Boolean =
-        "installer" in pkg || pkg == "com.android.vending" || pkg == "com.dangbeimarket"
 
     /** Whether usage stats, where Aerial may read them, show a stock launcher in front now. */
     private fun stockLauncherByUsageStats(): Boolean {
@@ -1092,19 +1090,8 @@ class HomeGuardService : AccessibilityService() {
         if (justUpdated() && getSystemService<PowerManager>()?.isInteractive == true &&
             GuardSetup.installerJustClosed(this)
         ) {
-            handler.postDelayed({
-                if (aerialResumed) return@postDelayed
-                // Only over the installer or a stock launcher. An update finished in the
-                // background while TVBox played on Xiaomi MiTV-MFTR0 (Android 14), and this pulled
-                // the viewer back to Home (issue #1689, the reporter's logcat).
-                val app = frontByUsage()?.first
-                if (app != null && !isInstaller(app) && !isStockHome(app)) {
-                    DiagLog.i("guard: bound again after Aerial's own update with $app in front; leaving it there")
-                } else {
-                    DiagLog.i("guard: bound again after Aerial's own update; bringing Aerial back over the installer")
-                    goHome()
-                }
-            }, AFTER_UPDATE_MS)
+            val windowsAtSchedule = windowsSeen
+            handler.postDelayed({ recoverAfterUpdate(windowsAtSchedule) }, AFTER_UPDATE_MS)
         }
         // Bound a little after boot, or brought back after the firmware killed Aerial: either way
         // the stock launcher is what's in front, and the window change that showed it is long gone.
@@ -1239,6 +1226,23 @@ class HomeGuardService : AccessibilityService() {
         pkg in FIRMWARE_BOOT_APPS && SystemClock.elapsedRealtime() < BOOT_WINDOW_MS && !keySeen
 
     private var keySeen = false
+
+    /**
+     * The update marker only says an installer was in front once; it is not evidence of what is
+     * in front now. Re-read the front (a window event after scheduling, else usage stats) and
+     * whether the screen is on and unlocked before taking Home back (issue #1689).
+     */
+    private fun recoverAfterUpdate(windowsAtSchedule: Long) {
+        val front = if (lastActivityWindowSequence > windowsAtSchedule) lastWindow?.first else frontByUsage()?.first
+        val interactive = !screenOff && getSystemService<PowerManager>()?.isInteractive == true
+        val restore = UpdateRecovery.shouldRestore(
+            interactive, GuardSetup.isUserUnlocked(this), aerialResumed, front,
+            front in stockHomes, SystemClock.uptimeMillis() < allowStockUntil,
+            front?.let { UpdateRecovery.isSystemInstaller(this, it) } == true,
+        )
+        DiagLog.i("guard: after update front=$front interactive=$interactive restore=$restore")
+        if (restore) goHome()
+    }
 
     private fun justUpdated(): Boolean = runCatching {
         System.currentTimeMillis() - packageManager.getPackageInfo(packageName, 0).lastUpdateTime < 2 * 60_000
@@ -1999,6 +2003,7 @@ class HomeGuardService : AccessibilityService() {
         val before = lastWindow?.first
         if (isActivity(pkg, cls)) {
             lastWindow = pkg to cls
+            lastActivityWindowSequence = windowsSeen
             if (!CecHome.active(this, pkg)) {
                 lastCecHomeUp = Long.MIN_VALUE / 2
                 handler.removeCallbacks(cecHomeHold)
