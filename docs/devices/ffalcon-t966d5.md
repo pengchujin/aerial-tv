@@ -45,3 +45,12 @@ TCL Q9L Pro（安卓 14）和这台一样，系统登记 HDMI 1–4 = HW15–18�
 ## 雷鸟鹏 7 Plus 26 款 55 英寸（T966D5_4K_CN，安卓 14，#1232）
 
 `wm size` 物理 3840x2160、覆盖 1920x1080；`ro.surface_flinger.max_graphics_width/height` = 1920×1080，`ro.feature.graphics_4kui` = false，SurfaceFlinger 显示名 `Linux FHD`：界面层是 1080p，和 #645 记的平台一致，不开 4K 画布。无障碍页打不开时用 ADB 装（报告人用 Agent 装好了）。
+
+## TCL 65V8M Pro
+
+2026-11-21 在一台国行 65V8M Pro 上实测。固件 `V8-0018T11-LF1V066`，设备代号 `T966D5`，产品名 `T966D5_4K_CN`，Android 14（API 34，AU01）。测试包是基于 v2.15 的本地 `2.15-local.3-guard`。
+
+- 在电视上确认调试授权后，Mac 可以通过网络 ADB 连接。ADB 安装返回 `INSTALL_FAILED_VERIFICATION_FAILURE`。电视自带的「多屏互动」弹出安装确认，用户选「同意」后成功安装。
+- 原来的 `boot_app_mode` 是 `boot_launcher`，`boot_app_componentname` 是 `com.tcl.cyberui/.MainActivity`。把后者改为 `app.orchard.tv/.MainActivity` 后重启一次。开机计时第 24 和 29 秒，两次均读到 Aerial 在前台，采样前没有发送主页键或启动应用。系统 HOME 仍解析到 TCL 桌面。从 TCL 设置页按主页键，8 秒后焦点在 Aerial。
+- 重启后首次验收时，启用的无障碍服务中只有 TCL 语音服务，Aerial 绑定数为 0。随后两项服务均在，约 94 秒内的 24 次采样绑定数均为 1。从 TCL 设置页再次跑完整验收，8 秒后焦点回到 Aerial。也曾在电视卫士前台时短暂读到绑定数为 0。TCL 的 `AUTO_START` 和 `ASSOC_START` 从安装时的 `allow` 回到 `ignore`。
+- 启用 `keep_adb` 后，这次重启可以通过网络 ADB 重新连接。原厂屏保可以正常启动。本次采样能确认屏保退出，完整待机唤醒和断电冷启动仍待复测。
