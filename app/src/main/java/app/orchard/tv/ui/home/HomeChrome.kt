@@ -889,6 +889,9 @@ data class Battery(val percent: Int)
  * (S905L3AB, Android 9, issue #1671) answers "present, USB, charging, 42%" for good, an e900v22c
  * box (#1681) and a no-name TV (#1673) showed a level too, and a tablet made into a box (#1673)
  * sits plugged in at 85%. A TV with none answers "level 100, plugged in" (Xiaomi MiTV-MFTR0) with present=false.
+ * Android 4.4 boxes and TVs with no battery and no plug answer "present, level 0, status unknown"
+ * (SHARP LCD-xxBEL7A-C #1708, CM201-2 box #1701, both on Lite): a real battery always reports
+ * charging, discharging or full, and one at 0% has already turned the device off.
  */
 @Composable
 private fun rememberBattery(): Battery? {
@@ -900,7 +903,9 @@ private fun rememberBattery(): Battery? {
             val scale = i.getIntExtra(android.os.BatteryManager.EXTRA_SCALE, 100).coerceAtLeast(1)
             val percent = (i.getIntExtra(android.os.BatteryManager.EXTRA_LEVEL, -1) * 100 / scale)
             val plugged = i.getIntExtra(android.os.BatteryManager.EXTRA_PLUGGED, 0) != 0
-            battery = if (percent < 0 || plugged) null else Battery(percent)
+            val unknown = i.getIntExtra(android.os.BatteryManager.EXTRA_STATUS, 0) ==
+                android.os.BatteryManager.BATTERY_STATUS_UNKNOWN
+            battery = if (percent <= 0 || plugged || unknown) null else Battery(percent)
         }
         val receiver = object : android.content.BroadcastReceiver() {
             override fun onReceive(c: android.content.Context, i: android.content.Intent) = read(i)

@@ -356,6 +356,8 @@ class HomeActivity : Activity(), HomeView.Host {
     /**
      * The battery, for the pill: shown only where there is one and the device runs on it (#1426).
      * Plugged in, nothing: boxes on mains power claim a battery charging at 42% for good (#1671).
+     * Nor at 0% or with an unknown status: 4.4 TVs and boxes without one claim "present, level 0,
+     * status unknown" (SHARP LCD-xxBEL7A-C #1708, CM201-2 #1701).
      */
     private val battery = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) = showBattery(intent)
@@ -366,7 +368,9 @@ class HomeActivity : Activity(), HomeView.Host {
         val scale = i?.getIntExtra(android.os.BatteryManager.EXTRA_SCALE, 100)?.coerceAtLeast(1) ?: 100
         val percent = (i?.getIntExtra(android.os.BatteryManager.EXTRA_LEVEL, -1) ?: -1) * 100 / scale
         val plugged = (i?.getIntExtra(android.os.BatteryManager.EXTRA_PLUGGED, 0) ?: 0) != 0
-        home.pill.battery = if (!present || percent < 0 || plugged) -1 else percent
+        val unknown = (i?.getIntExtra(android.os.BatteryManager.EXTRA_STATUS, 0) ?: 0) ==
+            android.os.BatteryManager.BATTERY_STATUS_UNKNOWN
+        home.pill.battery = if (!present || percent <= 0 || plugged || unknown) -1 else percent
     }
 
     private val dailyRetry = Runnable { refreshDaily() }
