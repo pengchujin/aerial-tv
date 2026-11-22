@@ -1,0 +1,1 @@
+<?xml version="1.0" encoding="utf-8"?><resources><string name="cleanup_action">Clean background apps</string><string name="cleanup_running">Cleaning…</string><string name="cleanup_done">Freed %1$d MB</string><string name="cleanup_unavailable">Cleanup unavailable</string></resources>
