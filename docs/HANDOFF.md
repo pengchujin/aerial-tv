@@ -4,6 +4,8 @@
 
 ## 现状（2026-11-22）
 
+- **2.16（versionCode 159），Lite 1.39（41），2026-11-22 发布**（[v2.16](https://github.com/pengchujin/aerial-tv/releases/tag/v2.16)）：下面巡检的五个修复。三个包签名 e089…6685，standard 单测 278 个、Lite lint 通过。两台装正式包回归：小米 MFTR0（install-multiple + 31.dm，speed-profile / install-dm）selftest 守护、主页键从设置 0.4 s、8 个信号源；TCL（`tcast-push.py`，uiautomator 确认焦点在「同意」后确定，compile speed）selftest 守护、主页键从浏览器 0.3 s、7 个信号源，两个 walleve 服务不变。官网已部署：两个域名 version.txt=v2.16，notes.json 第一条 2.16，三个 APK 字节数和 Release 一致（standard 3230626、guard 3230286、lite 1011876），`/diag/aerial-710.apk` 还在。#1707 #1708 #1701 #1689 #1677 #1646 贴了发布链接（`local/triage/release-2.16-posts.py`），都留着等确认。下次发版 versionCode ≥ 160，Lite ≥ 42。
+
 - **2026-11-22 上午全量巡检**（记录 `local/triage/2026-11-22-full.md`，回复 `replies-2026-11-22.py` / `replies-2026-11-22b.py`，发出 `posted-2026-11-22.txt`，42 条，关闭 13 个，合 PR #1698）：343 issue / 70 PR，新的或有新回复的 41 个逐个读过，复查又来 #1485。改动（每个一个提交，**main 上，未发版**）：
   - **小米 ASTP0 亮度**（#1707，4ade1ef）：固件 24.7.4.3982 上 `getAccessoryService` 是 81（80 是 `getTvEventLogService`）；80、81 都试，返回的 binder 描述符是 `ITvSettingManager` 才用。Lite 共用 `MitvPanel`。没有真机。
   - **4.4 上没电池显示 0%**（#1708 #1701，6c73200）：电量 0 或状态未知不显示，完整版和 Lite 都改。没有真机。
@@ -12,7 +14,7 @@
   - **屏保时钟字距**（#1646，e72f6ea）：首页是大时钟时屏保自己的时钟用大时钟字形和字距。GoogleTV 模拟器（安卓 14）录屏验证：大时钟 + 每日精选 + 照片屏保，换照片、跨分钟前后宽度位置不变。Lite 没有时钟接力，不用改。
   - 文档：README 中英加影科 T8 投影（#1706）、东芝 55U3800C（#1687）；创维 8H651_F1P / 7T633_A3F / 9S94_S9A、bigfish 上的 `filterHomeAlways`（#1518）；海信 MSD6A828 主页键先闪聚好看（#1703）；海尔 T966。
   - PR：#1698 合入（TCL 65V8M Pro 文档）；#1713 不合（Lite 的 Glyph 没有 Mic 会编不过，`plate()` / `edgeColors()` / `square` 改动影响所有磁贴，通用 AOSP 包名），回了修改意见；#1637 留功能轮次。
-- 验证：standard 单测 278 个、Lite lint 通过；standard / guard / lite 测试包（versionCode 158 / Lite 41，**未提交**，已改回 157 / 40），签名 e089…。小米 MFTR0（install-multiple + 31.dm，speed-profile / install-dm）selftest 守护、主页键从设置 0.3 s、8 个信号源，屏保进入录屏无黑帧；TCL（`tcast-push.py`，uiautomator 确认焦点在「同意」后确定，compile speed）selftest 守护、主页键从浏览器 0.4 s、7 个信号源，两个 walleve 服务不变，屏保进入录屏无黑帧。两台现在装的都是测试包 158，**下次发版 versionCode ≥ 159，Lite ≥ 41**（Lite 改了）。
+- 验证：standard 单测 278 个、Lite lint 通过；standard / guard / lite 测试包（versionCode 158 / Lite 41，**未提交**，已改回 157 / 40），签名 e089…。小米 MFTR0（install-multiple + 31.dm，speed-profile / install-dm）selftest 守护、主页键从设置 0.3 s、8 个信号源，屏保进入录屏无黑帧；TCL（`tcast-push.py`，uiautomator 确认焦点在「同意」后确定，compile speed）selftest 守护、主页键从浏览器 0.4 s、7 个信号源，两个 walleve 服务不变，屏保进入录屏无黑帧。两台当时装的是测试包 158，现在已装正式版 159。
 - 等回复：#1712（红米 2.15 起 HDMI 只有声音？）、#1485（ASTR0 Amlogic 取帧黑图、图标抖动，要对照和录屏）、#1697（索尼 DV 图像模式）、#1696 #1693 #1684（创维黑屏）、#1695（长虹实体主页键）、#1691、#1709、#1704、#1510、#1654。
 
 ## 现状（2026-11-21）
