@@ -794,6 +794,40 @@ class HomeGuardService : AccessibilityService() {
     }
 
     /**
+     * MediaTek's MonitorActivityController (com.mediatek.tv.service) registers as ActivityManager's
+     * IActivityController and writes [RUNNING_PACKAGE] as each activity start begins — 20-50 ms
+     * after Home key-up on Xiaomi MiTV-MFTR0 (Android 14, OS3.0.17.0.UFTMATV), carrying the target
+     * package name directly without waiting 55-200 ms for usage stats. Feature-detected so it only
+     * activates on firmwares exposing this setting; [uiBoostChanged] and window changes remain as
+     * fallback (for example when the setting value did not change).
+     */
+    private fun watchRunningPackage() {
+        if (!backOnPause || runningPackageWatched || Settings.Global.getString(contentResolver, RUNNING_PACKAGE) == null) return
+        runningPackageWatched = true
+        contentResolver.registerContentObserver(Settings.Global.getUriFor(RUNNING_PACKAGE), false, runningPackageObserver)
+    }
+
+    private var runningPackageWatched = false
+
+    private val runningPackageObserver by lazy {
+        object : ContentObserver(handler) {
+            override fun onChange(selfChange: Boolean) = runningPackageChanged()
+        }
+    }
+
+    private fun runningPackageChanged() {
+        if (screenOff || !stockHomeMayCome(needsUsage = false)) return
+        if (getSystemService<PowerManager>()?.isInteractive == false) return
+        val pkg = Settings.Global.getString(contentResolver, RUNNING_PACKAGE) ?: return
+        if (stockHomes.isEmpty()) refreshStockHomes()
+        val cls = stockHomes[pkg]?.firstOrNull() ?: return
+        handler.removeCallbacks(stockHomeLook)
+        Log.i(TAG, "$RUNNING_PACKAGE switched to $pkg; bringing Aerial back")
+        lastWindow = pkg to cls
+        goHome()
+    }
+
+    /**
      * Home in another app on Xiaomi from Android 12 (backOnPause): PatchWall showed for some 300 ms
      * before Aerial came back (MiTV-MFFU1, Android 14, Home in Quark: seven frames of it in a
      * screen recording). PatchWall's window change, which the guard answers, comes once it has
@@ -845,13 +879,13 @@ class HomeGuardService : AccessibilityService() {
     }
 
     /** Aerial's Home not in front, so Home may leave something for PatchWall; see uiBoostChanged. */
-    private fun stockHomeMayCome(): Boolean {
+    private fun stockHomeMayCome(needsUsage: Boolean = true): Boolean {
         if (!backOnPause || aerialResumed || bootStockHolding) return false
         val now = SystemClock.uptimeMillis()
         if (now < allowStockUntil || now - broughtBackAt < 1_000) return false
         val sinceBoot = SystemClock.elapsedRealtime()
         if (sinceBoot < BOOT_WINDOW_MS || sinceBoot - screenOnAt < WAKE_WINDOW_MS) return false
-        return usageStatsAllowed(this)
+        return !needsUsage || usageStatsAllowed(this)
     }
 
     /** The app Home was last pressed in; see frontAfterHome. */
@@ -978,6 +1012,7 @@ class HomeGuardService : AccessibilityService() {
         }
         checkMouseWithFilter(this)
         watchUiBoost()
+        watchRunningPackage()
         CecSwitch.register(this)
         // The profile is in credential storage: only once unlocked.
         if (SystemClock.elapsedRealtime() < BOOT_WINDOW_MS && GuardSetup.isUserUnlocked(this) &&
@@ -1399,6 +1434,10 @@ class HomeGuardService : AccessibilityService() {
         if (uiBoostWatched) {
             uiBoostWatched = false
             runCatching { contentResolver.unregisterContentObserver(uiBoostObserver) }
+        }
+        if (runningPackageWatched) {
+            runningPackageWatched = false
+            runCatching { contentResolver.unregisterContentObserver(runningPackageObserver) }
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
             runCatching { unregisterReceiver(userUnlocked) }
@@ -2531,6 +2570,8 @@ class HomeGuardService : AccessibilityService() {
         private const val STOCK_HOME_SLACK_MS = 100L
         /** Xiaomi's UI boost; see uiBoostChanged. */
         private const val UI_BOOST = "mitv_fast_cur_anim_scale"
+        /** MediaTek's MonitorActivityController setting; see watchRunningPackage. */
+        private const val RUNNING_PACKAGE = "running_package_name"
         private const val XGIMI_FRAMEWORK = "com.xgimi.xgimiframeworkui"
         /** Linux input codes of a remote's Home key: KEY_HOME and KEY_HOMEPAGE; see isStrayHome. */
         private const val SCAN_KEY_HOME = 102
