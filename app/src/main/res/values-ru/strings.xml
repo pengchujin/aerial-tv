@@ -8,6 +8,7 @@
     <string name="cc_title">Центр управления</string>
     <string name="cc_inputs">Источники</string>
     <string name="cc_network">Сеть</string>
+    <string name="cc_bluetooth">Bluetooth</string>
     <string name="cc_settings">Настройки</string>
     <string name="cc_volume">Громкость</string>
     <string name="cc_muted">Звук выключен</string>
