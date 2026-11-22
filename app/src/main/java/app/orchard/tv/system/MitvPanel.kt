@@ -16,8 +16,11 @@ import android.util.Log
  * settings app uses:
  *
  *  1. `ServiceManager.getService("TvService")` returns the `mitv.internal.ITvService` binder.
- *  2. `getAccessoryService("TvSettingService")` (transaction 80) returns the
- *     `mitv.impl.tv.ITvSettingManager` binder.
+ *  2. `getAccessoryService("TvSettingService")` returns the `mitv.impl.tv.ITvSettingManager`
+ *     binder. Its slot moves between firmwares: 80 on the ASTP0 build first verified, 81 on ASTP0
+ *     24.7.4.3982, where 80 is `getTvEventLogService()` (issue #1707, read from that firmware's
+ *     `mitvmiddlewareimpl.jar`). Both are tried and the answer is kept only when the returned binder
+ *     calls itself `ITvSettingManager`, so a slot that hands back some other service is never used.
  *  3. `getBacklightStatus()` (transaction 43) reads the panel, `setBacklightValue(int)` (transaction
  *     42) moves it, 1–100.
  *
@@ -41,7 +44,8 @@ object MitvPanel {
     private const val ITV_SERVICE = "mitv.internal.ITvService"
     private const val ITV_SETTING_MANAGER = "mitv.impl.tv.ITvSettingManager"
     private const val ACCESSORY_NAME = "TvSettingService"
-    private const val TX_GET_ACCESSORY_SERVICE = 80
+    /** `ITvService.getAccessoryService(String)` slots seen on MiTV firmwares, tried in order. */
+    private val TX_GET_ACCESSORY_SERVICE = intArrayOf(80, 81)
     private const val TX_GET_BACKLIGHT_VALUE = 43
     private const val TX_SET_BACKLIGHT_VALUE = 42
 
@@ -216,19 +220,34 @@ object MitvPanel {
             Log.w(TAG, "TvService binder missing")
             return null
         }
-        return runCatching {
-            val data = Parcel.obtain()
-            val reply = Parcel.obtain()
-            try {
-                data.writeInterfaceToken(ITV_SERVICE)
-                data.writeString(ACCESSORY_NAME)
-                tvService.transact(TX_GET_ACCESSORY_SERVICE, data, reply, 0)
-                reply.readException()
-                reply.readStrongBinder()
-            } finally {
-                reply.recycle()
-                data.recycle()
+        accessorySlot?.let { return accessory(tvService, it) }
+        for (slot in TX_GET_ACCESSORY_SERVICE) {
+            val binder = accessory(tvService, slot) ?: continue
+            val descriptor = runCatching { binder.interfaceDescriptor }.getOrNull()
+            if (descriptor == ITV_SETTING_MANAGER) {
+                accessorySlot = slot
+                return binder
             }
-        }.onFailure { Log.w(TAG, "accessory lookup failed: $it") }.getOrNull()
+            Log.w(TAG, "getAccessoryService slot $slot returned $descriptor")
+        }
+        return null
     }
+
+    /** The `getAccessoryService` slot whose binder turned out to be `ITvSettingManager`. */
+    @Volatile private var accessorySlot: Int? = null
+
+    private fun accessory(tvService: IBinder, slot: Int): IBinder? = runCatching {
+        val data = Parcel.obtain()
+        val reply = Parcel.obtain()
+        try {
+            data.writeInterfaceToken(ITV_SERVICE)
+            data.writeString(ACCESSORY_NAME)
+            tvService.transact(slot, data, reply, 0)
+            reply.readException()
+            reply.readStrongBinder()
+        } finally {
+            reply.recycle()
+            data.recycle()
+        }
+    }.onFailure { Log.w(TAG, "accessory lookup ($slot) failed: $it") }.getOrNull()
 }
