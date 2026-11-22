@@ -269,6 +269,10 @@ class HomeGuardService : AccessibilityService() {
         goHome()
     }
 
+    /** A package installer or app store, what an update from Control Center leaves in front. */
+    private fun isInstaller(pkg: String): Boolean =
+        "installer" in pkg || pkg == "com.android.vending" || pkg == "com.dangbeimarket"
+
     /** Whether usage stats, where Aerial may read them, show a stock launcher in front now. */
     private fun stockLauncherByUsageStats(): Boolean {
         if (!usageStatsAllowed(this)) return false
@@ -1088,8 +1092,19 @@ class HomeGuardService : AccessibilityService() {
         if (justUpdated() && getSystemService<PowerManager>()?.isInteractive == true &&
             GuardSetup.installerJustClosed(this)
         ) {
-            DiagLog.i("guard: bound again after Aerial's own update; bringing Aerial back over the installer")
-            handler.postDelayed({ if (!aerialResumed) goHome() }, AFTER_UPDATE_MS)
+            handler.postDelayed({
+                if (aerialResumed) return@postDelayed
+                // Only over the installer or a stock launcher. An update finished in the
+                // background while TVBox played on Xiaomi MiTV-MFTR0 (Android 14), and this pulled
+                // the viewer back to Home (issue #1689, the reporter's logcat).
+                val app = frontByUsage()?.first
+                if (app != null && !isInstaller(app) && !isStockHome(app)) {
+                    DiagLog.i("guard: bound again after Aerial's own update with $app in front; leaving it there")
+                } else {
+                    DiagLog.i("guard: bound again after Aerial's own update; bringing Aerial back over the installer")
+                    goHome()
+                }
+            }, AFTER_UPDATE_MS)
         }
         // Bound a little after boot, or brought back after the firmware killed Aerial: either way
         // the stock launcher is what's in front, and the window change that showed it is long gone.
