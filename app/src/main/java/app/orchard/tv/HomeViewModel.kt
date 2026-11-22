@@ -301,7 +301,10 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Ready-made pictures for the apps just loaded, in the background; Home reloads when some arrive. */
     private fun refreshIconLibrary() {
-        val installed = all.mapTo(HashSet()) { it.packageName }
+        // Pinned inputs borrow the library too (#1690), so their keys stay requested.
+        val installed = all.mapTo(HashSet()) { it.packageName }.apply {
+            addAll(AerialSettings.pinnedSources.map { SOURCE_KEY_PREFIX + it })
+        }
         viewModelScope.launch {
             if (IconLibrary.refresh(installed)) IconLibrary.changed()
         }
@@ -528,6 +531,7 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
     fun setSourcePinned(source: TvSource, pinned: Boolean) {
         AerialSettings.setPinned(source.id, pinned)
         arrange()
+        refreshIconLibrary() // A newly pinned input may borrow a library picture straight away.
         if (pinned) {
             val key = apps.firstOrNull { it.source?.id == source.id }?.key
             val first = apps.firstOrNull()?.key

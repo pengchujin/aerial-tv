@@ -86,14 +86,16 @@ internal val rewritesLauncher: Boolean by lazy {
  * for the input titles its caption; a device gives the tile its mark alone, a typed name titles the
  * tile with the port underneath. A picture from the phone page covers it.
  */
-fun sourceEntry(context: Context, source: TvSource): AppEntry {
+fun sourceEntry(context: Context, source: TvSource, ownArt: Boolean = false): AppEntry {
     val key = SOURCE_KEY_PREFIX + source.id
     val look = SourceLooks.of(source.id)
     val name = look?.name ?: look?.device?.let { context.getString(it.label) }
     // Home arranges its tiles on every move and hide; the art is made again only when it changes.
-    val made = SourceArt(look, source.label, source.deviceName, CustomIcons.stamp(key), TileArtFactory.W)
+    // A pinned input borrows the icon library like an app does (#1690); [ownArt] skips both.
+    val made = SourceArt(look, source.label, source.deviceName,
+        if (ownArt) 0L else CustomIcons.stamp(key), if (ownArt) 0L else IconLibrary.stamp(key), TileArtFactory.W)
     val art = synchronized(sourceArt) { sourceArt[key]?.takeIf { it.first == made }?.second } ?: run {
-        val custom = CustomIcons.load(key)
+        val custom = if (ownArt) null else CustomIcons.load(key) ?: IconLibrary.load(key)
         (if (custom != null) TileArtFactory.fromBanner(android.graphics.drawable.BitmapDrawable(android.content.res.Resources.getSystem(), custom))
         // A chosen device's mark goes on alone, its name on the caption; a typed name still shows.
         else if (look?.device != null && look.name == null) TileArtFactory.forSource(source.kind, null, null, look.device)
@@ -112,7 +114,7 @@ fun sourceEntry(context: Context, source: TvSource): AppEntry {
     )
 }
 
-private data class SourceArt(val look: SourceLook?, val label: String, val device: String?, val stamp: Long, val width: Int)
+private data class SourceArt(val look: SourceLook?, val label: String, val device: String?, val stamp: Long, val libraryStamp: Long, val width: Int)
 private val sourceArt = HashMap<String, Pair<SourceArt, TileArt>>()
 
 const val SOURCE_KEY_PREFIX = "input:"

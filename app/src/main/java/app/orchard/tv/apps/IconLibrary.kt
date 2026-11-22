@@ -157,6 +157,23 @@ object IconLibrary {
         }
     }
 
+    /** Save a phone pick only after a borrowed picture is available; failures preserve the tile. */
+    internal fun applyPick(
+        pkg: String, pick: Pick, choice: String?, from: String?,
+        fetchPicture: (Choice) -> Boolean = ::fetch,
+    ): Boolean {
+        val borrowedFrom = from?.takeIf { pick == Pick.Library && it != pkg && it.isNotEmpty() }
+        if (pick == Pick.Library) {
+            if (borrowedFrom != null) {
+                val picture = index[borrowedFrom]?.firstOrNull { it.id == choice } ?: return false
+                if (!fetchPicture(picture)) return false
+            } else if (choices(pkg).none { choice == null || it.id == choice }) return false
+        }
+        CustomIcons.clear(pkg)
+        choose(pkg, pick, choice, borrowedFrom)
+        return true
+    }
+
     /**
      * Changes when the tile's picture or the pick does (a firmware app drawn as Aerial's own tile
      * takes the same picture only once picked). Part of the tile cache's key.

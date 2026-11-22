@@ -15,6 +15,7 @@ import app.orchard.tv.apps.AppNames
 import app.orchard.tv.apps.CustomIcons
 import app.orchard.tv.apps.IconLibrary
 import app.orchard.tv.apps.SourceDevice
+import app.orchard.tv.apps.sourceEntry
 import app.orchard.tv.apps.SourceLooks
 import app.orchard.tv.apps.TileArtFactory
 import app.orchard.tv.settings.AerialSettings
@@ -198,26 +199,12 @@ class PhoneServer private constructor(private val context: Context, private val 
                         else -> null
                     }
                     val choice = f["choice"]?.takeIf { it.isNotEmpty() }
-                    // Another app's picture, picked from the whole library (issue #1486).
-                    val from = f["from"]?.takeIf { it.isNotEmpty() && it != pkg }
-                    val ok = installed(pkg) && pick != null && when {
-                        pick != IconLibrary.Pick.Library -> true
-                        from != null -> choice != null && IconLibrary.catalog()[from].orEmpty().any { it.id == choice }
-                        else -> IconLibrary.choices(pkg).any { choice == null || it.id == choice }
-                    }
-                    // A borrowed picture is fetched before the pick is kept, so a failed download
+                    // Another app's picture, picked from the whole library (issue #1486). A
+                    // borrowed picture is fetched before the pick is kept, so a failed download
                     // leaves the tile as it was rather than on a picture that is not there.
-                    if (ok && from != null) {
-                        val picture = IconLibrary.catalog()[from].orEmpty().first { it.id == choice }
-                        if (!IconLibrary.fetch(picture)) return@runCatching json(state().put("saved", false))
-                    }
-                    if (ok) {
-                        CustomIcons.clear(pkg)
-                        // Kept even for the library, which most apps use anyway: a firmware app
-                        // drawn as Aerial's own tile takes it only when picked.
-                        IconLibrary.choose(pkg, pick, choice, from)
-                        runBlocking(Dispatchers.Main) { CustomIcons.changed(); IconLibrary.changed() }
-                    }
+                    val from = f["from"]?.takeIf { pick == IconLibrary.Pick.Library && it.isNotEmpty() && it != pkg }
+                    val ok = installed(pkg) && pick != null && IconLibrary.applyPick(pkg, pick, choice, from)
+                    if (ok) runBlocking(Dispatchers.Main) { CustomIcons.changed(); IconLibrary.changed() }
                     json(state().put("saved", ok))
                 }
                 session.method == Method.POST && path == "/api/icon/reset" -> {
@@ -257,6 +244,7 @@ class PhoneServer private constructor(private val context: Context, private val 
             .put("rotatePhotos", Wallpapers.ROTATE_PHOTOS)
             .put("screensaver", Wallpapers.screensaver.key)
             .put("canSleep", HomeGuardService.canSleep)
+            .put("sourceIconLibrary", true)
             .put("screensaverFollows", Wallpapers.screensaverFollows)
             .put("videos", JSONArray().apply {
                 ScreensaverVideos.all(context).forEach { put(JSONObject().put("id", it.id).put("name", it.name)) }
@@ -278,8 +266,18 @@ class PhoneServer private constructor(private val context: Context, private val 
                     // An input's label as Home will show it once it has arranged the new look.
                     val look = SourceLooks.of(src.id)
                     val label = look?.let { it.name ?: it.device?.let { d -> context.getString(d.label) } } ?: src.label
+                    // A pinned input borrows the library like an app does (#1690), so it carries
+                    // the same pick fields; [icon] says which picture Home is drawing.
+                    val icon = when {
+                        CustomIcons.has(a.key) -> "custom"
+                        IconLibrary.has(a.key) && IconLibrary.uses(a.key) -> "library"
+                        else -> "own"
+                    }
                     // The stamp makes the phone fetch the tile again once its picture changes.
-                    put(JSONObject().put("key", a.key).put("label", label).put("default", src.label).put("custom", CustomIcons.has(a.key)).put("stamp", CustomIcons.stamp(a.key))
+                    put(JSONObject().put("key", a.key).put("label", label).put("default", src.label)
+                        .put("custom", CustomIcons.has(a.key)).put("library", IconLibrary.has(a.key)).put("icon", icon)
+                        .put("choices", libraryChoices(a.key, icon == "library"))
+                        .put("stamp", CustomIcons.stamp(a.key) + IconLibrary.stamp(a.key) + icon.hashCode())
                         .put("source", true).put("port", src.label).put("name", look?.name ?: "").put("device", look?.device?.key ?: "").put("look", look.hashCode()))
                 }
                 apps.forEach { (a, label) ->
@@ -384,7 +382,7 @@ class PhoneServer private constructor(private val context: Context, private val 
             own || !isApp -> null
             else -> CustomIcons.load(pkg) ?: if (library && AppCatalog.usesLibrary(pkg)) IconLibrary.load(pkg) else null
         }
-        val bmp = picked ?: run {
+        val bmp = if (app.source != null) TileArtFactory.flatten(sourceEntry(context, app.source, ownArt = own).art) else picked ?: run {
             // The app's own art when asked for, or when the library has a picture it does not use.
             val art = if (isApp && (own || library)) AppCatalog.ownArt(context, app) ?: app.art else app.art
             TileArtFactory.flatten(art)
