@@ -302,6 +302,8 @@ curl -fsSL https://aerial.qust.me/install.sh | TV=192.168.1.20 bash -s restore
 | 中国移动 | CM101s 盒子（Hi3798MV100） | Android 4.4.2 | ✅ Aerial Lite，一行命令安装（[#1052](https://github.com/pengchujin/aerial-tv/issues/1052)） |
 | 坚果 | S621 | Android 13 | ❌ 固件不让写无障碍设置，主页键接管不了（[#793](https://github.com/pengchujin/aerial-tv/issues/793)） |
 | 爱普生 | DTP9733 投影仪 | Android 11 | ✅ |
+| 影科 | T8 投影仪（KKTV-Android-TV-350，RK3128） | Android 7.1（固件标 9.0） | ✅ 打不开 ADB，U 盘装 standard，按主页键时选 Aerial、再选「始终」（[#1706](https://github.com/pengchujin/aerial-tv/issues/1706)） |
+| 东芝 | 55U3800C（tsbU6800C，MStar m7221） | Android 8 | ✅ guard 版，全部正常；USB 调试授权框不弹时整机重启一次再开 ADB（[#1687](https://github.com/pengchujin/aerial-tv/issues/1687)） |
 | 志影 / 喜瑞 | HS350 投影仪（海思，YunOS） | Android 9 | ⚠️ 固件强停退到后台的第三方 App，从别的 App 按主页键要 10–30 秒才回 Aerial；不是用安装脚本装的要补两条授权（[#853](https://github.com/pengchujin/aerial-tv/issues/853)） |
 | 其他盒子 | CM311-1（改版 ATV）、PPTV K55U27、HK1 Box（S905X3） | Android 9 | ✅ HK1 Box 设成默认桌面即可（[#838](https://github.com/pengchujin/aerial-tv/issues/838)） |
 | 斐讯 | T1 盒子（S912） | Android 7.1.2 | ✅ 第一排往下进全部 App 时有点卡，可在 个性化 → 效果 选「流畅」（[#876](https://github.com/pengchujin/aerial-tv/issues/876)） |

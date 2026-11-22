@@ -303,6 +303,8 @@ Most TVs sold in China only accept their own home screen and clear third-party a
 | China Mobile | CM101s box (Hi3798MV100) | Android 4.4.2 | ✅ Aerial Lite, installed with the one-line command ([#1052](https://github.com/pengchujin/aerial-tv/issues/1052)) |
 | JMGO | S621 | Android 13 | ❌ The firmware refuses writes to the accessibility setting; Home cannot be taken over ([#793](https://github.com/pengchujin/aerial-tv/issues/793)) |
 | Epson | DTP9733 projector | Android 11 | ✅ |
+| Yingke | T8 projector (KKTV-Android-TV-350, RK3128) | Android 7.1 (firmware says 9.0) | ✅ No ADB; standard installed from a USB drive, then press Home, pick Aerial and choose "Always" ([#1706](https://github.com/pengchujin/aerial-tv/issues/1706)) |
+| Toshiba | 55U3800C (tsbU6800C, MStar m7221) | Android 8 | ✅ Guard build, everything works; if the USB debugging prompt never shows, restart the TV once and turn ADB on again ([#1687](https://github.com/pengchujin/aerial-tv/issues/1687)) |
 | ZHIYING / RIGAL | HS350 projector (HiSilicon, YunOS) | Android 9 | ⚠️ The firmware stops apps sent to the background; Home from another app takes 10–30 s back to Aerial; installed without the script it needs two grants ([#853](https://github.com/pengchujin/aerial-tv/issues/853)) |
 | Other boxes | CM311-1 (modified ATV), PPTV K55U27, HK1 Box (S905X3) | Android 9 | ✅ HK1 Box: set Aerial as the default home ([#838](https://github.com/pengchujin/aerial-tv/issues/838)) |
 | Phicomm | T1 box (S912) | Android 7.1.2 | ✅ Moving down from the first row into all apps stutters a little; Personalize → Effects → Smooth helps ([#876](https://github.com/pengchujin/aerial-tv/issues/876)) |
