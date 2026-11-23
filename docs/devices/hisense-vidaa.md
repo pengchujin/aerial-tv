@@ -175,7 +175,7 @@ main 上（未发版）亮度行先试 `android.settings.IMAGE_SETTINGS`（非�
 
 1.71 起「网络」先开海信自己的网络页（#760 H55E9A 安卓 8 上原生 `NetworkActivity` 的子页会崩，#826 也要海信的新界面）。海信页里没有代理；#1095 的 VIDAA_TV（MT9603 / mt5873，安卓 11）上原生页 `com.android.tv.settings/.connectivity.NetworkActivity` 能打开、能设代理、不崩。按机型选哪一页属于偏好，留到功能轮次；变通办法是 `adb shell am start -n com.android.tv.settings/.connectivity.NetworkActivity`。
 
-## 开机直达：`persist.sys.boot.source_pkg`（#1274 #1227，未进安装脚本）
+## 开机直达：`persist.sys.boot.source_pkg`（#1274 #1227 #1495 #1727）
 
 VIDAA_TV（MT9655，Android 14，固件 07.02.70.202605110330）上，报告人反编译 `TileTransition` 发现 `AppSwitchManager.switchToAppForSTR` 读 `persist.sys.boot.source_pkg`，按包名启动固定应用。只设它：待机唤醒进 Aerial，冷启动仍回聚好看；和 `persist.vt.use_home_pkg` 一起设（两项原值都是空）：完整重启后 `sys.boot_completed=1` 时前台已是 Aerial，60 秒无操作后是 VIDAA 自带氛围屏保 `com.vt.ambiencelife`，按键回 Aerial。两项都只能由 ADB（shell）写，Aerial 自己写不了，固件改回后 App 补不回来（#1227 在 E7Q 上见过 `use_home_pkg` 被改回）。目前只有这一台的实测，要不要进安装脚本、限定在哪些固件上，等更多 VIDAA / MT9655 机器确认。
 
@@ -189,6 +189,10 @@ VIDAA_TV（MT9655，Android 14，固件 07.02.70.202605110330）上，报告人�
 - **没在海信上验证**：维护者手上没有这台。小米 MFTR0 上回归过：控制中心里暂停、恢复从原位置接着放；从控制中心进设置再回来，App 内解关键帧 0.5–0.7 秒，视频从那一帧的时间接着放；屏保来回不黑。
 
 另一台 VIDAA_TV（MT9655，VX5SPRO，固件 07.02.70.202606170419，#1495，报告人 Agent 实测）：只设 `persist.vt.use_home_pkg` 时冷开机 2–6 分钟内聚好看反复抢前台、守护拉回 3.6 秒又被顶掉，Aerial 的 `BootReceiver` / `ConfigReceiver` 被置成 disabled（`revival: cleared disabled ... override (was 2)`）；补设 `persist.sys.boot.source_pkg=app.orchard.tv` 后 `adb reboot` 全程没有 onPause，8 分钟稳定。
+
+第三台：海信 85U7Q（VIDAA_TV，MT9655 / mt5877，安卓 14，固件 07.02.70.202606040023，#1727，报告人 Agent 实测）：只设 `use_home_pkg` 时 `adb reboot` 后属性被改回 `com.jamdeo.tv.vod`、`SYSTEM_ALERT_WINDOW` 被改回 ignore、开机期间 Aerial 进程被移除 3 次、守护一直 `Binding services`；补设 `boot.source_pkg`（原值空）后重启，3 分钟每 10 秒采样前台都是 Aerial，两个属性都保留。没测拔电冷启动和待机唤醒。这台 ADB 只有无线调试（TLS，`adb pair`，端口每次重启变）。`dumpsys tv_input` 为空，但 shell 发 `com.jamdeo.tv.policy.SILO_SWITCH_EVENT`（`-p com.hisense.tv.tiletransition --ei silo_input_src_id 1283`）能切到 HDMI 3，`settings get global touch_angle_*` 里有 HDMI 1/2/3 = 1281/1282/1283（没进 Aerial）。
+
+2026-11-23 起 `install.sh` / agent.md：安卓 14 及以上、装有聚好看、`persist.sys.boot.source_pkg` 为空时设成 Aerial，`aerial_boot_source_pkg` 记 `-`，`restore.sh` 清空。我们没有海信真机，脚本这一步只跑了离线测试。
 
 ## 海信 E8H（m7642，安卓 9，#1227）
 

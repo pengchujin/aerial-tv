@@ -454,6 +454,17 @@ if [ "$FLAVOR" = standard ]; then
     adb shell setprop persist.vt.use_home_pkg "$PKG"
     echo "Hisense: Home now opens Aerial instead of ${VT_HOME/#-/com.jamdeo.tv.vod}."
   fi
+  # VIDAA on Android 14 (MT9655, 07.02.70 firmwares) also opens the app named here at power-on and
+  # on wake (TileTransition's AppSwitchManager.switchToAppForSTR). With only the property above,
+  # 聚好看 took the front for minutes after a cold boot and the guard lost the race; with both, the
+  # boot went straight to Aerial: three TVs, each set by hand (#1274, #1495, #1727). Only where it
+  # is empty and 聚好看 is there; restore.sh empties it again ("-" kept on the TV).
+  if [ "${SDK:-0}" -ge 34 ] 2>/dev/null && adb shell pm path com.jamdeo.tv.vod 2>/dev/null | grep -q package: &&
+     [ -z "$(adb shell getprop persist.sys.boot.source_pkg | tr -d '\r')" ]; then
+    adb shell settings put global aerial_boot_source_pkg -
+    adb shell setprop persist.sys.boot.source_pkg "$PKG"
+    echo "Hisense: power-on opens Aerial (persist.sys.boot.source_pkg)."
+  fi
   # Not on Xiaomi (PatchWall, com.mitv.tvhome installed): most firmwares ignore it, but one Android 9
   # set took it, PatchWall then ran as an ordinary app outside the home stack, and Xiaomi's short
   # press of the power key crashed its settings app and never put the TV to sleep (#848). Home

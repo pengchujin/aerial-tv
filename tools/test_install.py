@@ -9,7 +9,7 @@ SCRIPT = pathlib.Path(__file__).with_name('install.sh').resolve()
 
 
 class InstallFailureTest(unittest.TestCase):
-    def run_install(self, failure, status, flavor='standard', jamdeo=''):
+    def run_install(self, failure, status, flavor='standard', jamdeo='', sdk='30'):
         with tempfile.TemporaryDirectory() as tmp:
             root = pathlib.Path(tmp)
             log = root / 'calls'
@@ -20,7 +20,9 @@ case "$*" in
   devices) printf 'List of devices attached\\nexample.invalid:5555 device\\n' ;;
   connect*) echo connected ;;
   get-state) echo device ;;
-  'shell getprop ro.build.version.sdk') echo 30 ;;
+  'shell getprop ro.build.version.sdk') echo "${SDK:-30}" ;;
+  'shell getprop persist.sys.boot.source_pkg') ;;
+  'shell setprop persist.sys.boot.source_pkg app.orchard.tv') ;;
   'shell dumpsys package app.orchard.tv')
     if [ -f "$MOCK_STATE" ]; then echo versionCode=2; else echo versionCode=1; fi ;;
   install*) echo "$INSTALL_OUTPUT"; exit "$INSTALL_STATUS" ;;
@@ -50,7 +52,7 @@ esac
                        TV='example.invalid', APK_FILE=str(root/'test.apk'),
                        CALL_LOG=str(log), INSTALL_OUTPUT=failure,
                        INSTALL_STATUS=str(status), STAY_CONNECTED='1',
-                       MOCK_STATE=str(root/'pushed'), BUILD='0', KEEP_ADB='0', JAMDEO=jamdeo,
+                       MOCK_STATE=str(root/'pushed'), BUILD='0', KEEP_ADB='0', JAMDEO=jamdeo, SDK=sdk,
                        # No build tools: the test APK is not a real one for aapt2 to read.
                        ANDROID_HOME=str(root))
             result = subprocess.run(['bash', str(SCRIPT), flavor], env=env,
@@ -93,6 +95,17 @@ esac
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn('shell settings put global aerial_vt_home_pkg -', calls)
         self.assertIn('shell setprop persist.vt.use_home_pkg app.orchard.tv', calls)
+
+    def test_vidaa_on_android_14_also_opens_aerial_at_power_on(self):
+        # Issues #1274 #1495 #1727: VIDAA MT9655 on Android 14 needs persist.sys.boot.source_pkg too.
+        result, calls = self.run_install('Success', 0, jamdeo='1', sdk='34')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('shell settings put global aerial_boot_source_pkg -', calls)
+        self.assertIn('shell setprop persist.sys.boot.source_pkg app.orchard.tv', calls)
+
+    def test_older_vidaa_keeps_its_boot_source(self):
+        result, calls = self.run_install('Success', 0, jamdeo='1')
+        self.assertNotIn('persist.sys.boot.source_pkg', calls)
 
     def test_other_tv_with_empty_home_property_is_left_alone(self):
         result, calls = self.run_install('Success', 0)

@@ -171,6 +171,12 @@ curl -fsSL https://aerial.qust.me/install.sh | KEEP_ADB=1 TV=<IP> bash
    ```
    两个都没有输出就跳过，其他电视没有这个属性。
 
+   海信 VIDAA 并且是 Android 14 及以上（`adb shell getprop ro.build.version.sdk` ≥ 34，装有 `com.jamdeo.tv.vod`）：再看 `adb shell getprop persist.sys.boot.source_pkg`，没有输出时运行下面两条，开机直接进 Aerial（只设上面那个属性时，冷开机几分钟里聚好看会反复抢前台，#1274 #1495 #1727）；有输出就不改：
+   ```
+   adb shell settings put global aerial_boot_source_pkg -
+   adb shell setprop persist.sys.boot.source_pkg app.orchard.tv
+   ```
+
 8. 桌面守护：Aerial 启动时会自己打开它。运行 `adb shell settings get secure enabled_accessibility_services`，结果里应该有 `app.orchard.tv/app.orchard.tv.guard.HomeGuardService`。没有时手动加上，**保留原来的内容**，用冒号连接：
    ```powershell
    adb shell "settings put secure enabled_accessibility_services '<原来的值>:app.orchard.tv/app.orchard.tv.guard.HomeGuardService'"
@@ -297,7 +303,7 @@ Android 6、7 没有 `cmd` 时，`disallow_listener` 那条改为：`settings ge
 - `adb shell settings get secure screensaver_components` 是 `app.orchard.tv/...` 时，用 `adb shell settings get secure screensaver_default_component` 的结果写回去：`adb shell settings put secure screensaver_components <默认值>`。
 - `adb shell settings get secure enabled_accessibility_services`：从结果里去掉 `app.orchard.tv/app.orchard.tv.guard.HomeGuardService`（和它前后多余的冒号），其他服务原样保留写回；只剩它自己时运行 `adb shell settings delete secure enabled_accessibility_services`。
 - 小米（`adb shell pm path com.mitv.tvhome` 有输出）：`adb shell cmd package resolve-activity --brief -a android.intent.action.MAIN -c android.intent.category.HOME -c android.intent.category.DEFAULT` 的最后一行是 `app.orchard.tv/...` 时，运行 `adb shell cmd package set-home-activity --user 0 com.mitv.tvhome/.MainActivityUserMode`，再重启电视一次（#848：默认桌面改成 Aerial 后短按电源键不息屏）。
-- 海信 VIDAA：`adb shell settings get global aerial_vt_home_pkg` 是 `-` 时，运行 `adb shell "setprop persist.vt.use_home_pkg ''"` 和 `adb shell settings delete global aerial_vt_home_pkg`；是别的值（不是 `null`）时，运行 `adb shell setprop persist.vt.use_home_pkg <这个值>` 和 `adb shell settings delete global aerial_vt_home_pkg`。没有值、但 `adb shell getprop persist.vt.use_home_pkg` 是 `app.orchard.tv`（1.15 及以前手动改过）并且装有 `com.jamdeo.tv.vod` 时，运行 `adb shell setprop persist.vt.use_home_pkg com.jamdeo.tv.vod`。
+- 海信 VIDAA：`adb shell settings get global aerial_vt_home_pkg` 是 `-` 时，运行 `adb shell "setprop persist.vt.use_home_pkg ''"` 和 `adb shell settings delete global aerial_vt_home_pkg`；是别的值（不是 `null`）时，运行 `adb shell setprop persist.vt.use_home_pkg <这个值>` 和 `adb shell settings delete global aerial_vt_home_pkg`。没有值、但 `adb shell getprop persist.vt.use_home_pkg` 是 `app.orchard.tv`（1.15 及以前手动改过）并且装有 `com.jamdeo.tv.vod` 时，运行 `adb shell setprop persist.vt.use_home_pkg com.jamdeo.tv.vod`。`adb shell settings get global aerial_boot_source_pkg` 是 `-` 时，运行 `adb shell "setprop persist.sys.boot.source_pkg ''"` 和 `adb shell settings delete global aerial_boot_source_pkg`。
 - 要卸载时 `adb uninstall app.orchard.tv`。
 - 最后 `adb shell input keyevent KEYCODE_HOME`，电视回到原来的桌面。
 

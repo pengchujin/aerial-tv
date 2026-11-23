@@ -12,7 +12,7 @@ ANOTHER = 'org.example.second/org.example.second.Listener'
 
 
 class RestoreListenerTest(unittest.TestCase):
-    def run_restore(self, listeners, cmd_status=127, vt_saved=''):
+    def run_restore(self, listeners, cmd_status=127, vt_saved='', boot_source_saved=''):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             log = root / 'calls'
@@ -26,6 +26,8 @@ case "$*" in
   'shell settings get secure screensaver_components') echo org.example/.Screensaver ;;
   'shell settings get secure enabled_accessibility_services') echo app.orchard.tv/app.orchard.tv.guard.HomeGuardService ;;
   'shell settings get global aerial_vt_home_pkg') echo "${VT_SAVED:-null}" ;;
+  'shell settings get global aerial_boot_source_pkg') echo "${BOOT_SOURCE_SAVED:-null}" ;;
+  "shell setprop persist.sys.boot.source_pkg ''") ;;
   "shell setprop persist.vt.use_home_pkg ''") ;;
   'shell settings get global aerial_boot_app_componentname') echo null ;;
   'shell settings get system boot_app_componentname') echo null ;;
@@ -41,7 +43,8 @@ esac
             adb.chmod(0o755)
             env = dict(os.environ, PATH=str(root) + os.pathsep + os.environ['PATH'],
                        TV='example.invalid', CALL_LOG=str(log),
-                       LISTENERS=listeners, CMD_STATUS=str(cmd_status), VT_SAVED=vt_saved)
+                       LISTENERS=listeners, CMD_STATUS=str(cmd_status), VT_SAVED=vt_saved,
+                       BOOT_SOURCE_SAVED=boot_source_saved)
             for name in ('SHELLOPTS', 'BASHOPTS', 'BASH_ENV', 'POSIXLY_CORRECT'):
                 env.pop(name, None)
             result = subprocess.run(['bash', str(SCRIPT)], env=env,
@@ -79,6 +82,13 @@ esac
         self.assert_restored(result, calls)
         self.assertIn("shell setprop persist.vt.use_home_pkg ''", calls)
         self.assertIn('shell settings delete global aerial_vt_home_pkg', calls)
+
+    def test_vidaa_boot_source_set_by_install_is_emptied(self):
+        # Issues #1274 #1495 #1727: install.sh set persist.sys.boot.source_pkg where it was empty.
+        result, calls = self.run_restore(LISTENER, boot_source_saved='-')
+        self.assert_restored(result, calls)
+        self.assertIn("shell setprop persist.sys.boot.source_pkg ''", calls)
+        self.assertIn('shell settings delete global aerial_boot_source_pkg', calls)
 
     def test_absent_listener_does_not_change_the_setting(self):
         for listeners in (OTHER, 'null', ''):
