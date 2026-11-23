@@ -204,12 +204,19 @@ object KidsWatch {
     private fun frontByUsage(ctx: Context): String? = runCatching {
         if (Build.VERSION.SDK_INT < 22) return null
         val now = System.currentTimeMillis()
-        val events = ctx.getSystemService<UsageStatsManager>()?.queryEvents(now - 60_000L, now) ?: return null
+        val usm = ctx.getSystemService<UsageStatsManager>() ?: return null
+        val events = UsageFront.queryEvents(usm, now - 60_000L, now) ?: return null
+        val maxAt = System.currentTimeMillis() + UsageFront.FUTURE_SLACK_MS
         val e = UsageEvents.Event()
         var last: String? = null
+        var lastAt = Long.MIN_VALUE
         while (events.hasNextEvent()) {
             events.getNextEvent(e)
-            if (e.eventType == UsageEvents.Event.MOVE_TO_FOREGROUND) last = e.packageName
+            @Suppress("DEPRECATION")
+            if (e.eventType == UsageEvents.Event.MOVE_TO_FOREGROUND && e.timeStamp <= maxAt && e.timeStamp >= lastAt) {
+                last = e.packageName
+                lastAt = e.timeStamp
+            }
         }
         last
     }.getOrNull()
