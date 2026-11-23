@@ -980,7 +980,11 @@ class MainActivity : ComponentActivity() {
         )
         ContextCompat.registerReceiver(
             this, volumeReceiver,
-            IntentFilter("android.media.VOLUME_CHANGED_ACTION"),
+            // Mute changes too: Sony BRAVIA VH21 (Android 12) mutes music at power-on and its
+            // audio output service unmutes it a while later with no volume change, and Control
+            // Center went on showing muted with sound playing (issue #1530: ADJUST_MUTE, then
+            // ADJUST_UNMUTE 19 min later, both from com.sony.dtv.audiooutput).
+            IntentFilter("android.media.VOLUME_CHANGED_ACTION").apply { addAction("android.media.STREAM_MUTE_CHANGED_ACTION") },
             ContextCompat.RECEIVER_EXPORTED,
         )
         ContextCompat.registerReceiver(
