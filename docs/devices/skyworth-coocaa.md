@@ -219,3 +219,12 @@ Aerial 是默认桌面、守护绑定，主页键正常；但重启后一分钟�
 ## bigfish 平台的 `filterHomeAlways`（#1518）
 
 两台创维（8H57_H5 / Hi3751V551、8H26_M9 / Hi3751V553，都是酷开、安卓 5.1.1）上报告人实测：device profile `{"filterHomeAlways":true}` 后实体主页键直接回 Aerial、不闪酷开桌面，按住音量连续变化，重启后配置和效果都保留。这台固件会吞掉 ADB 注入的 `KEYCODE_HOME`（`CheckTid`），要用实体遥控器测。P7F 上有按住音量只走一格的代价，看来和机型有关。按型号内置还等户主定。
+
+## 6H70_M9S（50M9S，Hi3751V560 / bigfish，安卓 9，#1731，2026-11-22 报告人实测）
+
+- `resolve-activity` HOME 是 `No activity found`，home 栈空：酷开桌面不声明 HOME，由 `com.tianci.system` 直接启动；`set-home-activity` 给它报 `Component cannot be home`。
+- 开机首页属性 `persist.service.homepage.pkg/cls`（shell 能写），改成 Aerial 后 `com.tianci.system` 开机 30 秒内改回，4 次只成功 1 次。
+- **`set-home-activity app.orchard.tv/.MainActivity` 返回 Success，1 秒后固件强停、清数据并卸载了 Aerial**（`Force stopping app.orchard.tv ... clear data ... deletePackageX`）。报告人用别的包名做同样操作没被卸载，推测固件按包名有名单。所以这台**不要对 Aerial 做 set-home-activity / role**。
+- 报告人另装了第三方桌面当 HOME 再让 Aerial 守护接管，我们不推荐另装 App，这条路不进说明。
+- 同为酷开的 8R134_G7E（RTD2885N，安卓 11，#1729）没有这个问题：Aerial 是默认桌面、守护在跑，报的是开机不进 Aerial，等开机后的诊断。
+

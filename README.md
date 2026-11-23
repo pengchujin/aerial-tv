@@ -223,6 +223,7 @@ curl -fsSL https://aerial.qust.me/install.sh | TV=192.168.1.20 bash -s restore
 | TCL | MT5879 国行、98T8H | Android 11 | ✅ 日常使用（[笔记](docs/devices/tcl-mt5879-cn.md)；98T8H 见 [#803](https://github.com/pengchujin/aerial-tv/issues/803)） |
 | TCL | Q9L Pro | Android 14 | ⚠️ 只能 USB 线连 adb；要在电视管家里允许 Aerial 自启；信号源 1.77 起能切（[#792](https://github.com/pengchujin/aerial-tv/issues/792)） |
 | TCL | 85T7L Pro（MT9655_4K_CN） | Android 14 | ⚠️ 只能 USB 线连 adb（无线 adb 只在 IPv6 上监听，连不上）；standard 装不上，guard 版把 `boot_app_componentname` 设成 Aerial 后重启进 Aerial，守护保持（[#1398](https://github.com/pengchujin/aerial-tv/issues/1398)） |
+| TCL | 85Q9L Pro（MT9655_4K_CN） | Android 14 | ✅ standard 版完整接管（先多屏互动装 guard，再应用内升级成 standard）；无线 adb 只有 TLS、配对不了，用 USB A 对 A 线授权；断电和长时间待机还没试（[#1726](https://github.com/pengchujin/aerial-tv/issues/1726)） |
 | TCL | 65T7L（MT9655_4K_CN） | Android 14 | ✅ guard 版，USB A 对 A 线授权后 `adb install` 被拒，走多屏互动推送装上；主页键、待机唤醒正常，重启还没试（[#1547](https://github.com/pengchujin/aerial-tv/issues/1547)） |
 | TCL | 65V8E（tc8000 ay30a2） | Android 11 | ✅ 断电开机先显示原桌面 6–8 秒（[#1137](https://github.com/pengchujin/aerial-tv/issues/1137)） |
 | TCL | 65V8M Pro（T966D5，V066） | Android 14 | ⚠️ guard 版重启后自行进入 Aerial，从设置按主页键能返回。重启后桌面守护曾短暂未绑定。[实机记录](docs/devices/ffalcon-t966d5.md#tcl-65v8m-pro) |
@@ -241,6 +242,7 @@ curl -fsSL https://aerial.qust.me/install.sh | TV=192.168.1.20 bash -s restore
 | 索尼 | KD-55X8000E 国行（BRAVIA 4K GB） | Android 9 | ✅ 固件锁死主页键，Agent 在这台电视上写 `filterHomeAlways` 后主页键回 Aerial；开机先露原桌面（[#1351](https://github.com/pengchujin/aerial-tv/issues/1351)） |
 | 索尼 | 49X7500E 国行（BRAVIA 4K GB） | Android 9 | ✅ 选了信号源闪回原桌面，是电视里程序数据损坏，清掉数据后正常（[#1493](https://github.com/pengchujin/aerial-tv/issues/1493)） |
 | 索尼 | KD55X7000D 国行 | Android 8 | ✅ 亮度要在电视设置里调（[#757](https://github.com/pengchujin/aerial-tv/issues/757)） |
+| 索尼 | BRAVIA 4K 2015（SVP-DTV15，mt5890） | Android 7.0 | ✅ 主页键、待机唤醒、重启都回 Aerial，6 个信号源对得上；亮度项打开电视的图像设置（[#1736](https://github.com/pengchujin/aerial-tv/issues/1736)） |
 | 创维 / 酷开 | K3 Pro、75A7D | Android 11 | ✅ 75A7D 的信号源 1.45 起能用；开机先出酷开桌面 3–6 秒，报告人改固件属性后开机直达（[#894](https://github.com/pengchujin/aerial-tv/issues/894)） |
 | 创维 / 酷开 | 65G60、8R134 / 8R145、aigc 系（C10 投影、P60、7T863） | Android 8–11 | ⚠️ 开机先进酷开桌面，或被系统清理后要等 20–30 秒（[笔记](docs/devices/skyworth-coocaa.md)） |
 | 创维 / 酷开 | 55K5C（8R39_K5C） | Android 8 | ✅ 1.95 起主页键不再先闪酷开桌面，需要 Agent 写 `filterHomeAlways`（[#1462](https://github.com/pengchujin/aerial-tv/issues/1462)） |
@@ -266,6 +268,7 @@ curl -fsSL https://aerial.qust.me/install.sh | TV=192.168.1.20 bash -s restore
 | 海信 | 27GX 显示器（MT9655） | Android 14 | ✅ 开 ADB 要先在工厂菜单里把 To Fac 设成 M；界面按 1080p 绘制（[#1466](https://github.com/pengchujin/aerial-tv/issues/1466) [#1461](https://github.com/pengchujin/aerial-tv/issues/1461)） |
 | 海信 | 65E52D | Android 8 | ✅ 开机直接进 Aerial（[#672](https://github.com/pengchujin/aerial-tv/issues/672)） |
 | 海信 | 75E3F（VIDAA_TV，n62016） | Android 9 | ✅ 开机直接进 Aerial（[#847](https://github.com/pengchujin/aerial-tv/issues/847)） |
+| 海信 | 85U7Q（VIDAA_TV，MT9655） | Android 14 | ✅ 设两个海信属性（`persist.vt.use_home_pkg`、`persist.sys.boot.source_pkg`）后开机直达 Aerial，安装脚本 2.17 起两个都设；ADB 只有无线调试，要先配对；信号源列不出（[#1727](https://github.com/pengchujin/aerial-tv/issues/1727)） |
 | 海信 | E5Q Pro | Android 11 | ✅（[#790](https://github.com/pengchujin/aerial-tv/issues/790)） |
 | 海信 / Vidda | M2 Pro 高亮版（VIDAA_TV，VL5R-PRO，MT9653） | Android 11 | ✅ 开机直接进 Aerial；激光光源的亮度走 0–10 档，控制中心这一行能真调（[笔记](docs/devices/hisense-vidaa.md)） |
 | 海信 | 85U7G-PRO（MT9652） | Android 9 | ✅ APK 装完第一次按主页键选 Aerial、「始终」，开机直接进 Aerial，不用 ADB（[#886](https://github.com/pengchujin/aerial-tv/issues/886)） |
