@@ -4,6 +4,8 @@
 
 ## 现状（2026-11-23）
 
+- **2.17（versionCode 161），Lite 1.40（42），2026-11-23 发布**（[v2.17](https://github.com/pengchujin/aerial-tv/releases/tag/v2.17)）：下面巡检的全部修复和合入的 PR。三个包签名 e089…6685，standard 单测 284 个、Lite lint 通过。两台装正式包回归：小米 MFTR0（install-multiple + 31.dm，speed-profile / install-dm）selftest 守护、主页键从设置 0.5 s、8 个信号源；TCL（`tcast-push.py`，uiautomator 确认焦点在「同意」后确定，compile speed）selftest 守护、主页键从浏览器 0.2 s、7 个信号源，两个 walleve 服务不变。官网已部署：两个域名 version.txt=v2.17，notes.json 第一条 2.17，三个 APK 字节数和 Release 一致（standard 3235597、guard 3235478、lite 1012666），官网的 `tools/install.sh` 带上了海信 `boot.source_pkg`，`app.js?v=7` 有 `AUTO_START`，`/diag/aerial-710.apk` 还在。#1725 #1742 #1689 #1724 #1530 贴了发布链接（`local/triage/release-2.17-posts.py`），留着等确认；#1722 关闭。下次发版 versionCode ≥ 162，Lite ≥ 43。
+
 - **2026-11-23 全量巡检**（记录 `local/triage/2026-11-23-full.md`，回复 `replies-2026-11-23.py`，发出 `posted-2026-11-23.txt`，57 条）：348 issue / 75 PR，新的或有新回复的 39 个逐个读过；关闭 28 个 issue（7 个实测 / 已知限制，21 个十天以上没回音），PR 4 个本地 squash 合入、关 1 个。复查（`raw-2026-11-23b`）没有新的。改动（每个一个提交，**main 上，未发版**，已推送）：
   - **开机 App 被守护顶掉**（#1725 MFTR0 唤醒 / TVBox，#1742 小米电视 3 冷启动 / 酷9，96c3962）：开机 App 刚打开、窗口和 usage stats 还停在 Aerial 时，「唤醒后 Aerial 在前台」那条又 `goHome(woke)`，15 秒去重又不让再开。现在 `BootOpen.due` 为假（本次开机 / 唤醒已经开过）就不走这条；首页被刚打开的开机 App 盖住不算无窗口覆盖；去重挡住时写 DiagLog。没在真机走开机 App + 唤醒（户主没设开机 App，没改）。
   - **升级后接管**（#1689，4861723）：延迟接管先看本进程里见过的窗口再问 usage stats，息屏不动；「升级后原桌面在前台」那条写 DiagLog。没复现升级场景。PR #1735 不合（前台未知不接管会让 DBF6 #1544 回退、`isSystemInstaller` 排除应用商店），吸收了两点。
@@ -13,7 +15,7 @@
   - **官网手动命令加 `AUTO_START`**（#1722，c46dd31，`app.js?v=7`），同样要部署才生效。
   - 文档（7839666）：README 中英加 TCL 85Q9L Pro（#1726）、海信 85U7Q（#1727）、索尼 BRAVIA 4K 2015（#1736）；MT9655 笔记（A 对 A 线插上后要按遥控器唤醒）；创维 6H70_M9S **对 Aerial 做 set-home-activity 后固件把 Aerial 卸载**（#1731）。
   - 合 PR：#1741（文档）、#1738（小米 MTK `running_package_name` 提早拉回；户主 MFTR0 OS3.0.101 上这个值一直是 `app.orchard.tv`，新路径不触发、无副作用）、#1739（usage stats 未来日期桶，单测，场景没复现）、#1713（海信系统 App 磁贴；小米导出 121 块磁贴前后逐像素一致）。#1734 等现场，#1733 #1732 功能轮次。
-- 验证：三个 release 包签名 e089…6685，standard 单测 284 个、Lite lint 通过；测试包 versionCode 160（**未提交**，已改回 159）。小米 MFTR0（install-multiple + 31.dm，speed-profile / install-dm）selftest 守护、主页键从设置 0.5 s、从云视听极光回 Aerial、8 个信号源，屏保进出录屏无黑帧（返回退出，没按左右）；TCL（`tcast-push.py`，uiautomator 确认焦点在「同意」后确定，compile speed）selftest 守护、主页键从浏览器 0.5 s、7 个信号源，两个 walleve 服务不变，屏保接着壁纸那段片、录屏无黑帧。**两台现在装的是测试包 160，下次发版 versionCode ≥ 161，Lite ≥ 42（Lite 改了）。** TCL 上 `files/tiles/before.png` 是这次导出的，归 App 所有，adb 删不掉、也读不出，留着无害。
+- 验证：三个 release 包签名 e089…6685，standard 单测 284 个、Lite lint 通过；测试包 versionCode 160（**未提交**，已改回 159）。小米 MFTR0（install-multiple + 31.dm，speed-profile / install-dm）selftest 守护、主页键从设置 0.5 s、从云视听极光回 Aerial、8 个信号源，屏保进出录屏无黑帧（返回退出，没按左右）；TCL（`tcast-push.py`，uiautomator 确认焦点在「同意」后确定，compile speed）selftest 守护、主页键从浏览器 0.5 s、7 个信号源，两个 walleve 服务不变，屏保接着壁纸那段片、录屏无黑帧。两台当时装的是测试包 160，现在已装正式版 161。 TCL 上 `files/tiles/before.png` 是这次导出的，归 App 所有，adb 删不掉、也读不出，留着无害。
 - 等回复：#1729 #1693（创维开机后的诊断）、#1731、#1740 #1716（长虹 ADB）、#1718、#1383（极米无障碍）、#1485（高对比度焦点）、#1723（官方包复现）、#1721 #1728、#1730、#1712、PR #1734。
 
 ## 现状（2026-11-22）
