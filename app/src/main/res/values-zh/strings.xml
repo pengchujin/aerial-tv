@@ -180,7 +180,7 @@
     <string name="cc_inputs_list">在列表里显示</string>
     <string name="cc_inputs_list_hint">电视列出了实际没有的接口，或者用不到的，可以去掉勾，它们就不再出现在信号源列表和主屏幕上。</string>
     <string name="cc_inputs_cec">外接设备开机时切过去</string>
-    <string name="cc_inputs_cec_hint">游戏机、盒子通过 HDMI-CEC 开机（一键播放）时，电视切到它所在的信号源，和电视原来的桌面一样。不是每台电视都会通知，Amlogic 芯片的电视（很多小米机型）会。</string>
+    <string name="cc_inputs_cec_hint">游戏机、盒子通过 HDMI-CEC 开机（一键播放）时，电视切到它所在的信号源，和电视原来的桌面一样。不是每台电视都会通知，Amlogic 芯片的电视（很多小米机型）会；微鲸电视在停在 Aerial 首页时也能切过去。</string>
     <string name="cc_inputs_pin">显示在主屏幕（可多选）</string>
     <string name="cc_inputs_boot">开机时打开（选一个）</string>
     <string name="cc_inputs_boot_none">不打开，停在 Aerial</string>

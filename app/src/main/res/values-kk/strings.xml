@@ -173,7 +173,7 @@
     <string name="cc_inputs_list">Тізімде көрсету</string>
     <string name="cc_inputs_list_hint">Теледидарда жоқ немесе пайдаланбайтын көздерден белгіні алыңыз. Олар тізімнен және басты экраннан жоғалады.</string>
     <string name="cc_inputs_cec">Құрылғы қосылғанда ауысу</string>
-    <string name="cc_inputs_cec_hint">Консоль немесе приставка HDMI-CEC арқылы қосылғанда (One Touch Play), теледидар оның көзіне ауысады, өзінің басты экраны сияқты. Әр теледидар бұл туралы хабарламайды; Amlogic теледидарлары (көптеген Xiaomi) хабарлайды.</string>
+    <string name="cc_inputs_cec_hint">Консоль немесе приставка HDMI-CEC арқылы қосылғанда (One Touch Play), теледидар оның көзіне ауысады, өзінің басты экраны сияқты. Әр теледидар бұл туралы хабарламайды; Amlogic теледидарлары (көптеген Xiaomi) хабарлайды, ал Whaley теледидарларында бұл Aerial басты экраны ашық тұрғанда жұмыс істейді.</string>
     <string name="cc_inputs_pin">Басты экранда көрсету (кез келген саны)</string>
     <string name="cc_inputs_boot">Теледидар қосылғанда (біреу)</string>
     <string name="cc_inputs_boot_none">Ештеңе, Aerial-де қалу</string>

@@ -181,7 +181,7 @@
     <string name="cc_inputs_list">Show in the List</string>
     <string name="cc_inputs_list_hint">Untick inputs this TV lists but does not have, or that you never use. They leave the list and Home.</string>
     <string name="cc_inputs_cec">Switch When a Device Turns On</string>
-    <string name="cc_inputs_cec_hint">When a console or a box turns itself on over HDMI-CEC (One Touch Play), the TV switches to its input, as the TV’s own home screen does. Not every TV says when this happens; Amlogic TVs such as many Xiaomi models do.</string>
+    <string name="cc_inputs_cec_hint">When a console or a box turns itself on over HDMI-CEC (One Touch Play), the TV switches to its input, as the TV’s own home screen does. Not every TV says when this happens; Amlogic TVs such as many Xiaomi models do, and on Whaley TVs it works while Aerial’s Home is in front.</string>
     <string name="cc_inputs_pin">Show on Home (any number)</string>
     <string name="cc_inputs_boot">When the TV Turns On (one)</string>
     <string name="cc_inputs_boot_none">Nothing, stay on Aerial</string>
