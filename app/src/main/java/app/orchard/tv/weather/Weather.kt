@@ -250,7 +250,51 @@ object Weather {
      */
     private class Guess(val lat: Float, val lon: Float, val city: String?, val cn: Boolean)
 
+    /** Strips 省/市/区县 from a name: the city list spells places without those. */
+    private fun bare(name: String): String = name.trim()
+        .removeSuffix("特别行政区").removeSuffix("自治区").removeSuffix("自治州")
+        .removeSuffix("省").removeSuffix("市").removeSuffix("区").removeSuffix("县")
+
+    /**
+     * A Chinese address database names the country, province, city and sometimes district instead
+     * of giving coordinates. The district is the more precise point, so it is looked up first, then
+     * the city, and with only a province, that province's capital (the one entry of rank 0 in
+     * Aerial's own list). Names are tried with the province in front as well: alone, a name like
+     * 通州 belongs to several provinces.
+     */
+    private fun named(prov: String, city: String, district: String, source: String): Guess? {
+        val hit = listOf(district, city).filter { it.isNotBlank() }
+            .flatMap { listOf(prov + it, it) }
+            .firstNotNullOfOrNull { runCatching { Cities.find(app, it) }.getOrNull() }
+            ?: Cities.load(app).firstOrNull { it.province == prov && it.rank == 0 }
+            ?: return null
+        Log.i(TAG, "$source named $prov/$city/$district; using ${hit.name}")
+        return Guess(hit.lat.toFloat(), hit.lon.toFloat(), hit.name, true)
+    }
+
     private fun locate(): Guess? {
+        // A Chinese address database, ipip.net: it answers only for the address this request is
+        // made from, and names the place in Chinese (country, province, city, sometimes district)
+        // rather than giving coordinates. Whatever it cannot name falls through to the databases
+        // below, which are left as they were.
+        runCatching {
+            val loc = JSONObject(get("https://myip.ipip.net/json"))
+                .optJSONObject("data")?.optJSONArray("location") ?: return@runCatching
+            if (loc.optString(0) != "中国") return@runCatching
+            named(bare(loc.optString(1)), bare(loc.optString(2)), bare(loc.optString(3)), "ipip")
+                ?.let { return it }
+        }.onFailure { Log.w(TAG, "ipip", it) }
+        // A second Chinese database for when ipip.net cannot be reached: ip.zxinc.org names the
+        // country, province, district and city separated by tabs, and still answers where only
+        // IPv6 works (whois.pconline.com.cn returns nothing there). HTTPS first; get() falls back
+        // to HTTP for TVs whose trust store predates its certificate.
+        runCatching {
+            val data = JSONObject(get("https://ip.zxinc.org/api.php?type=json")).optJSONObject("data")
+                ?: return@runCatching
+            val parts = data.optString("country").split('\t')
+            if (parts.size < 4 || parts[0] != "中国") return@runCatching
+            named(bare(parts[1]), bare(parts[3]), bare(parts[2]), "ip.zxinc.org")?.let { return it }
+        }.onFailure { Log.w(TAG, "ip.zxinc.org", it) }
         // Over IPv6 the databases place China Mobile's prefixes in another city of the province
         // (a Foshan line came out as Jiangmen), so the IPv4 address is asked for and looked up.
         val v4 = runCatching { get("https://ipv4.icanhazip.com").trim() }.getOrNull()
