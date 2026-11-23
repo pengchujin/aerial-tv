@@ -392,6 +392,10 @@ class HomeGuardService : AccessibilityService() {
         // guard brought Home back, Home opened the boot app 0.3 s later, and the guard's recheck took
         // the app for a cover and pulled Aerial over it 1.7 s after (PR #1366's test, 2026-11-08).
         if (MainActivity.leftForAnApp) return false
+        // The same, kept on disk: Home opened what the TV starts on while it was still coming to the
+        // front, so its own resume can be later than the open (issue #1725: covered 321 ms after
+        // showing, 0.6 s after TVBox was opened again).
+        if (BootOpen.openedWithin(this, COVERED_UNSEEN_MS)) return false
         if (aerialResumedAt < broughtBackAt || aerialPausedAt - aerialResumedAt !in 0 until COVERED_UNSEEN_MS) return false
         Log.i(TAG, "Aerial's Home was covered ${aerialPausedAt - aerialResumedAt} ms after it showed, with no window change")
         return true
@@ -1351,6 +1355,15 @@ class HomeGuardService : AccessibilityService() {
         // still has to open. Only with one chosen: bringing Aerial back also resets its focus.
         // Xiaomi MiTV-MTEQ0, where the guard is revived after the screen lights (issue #111).
         if (woke && last?.first == packageName && hasBootSource()) {
+            // Not when the target was opened already since the TV came on: what is in front is that
+            // app, and the window or usage stats have not caught up. Bringing Aerial back covered it,
+            // and Home's 15 s guard against opening it twice then kept it shut. MiTV-MFTR0 (Android
+            // 14) after a wake, 0.6 s after the guard had reopened TVBox (issue #1725, the reporter's
+            // log); MiTV3 (Android 5.1) 1 s after the boot opened 酷9 (issue #1742).
+            if (!BootOpen.due(this)) {
+                DiagLog.i("guard: $reason with Aerial's window last, but what the TV starts on was opened already; leaving it")
+                return
+            }
             Log.i(TAG, "$reason with Aerial itself in front; flagging the wake")
             goHome(woke = true)
             return

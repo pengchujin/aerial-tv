@@ -449,7 +449,11 @@ class MainActivity : ComponentActivity() {
             DiagLog.i("$reason: ${id ?: pkg} is not in Kids mode; not opening it")
             return
         }
-        if (!again && SystemClock.elapsedRealtime() - bootSourceOpenedAt < 15_000) return
+        if (!again && SystemClock.elapsedRealtime() - bootSourceOpenedAt < 15_000) {
+            // Said in the log: silent, it hid why the target stayed shut (issue #1725).
+            DiagLog.i("$reason: ${id ?: pkg} was opened ${(SystemClock.elapsedRealtime() - bootSourceOpenedAt) / 1000} s ago; not again")
+            return
+        }
         if (!again && !BootOpen.due(this)) {
             DiagLog.i("$reason: already opened ${id ?: pkg} since the TV came on")
             return
