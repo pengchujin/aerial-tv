@@ -1098,10 +1098,18 @@ class HomeGuardService : AccessibilityService() {
         ) {
             handler.postDelayed({
                 if (aerialResumed) return@postDelayed
+                // Not into a screen that went off meanwhile (PR #1735's point).
+                if (screenOff || getSystemService<PowerManager>()?.isInteractive != true) {
+                    DiagLog.i("guard: bound again after Aerial's own update; the screen is off, leaving it")
+                    return@postDelayed
+                }
                 // Only over the installer or a stock launcher. An update finished in the
                 // background while TVBox played on Xiaomi MiTV-MFTR0 (Android 14), and this pulled
-                // the viewer back to Home (issue #1689, the reporter's logcat).
-                val app = frontByUsage()?.first
+                // the viewer back to Home (issue #1689, the reporter's logcat). A window seen since
+                // this binding (a new process: the update killed the old one) is newer than usage
+                // stats, which may not have the app's move to the front yet (2.16 still pulled
+                // Aerial over TVBox there, the reporter's reading of it).
+                val app = lastWindow?.first?.takeIf { it != packageName } ?: frontByUsage()?.first
                 if (app != null && !isInstaller(app) && !isStockHome(app)) {
                     DiagLog.i("guard: bound again after Aerial's own update with $app in front; leaving it there")
                 } else {
@@ -2116,7 +2124,9 @@ class HomeGuardService : AccessibilityService() {
         if (pkg in stockHomes) {
             // Any of its screens, uncovered once the installer of an update from Control Center closed.
             if (!allowed && isActivity(pkg, cls) && GuardSetup.installerJustClosed(this)) {
-                Log.i(TAG, "stock launcher $pkg in front after an update; bringing Aerial back")
+                // In Aerial's log as well, to tell this from the take-over at the binding above
+                // (issue #1689: 2.16 still covered TVBox after an update, which of the two unknown).
+                DiagLog.i("guard: stock launcher $pkg/$cls in front after Aerial's own update; bringing Aerial back")
                 goHome()
                 return
             }
