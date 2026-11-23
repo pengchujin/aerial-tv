@@ -285,8 +285,15 @@ object Restricted {
     /** Into the mode, no PIN needed. */
     fun start() { suspended = false }
 
-    /** Out of it for now, once the PIN was right. */
-    fun suspend() { suspended = true }
+    /**
+     * Out of it for now, once the PIN was right. A break being taken ends with it, as with an
+     * allowance: kept, it came back in full the moment the mode returned by itself (screensaver,
+     * screen off), which a parent who had just let the child off could not tell (issue #1724).
+     */
+    fun suspend() {
+        suspended = true
+        if (usage.breakUntil > System.currentTimeMillis()) saveUsage(usage.copy(breakUntil = 0, continuousMs = 0))
+    }
 
     /** The mode comes back by itself: Aerial's screensaver started or the screen went off. */
     fun rearm() { if (enabled && suspended) suspended = false }

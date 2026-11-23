@@ -115,7 +115,7 @@ object KidsWatch {
         }
 
         val lock = Restricted.lockNow(now)
-        if (lock != Restricted.lock) DiagLog.i("kids: ${lockName(lock)}")
+        if (lock != Restricted.lock) DiagLog.i("kids: ${lockName(lock)}${if (lock == null) unlockedBy(now) else ""}")
         Restricted.lock = lock
         if (lock != null && interactive && !homeInFront) bringBack(ctx, "locked (${lockName(lock)})")
 
@@ -216,6 +216,13 @@ object KidsWatch {
 
     /** Spelled out: R8 renames the classes. */
     private fun lockName(lock: KidsLock?) = when (lock) { is KidsLock.Break -> "break"; KidsLock.DayUsed -> "day used"; KidsLock.Late -> "late"; null -> "unlocked" }
+
+    /** Why a lock went: a parent's allowance or the mode left with the PIN look alike otherwise (issue #1724). */
+    private fun unlockedBy(now: Long): String = when {
+        !Restricted.active -> " (mode left)"
+        Restricted.usage.allowUntil > now -> " (allowed for ${(Restricted.usage.allowUntil - now + 59_999) / 60_000} min)"
+        else -> ""
+    }
 
     /** What the lock says, for the diagnostics. */
     fun diagnosticState(): String {
