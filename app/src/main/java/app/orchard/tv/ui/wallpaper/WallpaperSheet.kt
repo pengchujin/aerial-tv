@@ -55,6 +55,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.FilterQuality
@@ -676,8 +677,13 @@ private fun <T> Choices(
 ) {
     SettingRow(label, hint, note, first) {
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            options.forEach { (value, text) ->
-                Chip(if (text is Int) stringResource(text) else text.toString(), on = current == value) { choose(value) }
+            options.forEachIndexed { index, (value, text) ->
+                Chip(
+                    if (text is Int) stringResource(text) else text.toString(),
+                    on = current == value,
+                    rowStart = index == 0,
+                    rowEnd = index == options.lastIndex,
+                ) { choose(value) }
             }
         }
     }
@@ -687,8 +693,11 @@ private fun <T> Choices(
 @Composable
 private fun PinChoice(onPin: (on: Boolean) -> Unit) {
     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        listOf(false to R.string.st_pin_off, true to R.string.st_pin_on).forEach { (on, label) ->
-            Chip(stringResource(label), on = AerialSettings.pinSet == on) {
+        listOf(false to R.string.st_pin_off, true to R.string.st_pin_on).forEachIndexed { index, (on, label) ->
+            Chip(
+                stringResource(label), on = AerialSettings.pinSet == on,
+                rowStart = index == 0, rowEnd = index == 1,
+            ) {
                 if (AerialSettings.pinSet != on) onPin(on)
             }
         }
@@ -722,8 +731,22 @@ private fun WeatherValue() {
 
 /** A pill to pick one of a few options: a check on the chosen one, white when focused. */
 @Composable
-private fun Chip(label: String, on: Boolean, onFocused: (() -> Unit)? = null, compact: Boolean = false, onClick: () -> Unit) {
-    Pressable(onClick = onClick, focusedScale = 1.06f) { state ->
+private fun Chip(
+    label: String,
+    on: Boolean,
+    onFocused: (() -> Unit)? = null,
+    compact: Boolean = false,
+    rowStart: Boolean = false,
+    rowEnd: Boolean = false,
+    onClick: () -> Unit,
+) {
+    Pressable(
+        onClick = onClick, focusedScale = 1.06f,
+        modifier = Modifier.focusProperties {
+            if (rowStart) left = FocusRequester.Cancel
+            if (rowEnd) right = FocusRequester.Cancel
+        },
+    ) { state ->
         if (onFocused != null) LaunchedEffect(state.focused) { if (state.focused) onFocused() }
         val bg by animateColorAsState(
             when {
@@ -748,7 +771,13 @@ private fun Chip(label: String, on: Boolean, onFocused: (() -> Unit)? = null, co
 /** A pill that does something rather than choosing a value: white when focused, a glyph after its label. */
 @Composable
 private fun ActionChip(label: String, glyph: Glyph, onClick: () -> Unit) {
-    Pressable(onClick = onClick, focusedScale = 1.06f) { state ->
+    Pressable(
+        onClick = onClick, focusedScale = 1.06f,
+        modifier = Modifier.focusProperties {
+            left = FocusRequester.Cancel
+            right = FocusRequester.Cancel
+        },
+    ) { state ->
         val bg by animateColorAsState(if (state.focused) Palette.Focus else Palette.FillStrong, tween(140, easing = Motion.EaseOut), label = "action-bg")
         val fg = if (state.focused) Palette.OnFocus else Palette.Label
         Row(
@@ -766,24 +795,32 @@ private fun ActionChip(label: String, glyph: Glyph, onClick: () -> Unit) {
 private fun ScreensaverChoice(onStart: () -> Unit) {
     // Standby only where the guard can put the TV to sleep (issue #1436), or still chosen.
     val sleep = remember { HomeGuardService.canSleep } || Wallpapers.screensaver == ScreensaverMode.Sleep
+    val modes = listOf(
+        ScreensaverMode.Aerial to R.string.ss_aerial,
+        ScreensaverMode.Photos to R.string.ss_photos,
+        ScreensaverMode.Clock to R.string.ss_clock,
+        ScreensaverMode.Videos to R.string.ss_videos,
+        ScreensaverMode.System to R.string.ss_system,
+    ).let { if (sleep) it + (ScreensaverMode.Sleep to R.string.ss_sleep) else it }
+    val hasStart = Wallpapers.screensaver != ScreensaverMode.Sleep
     // The choice first, then the action that tries it.
     // Six choices with Standby: narrower chips and gaps, so the row's label keeps its room.
     Row(horizontalArrangement = Arrangement.spacedBy(if (sleep) 8.dp else 10.dp)) {
-        listOf(
-            ScreensaverMode.Aerial to R.string.ss_aerial,
-            ScreensaverMode.Photos to R.string.ss_photos,
-            ScreensaverMode.Clock to R.string.ss_clock,
-            ScreensaverMode.Videos to R.string.ss_videos,
-            ScreensaverMode.System to R.string.ss_system,
-        ).let { if (sleep) it + (ScreensaverMode.Sleep to R.string.ss_sleep) else it }.forEach { (mode, label) ->
-            Chip(stringResource(label), on = Wallpapers.screensaver == mode, compact = sleep) { Wallpapers.chooseScreensaver(mode) }
+        modes.forEachIndexed { index, (mode, label) ->
+            Chip(
+                stringResource(label), on = Wallpapers.screensaver == mode, compact = sleep,
+                rowStart = index == 0, rowEnd = !hasStart && index == modes.lastIndex,
+            ) { Wallpapers.chooseScreensaver(mode) }
         }
         if (!sleep) Spacer(Modifier.width(6.dp))
         // Nothing to try with Standby: starting it puts the TV to sleep. With its chip the row has
         // no room for "Start Now" in words (it wrapped to two lines and pushed the row's label out,
         // TCL MT5879): the play glyph alone then, still read out by its name.
         val start = stringResource(R.string.ss_start)
-        if (Wallpapers.screensaver != ScreensaverMode.Sleep) Pressable(onClick = onStart, focusedScale = 1.06f, label = start) { state ->
+        if (hasStart) Pressable(
+            onClick = onStart, focusedScale = 1.06f, label = start,
+            modifier = Modifier.focusProperties { right = FocusRequester.Cancel },
+        ) { state ->
             val bg by animateColorAsState(if (state.focused) Palette.Focus else Palette.FillStrong, tween(140, easing = Motion.EaseOut), label = "ss-start")
             val fg = if (state.focused) Palette.OnFocus else Palette.Label
             Row(
