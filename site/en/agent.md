@@ -164,7 +164,18 @@ Run these in PowerShell, with the adb from step 1. Everything inside `adb shell 
    adb shell settings put global aerial_vt_home_pkg <old value>
    adb shell setprop persist.vt.use_home_pkg app.orchard.tv
    ```
-   If it prints nothing, skip this; other TVs don't have the property.
+   If it prints nothing, check `adb shell pm path com.jamdeo.tv.vod`: if that prints a line (Hisense, with 聚好看 as its launcher), keep `-` for "was empty" and point it at Aerial the same way:
+   ```
+   adb shell settings put global aerial_vt_home_pkg -
+   adb shell setprop persist.vt.use_home_pkg app.orchard.tv
+   ```
+   If both print nothing, skip this; other TVs don't have the property.
+
+   Hisense VIDAA on Android 14 or later (`adb shell getprop ro.build.version.sdk` is 34 or more, `com.jamdeo.tv.vod` installed): also check `adb shell getprop persist.sys.boot.source_pkg`. If it prints nothing, run the two lines below so the TV powers on straight into Aerial (with only the property above, 聚好看 kept taking the front for minutes after a cold boot, #1274 #1495 #1727); if it prints something, leave it:
+   ```
+   adb shell settings put global aerial_boot_source_pkg -
+   adb shell setprop persist.sys.boot.source_pkg app.orchard.tv
+   ```
 
 8. Home Guard: Aerial turns it on when it starts. Run `adb shell settings get secure enabled_accessibility_services`; the result should include `app.orchard.tv/app.orchard.tv.guard.HomeGuardService`. If it doesn't, add it, **keeping what is already there**, joined with a colon:
    ```powershell
@@ -253,6 +264,8 @@ A Home press sent with `input keyevent` skips Home Guard's key filter, so on a f
 
 Once all of it passes, ask the user before running `adb reboot`. After the TV has started again (a minute or two), `adb connect <IP>:5555` and run line 6 again to confirm the TV starts into Aerial.
 
+On the **TCL 65V8M Pro**, record the foreground window before pressing Home or starting an app. On this model Aerial was already in the foreground after reboot while line 4 still returned 0. Once the desktop settles, run lines 3 and 4 again and keep both sets of raw results. If the count is still 0, report that Home Guard is unbound. To test the Home button separately, open TCL Settings, press Home and check line 6.
+
 When everything is done, run `adb disconnect`: some TVs accept one device at a time, and phone tools such as 甲壳虫 cannot connect until this computer lets go (#764). The one-line install disconnects by itself.
 
 ## Undo
@@ -290,7 +303,7 @@ Then:
 - If `adb shell settings get secure screensaver_components` is `app.orchard.tv/...`, put back the default: `adb shell settings put secure screensaver_components <value of adb shell settings get secure screensaver_default_component>`.
 - `adb shell settings get secure enabled_accessibility_services`: remove `app.orchard.tv/app.orchard.tv.guard.HomeGuardService` (and the colon next to it) and write the rest back unchanged. If nothing else is left, run `adb shell settings delete secure enabled_accessibility_services`.
 - Xiaomi (`adb shell pm path com.mitv.tvhome` prints a line): if the last line of `adb shell cmd package resolve-activity --brief -a android.intent.action.MAIN -c android.intent.category.HOME -c android.intent.category.DEFAULT` is `app.orchard.tv/...`, run `adb shell cmd package set-home-activity --user 0 com.mitv.tvhome/.MainActivityUserMode` and restart the TV once (issue #848: with Aerial as the default Home the short press of the power key no longer sleeps the TV).
-- Hisense VIDAA: if `adb shell settings get global aerial_vt_home_pkg` prints a value (not `null`), run `adb shell setprop persist.vt.use_home_pkg <that value>` and `adb shell settings delete global aerial_vt_home_pkg`. If it prints nothing but `adb shell getprop persist.vt.use_home_pkg` is `app.orchard.tv` (set by hand on 1.15 and earlier) and `com.jamdeo.tv.vod` is installed, run `adb shell setprop persist.vt.use_home_pkg com.jamdeo.tv.vod`.
+- Hisense VIDAA: if `adb shell settings get global aerial_vt_home_pkg` prints `-`, run `adb shell "setprop persist.vt.use_home_pkg ''"` and `adb shell settings delete global aerial_vt_home_pkg`; if it prints another value (not `null`), run `adb shell setprop persist.vt.use_home_pkg <that value>` and `adb shell settings delete global aerial_vt_home_pkg`. If it prints nothing but `adb shell getprop persist.vt.use_home_pkg` is `app.orchard.tv` (set by hand on 1.15 and earlier) and `com.jamdeo.tv.vod` is installed, run `adb shell setprop persist.vt.use_home_pkg com.jamdeo.tv.vod`. If `adb shell settings get global aerial_boot_source_pkg` prints `-`, run `adb shell "setprop persist.sys.boot.source_pkg ''"` and `adb shell settings delete global aerial_boot_source_pkg`.
 - To uninstall: `adb uninstall app.orchard.tv`.
 - Finally `adb shell input keyevent KEYCODE_HOME`; the TV goes back to its own home screen.
 

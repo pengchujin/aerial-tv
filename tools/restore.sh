@@ -59,9 +59,18 @@ if [ -n "$BOOT_APP" ] && [ "$BOOT_APP" != null ]; then
 elif [ "$(adb shell settings get system boot_app_componentname | tr -d '\r')" = "$PKG/.MainActivity" ]; then
   adb shell settings put system boot_app_componentname "''" >/dev/null
 fi
+# Hisense VIDAA: install.sh set persist.sys.boot.source_pkg only where it was empty ("-" kept).
+if [ "$(adb shell settings get global aerial_boot_source_pkg | tr -d '\r')" = - ]; then
+  adb shell "setprop persist.sys.boot.source_pkg ''"
+  adb shell settings delete global aerial_boot_source_pkg >/dev/null
+fi
 # Hisense VIDAA: put back the launcher install.sh replaced in persist.vt.use_home_pkg.
 VT_HOME=$(adb shell settings get global aerial_vt_home_pkg | tr -d '\r')
-if [ -n "$VT_HOME" ] && [ "$VT_HOME" != null ]; then
+if [ "$VT_HOME" = - ]; then
+  # It was empty before (#1679): empty again, which is the firmware's own launcher.
+  adb shell "setprop persist.vt.use_home_pkg ''"
+  adb shell settings delete global aerial_vt_home_pkg >/dev/null
+elif [ -n "$VT_HOME" ] && [ "$VT_HOME" != null ]; then
   adb shell setprop persist.vt.use_home_pkg "$VT_HOME"
   adb shell settings delete global aerial_vt_home_pkg >/dev/null
 elif [ "$(adb shell getprop persist.vt.use_home_pkg | tr -d '\r')" = "$PKG" ] &&

@@ -1,0 +1,162 @@
+# App names for the icon library (tools/icon-library.py puts them in index.json as "names"), so the
+# phone page's whole-library picker can show and search apps that are not on the TV.
+# Columns: package, Chinese name, English name ("-" for none), more words to search by (optional,
+# space-separated: the other names people know the app by).
+# Where they come from: the label on the TVs (Xiaomi MFTR0 phone page, TCL MT5879 APKs read with
+# aapt2, 2026-11-21), le5inioo.tsv's names, or the name written on the picture itself. Apps whose
+# name we could not tell for sure are left out; their pictures are still in the library.
+air.com.gongfubb.wkpy.tv	悟空拼音	-	wukong
+air.com.gongfubb.wksz.tv	悟空识字	-	wukong
+app.yecao	小草助手	Xiaocao	yecao
+cn.beevideo	蜜蜂视频	Bee Video
+cn.cibntv.ott	CIBN高清影视	CIBN HD
+cn.com.wasu.main	华数TV	Wasu TV	华数
+cn.jmake.karaoke.box.open	JMAKE专业K歌	JMAKE Karaoke	金麦客 K歌 KTV
+cn.krcom.tv	酷燃视频	Krcom	微博
+cn.kuwo.music.tv	酷我音乐	Kuwo Music
+cn.miguvideo.migutv	咪咕视频	Migu Video	migu
+cn.tvapp88888888.ximalayafm	喜马拉雅	Ximalaya	听书
+cn.wps.moffice_i18n_TV	WPS Office	WPS Office
+com.alibaba.dingtalk.study	钉钉	DingTalk
+com.amazon.amazonvideo.livingroom	Prime Video	Prime Video	Amazon 亚马逊
+com.amazon.firetv.youtube	YouTube	YouTube	油管
+com.android.tv.settings	设置	Settings
+com.apple.android.music	Apple Music	Apple Music	苹果音乐
+com.apple.atve.amazon.appletv	Apple TV	Apple TV	苹果
+com.apple.atve.androidtv.appletv	Apple TV	Apple TV	苹果
+com.baidu.netdisk.tv	百度网盘	Baidu Netdisk
+com.baofeng.tv	暴风影音	Baofeng
+com.bestv.ott.baseservices.gw	百视通	BesTV
+com.changba	唱吧	Changba	K歌
+com.cibn.tv	酷喵	CIBN Kumiao	优酷 youku
+com.cmgame.gamehalltv	咪咕快游	Migu Kuaiyou	游戏
+com.dailyyoga.tv	每日瑜伽	Daily Yoga
+com.dangbei.dbmusic	酷狗音乐（当贝）	Kugou Music (Dangbei)	kugou
+com.dangbei.education	当贝教育	Dangbei Education
+com.dangbei.health.fitness	当贝健身	Dangbei Fitness
+com.dangbei.screencast	当贝投屏	Dangbei Cast
+com.dangbei.tvlauncher	当贝桌面	Dangbei Launcher
+com.dangbei.zhushou	当贝助手	Dangbei Assistant
+com.dangbeimarket	当贝市场	Dangbei Market
+com.dbappstore.lite	当贝市场极速版	Dangbei Market Lite
+com.disney.disneyplus	Disney+	Disney+	迪士尼
+com.duanju.duanju_app.tv	红果短剧	Hongguo	短剧
+com.duokan.videodaily	视频头条	Video Daily
+com.duoduo.opreatv	戏曲多多	-	戏曲
+com.estrongs.android.pop	ES文件浏览器	ES File Explorer
+com.feiniu.music	飞牛音乐	Feiniu Music	fnmusic
+com.finalwire.aida64	AIDA64	AIDA64
+com.fittime.tv.common	即刻运动	FitTime	健身
+com.fnmusic.tv	飞牛音乐	Feiniu Music	fnmusic
+com.geling.view.gelingtv_XX_tongbu_dangbei	名师课堂	-	小学
+com.gitvdemo.video	银河奇异果	iQIYI	爱奇艺 奇异果 qiyi
+com.google.android.youtube.tv	YouTube	YouTube	油管
+com.gotokeep.androidtv	Keep	Keep	健身
+com.hihex.game.angrybirds.android	愤怒的小鸟	Angry Birds
+com.hongguotv.nativeapp	红果短剧	Hongguo	短剧
+com.hpplay.happyplay.aw	乐播投屏	LeBo Cast
+com.huanxi.tv	欢喜首映	Huanxi
+com.hulu.livingroomplus	Hulu	Hulu
+com.hunantv.license	芒果TV	Mango TV	mgtv
+com.hunantv.market	芒果TV	Mango TV	mgtv
+com.huya.nftv	虎牙	Huya	直播
+com.ifeng.tvfm	凤凰FM	Phoenix FM
+com.iptv.liyuanhang_ott	梨园行	-	戏曲
+com.junze.fntv	飞牛音乐	Feiniu Music	fnmusic
+com.kanke.tv	看客	Kanke
+com.kookong.tvplus	机顶盒设置	-	酷控 kookong
+com.ktcp.video	云视听极光	Tencent Video	腾讯视频 极光TV qq
+com.kugou.android.tv	酷狗音乐	Kugou Music
+com.kwai.tv.yst	云视听快手	Kuaishou	快手
+com.lizongying.mytv	我的电视	My TV	IPTV 直播
+com.m1905.tv	1905电影网	M1905	CCTV6 电影
+com.microsoft.emmx	Microsoft Edge	Microsoft Edge	浏览器
+com.minicliphr.subwaysurfing	地铁跑酷	Subway Surfers
+com.mirageengine.tv.xxtbkt	同步课堂	-	小学
+com.mitv.gallery	相册	Gallery
+com.mitv.tvhome	桌面	PatchWall	小米
+com.mitv.tvhome.othertv.dbsc	儿童	Kids
+com.mobile.videonews.li.video.tv	梨视频	Pear Video
+com.mojang.minecraftpe	我的世界	Minecraft
+com.moretv.android	电视猫	MoreTV
+com.moretv.mdd	埋堆堆	MaiDuiDui	粤语
+com.moyegame.motor4.dangbei	绝地竞速	-	游戏
+com.netease.cloudmusic.tv	网易云音乐	NetEase Cloud Music
+com.netease.filmlytv	网易爆米花	Filmly	网易
+com.netflix.ninja	Netflix	Netflix	网飞 奈飞
+com.newtv.cboxtv	CCTV新视听	CCTV	央视
+com.oumi.utility.media.hub	VidHub	VidHub
+com.oversea.aslauncher	Emotn UI	Emotn UI	桌面
+com.phoenix.read	红果短剧	Hongguo	短剧
+com.plexapp.android	Plex	Plex
+com.polarbit.rthunderlite	-	Raging Thunder	赛车
+com.pplive.androidxl	聚精彩	PPTV
+com.pptv.tvsports	PP体育	PP Sports
+com.qihoo360.mobilesafe_tv	360安全卫士	360 Security
+com.quark.yun.tv	夸克网盘	Quark Cloud	夸克
+com.slanissue.tv.erge	贝瓦儿歌	Beva	儿歌
+com.sohuott.tv.vod	搜狐视频	Sohu Video
+com.songloft.tv	Songloft	Songloft
+com.spotify.tv.android	Spotify	Spotify
+com.ss.android.ugc.aweme	抖音	Douyin	tiktok
+com.starcor.mango	芒果TV	Mango TV	mgtv
+com.tcl.MultiScreenInteraction_TV	多屏互动	T-Cast	投屏
+com.tcl.appmarket2	应用商店	App Store
+com.tcl.appreciate.art	艺术画框	T-Exhibition
+com.tcl.c2dm.client	消息盒子	Messages
+com.tcl.common.weather	天气预报	Weather	天气
+com.tcl.gamecenter	游戏中心	Game Center
+com.tcl.guard	安全卫士	TGuard
+com.tcl.playskill	玩机技巧	Tips
+com.tcl.qiyiguo	银河奇异果	iQIYI	爱奇艺 奇异果 qiyi
+com.tcl.settings	设置	Settings
+com.tcl.t_solo	蓝牙单独听	T-Solo
+com.tcl.tshop	T惠购	T Shop
+com.tcl.tvsmartalbum	智能相册	Smart Album	相册
+com.tcl.ui_mediaCenter	媒体中心	Media Player
+com.tcl.usercenter	用户中心	User Center
+com.tcl.videocall	视频通话	Video Call
+com.tcl.walleve	小T助手	-	语音
+com.tcl.wholenetsearch	搜索	Search
+com.ted.android	TED	TED
+com.ted.android.tv	TED	TED
+com.tencent.karaoketv	全民K歌	WeSing	云视听KTV K歌
+com.tencent.qqlivei18n	WeTV	WeTV	腾讯视频
+com.tencent.qqmusictv	QQ音乐	QQ Music
+com.tencent.start.tv	腾讯START云游戏	Tencent START	游戏
+com.trim.tv	飞牛影视	Feiniu TV	fntv
+com.tv.kuaisou	哈趣	-	BesTV
+com.txznet.webchat	微信	WeChat
+com.vcinema.client.tv	南瓜电影	Pumpkin Film
+com.wbd.stream	Max	Max	HBO
+com.wukongtv.wkhelper	悟空遥控	-	wukong
+com.xiaodianshi.tv.yst	云视听小电视	Bilibili	哔哩哔哩 B站 bili
+com.xiaomi.mitv.appstore	应用中心	App Store
+com.xiaomi.mitv.calendar	日历	Calendar
+com.xiaomi.mitv.mediaexplorer	高清播放器	Media Player
+com.xiaomi.mitv.settings	电视设置	TV Settings	设置
+com.xiaomi.mitv.shop	电视商城	Mi Store	小米
+com.xiaomi.mitv.smartshare	无线投屏	Screen Cast	投屏
+com.xiaomi.mitv.tvmanager	电视管家	TV Manager
+com.xiaomi.smarthome.tv	米家	Mi Home
+com.xiaomi.tv.gallery	时尚画报	Gallery	画报
+com.xiaomi.tweather	天气	Weather
+com.xiaomi.voicecontrol	小爱同学	XiaoAi	语音
+com.yangqi.rom.launcher.free	氧气桌面	-	桌面
+com.yingyongguanjia	应用管家	TV Manager
+com.yingzheng.jlkt3.wocheng	激流快艇3	-	游戏
+com.yiqikan.tv.television.all	一起看TV	-	直播
+com.youloft.calendar.tv	万年历	-	日历
+fm.qingting.tvradio	蜻蜓FM	Qingting FM	电台
+kanke.tv.com	看客	Kanke
+mulin.tvdy	抖音	Douyin	tiktok
+net.cibntv.ott.sk	4K花园	4K Garden
+net.froemling.bombsquad	炸弹小分队	BombSquad
+net.myvst.v2	CIBN微视听	VST	微视听
+org.jellyfin.androidtv	Jellyfin	Jellyfin
+org.videolan.vlc	VLC	VLC
+org.xbmc.kodi	Kodi	Kodi
+rca.rc.tvtaobao	电视淘宝	TV Taobao	淘宝
+rocks.aston.hongguotv	红果短剧	Hongguo	短剧
+tv.emby.embyatv	Emby	Emby
+tv.twitch.android.app	Twitch	Twitch	直播

@@ -228,7 +228,13 @@ object Kids {
     }
 
     fun start() { if (enabled && suspended) { suspended = false; changed() } }
-    fun suspend() { if (!suspended) { suspended = true; changed() } }
+    /** A break being taken ends with it, as with an allowance (issue #1724, the full app's Restricted.suspend). */
+    fun suspend() {
+        if (suspended) return
+        suspended = true
+        if (usage.breakUntil > System.currentTimeMillis()) saveUsage(usage.copy(breakUntil = 0, continuousMs = 0))
+        changed()
+    }
     fun rearm() { if (enabled && suspended) { suspended = false; changed() } }
 
     private fun changed() { poke(); onChange() }
@@ -302,7 +308,13 @@ object Kids {
 
         val newLock = if (active) KidsTime.lock(rules, usage, now) else null
         if (newLock?.logName != lock?.logName) {
-            Log.i(TAG, "kids: ${newLock?.logName ?: "unlocked"}")
+            val why = when {
+                newLock != null -> ""
+                !active -> " (mode left)"
+                usage.allowUntil > now -> " (allowed for ${(usage.allowUntil - now + 59_999) / 60_000} min)"
+                else -> ""
+            }
+            Log.i(TAG, "kids: ${newLock?.logName ?: "unlocked"}$why")
             lock = newLock
             onChange()
         } else lock = newLock

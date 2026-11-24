@@ -76,7 +76,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.window.DialogWindowProvider
+import app.orchard.tv.BuildConfig
 import app.orchard.tv.R
+import app.orchard.tv.system.HomeStatus
+import app.orchard.tv.update.Updates
+import app.orchard.tv.guard.HomeGuardService
 import app.orchard.tv.settings.AerialSettings
 import app.orchard.tv.settings.ClockHours
 import app.orchard.tv.settings.Restricted
@@ -134,6 +138,10 @@ fun WallpaperSheet(
     onPin: (on: Boolean) -> Unit,
     /** Kids and Elders mode's setup (behind the PIN). */
     onKids: () -> Unit,
+    /** Whether Aerial is the home screen or guarded, for the About group. */
+    homeStatus: HomeStatus,
+    /** Control Center's update page, for a new version. */
+    onUpdate: () -> Unit,
     /** The sheet is all the way in (true) or not: Home need not draw under it then ([SheetCovers]). */
     onSettled: (Boolean) -> Unit = {},
     /** Draw the closed sheet once, nearly clear, so that its first opening is not its first draw (HomeScreen). */
@@ -323,6 +331,7 @@ fun WallpaperSheet(
                         when {
                             Wallpapers.screensaver == ScreensaverMode.Videos -> stringResource(R.string.ss_videos_hint)
                             Wallpapers.screensaver == ScreensaverMode.System -> stringResource(R.string.ss_system_hint)
+                            Wallpapers.screensaver == ScreensaverMode.Sleep -> stringResource(R.string.ss_sleep_hint)
                             Wallpapers.screensaverFollows -> stringResource(R.string.ss_follow_hint)
                             AerialSettings.backStartsScreensaver -> stringResource(R.string.ss_back_hint)
                             else -> null
@@ -403,21 +412,48 @@ fun WallpaperSheet(
                 Spacer(Modifier.height(10.dp))
                 Group(stringResource(R.string.st_pin_hint)) { note ->
                     SettingRow(R.string.st_pin, null, note, first = true) {
-                        PinChoice(onPin, onFocused = { scope.launch { scroll.animateScrollTo(scroll.maxValue) } })
+                        // No scroll of its own here: About sits below now, and a scroll to the
+                        // bottom after the focus's own made the sheet jump on every Up (#1606).
+                        PinChoice(onPin)
                     }
                     SettingRow(R.string.st_kids, stringResource(R.string.st_kids_hint), note) {
-                        // The last row that takes focus: bring the note under it into view too.
+                        ActionChip(
+                            when {
+                                !Restricted.enabled -> stringResource(R.string.st_off)
+                                Restricted.kind == RestrictedKind.Kids -> stringResource(R.string.kids_kind_kids)
+                                else -> stringResource(R.string.kids_kind_elders)
+                            },
+                            Glyph.ChevronRight,
+                            onKids,
+                        )
+                    }
+                }
+                // About Aerial, last (issue #1606): Control Center shows only a new version.
+                Spacer(Modifier.height(22.dp))
+                SectionTitle(R.string.cc_about)
+                Group(stringResource(R.string.cc_about_version, Updates.current) + " · " + BuildConfig.FLAVOR) { note ->
+                    val latest = Updates.available
+                    SettingRow(R.string.cc_about_update, null, note, first = true) {
+                        // Now the last row that takes focus: bring the note under it into view too.
                         Box(Modifier.onFocusChanged { if (it.hasFocus) scope.launch { scroll.animateScrollTo(scroll.maxValue) } }) {
                             ActionChip(
-                                when {
-                                    !Restricted.enabled -> stringResource(R.string.st_off)
-                                    Restricted.kind == RestrictedKind.Kids -> stringResource(R.string.kids_kind_kids)
-                                    else -> stringResource(R.string.kids_kind_elders)
-                                },
+                                latest?.let { stringResource(R.string.cc_update_to, it) } ?: stringResource(R.string.cc_about_latest),
                                 Glyph.ChevronRight,
-                                onKids,
+                                // Nothing newer known: look again now.
+                                onClick = { if (latest != null) onUpdate() else Updates.checkIfStale(force = true) },
                             )
                         }
+                    }
+                    val (dot, label) = when (homeStatus) {
+                        HomeStatus.Default -> Palette.Green to R.string.cc_home_default
+                        HomeStatus.Guarded -> Palette.Green to R.string.cc_home_guarded
+                        HomeStatus.NotDefault -> Palette.Orange to R.string.cc_home_not_default
+                    }
+                    // Not a control: shown as a row of the group, without focus.
+                    Box(Modifier.padding(start = 18.dp).fillMaxWidth().height(1.dp).background(Palette.Hairline))
+                    Row(Modifier.fillMaxWidth().height(58.dp).padding(start = 18.dp, end = 24.dp), verticalAlignment = Alignment.CenterVertically) {
+                        BasicText(stringResource(label), style = Type.Body, modifier = Modifier.weight(1f), maxLines = 1)
+                        Box(Modifier.size(10.dp).clip(CircleShape).background(dot))
                     }
                 }
                 Spacer(Modifier.height(24.dp))
@@ -477,6 +513,7 @@ private fun ScreensaverBrightnessDialog(onDismiss: () -> Unit, onConfirm: (Int) 
             BasicText(stringResource(R.string.ss_brightness), style = Type.Headline)
             SliderRow(
                 glyph = Glyph.Sun,
+                label = stringResource(R.string.ss_brightness),
                 level = (draft - range.first).toFloat() / (range.last - range.first),
                 value = brightnessLabel(draft),
                 steps = (range.last - range.first) / 5,
@@ -719,10 +756,10 @@ private fun <T> Choices(
 
 /** Parental PIN on or off; either way goes through the PIN pad (issue #10). */
 @Composable
-private fun PinChoice(onPin: (on: Boolean) -> Unit, onFocused: () -> Unit) {
+private fun PinChoice(onPin: (on: Boolean) -> Unit) {
     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         listOf(false to R.string.st_pin_off, true to R.string.st_pin_on).forEach { (on, label) ->
-            Chip(stringResource(label), on = AerialSettings.pinSet == on, onFocused = onFocused) {
+            Chip(stringResource(label), on = AerialSettings.pinSet == on) {
                 if (AerialSettings.pinSet != on) onPin(on)
             }
         }
@@ -756,7 +793,7 @@ private fun WeatherValue() {
 
 /** A pill to pick one of a few options: a check on the chosen one, white when focused. */
 @Composable
-private fun Chip(label: String, on: Boolean, onFocused: (() -> Unit)? = null, onClick: () -> Unit) {
+private fun Chip(label: String, on: Boolean, onFocused: (() -> Unit)? = null, compact: Boolean = false, onClick: () -> Unit) {
     Pressable(onClick = onClick, focusedScale = 1.06f) { state ->
         if (onFocused != null) LaunchedEffect(state.focused) { if (state.focused) onFocused() }
         val bg by animateColorAsState(
@@ -769,9 +806,9 @@ private fun Chip(label: String, on: Boolean, onFocused: (() -> Unit)? = null, on
         )
         val fg = if (state.focused) Palette.OnFocus else Palette.Label
         Row(
-            Modifier.clip(RoundedCornerShape(50)).drawBehind { drawRect(bg) }.height(40.dp).padding(horizontal = 20.dp),
+            Modifier.clip(RoundedCornerShape(50)).drawBehind { drawRect(bg) }.height(40.dp).padding(horizontal = if (compact) 15.dp else 20.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(if (compact) 6.dp else 8.dp),
         ) {
             if (on) GlyphIcon(Glyph.Check, fg, 14.dp)
             BasicText(label, style = Type.Body.copy(color = fg))
@@ -798,28 +835,35 @@ private fun ActionChip(label: String, glyph: Glyph, onClick: () -> Unit) {
 
 @Composable
 private fun ScreensaverChoice(onStart: () -> Unit) {
+    // Standby only where the guard can put the TV to sleep (issue #1436), or still chosen.
+    val sleep = remember { HomeGuardService.canSleep } || Wallpapers.screensaver == ScreensaverMode.Sleep
     // The choice first, then the action that tries it.
-    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+    // Six choices with Standby: narrower chips and gaps, so the row's label keeps its room.
+    Row(horizontalArrangement = Arrangement.spacedBy(if (sleep) 8.dp else 10.dp)) {
         listOf(
             ScreensaverMode.Aerial to R.string.ss_aerial,
             ScreensaverMode.Photos to R.string.ss_photos,
             ScreensaverMode.Clock to R.string.ss_clock,
             ScreensaverMode.Videos to R.string.ss_videos,
             ScreensaverMode.System to R.string.ss_system,
-        ).forEach { (mode, label) ->
-            Chip(stringResource(label), on = Wallpapers.screensaver == mode) { Wallpapers.chooseScreensaver(mode) }
+        ).let { if (sleep) it + (ScreensaverMode.Sleep to R.string.ss_sleep) else it }.forEach { (mode, label) ->
+            Chip(stringResource(label), on = Wallpapers.screensaver == mode, compact = sleep) { Wallpapers.chooseScreensaver(mode) }
         }
-        Spacer(Modifier.width(6.dp))
-        Pressable(onClick = onStart, focusedScale = 1.06f) { state ->
+        if (!sleep) Spacer(Modifier.width(6.dp))
+        // Nothing to try with Standby: starting it puts the TV to sleep. With its chip the row has
+        // no room for "Start Now" in words (it wrapped to two lines and pushed the row's label out,
+        // TCL MT5879): the play glyph alone then, still read out by its name.
+        val start = stringResource(R.string.ss_start)
+        if (Wallpapers.screensaver != ScreensaverMode.Sleep) Pressable(onClick = onStart, focusedScale = 1.06f, label = start) { state ->
             val bg by animateColorAsState(if (state.focused) Palette.Focus else Palette.FillStrong, tween(140, easing = Motion.EaseOut), label = "ss-start")
             val fg = if (state.focused) Palette.OnFocus else Palette.Label
             Row(
-                Modifier.clip(RoundedCornerShape(50)).drawBehind { drawRect(bg) }.height(40.dp).padding(horizontal = 20.dp),
+                Modifier.clip(RoundedCornerShape(50)).drawBehind { drawRect(bg) }.height(40.dp).then(if (sleep) Modifier.width(40.dp) else Modifier.padding(horizontal = 20.dp)),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = if (sleep) Arrangement.Center else Arrangement.spacedBy(8.dp),
             ) {
                 GlyphIcon(Glyph.Play, fg, 14.dp)
-                BasicText(stringResource(R.string.ss_start), style = Type.Body.copy(color = fg))
+                if (!sleep) BasicText(start, style = Type.Body.copy(color = fg), maxLines = 1)
             }
         }
     }

@@ -134,6 +134,9 @@ class RevivalListener : NotificationListenerService() {
     override fun dump(fd: FileDescriptor?, writer: PrintWriter, args: Array<out String>?) {
         writer.println("Aerial revival: active=$recovering attempts=$attempt outcome=$outcome")
         writer.println("userUnlocked=${GuardSetup.isUserUnlocked(this)} guardRunning=${HomeGuardService.isRunning}")
+        // The guard's state too: where Home is not running this dump is the one way in (Android 8
+        // XGIMI H3, issue #1383: `dumpsys activity ...MainActivity` found no activity).
+        if (GuardSetup.isUserUnlocked(this)) runCatching { writer.println(HomeGuardService.diagnosticState()) }
         DiagLog.dump(writer)
     }
 

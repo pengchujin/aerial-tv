@@ -141,6 +141,8 @@ TCL Q10L（MT9655，1.67-guard，2026-10-28 报告人实测）：Aerial 的 4K �
 - standard 被拒（`INSTALL_FAILED_VERIFICATION_FAILURE`），guard 走多屏互动。**电视在播直播时推送的确认框被视频层盖住看不见**，两次超时；回到桌面再推就出来了。
 - 装好后守护保留过重启，开机组件（原值 `boot_app_mode=boot_tv_hdmi1`、`boot_app_componentname` 空）设成 Aerial 后重启第一个前台就是 Aerial，主页键回 Aerial。
 
+TCL 85Q9L Pro（MT9655_4K_CN，安卓 14，`UTT2.250416.001 AU01`，#1726，2026-11-22 报告人实测）：无线 adb 只广播 `_adb-tls-connect`，`adb connect` 失败、`adb pair` 报 `protocol fault`；**USB A 对 A 线**能用，插上后要用遥控器按一下唤醒，电脑上才出现 `VID_18D1&PID_4EE7`，电视随后弹授权。先多屏互动装 guard，再由应用内更新升到 standard，HOME 解析到 Aerial；`appops` 名是 `AUTO_START` / `ASSOC_START`（没有 `APP_` 前缀，设之前是 `ignore`，#1722）。同型号的 75T7L Ultra（#1510）同样接线却一直 `unauthorized`、不弹授权框，原因不明。
+
 ## 网络调试回 `STLS`（75Q9L Pro，#1293）
 
 `STLS` 不是 TCL 私有协议，是标准 ADB 的 TLS 握手（A_STLS）：无线调试的端口要先配对才接受。这类固件没有配对码入口、USB 口只出摄像头时，电脑连不上，只能走多屏互动推 guard 版，装完没有 ADB 就开不了守护。

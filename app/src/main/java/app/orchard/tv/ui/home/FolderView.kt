@@ -25,6 +25,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
+import androidx.compose.animation.core.animate
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.MutatePriority
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.onPlaced
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.platform.LocalDensity
+import kotlinx.coroutines.launch
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
@@ -66,6 +74,36 @@ fun FolderView(
     // The app whose menu is open: a closing menu hands focus to whatever lies under it first.
     var menuKey by remember(shownName) { mutableStateOf<String?>(null) }
 
+    val scope = rememberCoroutineScope()
+    val scroll = rememberScrollState()
+    // Where each row and the folder's window are, to scroll a focused row into sight.
+    val rows = remember { HashMap<Int, LayoutCoordinates>() }
+    var window by remember { mutableStateOf<LayoutCoordinates?>(null) }
+    val ringRoom = with(LocalDensity.current) { 20.dp.toPx() }
+    /**
+     * Scrolls the row whole into sight: with the room under it (its zoom, ring and name, which lie
+     * outside the tile's box), and a little over it for the ring. Focus alone scrolled only the
+     * tile's own box in, and in a folder of four rows the last one stayed cut by the screen's edge
+     * (issue #1748). Above the focus's own scroll in priority, so that one cannot cut it short.
+     */
+    fun showRow(r: Int) {
+        val w = window?.takeIf { it.isAttached } ?: return
+        val row = rows[r]?.takeIf { it.isAttached } ?: return
+        val box = w.localBoundingBoxOf(row, clipBounds = false)
+        val needed = when {
+            // The first row with the folder's name over it, as it opened.
+            r == 0 && scroll.value > 0 -> -scroll.value.toFloat()
+            box.top - ringRoom < 0f -> box.top - ringRoom
+            box.bottom > w.size.height -> box.bottom - w.size.height
+            else -> return
+        }
+        scope.launch {
+            scroll.scroll(MutatePriority.UserInput) {
+                var done = 0f
+                animate(0f, needed, animationSpec = spring(dampingRatio = 1f, stiffness = 280f)) { v, _ -> done += scrollBy(v - done) }
+            }
+        }
+    }
     BackHandler(enabled = visible && enabled, onBack = onDismiss)
     // On opening, the first app; back from a menu, the app it was for, or its neighbour if it left.
     LaunchedEffect(visible, enabled, shownApps) {
@@ -93,7 +131,8 @@ fun FolderView(
             Column(
                 Modifier
                     .fillMaxSize()
-                    .verticalScroll(rememberScrollState())
+                    .onPlaced { window = it }
+                    .verticalScroll(scroll)
                     // Room around the grid for a focused tile's zoom and its name.
                     .padding(start = 56.dp, end = 56.dp, top = 56.dp, bottom = 48.dp),
             ) {
@@ -101,8 +140,11 @@ fun FolderView(
                     shownName, style = Type.LargeTitle, maxLines = 1, overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.padding(bottom = 36.dp),
                 )
-                shownApps.chunked(columns).forEach { row ->
-                    Row(horizontalArrangement = Arrangement.spacedBy(gap), modifier = Modifier.padding(bottom = 50.dp)) {
+                shownApps.chunked(columns).forEachIndexed { r, row ->
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(gap),
+                        modifier = Modifier.onPlaced { rows[r] = it }.padding(bottom = 50.dp),
+                    ) {
                         row.forEach { app ->
                             AppTile(
                                 app = app,
@@ -111,7 +153,10 @@ fun FolderView(
                                 focusRequester = requester(app.key),
                                 enabled = enabled,
                                 moving = app.key == movingKey,
-                                onFocused = { focusedKey = app.key },
+                                onFocused = {
+                                    focusedKey = app.key
+                                    showRow(r)
+                                },
                                 // While an app moves, a tap opens nothing (OK ends the move on Home's keys).
                                 onClick = { bounds -> if (movingKey == null) onLaunch(app, bounds) },
                                 onLongPress = { bounds -> if (movingKey == null) { menuKey = app.key; onLongPress(app, bounds) } },

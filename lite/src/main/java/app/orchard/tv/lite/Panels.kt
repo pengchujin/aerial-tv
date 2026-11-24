@@ -241,7 +241,7 @@ class ControlCenter(
         }
 
         // Brightness where Lite can set the panel's (Brightness), else the TV's own picture settings.
-        if (!OutputDevice.showsBrightness()) Unit
+        if (!OutputDevice.showsBrightness() || Brightness.hidden(context)) Unit
         else if (Brightness.level(context) != null) {
             val brightness = SliderRow(
                 context,
@@ -278,14 +278,7 @@ class ControlCenter(
             row(boot)
         }
 
-        // Whether Lite is the TV's Home, and the version.
-        val status = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(Ui.pxi(14f), 0, Ui.pxi(14f), 0) }
-        val home = isHome(context)
-        status.addView(Dot(context, if (home) Ui.GREEN else 0xFFFF9F0A.toInt()), LinearLayout.LayoutParams(Ui.pxi(7f), Ui.pxi(7f)))
-        status.addView(context.label(context.getString(if (home) R.string.cc_home_default else R.string.cc_home_not_default), 11f, 500, Ui.SECONDARY),
-            LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply { leftMargin = Ui.pxi(8f) })
-        status.addView(context.label("Aerial Lite " + version(context), 11f, 500, Ui.TERTIARY))
-        col.add(status, top = 8f)
+        // Whether Lite is the TV's Home, and the version, are at the bottom of Personalize (#1606).
     }
 
     /** What the TV starts on: an app is chosen from its tile's menu; here it shows, and "nothing" clears it. */
@@ -614,7 +607,7 @@ class Personalize(
             settingRow(R.string.wp_weather_city, null, emptyList(), value = weatherValue())
         }
         col.add(space(context, 10f))
-        // The last row: one row says what it is; a title over it would only repeat it.
+        // One row says what it is; a title over it would only repeat it.
         group(string(R.string.st_pin_hint)) {
             choices(R.string.st_pin, null, listOf(false to R.string.st_pin_off, true to R.string.st_pin_on), LiteSettings.pinSet) { on ->
                 if (LiteSettings.pinSet != on) onPin(on)
@@ -625,6 +618,14 @@ class Personalize(
                 else -> R.string.kids_kind_elders
             }), { false }, Glyph.ChevronRight).apply { action = onKids }
             settingRow(R.string.st_kids, string(R.string.st_kids_hint), listOf(kids))
+        }
+
+        // About, last, as the full app (#1606): whether Lite is the TV's Home, and the version.
+        col.add(section(R.string.cc_about), top = 22f)
+        group(context.getString(R.string.cc_about_version, ControlCenter.version(context)) + " · Lite") {
+            val home = ControlCenter.isHome(context)
+            settingRow(if (home) R.string.cc_home_default else R.string.cc_home_not_default, null, emptyList(),
+                value = context.label("●", 14f, 500, if (home) Ui.GREEN else 0xFFFF9F0A.toInt()))
         }
     }
 

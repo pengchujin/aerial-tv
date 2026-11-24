@@ -181,7 +181,7 @@
     <string name="cc_inputs_list">Show in the List</string>
     <string name="cc_inputs_list_hint">Untick inputs this TV lists but does not have, or that you never use. They leave the list and Home.</string>
     <string name="cc_inputs_cec">Switch When a Device Turns On</string>
-    <string name="cc_inputs_cec_hint">When a console or a box turns itself on over HDMI-CEC (One Touch Play), the TV switches to its input, as the TV’s own home screen does. Not every TV says when this happens; Amlogic TVs such as many Xiaomi models do.</string>
+    <string name="cc_inputs_cec_hint">When a console or a box turns itself on over HDMI-CEC (One Touch Play), the TV switches to its input, as the TV’s own home screen does. Not every TV says when this happens; Amlogic TVs such as many Xiaomi models do, and on Whaley TVs it works while Aerial’s Home is in front.</string>
     <string name="cc_inputs_pin">Show on Home (any number)</string>
     <string name="cc_inputs_boot">When the TV Turns On (one)</string>
     <string name="cc_inputs_boot_none">Nothing, stay on Aerial</string>
@@ -241,6 +241,7 @@
     <string name="weather_thunder">Thunderstorms</string>
     <string name="weather_temperature">%1$d°</string>
     <string name="weather_high_low">H:%1$d°  L:%2$d°</string>
+    <string name="weather_hours_ago">%d h ago</string>
     <string name="st_columns">Apps per Row</string>
     <string name="st_columns_hint">How many apps fit across Home, and in folders. Six shows more at a glance; four makes them larger, easier to see from across the room.</string>
     <string name="st_peek">Second Row</string>
@@ -331,4 +332,12 @@
     <string name="kids_blocked">%s is not allowed here</string>
     <string name="kids_warn">%d min of TV left</string>
     <string name="kids_warn_break">A break in %d min</string>
+    <string name="a11y_delete">Delete</string>
+    <string name="cc_about">About Aerial</string>
+    <string name="cc_about_update">Software Update</string>
+    <string name="cc_about_latest">Up to Date</string>
+    <string name="cc_about_version">Version %1$s</string>
+    <string name="ss_sleep">Standby</string>
+    <string name="ss_sleep_hint">No screensaver: when the time comes, the TV goes to standby, as with its power button. Many TVs then wake only with the power button.</string>
+    <string name="cc_update_to">Update to %1$s</string>
 </resources>

@@ -1,6 +1,8 @@
 package app.orchard.tv.lite
 
 import android.content.Context
+import android.app.ActivityManager
+import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.RectF
@@ -41,7 +43,7 @@ fun dateText(millis: Long = System.currentTimeMillis()): String {
 }
 
 /** The weather beside the clock, once known: its glyph, the temperature, and the rest dimmed. */
-class WeatherLine(val glyph: Glyph, val celsius: Int, val place: String?, val detail: String)
+class WeatherLine(val glyph: Glyph, val celsius: Int, val place: String?, val detail: String, val old: String? = null)
 
 /**
  * The full app's clocks (HomeChrome): the small one, the time and the weather in one quiet line
@@ -81,7 +83,9 @@ class ClockView(context: Context) : View(context) {
         setMeasuredDimension(w, Ui.pxi(if (large) 200f else 34f))
     }
 
-    private fun smallWeatherText(w: WeatherLine) = listOfNotNull(w.place?.takeIf { it.length <= 12 }, context.getString(R.string.weather_temperature, w.celsius)).joinToString(" ")
+    private fun smallWeatherText(w: WeatherLine) =
+        listOfNotNull(w.place?.takeIf { it.length <= 12 }, context.getString(R.string.weather_temperature, w.celsius)).joinToString(" ") +
+            w.old?.let { " · $it" }.orEmpty()
 
     private fun smallWidth(): Float {
         var x = Ui.width(time, smallPaint, 0.05f)
@@ -125,7 +129,7 @@ class ClockView(context: Context) : View(context) {
         }
         // The time, 16 under the date's baseline to its capitals.
         y += Ui.px(16f + 104f * Ui.CAP_HEIGHT)
-        Ui.draw(c, time, if (alignEnd) start(Ui.width(time, bigPaint, -0.04f)) + Ui.px(4f) else -Ui.px(4f), y, bigPaint, -0.04f)
+        drawTime(c, if (alignEnd) start(Ui.width(time, bigPaint, -0.04f)) + Ui.px(4f) else -Ui.px(4f), y)
         val w = weather ?: return
         // The weather, 18 under the time.
         y += Ui.px(18f + 16f * Ui.CAP_HEIGHT)
@@ -139,6 +143,31 @@ class ClockView(context: Context) : View(context) {
         Ui.draw(c, temp, x, y, detailPaint)
         if (restText.isNotEmpty()) Ui.draw(c, restText, x + detailPaint.measureText(temp), y, detailDim)
     }
+
+    /**
+     * The big time. On a GPU with OpenGL ES 2 only it is drawn on the CPU into a picture, once a
+     * minute, and the picture is what the GPU draws: the GPU's own way with glyphs this large left
+     * the digits' slopes and curves jagged on ZTE W152D (Amlogic S905L4, Mali-450), in the full app
+     * as in Lite (issue #1658). A software layer for the whole view would cut the shadow and the
+     * date's accents, which reach outside it.
+     */
+    private fun drawTime(c: Canvas, x: Float, baseline: Float) {
+        if (!softDigits || !c.isHardwareAccelerated) { Ui.draw(c, time, x, baseline, bigPaint, -0.04f); return }
+        val pad = Ui.px(24f)
+        val fm = bigPaint.fontMetrics
+        if (digits == null || digitsFor != time) {
+            val w = (Ui.width(time, bigPaint, -0.04f) + 2 * pad).toInt() + 1
+            val h = (fm.descent - fm.ascent + 2 * pad).toInt() + 1
+            digits = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888).also {
+                Ui.draw(Canvas(it), time, pad, pad - fm.ascent, bigPaint, -0.04f)
+            }
+            digitsFor = time
+        }
+        c.drawBitmap(digits!!, x - pad, baseline + fm.ascent - pad, null)
+    }
+    private val softDigits = glesMajor(context) in 1..2
+    private var digits: Bitmap? = null
+    private var digitsFor = ""
 
     private fun drawSmall(c: Canvas) {
         val h = height.toFloat()
@@ -176,8 +205,16 @@ class StatusPill(context: Context) : View(context) {
     /** A VPN is up: the full app's VpnBadge after the network glyph (issue #809). */
     var vpn = false
         set(v) { if (field != v) { field = v; requestLayout(); invalidate() } }
+    /**
+     * The battery's percent where the device runs on one and is not plugged in, else -1 (the full
+     * app's BatteryBadge, issues #1426 #1671).
+     */
+    var battery = -1
+        set(v) { if (field != v) { field = v; requestLayout(); invalidate() } }
 
     private val text = Ui.text(15f, 600)
+    private val small = Ui.text(13f, 500)
+    private val stroke = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
     private val bg = Paint(Paint.ANTI_ALIAS_FLAG)
     private val rect = RectF()
     private val bitmapPaint = Paint(Paint.FILTER_BITMAP_FLAG)
@@ -189,6 +226,7 @@ class StatusPill(context: Context) : View(context) {
         val gap = Ui.px(10f)
         var w = pad * 2 + g * 2 + gap
         if (vpn) w += badge.width + gap
+        if (battery >= 0) w += small.measureText("$battery%") + Ui.px(4f + 22f) + gap
         if (showTime) w += text.measureText(timeText(context)) + gap
         setMeasuredDimension(w.toInt() + 1, Ui.pxi(34f))
     }
@@ -210,6 +248,7 @@ class StatusPill(context: Context) : View(context) {
         canvas.drawBitmap(Glyphs.image(network, g, fg, level), x, top, bitmapPaint)
         x += g + Ui.px(10f)
         if (vpn) x += badge.draw(canvas, x, height / 2f, fg) + Ui.px(10f)
+        if (battery >= 0) x += drawBattery(canvas, x, fg) + Ui.px(10f)
         if (showTime) {
             text.color = fg
             val t = timeText(context)
@@ -217,6 +256,25 @@ class StatusPill(context: Context) : View(context) {
             x += text.measureText(t) + Ui.px(10f)
         }
         canvas.drawBitmap(Glyphs.image(Glyph.Switches, g, fg), x, top, bitmapPaint)
+    }
+
+    /** The percent, then an outline filled to the level; red at 20% and under. Its width. */
+    private fun drawBattery(canvas: Canvas, x0: Float, fg: Int): Float {
+        small.color = fg
+        val label = "$battery%"
+        canvas.drawText(label, x0, height / 2f - (small.descent() + small.ascent()) / 2, small)
+        var x = x0 + small.measureText(label) + Ui.px(4f)
+        val w = Ui.px(22f - 2.5f); val h = Ui.px(11f); val y = (height - h) / 2f
+        val dim = (fg and 0x00FFFFFF) or (0x8C shl 24)
+        stroke.strokeWidth = Ui.px(1.2f); stroke.color = dim
+        rect.set(x, y, x + w, y + h); canvas.drawRoundRect(rect, Ui.px(3f), Ui.px(3f), stroke)
+        bg.color = dim
+        rect.set(x + w + Ui.px(0.8f), y + h * 0.32f, x + w + Ui.px(2.5f), y + h * 0.68f); canvas.drawRoundRect(rect, Ui.px(1f), Ui.px(1f), bg)
+        val inset = Ui.px(2.2f)
+        bg.color = if (battery <= 20) 0xFFFF453A.toInt() else fg
+        rect.set(x + inset, y + inset, x + inset + (w - 2 * inset) * battery.coerceIn(0, 100) / 100f, y + h - inset)
+        canvas.drawRoundRect(rect, Ui.px(1.5f), Ui.px(1.5f), bg)
+        return x + Ui.px(22f) - x0
     }
 }
 
@@ -243,3 +301,7 @@ class VpnBadgeView(context: Context, size: Float, private val color: Int) : View
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) = setMeasuredDimension(badge.width.toInt() + 1, badge.height.toInt() + 1)
     override fun onDraw(canvas: Canvas) { badge.draw(canvas, 0f, height / 2f, color) }
 }
+
+/** The OpenGL ES major version the device declares, 0 when unknown. */
+fun glesMajor(context: Context): Int =
+    ((context.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager)?.deviceConfigurationInfo?.reqGlEsVersion ?: 0) shr 16

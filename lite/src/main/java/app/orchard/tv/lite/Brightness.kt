@@ -31,8 +31,18 @@ object Brightness {
     private fun storedLevel(context: Context): Int? =
         context.getSharedPreferences("settings", Context.MODE_PRIVATE).getInt("mitv_backlight", -1).takeIf { it in 1..100 }
 
+    /**
+     * FengOS projectors: no brightness in their own settings, and a screen_brightness other than
+     * the framework default leaves the DLP light engine dark after the next standby (the full
+     * app's SystemProbe.hidesBrightness, issue #1668). No row there, and nothing written. Known by
+     * the FengOS settings panel or Fengmi's launcher (Q1 Pro, olaf, has only the launcher; #1661).
+     */
+    fun hidden(context: Context): Boolean =
+        installed(context, "cn.formovie.fengos.settings") || installed(context, "com.tvfengmi.launcher")
+
     /** Current level as 0..1, or null when Lite cannot change it on this TV. */
     fun level(context: Context): Float? {
+        if (hidden(context)) return null
         // Hisense laser: the light source's own level, which screen_brightness does not touch.
         HisenseLaserPanel.level(context)?.let { return it }
         // TCL MS901 / MStar ONLY: read the TV's own brightness store, not the picture SDK's
@@ -60,6 +70,7 @@ object Brightness {
 
     /** One notch (5%) up or down, never to 0 (Xiaomi turns the backlight off there, issue #174). */
     fun adjust(context: Context, direction: Int): Float? {
+        if (hidden(context)) return null
         // Hisense laser: 11 notches of the TV's own level, where 5% would land on the same notch
         // twice and the row would seem to stick.
         HisenseLaserPanel.level(context)?.let { current ->
@@ -112,7 +123,12 @@ object Brightness {
             if (runCatching { context.sendBroadcast(backlight) }.isSuccess) return true
         }
         if (installed(context, "com.tcl.settings")) {
-            val shown = runCatching { context.startService(Intent("com.tcl.settings.SHOW_WINDOW").setPackage("com.tcl.settings")) }.getOrNull() != null
+            // With the extras TCL's own settings key sends; bare, the panel showed nothing on TCL
+            // r34a0 (Android 5.1.1) and took the settings key with it (the full app's
+            // SystemProbe.tclSettingsWindow, issue #1625).
+            val panel = Intent("com.tcl.settings.SHOW_WINDOW").setPackage("com.tcl.settings")
+                .putExtra("Type", "Settings").putExtra("flag", "1")
+            val shown = runCatching { context.startService(panel) }.getOrNull() != null
             if (shown) return true
         }
         val pm = context.packageManager

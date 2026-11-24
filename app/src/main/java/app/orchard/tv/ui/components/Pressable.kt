@@ -22,6 +22,12 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.key.KeyEvent
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.disabled
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.pointerInput
 import app.orchard.tv.system.Sounds
@@ -71,6 +77,11 @@ fun Pressable(
     focusRequester: FocusRequester? = null,
     focusedScale: Float = 1.06f,
     onKey: ((KeyEvent) -> Boolean)? = null,
+    /**
+     * What a screen reader says for this control (TalkBack, issue #1476). The texts inside are read
+     * anyway; give it where the control shows only a glyph, or where the texts alone say too little.
+     */
+    label: String? = null,
     content: @Composable BoxScope.(PressState) -> Unit,
 ) {
     val state = remember { PressState() }
@@ -137,6 +148,14 @@ fun Pressable(
                     }
                     else -> false
                 }
+            }
+            // One node for the screen reader: the texts inside merge into it, and its click is the
+            // control's own (TalkBack's double tap, or OK sent as an accessibility action).
+            .semantics(mergeDescendants = true) {
+                role = Role.Button
+                label?.let { contentDescription = it }
+                if (!enabled) disabled()
+                onClick { Sounds.select(); click(); true }
             }
             .focusable(enabled)
             // After the focusable: the bounds a scroll container brings into view are then the

@@ -41,6 +41,7 @@ import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.withTransform
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import app.orchard.tv.MainActivity
@@ -137,7 +138,7 @@ fun Screensaver(visible: Boolean, apps: List<AppEntry>, now: LocalDateTime, skip
                     },
                 )
                 ScreensaverMode.Photos -> PhotoSaver(now, skips.steps, remember { Wallpapers.screensaverPicture() })
-                ScreensaverMode.Clock, ScreensaverMode.System -> ClockSaver(apps, now)
+                ScreensaverMode.Clock, ScreensaverMode.System, ScreensaverMode.Sleep -> ClockSaver(apps, now)
                 ScreensaverMode.Videos -> if (videosFailed) PhotoSaver(now, skips.steps) else VideoSaver(skips.steps, leaving = !visible, onUnavailable = { videosFailed = true })
             }
         }
@@ -350,13 +351,26 @@ private fun Labels(
             )
         }
         val drift = saverDrift(now)
+        // Laid out at Home's size and scaled up, as Home's own clock is when it is carried here
+        // (HomeChrome's toSaverClock): laid out at the large size, the digits' advances came out
+        // wider than in the carried one, and the spacing grew when this clock took over with the
+        // first photo (Google TV, Android 14, issue #1646). With the large clock on Home, its own
+        // cut and tracking (Type.Clock), laid out at 104sp: in the small clock's open tracking the
+        // digits still spread apart a minute in on 2.15, when the first photo came (the reporter's
+        // photos, same TV).
+        val large = AerialSettings.largeClock
+        val laidOut = if (large) Type.Clock.fontSize else Type.Title.fontSize
         if (time > 0f && AerialSettings.screensaverClock) BasicText(
             timeText(now),
-            style = SaverClockStyle,
+            style = if (large) Type.Clock.copy(color = SaverClockStyle.color) else SaverClockStyle.copy(fontSize = laidOut),
             modifier = Modifier
                 .align(if (AerialSettings.clockRight) Alignment.TopEnd else Alignment.TopStart)
                 .padding(top = SaverClockTop, start = SaverClockSide, end = SaverClockSide)
                 .graphicsLayer {
+                    val s = SaverClockStyle.fontSize.toPx() / laidOut.toPx()
+                    transformOrigin = TransformOrigin(if (AerialSettings.clockRight) 1f else 0f, 0f)
+                    scaleX = s
+                    scaleY = s
                     alpha = time
                     translationX = drift.x.toPx()
                     translationY = drift.y.toPx()

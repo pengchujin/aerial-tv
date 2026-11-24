@@ -180,7 +180,7 @@
     <string name="cc_inputs_list">在列表里显示</string>
     <string name="cc_inputs_list_hint">电视列出了实际没有的接口，或者用不到的，可以去掉勾，它们就不再出现在信号源列表和主屏幕上。</string>
     <string name="cc_inputs_cec">外接设备开机时切过去</string>
-    <string name="cc_inputs_cec_hint">游戏机、盒子通过 HDMI-CEC 开机（一键播放）时，电视切到它所在的信号源，和电视原来的桌面一样。不是每台电视都会通知，Amlogic 芯片的电视（很多小米机型）会。</string>
+    <string name="cc_inputs_cec_hint">游戏机、盒子通过 HDMI-CEC 开机（一键播放）时，电视切到它所在的信号源，和电视原来的桌面一样。不是每台电视都会通知，Amlogic 芯片的电视（很多小米机型）会；微鲸电视在停在 Aerial 首页时也能切过去。</string>
     <string name="cc_inputs_pin">显示在主屏幕（可多选）</string>
     <string name="cc_inputs_boot">开机时打开（选一个）</string>
     <string name="cc_inputs_boot_none">不打开，停在 Aerial</string>
@@ -240,6 +240,7 @@
     <string name="weather_thunder">雷雨</string>
     <string name="weather_temperature">%1$d℃</string>
     <string name="weather_high_low">最高 %1$d℃  最低 %2$d℃</string>
+    <string name="weather_hours_ago">%d 小时前</string>
     <string name="st_columns">每排 App</string>
     <string name="st_columns_hint">主屏幕和文件夹里每排放几个 App。6 个一眼看到更多；4 个图标更大，离得远也看得清。</string>
     <string name="st_peek">第二排</string>
@@ -330,4 +331,12 @@
     <string name="kids_blocked">「%s」不在这个模式里</string>
     <string name="kids_warn">还能看 %d 分钟</string>
     <string name="kids_warn_break">%d 分钟后休息一下</string>
+    <string name="a11y_delete">删除</string>
+    <string name="cc_about">关于 Aerial</string>
+    <string name="cc_about_update">软件更新</string>
+    <string name="cc_about_latest">已是最新</string>
+    <string name="cc_about_version">版本 %1$s</string>
+    <string name="ss_sleep">待机</string>
+    <string name="ss_sleep_hint">不放屏保：时间到了让电视待机，和按电源键一样。很多电视之后只能用电源键开机。</string>
+    <string name="cc_update_to">更新到 %1$s</string>
 </resources>

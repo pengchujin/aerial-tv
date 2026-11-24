@@ -15,3 +15,10 @@
 ## 海尔 75A70C（#1311）
 
 TvInputManager 没有 HDMI。遥控器切到 HDMI 后前台是 `com.haier.tv.menusetting/.RootActivity`，由 `com.huanglong.tvsetting`（uid 1000）带 extras 打开；extras 的键名还不知道。当贝 DBF6（#1477）切 HDMI 也是 Huanglong 的 `com.huanglong.tvui/.MainActivity`。
+
+## 海尔 Haier_T966_4Gen（YunOS 4.1.0-R-20180525，安卓 5.1，Amlogic，#1677，报告人 Agent 实测）
+
+- `TvInputManager` 列出 `com.droidlogic.tvinput/.services.HdmiInputService/HW5`、`HW6`，但没有 App 接 passthrough 的 VIEW，磁贴提示「此电视不支持」。
+- 海尔自己的信源菜单用 `com.haier.tv.menusetting/.RootActivity` 切源：int extra `isNewSource=1`、`sourceid=<HW 号>`（日志 `sourceid=6` → `.../HW6`）。这台的 RootActivity 导出、没有权限要求，第三方 App 能启动（报告人用一个本地小 App 实测 HDMI 1、2 都切过去）。
+- 系统给的名字和机身口是反的：`HW5` 叫 HDMI1，实际是机身 HDMI 2；`HW6` 是机身 HDMI 1。名字用「信号源修正」改。
+- main 上（未发版）：passthrough 打不开、RootActivity 能启动时，HDMI 磁贴走这条（`SystemState.haierRoute`）；统帅 L65F8 的 RootActivity 要签名权限，检测后不用。没有海尔真机，HDMI 3、AV 没验证。

@@ -294,6 +294,28 @@ object SystemProbe {
     private fun fengOsNetworkIntent(context: Context): Intent? =
         if (fengOsSettingsIntent(context) == null) null else resolvable(context, Intent(Settings.ACTION_WIFI_SETTINGS))
 
+    /**
+     * FengOS projectors: no brightness anywhere in their own settings, and a screen_brightness
+     * other than the framework default (102) leaves the DLP light engine dark after the next
+     * standby, even after Aerial is gone (Xiaomi Q3 Pro, device peppa, Android 9: the Lights HAL
+     * clamps 2 to 10 and refuses it, `bl_enable` stays 0; issue #1668, the reporter's patch and
+     * logs). So Aerial shows no brightness row there and never writes the setting. Known by the
+     * FengOS settings panel being there, as for the settings and network buttons above, or by
+     * Fengmi's own launcher: Q1 Pro (device olaf, Amlogic, Android 9) has no such panel but goes
+     * dark the same way with 255 written (issue #1661, 102 brought it back).
+     */
+    fun hidesBrightness(context: Context): Boolean =
+        fengOs ?: (fengOsSettingsIntent(context) != null || installed(context, FENGMI_LAUNCHER)).also { fengOs = it }
+
+    private const val FENGMI_LAUNCHER = "com.tvfengmi.launcher"
+
+    private fun installed(context: Context, pkg: String): Boolean =
+        runCatching { context.packageManager.getPackageInfo(pkg, 0) }.isSuccess
+
+    /** A system panel: looked for once a process, as Brightness.level asks on every poll. */
+    @Volatile
+    private var fengOs: Boolean? = null
+
     private fun konkaSettingsIntent(context: Context): Intent? {
         val intent = Intent("com.konka.settings.action.SETTING_MAIN_VIEW").setComponent(KONKA_SETTINGS)
         return intent.takeIf { context.packageManager.resolveService(it, 0)?.serviceInfo?.exported == true }
@@ -578,6 +600,19 @@ object SystemProbe {
      * picture_backlight setting and no display settings screen to open (MiTV-ASTP0, Android 9,
      * found in PR #85; MiTV-MFTP0, Mi TV 4A, #23, #130, #185), and MiTV-MFTR0 has the receiver too.
      */
+    /**
+     * TCL's settings panel, asked for the way the remote's settings key asks: TCL's
+     * TclShortCutKeyManager.keySetShortPress puts Type=Settings and flag="1" (read from
+     * tcl-service.jar of TCL MT5879, Android 11). Sent bare, the panel came up on MT5879 but not on
+     * TCL r34a0 (T968, Android 5.1.1, com.tcl.settings 4.7): there ShowWindowService started, showed
+     * nothing and stayed, and every later settings key went to it unseen until Home (issue #1625,
+     * the reporter's dumpsys). With these extras MT5879 still opens on its picture page.
+     */
+    private fun tclSettingsWindow(): Intent =
+        Intent("com.tcl.settings.SHOW_WINDOW").setPackage("com.tcl.settings")
+            .putExtra("Type", "Settings")
+            .putExtra("flag", "1")
+
     fun openPictureSettings(context: Context): Boolean {
         ChanghongSettings.intent(context, ChanghongSettings.PICTURE)?.let {
             if (ChanghongSettings.open(context, it)) return true
@@ -601,9 +636,7 @@ object SystemProbe {
             }.isSuccess
             if (activityShown) return true
 
-            val shown = runCatching {
-                context.startService(Intent("com.tcl.settings.SHOW_WINDOW").setPackage("com.tcl.settings"))
-            }.getOrNull() != null
+            val shown = runCatching { context.startService(tclSettingsWindow()) }.getOrNull() != null
             if (shown) return true
         }
         if (skyworthPicturePanel(context)) {
@@ -1028,6 +1061,7 @@ object SystemProbe {
                     ?: generic.takeIf { resolves(context, it) }
                     ?: droidLogicRoute(context, info)
                     ?: jmgoRoute(context, info, label)
+                    ?: haierRoute(context, info)
                     ?: tclPlayer?.let { tclRoute(it, kind, label, hw(info.id)) }
                     ?: generic
                 val device = cec
@@ -1125,6 +1159,30 @@ object SystemProbe {
                 (activity.permission == null || ContextCompat.checkSelfPermission(context, activity.permission) == PackageManager.PERMISSION_GRANTED)
         }
     }
+
+    /**
+     * Haier's own source switch, for its YunOS TVs where nothing answers the passthrough VIEW
+     * intent: RootActivity tunes the DroidLogic input whose HW number is the int "sourceid" when
+     * "isNewSource" is 1, which is how the TV's own source menu starts it. Haier_T966_4Gen (YunOS
+     * 4.1, Android 5.1, Amlogic): HDMI 1 and 2 opened from a third-party app, the reporter's agent
+     * with adb and logcat (issue #1677). The Huanglong 统帅 L65F8 guards the same activity with a
+     * signature permission, so it is only used where Aerial may start it.
+     */
+    private fun haierRoute(context: Context, info: TvInputInfo): Intent? {
+        if (info.type != TvInputInfo.TYPE_HDMI || !info.id.startsWith(DROIDLOGIC_INPUTS)) return null
+        val hw = hw(info.id) ?: return null
+        val intent = Intent().setComponent(ComponentName(HAIER_MENU, "$HAIER_MENU.RootActivity"))
+            .putExtra("isNewSource", 1)
+            .putExtra("sourceid", hw)
+        val activity = runCatching { context.packageManager.getActivityInfo(intent.component!!, 0) }.getOrNull() ?: return null
+        return intent.takeIf {
+            activity.exported && activity.enabled && activity.applicationInfo.enabled &&
+                (activity.permission == null || ContextCompat.checkSelfPermission(context, activity.permission) == PackageManager.PERMISSION_GRANTED)
+        }
+    }
+
+    private const val HAIER_MENU = "com.haier.tv.menusetting"
+    private const val DROIDLOGIC_INPUTS = "com.droidlogic.tvinput/"
 
     private const val JMGO_TV = "com.jmgo.tv"
     private val JMGO_PORT = Regex("""\.Hdmi(\d)InputService/""")

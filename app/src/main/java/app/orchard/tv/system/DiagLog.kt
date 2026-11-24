@@ -51,19 +51,48 @@ object DiagLog {
     fun softLayer(context: Context): Boolean = prefs(context).getBoolean("soft_layer", false)
 
     /**
+     * Whether Home's large clock is drawn from a picture made on the CPU (issue #1658): by default
+     * on a GPU with OpenGL ES 2 only, where the large digits came out jagged (ZTE W152D, Mali-450);
+     * soft_clock over ADB says yes or no on any TV.
+     */
+    fun softClock(context: Context): Boolean = prefs(context).let { p ->
+        if (p.contains("soft_clock")) p.getBoolean("soft_clock", false) else glesMajor(context) in 1..2
+    }
+
+    /** The OpenGL ES major version the device declares, 0 when unknown. */
+    fun glesMajor(context: Context): Int =
+        (context.getSystemService(Context.ACTIVITY_SERVICE) as? android.app.ActivityManager)
+            ?.deviceConfigurationInfo?.reqGlEsVersion?.let { it shr 16 } ?: 0
+
+    /**
      * An experiment for issue #654 (Redmi X50, MiTV-NSOP0, Novatek): the apps fading into the
      * screensaver each in a buffer of their own rather than with their alpha laid on every drawing.
      * Their frame and shadow are cut to the tile while they fade.
      */
     fun saverFadeOffscreen(context: Context): Boolean = prefs(context).getBoolean("saver_fade_offscreen", false)
     fun setOption(context: Context, key: String, on: Boolean) = prefs(context).edit().putBoolean(key, on).apply()
+    fun clearOption(context: Context, key: String) = prefs(context).edit().remove(key).apply()
     private fun prefs(context: Context) = context.getSharedPreferences("system", Context.MODE_PRIVATE)
 
     fun init(context: Context) {
         if (file != null || !enabled(context)) return
         val dir = context.getExternalFilesDir(null) ?: context.filesDir
-        file = File(dir, "aerial-diag.log")
-        i("log file ${file?.absolutePath}")
+        val f = File(dir, "aerial-diag.log")
+        // The lines from before the file: a boot's while the user was still locked, when the
+        // preference saying the file is wanted cannot be read yet. XGIMI RS Pro 2 (Android 9) stayed
+        // black at boot, logcat cannot be read there, and the file began at the rescue (issue #1391).
+        val earlier = synchronized(lines) { lines.toList() }
+        if (earlier.isNotEmpty()) {
+            writer.execute {
+                runCatching {
+                    val fresh = !f.exists()
+                    f.appendText(earlier.joinToString("\n", prefix = "-- earlier in this process:\n", postfix = "\n"))
+                    if (fresh) f.setReadable(true, false)
+                }
+            }
+        }
+        file = f
+        i("log file ${f.absolutePath}")
     }
 
     fun i(message: String) {

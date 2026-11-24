@@ -49,7 +49,14 @@ data class Wallpaper(
 
 /** System: none of Aerial's; the TV's own screensaver starts as the firmware has it (SystemScreensaver). */
 enum class ScreensaverMode(val key: String) {
-    Aerial("aerial"), Photos("photos"), Clock("clock"), Videos("videos"), System("system");
+    Aerial("aerial"), Photos("photos"), Clock("clock"), Videos("videos"), System("system"),
+
+    /**
+     * No screensaver: when the time comes the TV goes to sleep, through the guard
+     * (HomeGuardService.sleep, issue #1436). Offered only where the guard can; where it cannot
+     * when the time comes, the clock shows instead.
+     */
+    Sleep("sleep");
 
     companion object {
         fun of(key: String?) = entries.firstOrNull { it.key == key } ?: Aerial
@@ -854,18 +861,26 @@ object Wallpapers {
     fun refreshDailyIfStale(networkCameUp: Boolean = false) {
         if (!started) return
         val since = System.currentTimeMillis() - lastDailyRefresh
-        val due = since >= 6 * 60 * 60 * 1000L ||
+        // A clock set back (a TV that booted ahead of the time) makes since negative: due as well.
+        val due = since < 0 || since >= 6 * 60 * 60 * 1000L ||
             (dailyFailed && (networkCameUp || since >= 10 * 60 * 1000L)) ||
             (!hasTodaysDaily() && since >= DAILY_RETRY_MS)
         if (due) scope.launch { refreshDaily() }
     }
 
-    /** Bing's dates are China's, as yyyyMMdd. */
-    private fun hasTodaysDaily(): Boolean {
-        val today = java.time.LocalDate.now(java.time.ZoneId.of("Asia/Shanghai"))
-            .format(java.time.format.DateTimeFormatter.BASIC_ISO_DATE)
-        return readDailyIndex().any { it.first >= today }
-    }
+    /**
+     * Whether the newest photo on hand is still the current one. Bing's `startdate` is not the day
+     * the photo is shown in China: the one up from 00:00 on the 20th (China time) is dated the 19th,
+     * its `fullstartdate` 202611191600 being UTC (checked against cn.bing.com 2026-11-20). Compared
+     * with China's date, today's photo never seemed to be there: the half-hourly retry ran all day,
+     * and a Home coming back after midnight within half an hour of one did not look again, so the
+     * new photo waited for the next round (Sony BRAVIA 2015, Android 7, issue #1630). The next photo
+     * is due a day after the newest one's start; an index from before has no start and is fetched.
+     */
+    private fun hasTodaysDaily(): Boolean = runCatching {
+        val arr = JSONArray(File(dailyDir, "index.json").readText())
+        dailyIsCurrent((0 until arr.length()).map { arr.getJSONObject(it).optString("start") }, System.currentTimeMillis())
+    }.getOrDefault(false)
 
     private var dailyRetry: Job? = null
 
@@ -909,7 +924,10 @@ object Wallpapers {
                     }
                     val copyright = img.optString("copyright")
                     val title = img.optString("title").ifBlank { copyright.substringBefore(" (").ifBlank { date } }
-                    index.put(JSONObject().put("date", date).put("title", title).put("caption", copyright))
+                    index.put(
+                        JSONObject().put("date", date).put("title", title).put("caption", copyright)
+                            .put("start", img.optString("fullstartdate")),
+                    )
                 }
                 File(dailyDir, "index.json").writeText(index.toString())
                 // Keep only what Bing still lists.
@@ -935,7 +953,7 @@ object Wallpapers {
 
     // ---- uploads ----
 
-    /** Stores an uploaded picture, downscaled to at most 2560 px wide, and returns its id. */
+    /** Stores an uploaded picture, halved until its longer side is under 5120 px, and returns its id. */
     suspend fun addPhoto(input: InputStream): String? = io.withLock {
         val id = withContext(Dispatchers.IO) {
             val tmp = File.createTempFile("upload", ".bin", app.cacheDir)
@@ -946,9 +964,12 @@ object Wallpapers {
                 if (bounds.outWidth <= 0) return@withContext null
                 // Stored upright: the JPEG written below keeps no EXIF, so the turn is applied now.
                 val orientation = Images.exifOrientation(tmp)
-                val wide = if (Images.quarterTurn(orientation)) bounds.outHeight else bounds.outWidth
+                // By the longer side, turned or not: by the width alone a tall, narrow picture (a long
+                // screenshot, a portrait panorama) was decoded whole, tens of MB on a TV with little memory
+                // (issue #1651, Null9797's review).
+                val longest = maxOf(bounds.outWidth, bounds.outHeight)
                 var sample = 1
-                while (wide / (sample * 2) >= 2560) sample *= 2
+                while (longest / (sample * 2) >= 2560) sample *= 2
                 val decoded = BitmapFactory.decodeFile(tmp.path, BitmapFactory.Options().apply { inSampleSize = sample }) ?: return@withContext null
                 val bmp = Images.upright(decoded, orientation)
                 val name = System.currentTimeMillis().toString(36)

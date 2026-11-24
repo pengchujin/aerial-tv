@@ -115,7 +115,7 @@ object KidsWatch {
         }
 
         val lock = Restricted.lockNow(now)
-        if (lock != Restricted.lock) DiagLog.i("kids: ${lockName(lock)}")
+        if (lock != Restricted.lock) DiagLog.i("kids: ${lockName(lock)}${if (lock == null) unlockedBy(now) else ""}")
         Restricted.lock = lock
         if (lock != null && interactive && !homeInFront) bringBack(ctx, "locked (${lockName(lock)})")
 
@@ -204,18 +204,32 @@ object KidsWatch {
     private fun frontByUsage(ctx: Context): String? = runCatching {
         if (Build.VERSION.SDK_INT < 22) return null
         val now = System.currentTimeMillis()
-        val events = ctx.getSystemService<UsageStatsManager>()?.queryEvents(now - 60_000L, now) ?: return null
+        val usm = ctx.getSystemService<UsageStatsManager>() ?: return null
+        val events = UsageFront.queryEvents(usm, now - 60_000L, now) ?: return null
+        val maxAt = System.currentTimeMillis() + UsageFront.FUTURE_SLACK_MS
         val e = UsageEvents.Event()
         var last: String? = null
+        var lastAt = Long.MIN_VALUE
         while (events.hasNextEvent()) {
             events.getNextEvent(e)
-            if (e.eventType == UsageEvents.Event.MOVE_TO_FOREGROUND) last = e.packageName
+            @Suppress("DEPRECATION")
+            if (e.eventType == UsageEvents.Event.MOVE_TO_FOREGROUND && e.timeStamp <= maxAt && e.timeStamp >= lastAt) {
+                last = e.packageName
+                lastAt = e.timeStamp
+            }
         }
         last
     }.getOrNull()
 
     /** Spelled out: R8 renames the classes. */
     private fun lockName(lock: KidsLock?) = when (lock) { is KidsLock.Break -> "break"; KidsLock.DayUsed -> "day used"; KidsLock.Late -> "late"; null -> "unlocked" }
+
+    /** Why a lock went: a parent's allowance or the mode left with the PIN look alike otherwise (issue #1724). */
+    private fun unlockedBy(now: Long): String = when {
+        !Restricted.active -> " (mode left)"
+        Restricted.usage.allowUntil > now -> " (allowed for ${(Restricted.usage.allowUntil - now + 59_999) / 60_000} min)"
+        else -> ""
+    }
 
     /** What the lock says, for the diagnostics. */
     fun diagnosticState(): String {

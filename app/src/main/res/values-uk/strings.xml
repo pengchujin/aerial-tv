@@ -173,7 +173,7 @@
     <string name="cc_inputs_list">Показувати у списку</string>
     <string name="cc_inputs_list_hint">Зніміть позначку з джерел, яких у телевізора немає або якими ви не користуєтеся. Вони зникнуть зі списку та з головного екрана.</string>
     <string name="cc_inputs_cec">Перемикати, коли пристрій вмикається</string>
-    <string name="cc_inputs_cec_hint">Коли приставка або консоль вмикається через HDMI-CEC (One Touch Play), телевізор перемикається на її джерело, як це робить його власний головний екран. Не кожен телевізор про це повідомляє; телевізори на Amlogic, як багато моделей Xiaomi, повідомляють.</string>
+    <string name="cc_inputs_cec_hint">Коли приставка або консоль вмикається через HDMI-CEC (One Touch Play), телевізор перемикається на її джерело, як це робить його власний головний екран. Не кожен телевізор про це повідомляє; телевізори на Amlogic, як багато моделей Xiaomi, повідомляють, а на телевізорах Whaley це працює, поки відкрито головний екран Aerial.</string>
     <string name="cc_inputs_pin">Показувати на головному екрані (будь-яка кількість)</string>
     <string name="cc_inputs_boot">Під час вмикання телевізора (одне)</string>
     <string name="cc_inputs_boot_none">Нічого, залишатися в Aerial</string>
@@ -233,6 +233,7 @@
     <string name="weather_thunder">Грози</string>
     <string name="weather_temperature">%1$d°</string>
     <string name="weather_high_low">Макс.: %1$d°  Мін.: %2$d°</string>
+    <string name="weather_hours_ago">%d год тому</string>
     <string name="st_columns">Програм у ряду</string>
     <string name="st_columns_hint">Скільки програм уміщується в ряд на головному екрані й у папках. Шість — більше видно одразу; чотири — більші, їх краще видно здалеку.</string>
     <string name="st_peek">Другий ряд</string>
@@ -323,4 +324,12 @@
     <string name="kids_blocked">«%s» тут недоступний</string>
     <string name="kids_warn">Лишилося %d хв</string>
     <string name="kids_warn_break">Перерва за %d хв</string>
+    <string name="a11y_delete">Видалити</string>
+    <string name="cc_about">Про Aerial</string>
+    <string name="cc_about_update">Оновлення</string>
+    <string name="cc_about_latest">Остання версія</string>
+    <string name="cc_about_version">Версія %1$s</string>
+    <string name="ss_sleep">Сон</string>
+    <string name="ss_sleep_hint">Без заставки: коли мине час, телевізор переходить у режим очікування, як від кнопки живлення. Багато телевізорів потім вмикаються лише кнопкою живлення.</string>
+    <string name="cc_update_to">Оновити до %1$s</string>
 </resources>

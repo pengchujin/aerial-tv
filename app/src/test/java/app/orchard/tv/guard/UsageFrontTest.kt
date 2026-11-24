@@ -65,4 +65,83 @@ class UsageFrontTest {
         p.add(MOVE_TO_BACKGROUND, "com.stv.filemanager", ".Main", 200L)
         assertTrue(p.result(now = 1200L, activitySettleMs = 1000L)!!.closed)
     }
+
+    @Test fun futureDatedEventsInBucketAreIgnored() {
+        val now = 1_795_327_433_000L // 2026-11-22
+        val future = 1_828_841_225_224L // 2027-12-15
+        val p = UsageFront.Picker(maxAt = now + UsageFront.FUTURE_SLACK_MS)
+        p.add(MOVE_TO_FOREGROUND, "com.dh.myembyapp", ".MainActivity", now - 2_000L)
+        p.add(MOVE_TO_FOREGROUND, "com.mitv.tvhome", "com.mitv.tvhome.MainActivityUserMode", now)
+        p.add(MOVE_TO_FOREGROUND, "com.stale.app", ".OldActivity", future)
+        val f = p.result(now = now, activitySettleMs = 1000L)!!
+        assertEquals("com.mitv.tvhome", f.pkg)
+        assertEquals("com.mitv.tvhome.MainActivityUserMode", f.cls)
+        assertEquals(now, f.at)
+        assertFalse(f.closed)
+        assertTrue(p.skippedFuture)
+    }
+
+    @Test fun eventWithinFutureSlackIsKept() {
+        val now = 10_000L
+        val p = UsageFront.Picker(maxAt = now + UsageFront.FUTURE_SLACK_MS)
+        p.add(MOVE_TO_FOREGROUND, "com.mitv.tvhome", ".MainActivityUserMode", now + 2_000L)
+        val f = p.result(now = now)!!
+        assertEquals("com.mitv.tvhome", f.pkg)
+        assertFalse(p.skippedFuture)
+    }
+
+    @Test fun onlyFutureEventsReturnsNull() {
+        val now = 10_000L
+        val p = UsageFront.Picker(maxAt = now + UsageFront.FUTURE_SLACK_MS)
+        p.add(MOVE_TO_FOREGROUND, "com.stale.app", ".Old", now + 86_400_000L)
+        assertNull(p.result(now = now))
+        assertTrue(p.skippedFuture)
+    }
+
+    @Test fun futureBackgroundEventDoesNotCloseCurrentFront() {
+        val now = 10_000L
+        val p = UsageFront.Picker(maxAt = now + UsageFront.FUTURE_SLACK_MS)
+        p.add(MOVE_TO_FOREGROUND, "com.mitv.tvhome", ".MainActivityUserMode", now)
+        p.add(MOVE_TO_BACKGROUND, "com.mitv.tvhome", ".MainActivityUserMode", now + 86_400_000L)
+        val f = p.result(now = now)!!
+        assertFalse(f.closed)
+        assertTrue(p.skippedFuture)
+    }
+
+    @Test fun olderForegroundEventDoesNotOverwriteNewerOne() {
+        val p = UsageFront.Picker()
+        p.add(MOVE_TO_FOREGROUND, "com.mitv.tvhome", ".MainActivityUserMode", 500L)
+        p.add(MOVE_TO_FOREGROUND, "com.older.app", ".Old", 200L)
+        val f = p.result()!!
+        assertEquals("com.mitv.tvhome", f.pkg)
+        assertEquals(500L, f.at)
+    }
+
+    @Test fun queryEventsUsesOpenEndAndFallsBackToNowIfEmpty() {
+        val calls = mutableListOf<Pair<Long, Long>>()
+        val fromOpen = UsageFront.queryEvents(
+            begin = 8_000L,
+            now = 10_000L,
+            query = { b, e ->
+                calls += b to e
+                if (e == Long.MAX_VALUE) listOf("event") else emptyList()
+            },
+            hasNext = { it.isNotEmpty() },
+        )
+        assertEquals(listOf("event"), fromOpen)
+        assertEquals(listOf(8_000L to Long.MAX_VALUE), calls)
+
+        calls.clear()
+        val fromFallback = UsageFront.queryEvents(
+            begin = -500L,
+            now = 10_000L,
+            query = { b, e ->
+                calls += b to e
+                if (e == Long.MAX_VALUE) emptyList() else listOf("fallback")
+            },
+            hasNext = { it.isNotEmpty() },
+        )
+        assertEquals(listOf("fallback"), fromFallback)
+        assertEquals(listOf(0L to Long.MAX_VALUE, 0L to 10_000L), calls)
+    }
 }

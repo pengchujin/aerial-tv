@@ -87,7 +87,9 @@ class HomeActivity : Activity(), HomeView.Host {
         })
         @Suppress("DEPRECATION")
         registerReceiver(connectivity, IntentFilter(ConnectivityManager.CONNECTIVITY_ACTION))
+        showBattery(registerReceiver(battery, IntentFilter(Intent.ACTION_BATTERY_CHANGED)))
         registerReceiver(clockSet, IntentFilter().apply {
+            addAction(Intent.ACTION_DATE_CHANGED)
             addAction(Intent.ACTION_TIME_CHANGED)
             addAction(Intent.ACTION_TIMEZONE_CHANGED)
         })
@@ -106,6 +108,7 @@ class HomeActivity : Activity(), HomeView.Host {
         Kids.onNotice = {}
         unregisterReceiver(packages)
         unregisterReceiver(connectivity)
+        unregisterReceiver(battery)
         unregisterReceiver(clockSet)
         hideSaver()
         proxy.stop()
@@ -135,6 +138,24 @@ class HomeActivity : Activity(), HomeView.Host {
         root.systemUiVisibility = if (navBar) android.view.View.SYSTEM_UI_FLAG_HIDE_NAVIGATION else android.view.View.SYSTEM_UI_FLAG_LOW_PROFILE
     }
 
+    /**
+     * While Home stays in front (its screensaver too), a reading that fell due is fetched: looked at
+     * only as Home came to the front, a failed one was not tried again all night (the full app's
+     * Weather.whileShown, issue #1576). Weather decides whether anything is due.
+     */
+    private val weatherTick = object : Runnable {
+        override fun run() {
+            if (!resumed) return
+            // Also redrawn when nothing was fetched: the reading's age moves on (the full app's #1576).
+            showWeather()
+            Weather.refreshIfStale({ work.execute(it) }) { handler.post { showWeather() } }
+            // Bing's photo too, under its own limits: a Home that stayed in front for days kept
+            // the day it was last resumed on (SHARP LCD-xxBEL7A-C, Android 4.4, issue #1750).
+            refreshDaily()
+            handler.postDelayed(this, WEATHER_TICK_MS)
+        }
+    }
+
     override fun onResume() {
         super.onResume()
         resumed = true
@@ -144,6 +165,8 @@ class HomeActivity : Activity(), HomeView.Host {
         showWeather()
         refreshDaily()
         Weather.refreshIfStale({ work.execute(it) }) { handler.post { showWeather() } }
+        handler.removeCallbacks(weatherTick)
+        handler.postDelayed(weatherTick, WEATHER_TICK_MS)
         resetIdle()
         // TCL MStar: off the main thread, ask the adapter whether Home may restore STORAGE.
         // It only does so after Lite itself switched the input (or on the STORAGE-backed
@@ -158,6 +181,7 @@ class HomeActivity : Activity(), HomeView.Host {
         resumed = false
         Kids.homeInFront = false
         handler.removeCallbacks(idle)
+        handler.removeCallbacks(weatherTick)
         hideSaver()
         // Back on Home the PIN is asked again (the full app relocks when an app opens).
         LiteSettings.relock()
@@ -232,6 +256,9 @@ class HomeActivity : Activity(), HomeView.Host {
             home.refreshClock()
             saver?.refreshTime()
             panels.forEach { (it as? ControlCenter)?.refreshTime() }
+            // A new day, or the clock set right after a boot at the wrong time: Bing's photo now
+            // rather than whenever Home next comes to the front (issue #1750).
+            refreshDaily(soon = true, newDay = intent.action == Intent.ACTION_DATE_CHANGED)
         }
     }
 
@@ -258,16 +285,21 @@ class HomeActivity : Activity(), HomeView.Host {
      * Bing's photo of the day: looked at again when Home is back, at most every three hours, and
      * after a failed fetch as soon as a network comes up ([networkUp]) or half an hour on. Home
      * started at boot before Wi-Fi joined failed once and stayed in front, so it never looked
-     * again (Lite in /system, ZTE W152D, Android 11, issue #1443).
+     * again (Lite in /system, ZTE W152D, Android 11, issue #1443). [soon] skips the three hours:
+     * the date or the clock changed, or today's photo was not out half an hour ago. While it is not
+     * out, half-hourly again, as the full app's retryDailyLater: a fetch that found nothing new
+     * used to be the last until Home came back (SHARP, Android 4.4, issue #1750).
      */
-    private fun refreshDaily(networkUp: Boolean = false) {
-        val retry = Wallpapers.dailyFailed && (networkUp || SystemClock.elapsedRealtime() - dailyCheckedAt >= DAILY_RETRY_MS)
+    private fun refreshDaily(networkUp: Boolean = false, soon: Boolean = false, newDay: Boolean = false) {
+        val retry = soon || Wallpapers.dailyFailed && (networkUp || SystemClock.elapsedRealtime() - dailyCheckedAt >= DAILY_RETRY_MS)
         if (!retry && SystemClock.elapsedRealtime() - dailyCheckedAt < 3 * 60 * 60 * 1000L && dailyCheckedAt != 0L) return
         dailyCheckedAt = SystemClock.elapsedRealtime()
         handler.removeCallbacks(dailyRetry)
         work.execute {
-            if (!Wallpapers.refreshDaily()) {
-                if (Wallpapers.dailyFailed) handler.post { if (!isFinishing) handler.postDelayed(dailyRetry, DAILY_RETRY_MS) }
+            if (!Wallpapers.refreshDaily(newDay)) {
+                if (Wallpapers.dailyFailed || !Wallpapers.hasTodaysDaily()) {
+                    handler.post { if (!isFinishing) handler.postDelayed(dailyRetry, DAILY_RETRY_MS) }
+                }
                 return@execute
             }
             handler.post {
@@ -333,7 +365,27 @@ class HomeActivity : Activity(), HomeView.Host {
         }
     }
 
-    private val dailyRetry = Runnable { refreshDaily() }
+    /**
+     * The battery, for the pill: shown only where there is one and the device runs on it (#1426).
+     * Plugged in, nothing: boxes on mains power claim a battery charging at 42% for good (#1671).
+     * Nor at 0% or with an unknown status: 4.4 TVs and boxes without one claim "present, level 0,
+     * status unknown" (SHARP LCD-xxBEL7A-C #1708, CM201-2 #1701).
+     */
+    private val battery = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) = showBattery(intent)
+    }
+
+    private fun showBattery(i: Intent?) {
+        val present = i != null && i.getBooleanExtra(android.os.BatteryManager.EXTRA_PRESENT, false)
+        val scale = i?.getIntExtra(android.os.BatteryManager.EXTRA_SCALE, 100)?.coerceAtLeast(1) ?: 100
+        val percent = (i?.getIntExtra(android.os.BatteryManager.EXTRA_LEVEL, -1) ?: -1) * 100 / scale
+        val plugged = (i?.getIntExtra(android.os.BatteryManager.EXTRA_PLUGGED, 0) ?: 0) != 0
+        val unknown = (i?.getIntExtra(android.os.BatteryManager.EXTRA_STATUS, 0) ?: 0) ==
+            android.os.BatteryManager.BATTERY_STATUS_UNKNOWN
+        home.pill.battery = if (!present || percent <= 0 || plugged || unknown) -1 else percent
+    }
+
+    private val dailyRetry = Runnable { refreshDaily(soon = true) }
 
     private fun showNetwork() {
         work.execute {
@@ -900,6 +952,7 @@ class HomeActivity : Activity(), HomeView.Host {
         private const val TAG = "AerialLite"
         private const val SCREENSAVER_HOLD_MS = 4 * 60 * 60 * 1000L
         private const val DAILY_RETRY_MS = 30 * 60 * 1000L
+        private const val WEATHER_TICK_MS = 3 * 60 * 1000L
         private const val HOME_LAYER = 1
         private const val GRID_LAYER = 2
         /** The TVs' settings apps, kept behind the PIN (the full app's SystemProbe.isSettingsApp). */

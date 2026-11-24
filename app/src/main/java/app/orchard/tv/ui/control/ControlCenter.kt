@@ -231,7 +231,7 @@ private fun KidsPage(vm: HomeViewModel, now: LocalDateTime, takeFocus: Boolean) 
     val context = LocalContext.current
     val laser = remember { HisenseLaserPanel.usable(context) }
     val showsVolume = remember { OutputDevice.showsVolume(context) }
-    val showsBrightness = remember { OutputDevice.showsBrightness() }
+    val showsBrightness = remember { OutputDevice.showsBrightness() && !SystemProbe.hidesBrightness(context) }
     PollBrightness(vm, laser, enabled = takeFocus)
     LaunchedEffect(Unit) {
         if (!takeFocus) return@LaunchedEffect
@@ -276,7 +276,7 @@ private fun MainPage(
     // the brightness row it had.
     val laser = remember { HisenseLaserPanel.usable(context) }
     val showsVolume = remember { OutputDevice.showsVolume(context) }
-    val showsBrightness = remember { OutputDevice.showsBrightness() }
+    val showsBrightness = remember { OutputDevice.showsBrightness() && !SystemProbe.hidesBrightness(context) }
     PollBrightness(vm, laser, poll)
     val first = remember { FocusRequester() }
     val networkFocus = remember { FocusRequester() }
@@ -393,13 +393,6 @@ private fun MainPage(
                 trailing = "$name ›",
             )
         }
-        Updates.available?.let { latest ->
-            MenuRow(
-                Glyph.Info,
-                stringResource(R.string.cc_update_available, latest),
-                onClick = { vm.overlay = Overlay.ControlCenter(CcPage.Update) },
-            )
-        }
 
         // Android 9 to 11, Aerial running uncompiled: reinstalling itself has the system compile it,
         // which needs the owner's confirmation there (SelfCompile; 12+ does it by itself).
@@ -413,17 +406,16 @@ private fun MainPage(
             MenuRow(Glyph.Shield, stringResource(R.string.cc_setup_title), onClick = { vm.overlay = Overlay.ControlCenter(CcPage.Setup) }, trailing = "›")
         }
 
-        Spacer(Modifier.height(8.dp))
-        val (dot, text) = when (vm.homeStatus) {
-            HomeStatus.Default -> Palette.Green to stringResource(R.string.cc_home_default)
-            HomeStatus.Guarded -> Palette.Green to stringResource(R.string.cc_home_guarded)
-            HomeStatus.NotDefault -> Palette.Orange to stringResource(R.string.cc_home_not_default)
-        }
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 14.dp)) {
-            Box(Modifier.size(7.dp).clip(CircleShape).background(dot))
-            Spacer(Modifier.width(8.dp))
-            BasicText(text, style = Type.Caption, modifier = Modifier.weight(1f))
-            BasicText("Aerial ${Updates.current}", style = Type.Caption.copy(color = Palette.TertiaryLabel), modifier = Modifier.padding(end = 14.dp))
+        // Only when there is a new version (issue #1606): the version, the home status and the
+        // update check live at the bottom of Personalize, so this page holds controls only.
+        Updates.available?.let { latest ->
+            MenuRow(
+                Glyph.Download,
+                stringResource(R.string.cc_update_to, latest),
+                onClick = { vm.overlay = Overlay.ControlCenter(CcPage.Update) },
+                dot = Palette.Blue,
+                trailing = "›",
+            )
         }
     }
 }
@@ -656,6 +648,8 @@ private fun RoundButton(
 @Composable
 internal fun SliderRow(
     glyph: Glyph,
+    /** For a screen reader, which shows no glyph: "Volume", "Brightness". */
+    label: String,
     level: Float,
     value: String,
     steps: Int,
@@ -676,6 +670,7 @@ internal fun SliderRow(
         onClick = onClick,
         focusedScale = 1.03f,
         modifier = modifier.fillMaxWidth(),
+        label = label,
         onKey = { e ->
             val code = e.nativeKeyEvent.keyCode
             if (code != NativeKeyEvent.KEYCODE_DPAD_LEFT && code != NativeKeyEvent.KEYCODE_DPAD_RIGHT) return@Pressable false
@@ -726,6 +721,7 @@ private fun VolumeRow(vm: HomeViewModel, returnTo: FocusRequester) {
     // A sound system over HDMI-CEC holds the volume; the TV's own level stands still, so neither
     // it nor its mute is shown, and the steps still go to the sound system (issue #1562).
     SliderRow(
+        label = stringResource(R.string.cc_volume),
         glyph = if (volume.muted && !volume.external) Glyph.SpeakerMuted else Glyph.Speaker,
         level = if (volume.muted || volume.external) 0f else volume.fraction,
         value = when {
@@ -784,6 +780,7 @@ private fun BrightnessRow(vm: HomeViewModel, laser: Boolean) {
         }, trailing = stringResource(R.string.cc_brightness_in_settings) + " ›")
     } else {
         SliderRow(
+            label = stringResource(R.string.cc_brightness),
             glyph = Glyph.Sun,
             level = level,
             // A laser set's level is 11 notches of its own, not a percentage of anything: show the

@@ -12,18 +12,21 @@ import kotlin.math.roundToInt
  * The weather beside the clock, as the full app's weather/Weather.kt: Open-Meteo (no key, reachable
  * from China) for a place guessed from the network's address (ipinfo.io), named in Chinese from the
  * city list when the TV speaks Chinese. Lite has no phone page, so the place is always the guess.
- * Fetched when Home comes to the front, at most once an hour; nothing runs while the TV is idle.
+ * Fetched when Home comes to the front, at most once an hour, and checked again while Home stays
+ * in front (HomeActivity's weatherTick); nothing runs while Lite is in the back.
  */
 object Weather {
     private const val TAG = "AerialLite"
     private const val REFRESH_MS = 60 * 60 * 1000L
     private const val RETRY_MS = 3 * 60 * 1000L
     private const val RELOCATE_MS = 24 * 60 * 60 * 1000L
+    /** Past this a reading shows its age; past [SHOWN_MS] it is not shown (the full app's #1576). */
     private const val STALE_MS = 3 * 60 * 60 * 1000L
+    private const val SHOWN_MS = 12 * 60 * 60 * 1000L
     private const val NONE = Int.MIN_VALUE
 
     enum class Kind { Clear, PartlyCloudy, Cloudy, Fog, Rain, Snow, Thunder }
-    class Now(val celsius: Int, val kind: Kind, val day: Boolean, val high: Int?, val low: Int?)
+    class Now(val celsius: Int, val kind: Kind, val day: Boolean, val high: Int?, val low: Int?, val readAt: Long = 0L)
 
     @Volatile var now: Now? = null; private set
     @Volatile var place: String? = null; private set
@@ -33,7 +36,12 @@ object Weather {
     private lateinit var prefs: SharedPreferences
     private lateinit var app: Context
     private var lastAttempt = 0L
-    private var failed = false
+    @Volatile private var failed = false
+    /** Failed readings in a row: the retry waits 3, 6, 12 ... minutes, at most an hour (issue #1576). */
+    @Volatile private var failures = 0
+    @Volatile private var inFlight = false
+
+    private fun retryMs(): Long = (RETRY_MS shl (failures - 1).coerceIn(0, 5)).coerceAtMost(REFRESH_MS)
 
     fun init(context: Context) {
         if (::prefs.isInitialized) return
@@ -41,11 +49,12 @@ object Weather {
         prefs = app.getSharedPreferences("weather", Context.MODE_PRIVATE)
         place = prefs.getString("place", null)
         chosen = prefs.getBoolean("chosen", false)
-        if (System.currentTimeMillis() - prefs.getLong("fetched_at", 0) < STALE_MS) {
+        val readAt = prefs.getLong("fetched_at", 0)
+        if (System.currentTimeMillis() - readAt < SHOWN_MS) {
             val kind = runCatching { Kind.valueOf(prefs.getString("kind", null) ?: "") }.getOrNull()
             if (kind != null) now = Now(
                 prefs.getInt("celsius", 0), kind, prefs.getBoolean("day", true),
-                prefs.getInt("high", NONE).takeIf { it != NONE }, prefs.getInt("low", NONE).takeIf { it != NONE },
+                prefs.getInt("high", NONE).takeIf { it != NONE }, prefs.getInt("low", NONE).takeIf { it != NONE }, readAt,
             )
         }
     }
@@ -56,16 +65,21 @@ object Weather {
         val since = System.currentTimeMillis() - lastAttempt
         // A network come up after a failed try is tried at once: Home started at boot before Wi-Fi
         // joined kept the weather of the day before (ZTE W152D, issue #1443).
-        if (!force && since < REFRESH_MS && !(failed && (since >= RETRY_MS || networkUp))) return
+        if (inFlight) return
+        if (!force && since < REFRESH_MS && !(failed && (since >= retryMs() || networkUp))) return
         lastAttempt = System.currentTimeMillis()
+        inFlight = true
         run(Runnable {
             val reading = runCatching { fetch() }.onFailure { Log.w(TAG, "weather unavailable", it) }.getOrNull()
             failed = reading == null
+            failures = if (reading == null) failures + 1 else 0
+            inFlight = false
             if (reading != null) {
-                now = reading
+                val at = System.currentTimeMillis()
+                now = Now(reading.celsius, reading.kind, reading.day, reading.high, reading.low, at)
                 place = prefs.getString("place", null)
                 prefs.edit()
-                    .putLong("fetched_at", System.currentTimeMillis())
+                    .putLong("fetched_at", at)
                     .putInt("celsius", reading.celsius).putString("kind", reading.kind.name).putBoolean("day", reading.day)
                     .putInt("high", reading.high ?: NONE).putInt("low", reading.low ?: NONE)
                     .apply()
@@ -178,6 +192,9 @@ object Weather {
     /** The clock's weather line: glyph, temperature, and "place · condition · high low", as the full app's. */
     fun line(context: Context): WeatherLine? {
         val w = now ?: return null
+        val age = System.currentTimeMillis() - w.readAt
+        if (age >= SHOWN_MS) return null
+        val old = if (age >= STALE_MS) context.getString(R.string.weather_hours_ago, (age / (60 * 60 * 1000L)).toInt()) else null
         val glyph = when (w.kind) {
             Kind.Clear -> if (w.day) Glyph.Sun else Glyph.Moon
             Kind.PartlyCloudy -> if (w.day) Glyph.CloudSun else Glyph.Cloud
@@ -197,6 +214,6 @@ object Weather {
             Kind.Thunder -> R.string.weather_thunder
         })
         val range = if (w.high != null && w.low != null) context.getString(R.string.weather_high_low, w.high, w.low) else null
-        return WeatherLine(glyph, w.celsius, place, listOfNotNull(condition, range).joinToString(" · "))
+        return WeatherLine(glyph, w.celsius, place, listOfNotNull(condition, range, old).joinToString(" · "), old)
     }
 }

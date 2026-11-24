@@ -28,6 +28,20 @@ object CoocaaHome {
             .firstOrNull { isLauncher(context, it) }
     }
 
+    /**
+     * The home screen of the mode Tianci is in, named by persist.service.model.cls in the package of
+     * persist.service.homepage.pkg: with the elder mode on, Skyworth 8R40_G20 (RTD2852, Android 8)
+     * had com.ccos.cooui.movieplatform.ElderMainActivity there, and Home opened that one, not
+     * homepage.cls (issue #1626, the reporter's getprop). Null where the properties name nothing
+     * real, as at boot, when SkyBootIntent resets them for a moment.
+     */
+    fun modeScreen(context: Context): ComponentName? {
+        val pkg = property("persist.service.homepage.pkg").orEmpty()
+        val cls = property("persist.service.model.cls").orEmpty()
+        if (pkg.isEmpty() || !cls.contains('.')) return null
+        return ComponentName(pkg, cls).takeIf { isLauncher(context, it) }
+    }
+
     /** Whether [component] is an activity on this TV, and not Aerial: worth opening. */
     fun isLauncher(context: Context, component: ComponentName): Boolean =
         component.packageName.isNotEmpty() && component.className.isNotEmpty() &&

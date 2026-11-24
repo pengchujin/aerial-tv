@@ -29,6 +29,7 @@ adb shell pm grant app.orchard.tv android.permission.WRITE_SECURE_SETTINGS
 adb shell cmd notification allow_listener app.orchard.tv/app.orchard.tv.guard.RevivalListener
 adb shell appops set app.orchard.tv SYSTEM_ALERT_WINDOW allow
 adb shell appops set app.orchard.tv APP_AUTO_START allow   # ${T.tclOnly}
+adb shell appops set app.orchard.tv AUTO_START allow   # ${T.tclOnly}
 adb shell am start -n app.orchard.tv/.MainActivity`;
     $('#adaptprompt').textContent = T.adapt(ip, SITE + T.adaptGuide);
   }

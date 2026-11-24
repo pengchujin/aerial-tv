@@ -18,7 +18,7 @@ import kotlin.math.tan
  * The full app's glyphs (ui/theme/Glyphs.kt): filled Material Symbols Rounded, whose path data
  * GlyphPaths (copied from the full app at build time) holds in the symbols' 960-unit box.
  */
-enum class Glyph { Folder, Pencil, Wifi, Ethernet, Offline, Gear, Input, Speaker, SpeakerMuted, Switches, EyeSlash, Move, Info, Trash, ChevronRight, ChevronLeft, Check, Hdmi, Antenna, Av, Sun, Photo, Play, Bag, CloudSun, Calendar, Cast, Shield, Globe, Moon, Cloud, CloudRain, CloudSnow, CloudFog, CloudBolt, Download, Power, Usb, Home, Kids }
+enum class Glyph { Folder, Pencil, Wifi, Ethernet, Offline, Gear, Input, Speaker, SpeakerMuted, Switches, EyeSlash, Move, Info, Trash, ChevronRight, ChevronLeft, Check, Hdmi, Antenna, Av, Sun, Photo, Play, Bag, CloudSun, Calendar, Cast, Shield, Globe, Moon, Cloud, CloudRain, CloudSnow, CloudFog, CloudBolt, Download, Power, Usb, Home, Kids, Mic }
 
 object Glyphs {
     /** [level] picks the variant of Wi-Fi (signal) and Speaker (volume): 0 to 1. Null for Switches, drawn by hand. */
@@ -71,6 +71,7 @@ object Glyphs {
         Glyph.Usb -> GlyphPaths.USB
         Glyph.Home -> GlyphPaths.HOME
         Glyph.Kids -> GlyphPaths.KIDS
+        Glyph.Mic -> GlyphPaths.MIC
     }
 
     private val parsed = HashMap<String, Path>()

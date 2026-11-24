@@ -10,6 +10,8 @@ import androidx.core.content.edit
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -26,7 +28,11 @@ import kotlin.math.roundToInt
 enum class WeatherKind { Clear, PartlyCloudy, Cloudy, Fog, Rain, Snow, Thunder }
 
 /** [high] and [low] are today's, shown under the large clock; null in a reading saved by an older version. */
-data class WeatherNow(val celsius: Int, val kind: WeatherKind, val day: Boolean, val high: Int? = null, val low: Int? = null)
+data class WeatherNow(
+    val celsius: Int, val kind: WeatherKind, val day: Boolean, val high: Int? = null, val low: Int? = null,
+    /** When it was read, in wall-clock millis. */
+    val readAt: Long = 0L,
+)
 
 /**
  * The weather beside the home clock, from Open-Meteo: no key, reachable from China. The place is
@@ -34,18 +40,24 @@ data class WeatherNow(val celsius: Int, val kind: WeatherKind, val day: Boolean,
  * The guess is often wrong behind a proxy (a whole home behind one shows another country), which
  * is why the phone page shows it and lets the owner correct it.
  *
- * Fetched when Home comes to the front, at most once an hour; nothing runs while the TV is idle.
- * Compose state, written on the main thread only.
+ * Fetched when Home comes to the front, at most once an hour, and on the same terms while Home stays
+ * in front ([whileShown]); nothing runs while Aerial is in the back. Compose state, written on the
+ * main thread only.
  */
 object Weather {
     private const val TAG = "AerialWeather"
     private const val PREFS = "weather"
     private const val REFRESH_MS = 60 * 60 * 1000L
-    /** After a failed reading; only checked when Home comes to the front (issue #1576). */
+    /**
+     * After a failed reading, doubled after each further failure up to [REFRESH_MS] (issue #1576:
+     * a line that blocks Open-Meteo's address for a while, then lets it through).
+     */
     private const val RETRY_MS = 3 * 60 * 1000L
     private const val RELOCATE_MS = 24 * 60 * 60 * 1000L
-    /** A reading older than this is not shown at all. */
+    /** A reading older than this is shown with its age ([hoursOld]). */
     private const val STALE_MS = 3 * 60 * 60 * 1000L
+    /** A reading older than this is not shown at all. */
+    private const val SHOWN_MS = 12 * 60 * 60 * 1000L
     /** Stands for "no high or low" in the prefs. */
     private const val NONE = Int.MIN_VALUE
 
@@ -71,23 +83,69 @@ object Weather {
         prefs = app.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         place = prefs.getString("place", null)
         chosen = prefs.getBoolean("chosen", false)
-        if (System.currentTimeMillis() - prefs.getLong("fetched_at", 0) < STALE_MS) {
+        val readAt = prefs.getLong("fetched_at", 0)
+        if (System.currentTimeMillis() - readAt < SHOWN_MS) {
             val kind = runCatching { WeatherKind.valueOf(prefs.getString("kind", null) ?: "") }.getOrNull()
             if (kind != null) now = WeatherNow(
                 prefs.getInt("celsius", 0), kind, prefs.getBoolean("day", true),
                 high = prefs.getInt("high", NONE).takeIf { it != NONE },
                 low = prefs.getInt("low", NONE).takeIf { it != NONE },
+                readAt = readAt,
             )
         }
     }
 
+    /**
+     * The reading to show at [atMs], or null once it is over [SHOWN_MS] old. Up to that it stays,
+     * with its age beside it past [STALE_MS] ([hoursOld]): a line that blocks Open-Meteo for a few
+     * hours left the row blank, and a blank row read as broken (issue #1576, two reporters).
+     */
+    fun shown(atMs: Long): WeatherNow? = now?.takeIf { atMs - it.readAt < SHOWN_MS }
+
+    /** Whole hours since [w] was read, once that is over [STALE_MS]; else null. */
+    fun hoursOld(w: WeatherNow, atMs: Long): Int? =
+        (atMs - w.readAt).takeIf { it >= STALE_MS }?.let { (it / (60 * 60 * 1000L)).toInt() }
+
     private var failed = false
+
+    /** Failed readings in a row, for the retry's back-off. */
+    private var failures = 0
+
+    private fun retryMs(): Long = (RETRY_MS shl (failures - 1).coerceIn(0, 5)).coerceAtMost(REFRESH_MS)
+
+    /** How long until [refreshIfStale] would fetch, at the earliest. */
+    private fun dueInMs(): Long {
+        val since = System.currentTimeMillis() - lastAttempt
+        return ((if (failed) retryMs() else REFRESH_MS) - since).coerceAtLeast(0L)
+    }
 
     /** Like the daily photos: a failed reading is retried when the network connects (issue #129). */
     fun refreshIfStale(networkCameUp: Boolean = false) {
         if (!started) return
+        if (job?.isActive == true) return
         val since = System.currentTimeMillis() - lastAttempt
-        if (since >= REFRESH_MS || (failed && (networkCameUp || since >= RETRY_MS))) refresh()
+        if (since >= REFRESH_MS || (failed && (networkCameUp || since >= retryMs()))) refresh()
+    }
+
+    private var ticker: Job? = null
+
+    /**
+     * Checks again whenever a reading falls due while Home stays in front. Home was only looked at as
+     * it came to the front: left on Home or its screensaver, a TV whose reading had failed tried once
+     * in 13 hours, and the old reading went off the screen after [STALE_MS] (issue #1576, TCL 65T8E
+     * and MiTV-MFTR0, both on lines that blocked Open-Meteo for a while).
+     */
+    fun whileShown(shown: Boolean) {
+        ticker?.cancel()
+        ticker = null
+        if (!shown || !started) return
+        ticker = scope.launch {
+            while (isActive) {
+                delay(dueInMs() + 1_000L)
+                job?.join()
+                refreshIfStale()
+            }
+        }
     }
 
     private var lastResult = "none"
@@ -100,7 +158,7 @@ object Weather {
     fun diagnostics(): String {
         if (!started) return "not started in this process"
         fun ago(at: Long) = if (at == 0L) "never" else "${(System.currentTimeMillis() - at) / 60_000} min ago"
-        return "shown=${now != null} chosen=$chosen located=${!prefs.getFloat("lat", Float.NaN).isNaN()}; " +
+        return "shown=${shown(System.currentTimeMillis()) != null} chosen=$chosen located=${!prefs.getFloat("lat", Float.NaN).isNaN()}; " +
             "read ${ago(prefs.getLong("fetched_at", 0))}; attempt ${ago(lastAttempt)}, result=$lastResult, " +
             "inFlight=${job?.isActive == true}"
     }
@@ -116,12 +174,14 @@ object Weather {
             }
             prefs.getString("place", null)?.let { place = it }
             failed = reading == null
+            failures = if (reading == null) failures + 1 else 0
             lastResult = if (reading != null) "success" else "failed ($why)"
             if (reading != null) {
                 Log.i(TAG, "weather read")
-                now = reading
+                val at = System.currentTimeMillis()
+                now = reading.copy(readAt = at)
                 prefs.edit {
-                    putLong("fetched_at", System.currentTimeMillis())
+                    putLong("fetched_at", at)
                     putInt("celsius", reading.celsius)
                     putString("kind", reading.kind.name)
                     putBoolean("day", reading.day)

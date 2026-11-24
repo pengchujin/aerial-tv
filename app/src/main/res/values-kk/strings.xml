@@ -173,7 +173,7 @@
     <string name="cc_inputs_list">Тізімде көрсету</string>
     <string name="cc_inputs_list_hint">Теледидарда жоқ немесе пайдаланбайтын көздерден белгіні алыңыз. Олар тізімнен және басты экраннан жоғалады.</string>
     <string name="cc_inputs_cec">Құрылғы қосылғанда ауысу</string>
-    <string name="cc_inputs_cec_hint">Консоль немесе приставка HDMI-CEC арқылы қосылғанда (One Touch Play), теледидар оның көзіне ауысады, өзінің басты экраны сияқты. Әр теледидар бұл туралы хабарламайды; Amlogic теледидарлары (көптеген Xiaomi) хабарлайды.</string>
+    <string name="cc_inputs_cec_hint">Консоль немесе приставка HDMI-CEC арқылы қосылғанда (One Touch Play), теледидар оның көзіне ауысады, өзінің басты экраны сияқты. Әр теледидар бұл туралы хабарламайды; Amlogic теледидарлары (көптеген Xiaomi) хабарлайды, ал Whaley теледидарларында бұл Aerial басты экраны ашық тұрғанда жұмыс істейді.</string>
     <string name="cc_inputs_pin">Басты экранда көрсету (кез келген саны)</string>
     <string name="cc_inputs_boot">Теледидар қосылғанда (біреу)</string>
     <string name="cc_inputs_boot_none">Ештеңе, Aerial-де қалу</string>
@@ -233,6 +233,7 @@
     <string name="weather_thunder">Найзағай</string>
     <string name="weather_temperature">%1$d°</string>
     <string name="weather_high_low">Макс.: %1$d°  Мин.: %2$d°</string>
+    <string name="weather_hours_ago">%d сағ бұрын</string>
     <string name="st_columns">Қатардағы қолданбалар</string>
     <string name="st_columns_hint">Басты экранда және қалталарда бір қатарға қанша қолданба сыяды. Алты — бірден көбірек көрінеді; төрт — үлкенірек, алыстан жақсы көрінеді.</string>
     <string name="st_peek">Екінші қатар</string>
@@ -323,4 +324,12 @@
     <string name="kids_blocked">«%s» мұнда қолжетімсіз</string>
     <string name="kids_warn">%d мин қалды</string>
     <string name="kids_warn_break">%d минуттан кейін үзіліс</string>
+    <string name="a11y_delete">Жою</string>
+    <string name="cc_about">Aerial туралы</string>
+    <string name="cc_about_update">Жаңарту</string>
+    <string name="cc_about_latest">Соңғы нұсқа</string>
+    <string name="cc_about_version">Нұсқа %1$s</string>
+    <string name="ss_sleep">Ұйқы</string>
+    <string name="ss_sleep_hint">Экран сақтағышсыз: уақыт келгенде теледидар қуат түймесін басқандай күту режиміне өтеді. Көп теледидар кейін тек қуат түймесімен қосылады.</string>
+    <string name="cc_update_to">%1$s нұсқасына жаңарту</string>
 </resources>

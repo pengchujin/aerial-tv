@@ -9,12 +9,15 @@
 | VIDAA_TV | Android 11，MT9653，1080p | 装得上；改 `persist.vt.use_home_pkg` 后主页键进 Aerial；开机仍先进聚好看 | #40 |
 | VIDAA_TV | Android 10，RTD2851D | 1.21 及以前音量键无效（守护过滤按键）；1.22 起不过滤，#40 的报告人在 1.22 上确认 `A11yInputFilter` 为空、音量正常；微博也有 1 人说新版音量好了 | #7 |
 | VIDAA_TV | Android 14，MT9655 | 控制中心「信号源」为空：固件没把 HDMI 注册进 `TvInputManager`，有私有服务能弹出海信自己的信号源面板 | #84 |
+| Vidda VL7R-PRO | Android 14，MT9655（mt5877），1080p 激光投影仪 | 主页键由守护稳定接管；开机先出聚好看约 2 秒后切回 Aerial；对焦马达（com.hisense.screen）勿动 | #1605 |
 | Vidda 85V7N-Ultra | 未说 | 装得上，信号源扫不到（同 #84）；开 ADB：声音平衡里连按菜单、确定进工厂模式，To Fac 从 U 改 M 后重启 | #120 |
 | 较老的海信（`com.jamdeo.launcher`，`BaseTileActivity`） | 日志里有 `TaskRecord`，系统应在 Android 7 以前 | 开机先显示海信桌面（智汇中心），过很久才到 Aerial；海信的 `AppManagerHelper` 把 `app.orchard.tv` 列为 `Black package` | #119（只有日志，型号待补） |
 | VIDAA_TV（老款） | Android 5.1.1（SDK 22），MStar MSD6A828 | 装得上；没有 `cmd`；每次开机固件把 `accessibility_enabled` 清成 0，直接写 1 会被静默丢弃，先 `pm unhide` 任一个包触发包变更后再写才生效；GlobalPanel 吃掉主页键，只有守护能接管；设置里没有无障碍入口，每次开机都要用电脑恢复 | #285 |
 | VIDAA_TV（老款，2016） | Android 5.1.1（SDK 22），Hi3751v620 | 1.87 起智汇键（F12）可以当主页键用：固件照样先弹 GlobalPanel，守护用一次返回键收掉再回 Aerial，在 Aerial、别的 App、HDMI 里都回到 Aerial，面板闪 0.4–0.7 秒；代价是聚好看面板不能再停留。报告人 1.88 实测 | #808 |
 | VIDAA_TV（MSD6A648） | Android 6.0（SDK 23） | 固件在 WindowManager 里把主页键映射成 `KEYCODE_F12`（`jamdeoBeforeDispatching`；`input keyevent KEYCODE_HOME` 也打印 `map KEYCODE_HOME to KEYCODE_F12`），弹 `com.jamdeo.launcher` 的 GlobalPanel（ty=2014 全屏浮层）；VIDAA 不开按键过滤（`keysPassThrough`），`filterHomeAlways` 无效；每次按主页先停约 5 秒浮层，从设置里按主页回不来。main 上（1.95 之后）安卓 6 也按 #808 的办法收掉浮层，没在真机验证 | #1505 |
 | VIDAA_TV（Hi3751V551） | Android 5.1.1（SDK 22） | 从磁贴开原桌面，守护刚放行就把随之出现的 GlobalPanel 当成主页键浮层收掉、拉回 Aerial（main 上改成放行期间不收，没在真机验证）；开机广告后黑屏停在 `com.jamdeo.tv.resources/.StickySiloStubActivity`，`list_sources` 为空，待报告人补 `persist.sys.last_source` 和 `silo_config.xml` | #1502 |
+| VIDAA_TV | Android 11，MT9603（mt5873，VX1S_4MIC），1080p | `persist.vt.use_home_pkg` 原来是空的，主页键照样由系统（uid 1000）按显式组件打开聚好看；`InputFilterEnabled: false`，守护的按键过滤（`filterHomeAlways`）不生效，只能事后拉回，闪 0.65–1 秒，聚好看的直播还会 2–6 秒后抢前台。写 `persist.vt.use_home_pkg=app.orchard.tv` 后主页键直达、重启开机第 1 秒就是 Aerial、待机唤醒正常（报告人 Agent 实测）。2.14 起安装脚本在属性为空但装有聚好看时也写（记 `-`，还原成空） | #1679 |
+| VIDAA_TV（老款） | Android 4.4.2，Hi3751（bigfish） | 只能装 Lite。选「始终」后当次开机有效，重启后固件清掉默认桌面、回到聚好看并重新弹选择框；`setprop persist.vt.use_home_pkg` 写不进去（读回为空）；Lite 没有守护，暂时没办法开机进 Lite | #1678 |
 | VIDAA C1 投影 | Android 9，MT9669 | 没有 role 服务，也没有 `persist.vt.use_home_pkg`；聚好看 HOME priority=50，守护拉起 Aerial 后 2–5 秒系统（uid 1000）又切回聚好看；`SYSTEM_ALERT_WINDOW` 被改回 ignore；暂时接管不了 | #323 |
 | 海信会议室触屏电视、海信投影 | 未说 | 投影打不开 ADB；会议室机只问了能否保留触屏（能，1.20 起支持触屏） | 微博 |
 | VIDAA_TV | Android 9，MTK9652（`m7642`），1080p，armeabi-v7a | 1.83 我的视频壁纸：打开控制中心或在里面按上下键后背景变黑，几秒后恢复；PixelCopy 太慢被停用（`copy=false copy_slow=true`），每次暂停都用 MediaMetadataRetriever 读帧，视频随后恢复时 `DECODING_FAILED`。下个版本起控制中心里不读帧、在 App 里软件解码关键帧、出错重试同一部（见下面「我的视频壁纸黑屏」） | #1251 |
@@ -172,7 +175,7 @@ main 上（未发版）亮度行先试 `android.settings.IMAGE_SETTINGS`（非�
 
 1.71 起「网络」先开海信自己的网络页（#760 H55E9A 安卓 8 上原生 `NetworkActivity` 的子页会崩，#826 也要海信的新界面）。海信页里没有代理；#1095 的 VIDAA_TV（MT9603 / mt5873，安卓 11）上原生页 `com.android.tv.settings/.connectivity.NetworkActivity` 能打开、能设代理、不崩。按机型选哪一页属于偏好，留到功能轮次；变通办法是 `adb shell am start -n com.android.tv.settings/.connectivity.NetworkActivity`。
 
-## 开机直达：`persist.sys.boot.source_pkg`（#1274 #1227，未进安装脚本）
+## 开机直达：`persist.sys.boot.source_pkg`（#1274 #1227 #1495 #1727）
 
 VIDAA_TV（MT9655，Android 14，固件 07.02.70.202605110330）上，报告人反编译 `TileTransition` 发现 `AppSwitchManager.switchToAppForSTR` 读 `persist.sys.boot.source_pkg`，按包名启动固定应用。只设它：待机唤醒进 Aerial，冷启动仍回聚好看；和 `persist.vt.use_home_pkg` 一起设（两项原值都是空）：完整重启后 `sys.boot_completed=1` 时前台已是 Aerial，60 秒无操作后是 VIDAA 自带氛围屏保 `com.vt.ambiencelife`，按键回 Aerial。两项都只能由 ADB（shell）写，Aerial 自己写不了，固件改回后 App 补不回来（#1227 在 E7Q 上见过 `use_home_pkg` 被改回）。目前只有这一台的实测，要不要进安装脚本、限定在哪些固件上，等更多 VIDAA / MT9655 机器确认。
 
@@ -186,6 +189,10 @@ VIDAA_TV（MT9655，Android 14，固件 07.02.70.202605110330）上，报告人�
 - **没在海信上验证**：维护者手上没有这台。小米 MFTR0 上回归过：控制中心里暂停、恢复从原位置接着放；从控制中心进设置再回来，App 内解关键帧 0.5–0.7 秒，视频从那一帧的时间接着放；屏保来回不黑。
 
 另一台 VIDAA_TV（MT9655，VX5SPRO，固件 07.02.70.202606170419，#1495，报告人 Agent 实测）：只设 `persist.vt.use_home_pkg` 时冷开机 2–6 分钟内聚好看反复抢前台、守护拉回 3.6 秒又被顶掉，Aerial 的 `BootReceiver` / `ConfigReceiver` 被置成 disabled（`revival: cleared disabled ... override (was 2)`）；补设 `persist.sys.boot.source_pkg=app.orchard.tv` 后 `adb reboot` 全程没有 onPause，8 分钟稳定。
+
+第三台：海信 85U7Q（VIDAA_TV，MT9655 / mt5877，安卓 14，固件 07.02.70.202606040023，#1727，报告人 Agent 实测）：只设 `use_home_pkg` 时 `adb reboot` 后属性被改回 `com.jamdeo.tv.vod`、`SYSTEM_ALERT_WINDOW` 被改回 ignore、开机期间 Aerial 进程被移除 3 次、守护一直 `Binding services`；补设 `boot.source_pkg`（原值空）后重启，3 分钟每 10 秒采样前台都是 Aerial，两个属性都保留。没测拔电冷启动和待机唤醒。这台 ADB 只有无线调试（TLS，`adb pair`，端口每次重启变）。`dumpsys tv_input` 为空，但 shell 发 `com.jamdeo.tv.policy.SILO_SWITCH_EVENT`（`-p com.hisense.tv.tiletransition --ei silo_input_src_id 1283`）能切到 HDMI 3，`settings get global touch_angle_*` 里有 HDMI 1/2/3 = 1281/1282/1283（没进 Aerial）。
+
+2026-11-23 起 `install.sh` / agent.md：安卓 14 及以上、装有聚好看、`persist.sys.boot.source_pkg` 为空时设成 Aerial，`aerial_boot_source_pkg` 记 `-`，`restore.sh` 清空。我们没有海信真机，脚本这一步只跑了离线测试。
 
 ## 海信 E8H（m7642，安卓 9，#1227）
 
@@ -274,3 +281,24 @@ adb shell settings put global adb_enabled 0
 - `TvInputManager` 列不出输入；按固件名字的 4 个 HDMI（`hisense:1281`–`1284`）能切到对应的口，固件叫 `HDMI 3 / eARC`。
 - 亮度：`picture_backlight` 不存在，`screen_brightness` 能写但面板不变，`ignoresScreenBrightness` 后不再显示亮度条。
 - 杜比视界影片在这块芯片上解得慢（`decoded: false in 5390 ms`，掉帧），航拍画质选 1080p 或 4K。
+
+## Vidda VL7R-PRO 激光投影仪（MT9655，mt5877，安卓 14，#1605，报告人 Agent 实测 1.99）
+
+- **芯片与架构**：MT9655（mt5877，mt9952，板型 `LASER_MICRO_3DTOF`），Android 14（API 34），构建号 `UQ1A.240105.004.A1`（07.02.70.202512281739），3.7 GB RAM，1080p UI（320 dpi）。
+- **光学与对焦驱动**：投影仪特有，`com.hisense.screen`（`/system_ext/app/Screen/Screen.apk`）管对焦与梯形校正，别动它。
+- **桌面接管与 Home 键**：
+  - `persist.vt.use_home_pkg = app.orchard.tv`
+  - 原生聚好看桌面 `com.jamdeo.tv.vod` 声明优先级为 50，Aerial 声明为 0。
+  - 在不停用原桌面的前提下，开机先显示聚好看约 2 秒后由守护平稳切入 Aerial；日常按遥控器主页键由守护稳定接管回到 Aerial。
+- **工厂模式 M 与用户模式 U**：
+  - M 模式（设计模式）可打开原生 AOSP 设置且 ADB 常开，但**完全屏蔽 OTA 固件升级**。
+  - U 模式（用户模式）OTA 正常，原生设置被系统冻结（`enabled=2`）。Aerial 及其守护服务在 U 模式下自启与保活均完全稳定，建议日常保持 U 模式。
+- **信号源与画质**：
+  - 信号源切换依赖 `com.hisense.tv.tiletransition`（`TileAnimationService`），不可停用。
+  - 激光亮度与色温：固件通过私有面板控制激光器输出，`screen_brightness` 与 `picture_backlight` 无法直接调控激光器功率。
+- **系统屏保开始时闪一下首页**（75E3F / NOVA72691，Android 9，#1599）：屏保开始后约 0.4 秒 `mCurrentFocus=null`，随后 `Sys2023:dream` 才拿到焦点，中间露出首页一次；是固件把 dream 窗口拆下再装回，Aerial 拿不到重新装上的时机，暂时改不了（报告人的窗口采样和慢动作视频，没有真机）。
+
+## VIDAA_TV（MSD6A828，Android 5.1.1，固件 01.02.40.01，#1703，报告人 Agent 实测）
+
+- 实体遥控器按主页键：固件先按组件拉起聚好看（`com.jamdeo.tv.vod/com.ju.main.launcher.LauncherActivity`）约 0.5–1 秒，再把 MAIN 交给 Aerial（`persist.vt.use_home_pkg=app.orchard.tv`，日志里没有守护拉回）。ADB 注入的 HOME 不经过这段，测不出来。
+- 装有 VIDAA 包时守护不开按键过滤（`keysPassThrough`）。报告人试 `filterHomeAlways`：重启前不闪，重启后主页键被吞、停在聚好看，已撤回。这一下闪是固件行为，目前没办法。

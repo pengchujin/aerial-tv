@@ -174,3 +174,10 @@
 - 小米显示器 MFFU1（安卓 14）和这台不同：PixelCopy 读得到影片，但 4K 时一次 0.7 秒、有时读出绿色。1.77 里一次慢复制按固件指纹记成慢（`copy_slow_read`），连带不读文件，户主切成杜比视界画质（壁纸随之换成 4K）后底板和面板的磨砂都没了，日志 `copy false, file frames stuck false`。现在慢复制只在有 TCL 解析器的电视上关文件（ARCHITECTURE 同一条 ⑦），这台日志 `TCL's extractor false`，从文件解帧，控制中心是磨砂玻璃。
 
 - 杜比视界屏保回首页（2026-11-04，#1238）：以前黑约 1.1 秒等壁纸影片；现在屏保期间在进程内用 `c2.android.avc.decoder` 解屏保影片的关键帧（不走 mediaserver，不碰屏保占着的那条视频通道），回来先显示它，影片从它接着放。实测按键进屏保时屏保第一帧有时从约 0.8 秒晚到 1.9 秒。这台现在是安卓 14（SDK 34），装包用 `31.dm`。
+
+## Android 11 / OS2 的 MFTR0（#1682，报告人 Agent 实测，2026-11-20）
+
+- 同一硬件（freeguy / mt9653）有 Android 11 / OS2（PatchWall 3.50，`OS2.0.30.0.RFTMATV`，没有 OS3 OTA）和 Android 14 / OS3（PatchWall 4.8）两种系统。我们手上这台是 Android 14。
+- Android 11 上开机和待机唤醒先恢复 PatchWall 任务，约 3 秒后守护切回 Aerial（PatchWall top-resumed → Aerial 拿焦点 3.0–3.4 秒）；Android 14 那台 PatchWall 被创建但 `NO_WINDOW`，看不到。
+- 报告人另外执行了 `cmd role add-role-holder … HOME app.orchard.tv` 和 `cmd package set-home-activity`：都返回成功，`resolve-activity` 仍是 PatchWall，但之后两次冷启动、一次被息屏强停后的唤醒肉眼都没看到 PatchWall（PatchWall 仍先 top-resumed，约 0.8 秒后 makeInvisible）。样本少，安装脚本在小米上仍不做这两步（#848）。报告人说电源键息屏 / 唤醒正常。
+- 息屏约 2 秒后小米 `killAllThirdApp` 强停不在白名单的 Aerial（`gotoSleepStayAliveProcess current:app.orchard.tv not in whitelist`），唤醒后由通知监听 / 守护拉回。这个白名单第三方加不进去。

@@ -102,6 +102,8 @@ object Brightness {
     fun level(context: Context): Float? = level(context, probeSkyworth = true)
 
     private fun level(context: Context, probeSkyworth: Boolean): Float? {
+        // FengOS projectors: never read or write it (SystemProbe.hidesBrightness, issue #1668).
+        if (SystemProbe.hidesBrightness(context)) return null
         // Hisense laser: the light source's own level, which screen_brightness does not touch.
         HisenseLaserPanel.level(context)?.let { return it }
         // XGIMI: the real brightness is the DLP light-engine level; the system screen_brightness
@@ -170,6 +172,7 @@ object Brightness {
      * the HAL class (see [SystemProbe.setXgimiBrightnessLevel]).
      */
     fun adjust(context: Context, direction: Int): Float? {
+        if (SystemProbe.hidesBrightness(context)) return null
         // Hisense laser: 11 notches of the TV's own level, not the 5% steps below — 5% would land
         // on the same notch twice and the row would seem to stick. The notch asked for is reported
         // rather than read back: the write goes through the picture service, so the row moves with

@@ -70,6 +70,8 @@ object AppCatalog {
         ComponentName("com.sony.dtv.searchapp", "com.ktcp.aiagent.xwability.activity.VoipHomeActivity"), // #1074
         ComponentName("com.gitv.dvb.live", "com.gitv.dvb.live.activity.PlayActivity"), // 宽带电视, #1378
         ComponentName("com.xiaomi.mitv.appstore", "com.xiaomi.mitv.appstore.MainActivity"), // 应用商店, MiTV4C, #1568
+        ComponentName("com.baofengtv.tvplayer", "com.baofengtv.tvplayer.MainActivity"), // Baofeng AML_T962 live TV, #1378
+        ComponentName("com.bftv.fui.biu", "com.bftv.fui.biu.views.activity.FRowActivity"), // Baofeng AML_T962 inputs bar, #1378
     )
 
     /** Firmware apps drawn as Aerial's own tiles, by package, as in the full app. */
@@ -239,7 +241,7 @@ object AppCatalog {
         // comes before what Aerial would draw from its banner or icon.
         val custom = CustomIcons.load(pkg)
         val library = if (custom == null && (own == null || IconLibrary.pick(pkg) == IconLibrary.Pick.Library)) IconLibrary.load(pkg) else null
-        val recipe = TileRecipes.of(pkg)
+        val recipe = TileRecipes.of(pkg, pm)
         val art = runCatching {
             when {
                 // The owner's own picture first, as in the full app.
@@ -291,7 +293,7 @@ object AppCatalog {
     fun ownArt(context: Context, app: AppEntry): Bitmap? = runCatching {
         val pm = context.packageManager
         val info = pm.getActivityInfo(app.component, 0)
-        val recipe = TileRecipes.of(app.key)
+        val recipe = TileRecipes.of(app.key, pm)
         val banner = banner(pm, info, app.leanback)
         val system = drawnByAerial[app.key]
         val art = when {

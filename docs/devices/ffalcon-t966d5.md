@@ -45,3 +45,22 @@ TCL Q9L Pro（安卓 14）和这台一样，系统登记 HDMI 1–4 = HW15–18�
 ## 雷鸟鹏 7 Plus 26 款 55 英寸（T966D5_4K_CN，安卓 14，#1232）
 
 `wm size` 物理 3840x2160、覆盖 1920x1080；`ro.surface_flinger.max_graphics_width/height` = 1920×1080，`ro.feature.graphics_4kui` = false，SurfaceFlinger 显示名 `Linux FHD`：界面层是 1080p，和 #645 记的平台一致，不开 4K 画布。无障碍页打不开时用 ADB 装（报告人用 Agent 装好了）。
+
+## TCL 65V8M Pro
+
+2026-11-21 在一台国行 65V8M Pro 上实测。固件 `V8-0018T11-LF1V066`，设备代号 `T966D5`，产品名 `T966D5_4K_CN`，Android 14（API 34，AU01）。测试包是基于 v2.15 的本地 `2.15-local.3-guard`。
+
+- 在电视上确认调试授权后，Mac 可以通过网络 ADB 连接。ADB 安装返回 `INSTALL_FAILED_VERIFICATION_FAILURE`。电视自带的「多屏互动」弹出安装确认，用户选「同意」后成功安装。
+- 原来的 `boot_app_mode` 是 `boot_launcher`，`boot_app_componentname` 是 `com.tcl.cyberui/.MainActivity`。把后者改为 `app.orchard.tv/.MainActivity` 后重启一次。开机计时第 24 和 29 秒，两次均读到 Aerial 在前台，采样前没有发送主页键或启动应用。系统 HOME 仍解析到 TCL 桌面。从 TCL 设置页按主页键，8 秒后焦点在 Aerial。
+- 重启后首次验收时，启用的无障碍服务中只有 TCL 语音服务，Aerial 绑定数为 0。随后两项服务均在，约 94 秒内的 24 次采样绑定数均为 1。从 TCL 设置页再次跑完整验收，8 秒后焦点回到 Aerial。也曾在电视卫士前台时短暂读到绑定数为 0。TCL 的 `AUTO_START` 和 `ASSOC_START` 从安装时的 `allow` 回到 `ignore`。
+- 启用 `keep_adb` 后，这次重启可以通过网络 ADB 重新连接。原厂屏保可以正常启动。本次采样能确认屏保退出，完整待机唤醒和断电冷启动仍待复测。
+
+### 别的 App 里按主页键会先闪 TCL 桌面，`filterHomeAlways` 可以消除
+
+2026-11-22 傍晚在同一台 65V8M Pro 上实测：
+
+- Aerial 在前台时短按主页键不闪：守护在 `onKeyEvent` 里吃掉按键并重新拉起 Aerial，系统根本没收到 Home，日志里 `AerialGuard: Home key taken before the system saw it`，没有 `com.tcl.cyberui` 进前台。
+- 电视版哔哩哔哩（com.xiaodianshi.tv.yst）在前台时短按主页键会闪原桌面：固件在 WindowManager 层直接执行 `start home ... reason is startDockOrHome`、启动 `com.tcl.cyberui/.MainActivity`（与 HOME 解析、开机应用设置都无关），守护要等窗口变化事件到了才拉回 Aerial，两轮分别约 1.3 s 和 1.6 s。原桌面进程当时没被杀，这 1–2 秒是 Activity 反复重建（`from:DESTROYED to:RESUMED`）的开销。
+- 保存设备自身 profile `{"filterHomeAlways":true}`（来源 `ThisTv`）后，先切换一次前台应用让守护重算过滤，哔哩哔哩前台两次短按都是 `Home key taken before the system saw it`，没有 `startDockOrHome` 行，原桌面不再出现。
+- 代价与上游记录一致：所有按键都经守护转发。本机每次按音量仍走一格（没有 #684 在红米上的「按住只走一格」），但只测了很短几次，没有长时间按住验证。
+- 限制：只测了哔哩哔哩和短按；其他 App（如 `com.tcl.vod`、`com.kookong.tvplus`）、长按主页（任务中心）、双击主页（最近任务）都还没测。开关按用户配置保存，没有按型号内置；撤回用 `adb shell am broadcast -a app.orchard.tv.CONFIG -n app.orchard.tv/.guard.ConfigReceiver --es device_profile default`。

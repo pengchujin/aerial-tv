@@ -378,7 +378,11 @@ object TileArtFactory {
         val edge = (h * 0.04f).roundToInt()
         val depth = (h * 0.06f).roundToInt()
         val top = band(t + edge, t + edge + depth) ?: return null
-        val bottom = band(bt - edge - depth, bt - edge) ?: return null
+        // A decorated bottom edge (语音专区's microphone arcs) must not lose the plate: the
+        // top edge already names its color. Only for a plate carried across the tile
+        // (integrate); a bottom edge with no color of its own still means "not a plate" for
+        // every other icon, as before.
+        val bottom = band(bt - edge - depth, bt - edge) ?: if (recipe?.integrate == true) top else return null
         // Two colors (Xiaomi's 视频头条: white over red) are a picture, not a plate to carry across.
         if (distance(top, bottom) > 150) return null
 
@@ -396,6 +400,13 @@ object TileArtFactory {
             // The tile gets the recipe's colors, so the plate has to go: only the logo is kept.
             cutOut(fore, logo, top, bottom, white = recipe.white || unified)
             return finish(colorTile(recipe.top, recipe.bottom), fore)
+        }
+        if (recipe?.integrate == true) {
+            // The icon's own plate fills the tile; only its logo stays, in its own colors.
+            // The inner plate of a two-tone icon is removed too: near/far is wider than the
+            // default so a lighter rounded square behind the logo does not survive as a frame.
+            cutOut(fore, logo, top, bottom, white = recipe.white, near = 96, far = 160)
+            return finish(colorTile(top, bottom), fore)
         }
         if (unified && recipe?.keepColors != true && (recipe?.white == true || !multiColor(fore, logo, ColorUtils.blendARGB(top, bottom, 0.5f)))) {
             return unify(fore, logo, top, bottom)
@@ -422,7 +433,7 @@ object TileArtFactory {
      * 网易云音乐), had every edge pixel past a fifth logo fully opaque, and curves came out
      * stepped.)
      */
-    private fun cutOut(layer: Bitmap, logo: RectF, top: Int, bottom: Int, white: Boolean) {
+    private fun cutOut(layer: Bitmap, logo: RectF, top: Int, bottom: Int, white: Boolean, near: Int = 24, far: Int = 96) {
         val px = IntArray(W * H).also { layer.getPixels(it, 0, W, 0, 0, W, H) }
         val d = IntArray(W * H)
         val plates = IntArray(H) { y -> ColorUtils.blendARGB(top, bottom, ((y - logo.top) / logo.height()).coerceIn(0f, 1f)) }
@@ -430,7 +441,7 @@ object TileArtFactory {
             val i = y * W + x
             d[i] = if (px[i] ushr 24 == 0) 0 else distance(px[i], plates[y])
         }
-        fun inside(distance: Int) = ((distance - 24) / 72f).coerceIn(0f, 1f)
+        fun inside(distance: Int) = ((distance - near) / (far - near).toFloat()).coerceIn(0f, 1f)
         val r = EDGE_RADIUS
         for (y in 0 until H) {
             for (x in 0 until W) {
@@ -443,10 +454,10 @@ object TileArtFactory {
                 var local = 0
                 for (yy in maxOf(0, y - r)..minOf(H - 1, y + r)) for (xx in maxOf(0, x - r)..minOf(W - 1, x + r)) {
                     val v = d[yy * W + xx]
-                    if (v <= 24) nearPlate = true
+                    if (v <= near) nearPlate = true
                     if (v > local) local = v
                 }
-                val share = if (nearPlate && local > 24) ((d[i] - 12f) / (local * 0.95f - 12f)).coerceIn(0f, 1f) else 1f
+                val share = if (nearPlate && local > near) ((d[i] - 12f) / (local * 0.95f - 12f)).coerceIn(0f, 1f) else 1f
                 val keep = if (nearPlate) share * inside(local) else inside(d[i])
                 val a = ((c ushr 24) * keep).roundToInt()
                 val rgb = when {
@@ -478,10 +489,22 @@ object TileArtFactory {
         val iconBitmap = createBitmap(sample, sample)
         icon.setBounds(0, 0, sample, sample)
         icon.draw(Canvas(iconBitmap))
-        val square = opaqueCorners(iconBitmap)
+        val square = opaqueCorners(iconBitmap) || (recipe?.integrate == true && fillsCanvas(iconBitmap))
         val tint = dominant(iconBitmap)
         iconBitmap.recycle()
         val (top, bottom) = if (recipe?.top != null && recipe.bottom != null) recipe.top to recipe.bottom else tileFromTint(tint)
+        // The icon's plate fills the tile and only its logo stays, in the logo's own colors:
+        // the look of a plate carried across a tile, without the plate's own inner card.
+        if (recipe?.integrate == true) {
+            // The icon's plate fills the tile and only its logo stays, in the logo's own colors.
+            // Use the icon's own edge colors, not a tint: the plate's lighter inner square has
+            // to be removed with it, or it stays as an obvious inner frame.
+            val (etop, ebottom) = edgeColors(icon, integrate = true) ?: (top to bottom)
+            placeLogo(icon, ::visible)?.let { (fore, logo) ->
+                cutOut(fore, logo, etop, ebottom, white = recipe.white, near = 96, far = 160)
+                return finish(colorTile(etop, ebottom), fore)
+            }
+        }
         // A white logo on a picture (Z视介's Z on blue facets): a recipe can ask for just the logo,
         // taken by its lightness, on the recipe's colors.
         if (recipe?.white == true && (square || edgeColors(icon) != null)) {
@@ -527,8 +550,13 @@ object TileArtFactory {
      * not mostly one color (a photo running off the edge), or when the two are far apart (black
      * over orange, 华数南瓜电影), which fades into the tile as a stripe. A gradient (pink into
      * purple) is fine.
+     *
+     * [integrate] is the plate-carried-across-the-tile look (see [TileRecipe.integrate]), whose
+     * icons are known to be one plate: there a missing or decorated bottom edge falls back to the
+     * top color, and a bottom edge far from the top still fills the tile rather than falling
+     * through to the generic path. Every other icon keeps the old, stricter rules.
      */
-    private fun edgeColors(icon: Drawable): Pair<Int, Int>? {
+    private fun edgeColors(icon: Drawable, integrate: Boolean = false): Pair<Int, Int>? {
         val n = 96
         val px = raster(icon, n)
         val box = solidBox(px, n) ?: return null
@@ -549,8 +577,10 @@ object TileArtFactory {
         }
         // Close to the edge: a picture icon's subject often reaches within a few percent of it.
         val top = band(box.top + h * 2 / 100, box.top + h * 5 / 100) ?: return null
-        val bottom = band(box.bottom - 1 - h * 5 / 100, box.bottom - 1 - h * 2 / 100) ?: return null
-        return if (distance(top, bottom) > 260) null else top to bottom
+        val bottom = band(box.bottom - 1 - h * 5 / 100, box.bottom - 1 - h * 2 / 100)
+            ?: if (integrate) top else return null
+        if (distance(top, bottom) > 260) return if (integrate) top to top else null
+        return top to bottom
     }
 
     /**
@@ -664,6 +694,22 @@ object TileArtFactory {
         val e = b.width - 1 - i
         return listOf(b.getPixel(i, i), b.getPixel(e, i), b.getPixel(i, e), b.getPixel(e, e))
             .all { android.graphics.Color.alpha(it) > 200 }
+    }
+
+    /**
+     * True for an icon whose solid part is (nearly) the whole canvas: a plate, also when its
+     * corners are rounded and transparent. [opaqueCorners] misses those, and for an integrate
+     * recipe (whose plate is carried across the tile) a plate with a decorated edge (the arcs
+     * around 语音专区's microphone) can then fall through [plate] and be taken for a logo, which
+     * [unify] whitens whole and leaves the tile blank. Only read for such recipes; every other
+     * icon keeps the [opaqueCorners] test.
+     */
+    private fun fillsCanvas(b: Bitmap): Boolean {
+        val n = b.width
+        val px = IntArray(n * n).also { b.getPixels(it, 0, n, 0, 0, n, n) }
+        val box = solidBox(px, n) ?: return false
+        val w = box.width()
+        return w >= n * 0.88f && kotlin.math.abs(w - box.height()) <= w * 0.06f
     }
 
     // ---- Logos: found in a sample of the icon, then drawn sharp at their size on the tile ----

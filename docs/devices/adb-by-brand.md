@@ -94,9 +94,7 @@ adb connect <电视IP>:<无线调试主页上的端口>   # 和上面不是同�
 - 老乐视
 - 荣耀智慧屏
 - 老康佳（设置里看不到版本号）
-
-当贝投影 F5 等机器，有用户用第三方工具 [BuddhaYi/android-tv-developer-enabler](https://github.com/BuddhaYi/android-tv-developer-enabler)
-打开过 ADB。那不是本项目的工具，也不是官方推荐：请自行评估风险，本项目不担保。
+- 酷开 85A10H（8TB01，酷开系统 10.02）：设置和工程模式里都没有 ADB 入口（#32，用户反馈）
 
 ## 没有电脑
 

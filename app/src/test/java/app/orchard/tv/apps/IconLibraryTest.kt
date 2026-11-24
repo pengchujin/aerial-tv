@@ -49,6 +49,13 @@ class IconLibraryTest {
 
         assertNull(IconLibrary.read("not json"))
         assertNull(IconLibrary.read("""{"v":2}"""))
+
+        // The apps' names, for the phone page's picker; none in an older index or a broken one.
+        val named = IconLibrary.names("""{"v":2,"icons":{},"names":{"a.b":{"zh":"云视听小电视","en":"Bilibili","also":"B站"}}}""")
+        assertEquals("Bilibili", named.getJSONObject("a.b").getString("en"))
+        assertEquals(0, IconLibrary.names(v2).length())
+        assertEquals(0, IconLibrary.names("not json").length())
+        assertEquals(0, IconLibrary.names(null).length())
     }
 
     @Test

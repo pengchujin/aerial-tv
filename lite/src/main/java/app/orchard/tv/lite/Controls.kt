@@ -414,8 +414,10 @@ open class Sheet(context: Context, protected val close: () -> Unit) : FrameLayou
         var top = 0f
         var v: View? = f
         while (v != null && v !== content) { top += v.top; v = v.parent as? View }
-        // Room below for the note under a group of rows, which follows the focus.
-        val bottom = top + f.height + Ui.px(38f)
+        // Room below for the note under a group of rows, which follows the focus. On the last row,
+        // down to the content's end: what follows it takes no focus (Personalize's About, #1606).
+        val bottom = if (r == rows.lastIndex) maxOf(top + f.height + Ui.px(38f), content.height.toFloat())
+            else top + f.height + Ui.px(38f)
         val margin = Ui.px(16f)
         val shift = content.translationY
         val to = when {

@@ -11,7 +11,6 @@ import java.io.File
 import java.io.FileOutputStream
 import java.io.InputStream
 import java.text.SimpleDateFormat
-import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
 
@@ -206,21 +205,32 @@ object Wallpapers {
         }.filter { File(dailyDir, it.first + ".jpg").exists() }
     }.getOrDefault(emptyList())
 
-    /** Bing's dates are China's, as yyyyMMdd. */
-    private fun hasTodaysDaily(): Boolean {
-        val fmt = SimpleDateFormat("yyyyMMdd", Locale.US).apply { timeZone = TimeZone.getTimeZone("Asia/Shanghai") }
-        return File(dailyDir, fmt.format(Date()) + ".jpg").exists()
-    }
+    /**
+     * Whether the newest photo on hand is still the current one. Bing's `startdate` is not China's
+     * day: the photo up from 00:00 on the 20th is dated the 19th, its `fullstartdate` 202611191600
+     * being UTC (the full app's issue #1630), so today's never seemed to be there. The next one is
+     * due a day after the newest one's start; an index from before has no start and is fetched.
+     */
+    fun hasTodaysDaily(): Boolean = runCatching {
+        val arr = JSONArray(File(dailyDir, "index.json").readText())
+        val fmt = SimpleDateFormat("yyyyMMddHHmm", Locale.US).apply { timeZone = TimeZone.getTimeZone("UTC"); isLenient = false }
+        val newest = (0 until arr.length()).mapNotNull { i ->
+            arr.getJSONObject(i).optString("start").takeIf { it.length == 12 }?.let { runCatching { fmt.parse(it)?.time }.getOrNull() }
+        }.maxOrNull() ?: return@runCatching false
+        System.currentTimeMillis() - newest < 24 * 60 * 60 * 1000L
+    }.getOrDefault(false)
 
     /**
      * Fetches the last eight of Bing's photos (cn.bing.com, reachable from China), as the full app:
      * at most every six hours, or every half hour until today's is out. True when something new
      * arrived. Off the main thread. Old Androids do not trust Bing's root; it answers over HTTP too.
+     * [newDay]: the date just changed, so the photo on hand is yesterday's whatever it says. A clock
+     * set back since the last look (a TV that booted ahead of the time) makes it due as well.
      */
-    fun refreshDaily(): Boolean {
+    fun refreshDaily(newDay: Boolean = false): Boolean {
         val now = System.currentTimeMillis()
         val since = now - prefs.getLong("daily_checked", 0)
-        if (since < 6 * 60 * 60 * 1000L && (hasTodaysDaily() || since < 30 * 60 * 1000L)) return false
+        if (!newDay && since in 0 until 6 * 60 * 60 * 1000L && (hasTodaysDaily() || since < 30 * 60 * 1000L)) return false
         return runCatching {
             val market = if (Locale.getDefault().language == "zh") "zh-CN" else "en-US"
             val marketFile = File(dailyDir, "market")
@@ -244,7 +254,7 @@ object Wallpapers {
                 }
                 val copyright = img.optString("copyright")
                 val title = img.optString("title").ifBlank { copyright.substringBefore(" (").ifBlank { date } }
-                index.put(JSONObject().put("date", date).put("title", title).put("caption", copyright))
+                index.put(JSONObject().put("date", date).put("title", title).put("caption", copyright).put("start", img.optString("fullstartdate")))
             }
             File(dailyDir, "index.json").writeText(index.toString())
             val keep = (0 until index.length()).map { index.getJSONObject(it).getString("date") + ".jpg" }.toSet()
@@ -276,7 +286,7 @@ object Wallpapers {
 
     // ---- photos from the phone ----
 
-    /** Stores an uploaded picture, at most 2560 wide, and returns its id. Off the main thread. */
+    /** Stores an uploaded picture, halved until its longer side is under 5120 px, and returns its id. Off the main thread. */
     fun addPhoto(input: InputStream): String? {
         val tmp = File.createTempFile("upload", ".bin", app.cacheDir)
         return try {
@@ -286,9 +296,12 @@ object Wallpapers {
             if (bounds.outWidth <= 0) return null
             // Stored upright: the JPEG written below keeps no EXIF, so the turn is applied now (#647).
             val orientation = Images.exifOrientation(tmp)
-            val wide = if (Images.quarterTurn(orientation)) bounds.outHeight else bounds.outWidth
+            // By the longer side, turned or not: by the width alone a tall, narrow picture (a long
+            // screenshot, a portrait panorama) was decoded whole, tens of MB on a TV with little memory
+            // (issue #1651, Null9797's review).
+            val longest = maxOf(bounds.outWidth, bounds.outHeight)
             var sample = 1
-            while (wide / (sample * 2) >= 2560) sample *= 2
+            while (longest / (sample * 2) >= 2560) sample *= 2
             val decoded = BitmapFactory.decodeFile(tmp.path, BitmapFactory.Options().apply { inSampleSize = sample }) ?: return null
             val bmp = Images.upright(decoded, orientation)
             val name = System.currentTimeMillis().toString(36)
