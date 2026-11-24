@@ -32,7 +32,10 @@ parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("serial")
 parser.add_argument("scenarios", nargs="*")
 parser.add_argument("--json", type=Path, help="also save the measured results")
+parser.add_argument("--home-timeout", type=int, default=30, help="seconds to wait for a Home transition")
 args = parser.parse_args()
+if args.home_timeout <= 0:
+    parser.error("--home-timeout must be positive")
 S = args.serial
 ONLY = args.scenarios
 
@@ -156,16 +159,24 @@ def cpu_sample():
 
 def resources():
     before = foreground()
-    start, ticks, uptime = cpu_sample()
+    def sample_if_available():
+        try:
+            return cpu_sample()
+        except (ValueError, IndexError, subprocess.CalledProcessError):
+            return None
+
+    first = sample_if_available()
     time.sleep(5)
-    end, final_ticks, final_uptime = cpu_sample()
-    seconds = final_uptime - uptime
+    last = sample_if_available()
+    seconds = last[2] - first[2] if first and last else None
+    cpu = None
+    if seconds and seconds > 0 and first[0] == last[0]:
+        cpu = round((last[1] - first[1]) / seconds, 2)
     output = sh(f"dumpsys meminfo {PKG}")
     pss = re.search(r"TOTAL(?: PSS)?:\s+(\d+)", output)
     return {"foreground_before": before, "foreground_after": foreground(),
-            "sample_seconds": round(seconds, 2),
-            "cpu_percent_one_core": round((final_ticks - ticks) / seconds, 2)
-            if start == end and seconds > 0 else None,
+            "sample_seconds": round(seconds, 2) if seconds is not None else None,
+            "cpu_percent_one_core": cpu,
             "pss_kib": int(pss[1]) if pss else None}
 
 
@@ -181,8 +192,8 @@ def home(name):
     if name == "home-adb":
         sh("input keyevent KEYCODE_HOME")
     else:
-        print("Press Home once on the physical remote within 30 seconds.", flush=True)
-    while time.monotonic() - started < 30:
+        print(f"Press Home once on the physical remote within {args.home_timeout} seconds.", flush=True)
+    while time.monotonic() - started < args.home_timeout:
         current = foreground()
         if current and current != previous:
             elapsed = round((time.monotonic() - started) * 1000)
