@@ -1,0 +1,5 @@
+<resources>
+    <string name="cc_extensions">Тақырыптар мен карталар</string>
+    <string name="cc_apply_theme">Тақырыпты қолдану</string>
+    <string name="cc_reset_theme">Әдепкі көріністі қалпына келтіру</string>
+</resources>

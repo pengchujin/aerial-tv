@@ -329,7 +329,7 @@ object AppCatalog {
                         }
                 }
             }.awaitAll().filterNotNull()
-        }.plus(shortcuts(context, pm)).also {
+        }.plus(shortcuts(context, pm)).plus(HomeExtensions.entries(context)).also {
             val now = android.os.SystemClock.uptimeMillis()
             lastTiming = longArrayOf(started, queried, now)
             loaded = it

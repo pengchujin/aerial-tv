@@ -35,7 +35,7 @@ object Palette {
     val Green = Color(0xFF30D158)
     val Orange = Color(0xFFFF9F0A)
     val Red = Color(0xFFFF453A)
-    val Blue = Color(0xFF0A84FF)
+    val Blue: Color get() = app.orchard.tv.apps.HomeExtensions.accent
 
     /** tvOS draws a focused control as a near-white plate with dark content. */
     val Focus = Color(0xFFF5F5F7)

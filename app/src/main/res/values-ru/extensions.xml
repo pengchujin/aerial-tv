@@ -1,0 +1,5 @@
+<resources>
+    <string name="cc_extensions">Темы и карточки</string>
+    <string name="cc_apply_theme">Применить тему</string>
+    <string name="cc_reset_theme">Восстановить оформление</string>
+</resources>

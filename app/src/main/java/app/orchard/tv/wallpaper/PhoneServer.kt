@@ -70,6 +70,11 @@ class PhoneServer private constructor(private val context: Context, private val 
                 path != "/api/kids/start" && !pinOk(session.headers["x-aerial-pin"])
             ) return json(state().put("saved", false).put("kidsLocked", true))
             when {
+                session.method == Method.POST && path == "/api/theme" -> {
+                    val theme = runCatching { app.orchard.tv.apps.HomeTheme.parse(form(session)["theme"].orEmpty()) }.getOrNull()
+                    if (theme != null) onMain { app.orchard.tv.apps.HomeExtensions.stage(context, theme) }
+                    json(JSONObject().put("saved", theme != null))
+                }
                 path == "/" -> newFixedLengthResponse(Response.Status.OK, "text/html; charset=utf-8", page())
                 session.method == Method.POST && path == "/api/kids/unlock" -> {
                     val ok = pinOk(form(session)["pin"])

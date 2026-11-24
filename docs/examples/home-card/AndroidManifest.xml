@@ -1,0 +1,11 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="org.example.aerialclock">
+    <uses-sdk android:minSdkVersion="21" android:targetSdkVersion="34" />
+    <application android:label="Clock card" android:theme="@android:style/Theme.Material.NoActionBar">
+        <activity android:name=".ClockActivity" android:exported="true" android:description="@string/summary">
+            <intent-filter>
+                <action android:name="app.orchard.tv.action.HOME_CARD" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>

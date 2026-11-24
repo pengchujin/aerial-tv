@@ -1,0 +1,5 @@
+# Home themes and cards
+
+Select a theme JSON file on the phone appearance page. On the TV, open Control Center → Themes and cards to preview its wallpaper, accent and layout, then apply it. Restore default appearance resets these three settings. Importing the file alone never applies it. See [the sample](examples/home-theme.json). A title is 1–64 characters, the accent uses six hexadecimal RGB digits, columns range from 4 to 6, and wallpaper is an installed featured gradient ID. Remote assets and executable configuration are unsupported.
+
+A card is an exported Android activity with the action `app.orchard.tv.action.HOME_CARD`. Its label, icon and optional description are read from its activity declaration. The TV owner selects the card in Themes and cards to give it a Home tile. Pressing that tile opens the declared activity by component. Deselecting the card removes its tile. A fresh installation requires a fresh grant. Aerial does not download cards or start their activities during discovery. A minimal [clock card](examples/home-card) demonstrates the manifest, string resource and activity for an independent Android application.

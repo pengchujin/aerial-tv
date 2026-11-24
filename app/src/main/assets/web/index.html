@@ -361,6 +361,7 @@
 
 <!-- More -->
 <section data-tab="more" hidden>
+  <label class="item"><span data-i18n="import_theme"></span><input id="importTheme" type="file" accept=".json,application/json"></label>
   <h2 data-i18n="focus"></h2>
   <div class="list" id="focus" role="radiogroup" data-i18n-aria-label="focus">
     <button class="item" role="radio" data-style="high_contrast"><span class="txt"><span data-i18n="focus_high"></span><span class="sub" data-i18n="focus_hint_high"></span></span><svg class="tick" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></button>
@@ -1477,6 +1478,8 @@ const TEXTS = {
   "Ештеңе табылмады. Басқа атауын не бума атауын жазып көріңіз."
  ]
 };
+KEYS.push('import_theme');
+Object.entries({en:'Import theme for TV preview',zh:'导入主题并在电视预览',ru:'Импорт темы для просмотра на ТВ',uk:'Імпорт теми для перегляду на ТБ',kk:'ТД-да көру үшін тақырыпты импорттау'}).forEach(([lang, label]) => TEXTS[lang].push(label));
 const LANGS = Object.keys(TEXTS);
 const LANG = (() => {
   const asked = new URLSearchParams(location.search).get('lang');
@@ -1540,6 +1543,16 @@ function toast(msg, first) {
 let kidsPin = '';
 let kidsNoticeUntil = 0;
 function pinHeaders(more) { return Object.assign({}, more || {}, kidsPin ? { 'X-Aerial-Pin': kidsPin } : {}); }
+document.getElementById('importTheme').onchange = async function() {
+  const file = this.files[0];
+  if (!file) return;
+  try {
+    if (file.size > 4096) throw new Error();
+    const result = await api('api/theme', {theme: await file.text()});
+    toast(t(result.saved ? 'toast_tv_updated' : 'toast_set_fail'));
+  } catch (_) { toast(t('toast_set_fail')); }
+  this.value = '';
+};
 async function api(path, body) {
   const opts = body ? { method: 'POST', body: new URLSearchParams(body), headers: pinHeaders() } : {};
   const r = await fetch(base + path, opts);

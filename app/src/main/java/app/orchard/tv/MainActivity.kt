@@ -285,6 +285,7 @@ class MainActivity : ComponentActivity() {
         SourceLooks.init(this)
         AppNames.init(this)
         AerialSettings.init(this)
+        app.orchard.tv.apps.HomeExtensions.init(this)
         Restricted.init(this)
         KidsWatch.start(this)
         // After the settings: the artwork's size follows the number of apps a row.

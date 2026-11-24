@@ -1,0 +1,5 @@
+<resources>
+    <string name="cc_extensions">主题与卡片</string>
+    <string name="cc_apply_theme">应用主题</string>
+    <string name="cc_reset_theme">恢复默认外观</string>
+</resources>

@@ -1,0 +1,5 @@
+<resources>
+    <string name="cc_extensions">Themes and cards</string>
+    <string name="cc_apply_theme">Apply theme</string>
+    <string name="cc_reset_theme">Restore default appearance</string>
+</resources>
