@@ -51,12 +51,27 @@ object DiagLog {
     fun softLayer(context: Context): Boolean = prefs(context).getBoolean("soft_layer", false)
 
     /**
+     * Whether Home's large clock is drawn from a picture made on the CPU (issue #1658): by default
+     * on a GPU with OpenGL ES 2 only, where the large digits came out jagged (ZTE W152D, Mali-450);
+     * soft_clock over ADB says yes or no on any TV.
+     */
+    fun softClock(context: Context): Boolean = prefs(context).let { p ->
+        if (p.contains("soft_clock")) p.getBoolean("soft_clock", false) else glesMajor(context) in 1..2
+    }
+
+    /** The OpenGL ES major version the device declares, 0 when unknown. */
+    fun glesMajor(context: Context): Int =
+        (context.getSystemService(Context.ACTIVITY_SERVICE) as? android.app.ActivityManager)
+            ?.deviceConfigurationInfo?.reqGlEsVersion?.let { it shr 16 } ?: 0
+
+    /**
      * An experiment for issue #654 (Redmi X50, MiTV-NSOP0, Novatek): the apps fading into the
      * screensaver each in a buffer of their own rather than with their alpha laid on every drawing.
      * Their frame and shadow are cut to the tile while they fade.
      */
     fun saverFadeOffscreen(context: Context): Boolean = prefs(context).getBoolean("saver_fade_offscreen", false)
     fun setOption(context: Context, key: String, on: Boolean) = prefs(context).edit().putBoolean(key, on).apply()
+    fun clearOption(context: Context, key: String) = prefs(context).edit().remove(key).apply()
     private fun prefs(context: Context) = context.getSharedPreferences("system", Context.MODE_PRIVATE)
 
     fun init(context: Context) {

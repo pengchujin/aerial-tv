@@ -1,6 +1,8 @@
 package app.orchard.tv.lite
 
 import android.content.Context
+import android.app.ActivityManager
+import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.RectF
@@ -127,7 +129,7 @@ class ClockView(context: Context) : View(context) {
         }
         // The time, 16 under the date's baseline to its capitals.
         y += Ui.px(16f + 104f * Ui.CAP_HEIGHT)
-        Ui.draw(c, time, if (alignEnd) start(Ui.width(time, bigPaint, -0.04f)) + Ui.px(4f) else -Ui.px(4f), y, bigPaint, -0.04f)
+        drawTime(c, if (alignEnd) start(Ui.width(time, bigPaint, -0.04f)) + Ui.px(4f) else -Ui.px(4f), y)
         val w = weather ?: return
         // The weather, 18 under the time.
         y += Ui.px(18f + 16f * Ui.CAP_HEIGHT)
@@ -141,6 +143,31 @@ class ClockView(context: Context) : View(context) {
         Ui.draw(c, temp, x, y, detailPaint)
         if (restText.isNotEmpty()) Ui.draw(c, restText, x + detailPaint.measureText(temp), y, detailDim)
     }
+
+    /**
+     * The big time. On a GPU with OpenGL ES 2 only it is drawn on the CPU into a picture, once a
+     * minute, and the picture is what the GPU draws: the GPU's own way with glyphs this large left
+     * the digits' slopes and curves jagged on ZTE W152D (Amlogic S905L4, Mali-450), in the full app
+     * as in Lite (issue #1658). A software layer for the whole view would cut the shadow and the
+     * date's accents, which reach outside it.
+     */
+    private fun drawTime(c: Canvas, x: Float, baseline: Float) {
+        if (!softDigits || !c.isHardwareAccelerated) { Ui.draw(c, time, x, baseline, bigPaint, -0.04f); return }
+        val pad = Ui.px(24f)
+        val fm = bigPaint.fontMetrics
+        if (digits == null || digitsFor != time) {
+            val w = (Ui.width(time, bigPaint, -0.04f) + 2 * pad).toInt() + 1
+            val h = (fm.descent - fm.ascent + 2 * pad).toInt() + 1
+            digits = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888).also {
+                Ui.draw(Canvas(it), time, pad, pad - fm.ascent, bigPaint, -0.04f)
+            }
+            digitsFor = time
+        }
+        c.drawBitmap(digits!!, x - pad, baseline + fm.ascent - pad, null)
+    }
+    private val softDigits = glesMajor(context) in 1..2
+    private var digits: Bitmap? = null
+    private var digitsFor = ""
 
     private fun drawSmall(c: Canvas) {
         val h = height.toFloat()
@@ -274,3 +301,7 @@ class VpnBadgeView(context: Context, size: Float, private val color: Int) : View
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) = setMeasuredDimension(badge.width.toInt() + 1, badge.height.toInt() + 1)
     override fun onDraw(canvas: Canvas) { badge.draw(canvas, 0f, height / 2f, color) }
 }
+
+/** The OpenGL ES major version the device declares, 0 when unknown. */
+fun glesMajor(context: Context): Int =
+    ((context.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager)?.deviceConfigurationInfo?.reqGlEsVersion ?: 0) shr 16
