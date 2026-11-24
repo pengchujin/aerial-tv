@@ -173,6 +173,13 @@ object AerialSettings {
     var wallpaperAlwaysMoves by mutableStateOf(false); private set
 
     /** The weather beside the clock; off for those who want the time alone (issue #472). */
+    var showResourceMonitor by mutableStateOf(false); private set
+
+    fun chooseResourceMonitor(enabled: Boolean) {
+        showResourceMonitor = enabled
+        app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit { putBoolean("resource_monitor", enabled) }
+    }
+
     var showWeather by mutableStateOf(true); private set
 
     /**
@@ -260,6 +267,7 @@ object AerialSettings {
         homePlate = prefs.getBoolean("home_plate", true)
         chosenAllNames = prefs.getBoolean("show_all_names", false)
         wallpaperAlwaysMoves = prefs.getBoolean("wallpaper_always_moves", false)
+        showResourceMonitor = prefs.getBoolean("resource_monitor", false)
         showWeather = prefs.getBoolean("show_weather", true)
         screensaverClock = prefs.getBoolean("screensaver_clock", true)
         screensaverCaption = prefs.getBoolean("screensaver_caption", true)

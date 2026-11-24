@@ -901,6 +901,9 @@ fun HomeScreen(
                     saving = vm.screensaverVisible,
                 )
             }
+            if (overlay == Overlay.None && !vm.screensaverVisible && AerialSettings.showResourceMonitor) {
+                app.orchard.tv.ui.control.ResourceReadout()
+            }
             StatusPill(
                 now = now,
                 network = vm.network,

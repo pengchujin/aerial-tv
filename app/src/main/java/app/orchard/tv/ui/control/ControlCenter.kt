@@ -970,15 +970,51 @@ private fun ChoiceRow(text: String, selected: Boolean, focusRequester: FocusRequ
 @Composable
 private fun UtilitiesPage(vm: HomeViewModel, visible: Boolean, onOpen: (android.content.Intent) -> Unit) {
     val context = LocalContext.current
-    val prefs = remember { context.getSharedPreferences("tv_tools", 0) }
-    var monitor by remember { mutableStateOf(prefs.getBoolean("monitor", false)) }
     var timer by remember { mutableStateOf(app.orchard.tv.system.SleepTimer.active(context)) }
     val first = remember { FocusRequester() }
+    LaunchedEffect(visible) { if (visible) first.requestFocus() }
+    Column(Modifier.heightIn(max = 460.dp).verticalScroll(rememberScrollState())) {
+        MenuRow(Glyph.ChevronLeft, stringResource(R.string.cc_utilities), focusRequester = first,
+            onClick = { vm.overlay = Overlay.ControlCenter(CcPage.Main) })
+        val bluetooth = remember {
+            android.content.Intent(android.provider.Settings.ACTION_BLUETOOTH_SETTINGS)
+                .takeIf { it.resolveActivity(context.packageManager) != null }
+        }
+        MenuRow(Glyph.Gear, stringResource(R.string.cc_bluetooth), onClick = {
+            onOpen(bluetooth ?: SystemProbe.settingsIntent(context))
+        })
+        val unavailable = stringResource(R.string.cc_timer_unavailable)
+        if (android.os.Build.VERSION.SDK_INT >= 28) {
+            for (minutes in listOf(15, 30, 60)) {
+                MenuRow(Glyph.Power, stringResource(R.string.cc_sleep_minutes, minutes), onClick = {
+                    if (!app.orchard.tv.guard.HomeGuardService.canSleep) {
+                        android.widget.Toast.makeText(context, unavailable, android.widget.Toast.LENGTH_SHORT).show()
+                        return@MenuRow
+                    }
+                    app.orchard.tv.system.SleepTimer.schedule(context, minutes)
+                    timer = app.orchard.tv.system.SleepTimer.active(context)
+                })
+            }
+        } else BasicText(stringResource(R.string.cc_timer_unavailable), style = Type.Body.copy(color = Palette.Label))
+        if (timer) MenuRow(Glyph.Power, stringResource(R.string.cc_cancel_timer), onClick = {
+            app.orchard.tv.system.SleepTimer.cancel(context)
+            timer = false
+        })
+        ChoiceRow(stringResource(R.string.cc_resources), AerialSettings.showResourceMonitor, null) {
+            AerialSettings.chooseResourceMonitor(!AerialSettings.showResourceMonitor)
+        }
+        if (visible && AerialSettings.showResourceMonitor) ResourceReadout()
+    }
+}
+
+
+@Composable
+internal fun ResourceReadout() {
+    val context = LocalContext.current
     var sample by remember { mutableStateOf<Pair<Int, Long>?>(null) }
     val lifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
-    LaunchedEffect(visible, monitor, lifecycle) {
+    LaunchedEffect(lifecycle) {
         sample = null
-        if (!visible || !monitor) return@LaunchedEffect
         lifecycle.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.RESUMED) {
             val manager = context.getSystemService(android.content.Context.ACTIVITY_SERVICE) as android.app.ActivityManager
             var wall = android.os.SystemClock.elapsedRealtime()
@@ -994,35 +1030,7 @@ private fun UtilitiesPage(vm: HomeViewModel, visible: Boolean, onOpen: (android.
             }
         }
     }
-    LaunchedEffect(visible) { if (visible) first.requestFocus() }
-    Column(Modifier.heightIn(max = 460.dp).verticalScroll(rememberScrollState())) {
-        MenuRow(Glyph.ChevronLeft, stringResource(R.string.cc_utilities), focusRequester = first,
-            onClick = { vm.overlay = Overlay.ControlCenter(CcPage.Main) })
-        val bluetooth = remember {
-            android.content.Intent(android.provider.Settings.ACTION_BLUETOOTH_SETTINGS)
-                .takeIf { it.resolveActivity(context.packageManager) != null }
-        }
-        MenuRow(Glyph.Gear, stringResource(R.string.cc_bluetooth), onClick = {
-            onOpen(bluetooth ?: SystemProbe.settingsIntent(context))
-        })
-        if (app.orchard.tv.guard.HomeGuardService.canSleep) {
-            for (minutes in listOf(15, 30, 60)) {
-                MenuRow(Glyph.Power, stringResource(R.string.cc_sleep_minutes, minutes), onClick = {
-                    app.orchard.tv.system.SleepTimer.schedule(context, minutes)
-                    timer = app.orchard.tv.system.SleepTimer.active(context)
-                })
-            }
-        } else BasicText(stringResource(R.string.cc_timer_unavailable), style = Type.Body.copy(color = Palette.Label))
-        if (timer) MenuRow(Glyph.Power, stringResource(R.string.cc_cancel_timer), onClick = {
-            app.orchard.tv.system.SleepTimer.cancel(context)
-            timer = false
-        })
-        ChoiceRow(stringResource(R.string.cc_resources), monitor, null) {
-            monitor = !monitor
-            prefs.edit().putBoolean("monitor", monitor).apply()
-        }
-        sample?.let { (cpu, ram) ->
-            BasicText(stringResource(R.string.cc_sample, cpu, ram), style = Type.Body.copy(color = Palette.Label))
-        }
+    sample?.let { (cpu, ram) ->
+        BasicText(stringResource(R.string.cc_sample, cpu, ram), style = Type.Caption.copy(color = Palette.Label))
     }
 }
