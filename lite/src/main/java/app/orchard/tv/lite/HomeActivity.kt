@@ -89,6 +89,7 @@ class HomeActivity : Activity(), HomeView.Host {
         registerReceiver(connectivity, IntentFilter(ConnectivityManager.CONNECTIVITY_ACTION))
         showBattery(registerReceiver(battery, IntentFilter(Intent.ACTION_BATTERY_CHANGED)))
         registerReceiver(clockSet, IntentFilter().apply {
+            addAction(Intent.ACTION_DATE_CHANGED)
             addAction(Intent.ACTION_TIME_CHANGED)
             addAction(Intent.ACTION_TIMEZONE_CHANGED)
         })
@@ -148,6 +149,9 @@ class HomeActivity : Activity(), HomeView.Host {
             // Also redrawn when nothing was fetched: the reading's age moves on (the full app's #1576).
             showWeather()
             Weather.refreshIfStale({ work.execute(it) }) { handler.post { showWeather() } }
+            // Bing's photo too, under its own limits: a Home that stayed in front for days kept
+            // the day it was last resumed on (SHARP LCD-xxBEL7A-C, Android 4.4, issue #1750).
+            refreshDaily()
             handler.postDelayed(this, WEATHER_TICK_MS)
         }
     }
@@ -252,6 +256,9 @@ class HomeActivity : Activity(), HomeView.Host {
             home.refreshClock()
             saver?.refreshTime()
             panels.forEach { (it as? ControlCenter)?.refreshTime() }
+            // A new day, or the clock set right after a boot at the wrong time: Bing's photo now
+            // rather than whenever Home next comes to the front (issue #1750).
+            refreshDaily(soon = true, newDay = intent.action == Intent.ACTION_DATE_CHANGED)
         }
     }
 
@@ -278,16 +285,21 @@ class HomeActivity : Activity(), HomeView.Host {
      * Bing's photo of the day: looked at again when Home is back, at most every three hours, and
      * after a failed fetch as soon as a network comes up ([networkUp]) or half an hour on. Home
      * started at boot before Wi-Fi joined failed once and stayed in front, so it never looked
-     * again (Lite in /system, ZTE W152D, Android 11, issue #1443).
+     * again (Lite in /system, ZTE W152D, Android 11, issue #1443). [soon] skips the three hours:
+     * the date or the clock changed, or today's photo was not out half an hour ago. While it is not
+     * out, half-hourly again, as the full app's retryDailyLater: a fetch that found nothing new
+     * used to be the last until Home came back (SHARP, Android 4.4, issue #1750).
      */
-    private fun refreshDaily(networkUp: Boolean = false) {
-        val retry = Wallpapers.dailyFailed && (networkUp || SystemClock.elapsedRealtime() - dailyCheckedAt >= DAILY_RETRY_MS)
+    private fun refreshDaily(networkUp: Boolean = false, soon: Boolean = false, newDay: Boolean = false) {
+        val retry = soon || Wallpapers.dailyFailed && (networkUp || SystemClock.elapsedRealtime() - dailyCheckedAt >= DAILY_RETRY_MS)
         if (!retry && SystemClock.elapsedRealtime() - dailyCheckedAt < 3 * 60 * 60 * 1000L && dailyCheckedAt != 0L) return
         dailyCheckedAt = SystemClock.elapsedRealtime()
         handler.removeCallbacks(dailyRetry)
         work.execute {
-            if (!Wallpapers.refreshDaily()) {
-                if (Wallpapers.dailyFailed) handler.post { if (!isFinishing) handler.postDelayed(dailyRetry, DAILY_RETRY_MS) }
+            if (!Wallpapers.refreshDaily(newDay)) {
+                if (Wallpapers.dailyFailed || !Wallpapers.hasTodaysDaily()) {
+                    handler.post { if (!isFinishing) handler.postDelayed(dailyRetry, DAILY_RETRY_MS) }
+                }
                 return@execute
             }
             handler.post {
@@ -373,7 +385,7 @@ class HomeActivity : Activity(), HomeView.Host {
         home.pill.battery = if (!present || percent <= 0 || plugged || unknown) -1 else percent
     }
 
-    private val dailyRetry = Runnable { refreshDaily() }
+    private val dailyRetry = Runnable { refreshDaily(soon = true) }
 
     private fun showNetwork() {
         work.execute {

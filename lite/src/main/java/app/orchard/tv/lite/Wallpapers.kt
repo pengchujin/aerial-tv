@@ -211,7 +211,7 @@ object Wallpapers {
      * being UTC (the full app's issue #1630), so today's never seemed to be there. The next one is
      * due a day after the newest one's start; an index from before has no start and is fetched.
      */
-    private fun hasTodaysDaily(): Boolean = runCatching {
+    fun hasTodaysDaily(): Boolean = runCatching {
         val arr = JSONArray(File(dailyDir, "index.json").readText())
         val fmt = SimpleDateFormat("yyyyMMddHHmm", Locale.US).apply { timeZone = TimeZone.getTimeZone("UTC"); isLenient = false }
         val newest = (0 until arr.length()).mapNotNull { i ->
@@ -224,11 +224,13 @@ object Wallpapers {
      * Fetches the last eight of Bing's photos (cn.bing.com, reachable from China), as the full app:
      * at most every six hours, or every half hour until today's is out. True when something new
      * arrived. Off the main thread. Old Androids do not trust Bing's root; it answers over HTTP too.
+     * [newDay]: the date just changed, so the photo on hand is yesterday's whatever it says. A clock
+     * set back since the last look (a TV that booted ahead of the time) makes it due as well.
      */
-    fun refreshDaily(): Boolean {
+    fun refreshDaily(newDay: Boolean = false): Boolean {
         val now = System.currentTimeMillis()
         val since = now - prefs.getLong("daily_checked", 0)
-        if (since < 6 * 60 * 60 * 1000L && (hasTodaysDaily() || since < 30 * 60 * 1000L)) return false
+        if (!newDay && since in 0 until 6 * 60 * 60 * 1000L && (hasTodaysDaily() || since < 30 * 60 * 1000L)) return false
         return runCatching {
             val market = if (Locale.getDefault().language == "zh") "zh-CN" else "en-US"
             val marketFile = File(dailyDir, "market")

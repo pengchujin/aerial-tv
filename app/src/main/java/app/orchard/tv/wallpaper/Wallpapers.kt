@@ -861,7 +861,8 @@ object Wallpapers {
     fun refreshDailyIfStale(networkCameUp: Boolean = false) {
         if (!started) return
         val since = System.currentTimeMillis() - lastDailyRefresh
-        val due = since >= 6 * 60 * 60 * 1000L ||
+        // A clock set back (a TV that booted ahead of the time) makes since negative: due as well.
+        val due = since < 0 || since >= 6 * 60 * 60 * 1000L ||
             (dailyFailed && (networkCameUp || since >= 10 * 60 * 1000L)) ||
             (!hasTodaysDaily() && since >= DAILY_RETRY_MS)
         if (due) scope.launch { refreshDaily() }
