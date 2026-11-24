@@ -977,6 +977,7 @@ fun HomeScreen(
             onClose = { vm.overlay = Overlay.None },
             warm = ccWarm,
             onShelf = !pastShelf,
+            focusInputSettings = (overlay as? Overlay.ControlCenter)?.focusInputSettings == true,
         )
 
         FolderView(

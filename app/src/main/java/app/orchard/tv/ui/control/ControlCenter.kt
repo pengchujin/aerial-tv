@@ -138,12 +138,13 @@ fun ControlCenter(
     warm: Boolean = false,
     /** Home is on its top row: no tiles under the panel, only the wallpaper (see liquidGlass). */
     onShelf: Boolean = false,
+    focusInputSettings: Boolean = false,
 ) {
     BackHandler(enabled = visible) {
         when (page) {
             CcPage.Main -> onClose()
             CcPage.Inputs -> vm.overlay = Overlay.ControlCenter(CcPage.Main)
-            CcPage.InputSettings -> vm.overlay = Overlay.ControlCenter(CcPage.Inputs)
+            CcPage.InputSettings -> vm.overlay = Overlay.ControlCenter(CcPage.Inputs, focusInputSettings = true)
             CcPage.Update, CcPage.Setup -> vm.overlay = Overlay.ControlCenter(CcPage.Main)
         }
     }
@@ -209,8 +210,8 @@ fun ControlCenter(
                             } else {
                                 MainPage(vm, now, takeFocus = visible, poll = visible, onOpen = onOpen)
                             }
-                            CcPage.Inputs -> InputsPage(vm, visible, onOpen)
-                            CcPage.InputSettings -> InputSettingsPage(vm, visible)
+                            CcPage.Inputs -> InputsPage(vm, visible && page == p, focusInputSettings, onOpen)
+                            CcPage.InputSettings -> InputSettingsPage(vm, visible && page == p)
                             CcPage.Update -> UpdatePage(vm, visible)
                             CcPage.Setup -> SetupPage(vm, visible, onOpen)
                         }
@@ -805,17 +806,24 @@ private fun BrightnessRow(vm: HomeViewModel, laser: Boolean) {
 }
 
 @Composable
-private fun InputsPage(vm: HomeViewModel, takeFocus: Boolean, onOpen: (android.content.Intent) -> Unit) {
+private fun InputsPage(
+    vm: HomeViewModel,
+    takeFocus: Boolean,
+    focusInputSettings: Boolean,
+    onOpen: (android.content.Intent) -> Unit,
+) {
     val first = remember { FocusRequester() }
-    LaunchedEffect(Unit) {
+    val settings = remember { FocusRequester() }
+    val shown = vm.shownSources
+    LaunchedEffect(takeFocus, focusInputSettings) {
         if (!takeFocus) return@LaunchedEffect
         withFrameNanos { }
-        runCatching { first.requestFocus() }
+        val target = if ((focusInputSettings || shown.isEmpty()) && vm.sources.isNotEmpty()) settings else first
+        runCatching { target.requestFocus() }
     }
     Column(Modifier.heightIn(max = 470.dp).verticalScroll(rememberScrollState())) {
         MenuRow(Glyph.ChevronLeft, stringResource(R.string.cc_inputs), onClick = { vm.overlay = Overlay.ControlCenter(CcPage.Main) })
         Spacer(Modifier.height(8.dp))
-        val shown = vm.shownSources
         if (shown.isEmpty()) {
             BasicText(stringResource(R.string.cc_no_inputs), style = Type.Callout, modifier = Modifier.padding(14.dp))
         }
@@ -843,8 +851,7 @@ private fun InputsPage(vm: HomeViewModel, takeFocus: Boolean, onOpen: (android.c
             MenuRow(
                 Glyph.Gear, stringResource(R.string.cc_inputs_settings),
                 onClick = { vm.overlay = Overlay.ControlCenter(CcPage.InputSettings) },
-                // With every input taken out of the list, the way back in is the first row.
-                focusRequester = if (shown.isEmpty()) first else null,
+                focusRequester = settings,
             )
         }
     }
@@ -857,14 +864,16 @@ private fun InputsPage(vm: HomeViewModel, takeFocus: Boolean, onOpen: (android.c
 @Composable
 private fun InputSettingsPage(vm: HomeViewModel, takeFocus: Boolean) {
     val first = remember { FocusRequester() }
-    LaunchedEffect(Unit) {
+    LaunchedEffect(takeFocus) {
         if (!takeFocus) return@LaunchedEffect
         withFrameNanos { }
         runCatching { first.requestFocus() }
     }
     fun name(source: app.orchard.tv.system.TvSource) = source.deviceName?.let { "${source.label} · $it" } ?: source.label
     Column(Modifier.heightIn(max = 470.dp).verticalScroll(rememberScrollState())) {
-        MenuRow(Glyph.ChevronLeft, stringResource(R.string.cc_inputs_settings), onClick = { vm.overlay = Overlay.ControlCenter(CcPage.Inputs) })
+        MenuRow(Glyph.ChevronLeft, stringResource(R.string.cc_inputs_settings), onClick = {
+            vm.overlay = Overlay.ControlCenter(CcPage.Inputs, focusInputSettings = true)
+        })
 
         val shown = vm.shownSources
         // Which inputs the list has: firmwares list ports the TV does not have (issue #279).
