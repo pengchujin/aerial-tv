@@ -300,7 +300,8 @@ fun HomeScreen(
     val appContext = LocalContext.current
     val firmwareInputPanel = remember {
         SystemProbe.tclInputPanel(appContext) != null || SystemProbe.coocaaInputPanel(appContext) ||
-            SystemProbe.tianciInputPanel(appContext) || SystemProbe.tclSourceManagerPanel(appContext)
+            SystemProbe.tianciInputPanel(appContext) || SystemProbe.tclSourceManagerPanel(appContext) ||
+            SystemProbe.tclQuickPanel(appContext)
     }
 
     var focusedKey by remember { mutableStateOf<String?>(null) }

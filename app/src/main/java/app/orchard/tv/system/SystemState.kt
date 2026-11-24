@@ -926,6 +926,21 @@ object SystemProbe {
         runCatching { context.packageManager.getPackageInfo("com.tcl.sourcemananger", 0) }.isSuccess
 
     /**
+     * TCL's Quick Panel on its Google TV sets (TCL G10 "Smart TV Pro", Android 12, STT2.230203.001):
+     * on the remote's input key the firmware (TclShortCutKeyManager.startTVInputService) starts
+     * com.tcl.suspension/.DismissService with action com.tcl.quickpanel.show.window and openInput=true,
+     * whatever is in front, so Aerial's Inputs page came up under it. Only while the Quick Panel is
+     * enabled: owners who disabled it get no firmware panel at all and keep Aerial's page.
+     */
+    fun tclQuickPanel(context: Context): Boolean = runCatching {
+        val info = context.packageManager.getServiceInfo(
+            ComponentName("com.tcl.suspension", "com.tcl.suspension.DismissService"),
+            0,
+        )
+        info.enabled && info.applicationInfo.enabled
+    }.getOrDefault(false)
+
+    /**
      * Coocaa's Quick Panel (Skyworth 75A7D, 8R134_A7D, Android 11): the firmware opens its own
      * signal-source panel on the remote's input key, from a window of com.coocaa.os.ccosservice,
      * and lets the key through as well, so Aerial's Inputs page was drawn under it.
