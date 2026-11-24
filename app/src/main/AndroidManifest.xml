@@ -205,5 +205,6 @@
                 android:name="android.accessibilityservice"
                 android:resource="@xml/home_guard" />
         </service>
+        <receiver android:name=".system.SleepTimer" android:exported="false" />
     </application>
 </manifest>

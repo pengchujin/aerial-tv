@@ -1,0 +1,9 @@
+<resources>
+    <string name="cc_utilities">TV tools</string>
+    <string name="cc_sleep_minutes">Sleep in %1$d min</string>
+    <string name="cc_cancel_timer">Cancel sleep timer</string>
+    <string name="cc_timer_unavailable">Sleep timer unavailable</string>
+    <string name="cc_bluetooth">Bluetooth / accessories</string>
+    <string name="cc_resources">Resource monitor</string>
+    <string name="cc_sample">CPU %1$d%% · Available RAM %2$d MB</string>
+</resources>

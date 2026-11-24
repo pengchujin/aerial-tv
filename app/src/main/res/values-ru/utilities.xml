@@ -1,0 +1,9 @@
+<resources>
+    <string name="cc_utilities">Инструменты ТВ</string>
+    <string name="cc_sleep_minutes">Сон через %1$d мин</string>
+    <string name="cc_cancel_timer">Отменить таймер сна</string>
+    <string name="cc_timer_unavailable">Таймер сна недоступен</string>
+    <string name="cc_bluetooth">Bluetooth и аксессуары</string>
+    <string name="cc_resources">Монитор ресурсов</string>
+    <string name="cc_sample">ЦП %1$d%% · Доступно %2$d МБ</string>
+</resources>

@@ -1,0 +1,9 @@
+<resources>
+    <string name="cc_utilities">ТД құралдары</string>
+    <string name="cc_sleep_minutes">%1$d минуттан кейін ұйықтау</string>
+    <string name="cc_cancel_timer">Ұйқы таймерін тоқтату</string>
+    <string name="cc_timer_unavailable">Ұйқы таймері қолжетімсіз</string>
+    <string name="cc_bluetooth">Bluetooth және керек-жарақтар</string>
+    <string name="cc_resources">Ресурс мониторы</string>
+    <string name="cc_sample">CPU %1$d%% · Бос жад %2$d МБ</string>
+</resources>

@@ -1,0 +1,9 @@
+<resources>
+    <string name="cc_utilities">电视工具</string>
+    <string name="cc_sleep_minutes">%1$d 分钟后待机</string>
+    <string name="cc_cancel_timer">取消待机定时</string>
+    <string name="cc_timer_unavailable">当前设备无法定时待机</string>
+    <string name="cc_bluetooth">蓝牙与配件</string>
+    <string name="cc_resources">资源监视</string>
+    <string name="cc_sample">CPU %1$d%% · 可用内存 %2$d MB</string>
+</resources>
