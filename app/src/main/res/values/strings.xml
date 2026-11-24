@@ -273,6 +273,10 @@
     <string name="ss_show_time_hint">The time over the aerial and photo screensavers. The time and place name move a little now and then, so nothing stays on the same pixels.</string>
     <string name="ss_show_caption">Place</string>
     <string name="ss_show_caption_hint">The place name bottom left on the aerial screensaver, and the picture\'s title on the photo screensaver.</string>
+    <string name="ss_brightness">Screensaver Brightness</string>
+    <string name="ss_brightness_hint">Dims the screensaver picture. Adjust with Left or Right to preview, then press OK to save.</string>
+    <string name="ss_brightness_follow">Follow TV</string>
+    <string name="ss_brightness_confirm">Confirm</string>
 
     <!-- Kids and Elders mode (settings/Restricted) -->
     <string name="kids_title">Kids and Elders</string>

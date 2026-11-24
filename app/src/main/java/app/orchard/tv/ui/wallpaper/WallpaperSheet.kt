@@ -1,6 +1,7 @@
 package app.orchard.tv.ui.wallpaper
 
 import android.os.Build
+import android.view.WindowManager
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
@@ -42,6 +43,7 @@ import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
@@ -55,6 +57,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.FilterQuality
@@ -65,10 +68,14 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.window.DialogWindowProvider
 import app.orchard.tv.BuildConfig
 import app.orchard.tv.R
 import app.orchard.tv.system.HomeStatus
@@ -89,6 +96,7 @@ import app.orchard.tv.ui.components.liquidGlass
 import app.orchard.tv.ui.components.smoothBackground
 import app.orchard.tv.ui.components.smoothBorder
 import app.orchard.tv.ui.components.smoothCut
+import app.orchard.tv.ui.control.SliderRow
 import app.orchard.tv.ui.theme.Glyph
 import app.orchard.tv.ui.theme.GlyphIcon
 import app.orchard.tv.ui.theme.Motion
@@ -111,6 +119,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.math.roundToInt
 import androidx.compose.ui.geometry.Size
+import java.text.NumberFormat
 
 /**
  * Wallpaper and screensaver, chosen on the TV. A sheet rises from the bottom and leaves the top of
@@ -120,6 +129,7 @@ import androidx.compose.ui.geometry.Size
 @Composable
 fun WallpaperSheet(
     visible: Boolean,
+    previewAllowed: Boolean,
     onDismiss: () -> Unit,
     hiddenCount: Int,
     onHiddenApps: () -> Unit,
@@ -140,6 +150,10 @@ fun WallpaperSheet(
     val context = LocalContext.current
     var phoneUrl by remember { mutableStateOf<String?>(null) }
     var qr by remember { mutableStateOf<ImageBitmap?>(null) }
+    var editingBrightness by remember { mutableStateOf(false) }
+    val canPreview = visible && previewAllowed && Wallpapers.screensaver != ScreensaverMode.System
+
+    LaunchedEffect(canPreview) { if (!canPreview) editingBrightness = false }
 
     BackHandler(enabled = visible, onBack = onDismiss)
 
@@ -354,6 +368,13 @@ fun WallpaperSheet(
                         listOf(true to R.string.st_on, false to R.string.st_off),
                         AerialSettings.screensaverCaption, AerialSettings::chooseScreensaverCaption,
                     )
+                    if (Wallpapers.screensaver != ScreensaverMode.System) SettingRow(
+                        R.string.ss_brightness, stringResource(R.string.ss_brightness_hint), note,
+                    ) {
+                        ActionChip(brightnessLabel(AerialSettings.screensaverBrightness), Glyph.ChevronRight) {
+                            editingBrightness = true
+                        }
+                    }
                     // The firmware's screensaver starts on the firmware's timer: Aerial's delay
                     // did nothing there, and Xiaomi's 1 minute came before the 5 chosen (issue #675).
                     if (Wallpapers.screensaver == ScreensaverMode.System) SettingRow(R.string.ss_delay, null, note) {
@@ -454,6 +475,56 @@ fun WallpaperSheet(
             exit = fadeOut(tween(160, easing = Motion.EaseOut)) + slideOutVertically(tween(200, easing = Motion.EaseOut)) { it / 4 },
         ) {
             sheet(true)
+        }
+    }
+
+    if (canPreview && editingBrightness) ScreensaverBrightnessDialog(
+        onDismiss = { editingBrightness = false },
+        onConfirm = { percent ->
+            AerialSettings.chooseScreensaverBrightness(percent)
+            editingBrightness = false
+        },
+    )
+}
+
+@Composable
+private fun brightnessLabel(percent: Int): String =
+    if (percent == AerialSettings.screensaverBrightnessRange.last) stringResource(R.string.ss_brightness_follow)
+    else NumberFormat.getPercentInstance().format(percent / 100.0)
+
+@Composable
+private fun ScreensaverBrightnessDialog(onDismiss: () -> Unit, onConfirm: (Int) -> Unit) {
+    val range = AerialSettings.screensaverBrightnessRange
+    var draft by remember { mutableStateOf(AerialSettings.screensaverBrightness) }
+    val slider = remember { FocusRequester() }
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        val window = (LocalView.current.parent as? DialogWindowProvider)?.window
+        SideEffect {
+            window?.apply {
+                addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
+                setDimAmount(1f - draft / 100f)
+            }
+        }
+        LaunchedEffect(Unit) { slider.requestFocus() }
+        Column(
+            Modifier.width(420.dp).liquidGlass(24.dp).padding(24.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            BasicText(stringResource(R.string.ss_brightness), style = Type.Headline)
+            SliderRow(
+                glyph = Glyph.Sun,
+                label = stringResource(R.string.ss_brightness),
+                level = (draft - range.first).toFloat() / (range.last - range.first),
+                value = brightnessLabel(draft),
+                steps = (range.last - range.first) / 5,
+                onStep = { direction -> draft = (draft + direction * 5).coerceIn(range) },
+                modifier = Modifier.focusRequester(slider),
+                onClick = { onConfirm(draft) },
+            )
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.End)) {
+                Chip(stringResource(android.R.string.cancel), on = false, onClick = onDismiss)
+                Chip(stringResource(R.string.ss_brightness_confirm), on = false) { onConfirm(draft) }
+            }
         }
     }
 }
