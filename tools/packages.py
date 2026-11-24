@@ -50,19 +50,30 @@ def run(shell, root, action, package):
     target = tuple(shell("getprop", key) for key in ("ro.product.device", "ro.product.name"))
     firmware = shell("getprop", "ro.build.fingerprint")
     catalog = CATALOG.get(target, {})
-    key = hashlib.sha256(serial.encode()).hexdigest()
+    key = hashlib.sha256(json.dumps([serial, *target]).encode()).hexdigest()
     root.mkdir(mode=0o700, exist_ok=True, parents=True)
     path = root / f"{key}-{user}.json"
     with path.with_suffix(".lock").open("a") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
         records = json.loads(path.read_text()) if path.exists() else {}
         if action in {"scan", "preview", "check"}:
-            installed = set(shell("pm", "list", "packages", "--user", user).splitlines())
-            for name in sorted(set(records) | set(catalog)):
-                state = enabled(shell, user, name) if "package:" + name in installed else None
-                print(json.dumps(dict(package=name, reason=catalog.get(name), current=state,
-                                      recorded=records.get(name), firmware=firmware,
-                                      would_disable=state in (0, 1) and name in catalog)))
+            installed = {line.removeprefix("package:") for line in
+                         shell("pm", "list", "packages", "--user", user).splitlines()
+                         if line.startswith("package:")}
+            if action == "scan":
+                for name in sorted(installed):
+                    print(json.dumps({"package": name, "candidate_reason": catalog.get(name)}))
+                return
+            names = records if action == "check" else catalog
+            for name in sorted(names):
+                state = enabled(shell, user, name) if name in installed else None
+                row = dict(package=name, reason=catalog.get(name), current=state, firmware=firmware)
+                if action == "check":
+                    row.update(recorded=records[name], firmware_changed=firmware != records[name]["firmware"],
+                               status="missing" if state is None else "disabled" if state == 3 else "changed")
+                else:
+                    row["would_disable"] = state in (0, 1)
+                print(json.dumps(row))
             return
         if not package or not re.fullmatch(r"[a-zA-Z][\w]*(?:\.[\w]+)+", package):
             raise ValueError("Specify one package from the preview")
