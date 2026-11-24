@@ -4,6 +4,11 @@
 
   python3 tools/perf.py <adb serial> [scenario ...]        e.g. 192.168.1.73:5555 row cc
 
+Optional scenarios: resources (five-second process CPU and PSS sample, foreground recorded),
+home-adb (send Home once), home-remote (observe while someone presses the physical Home key).
+Home observations poll the resumed activity and can miss brief windows. They measure the
+activity transition, not when the pixels were drawn. --json writes results to a local file.
+
 Scenarios: row, row_hold, grid, cc, wallpaper, menu, idle, saver, cold (all when none given).
 Per scenario it prints the system's own summary (frames, janky, p50/p90/p99, in whole ms, all
 frames since the reset) and, from the last 120 frames' timestamps: med / q90 / max (vsync to frame
@@ -17,15 +22,23 @@ Personalize); check with a screenshot on other TVs. It only moves focus over the
 never presses OK on them. Each `input keyevent` starts a Java process on the TV, which a 2-core
 box feels; compare runs on the same TV only.
 """
-import re, statistics, subprocess, sys, time
+import argparse
+import json
+import re, statistics, subprocess, time
+from pathlib import Path
 
 PKG = "app.orchard.tv"
-S = sys.argv[1]
-ONLY = sys.argv[2:]
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument("serial")
+parser.add_argument("scenarios", nargs="*")
+parser.add_argument("--json", type=Path, help="also save the measured results")
+args = parser.parse_args()
+S = args.serial
+ONLY = args.scenarios
 
 
 def sh(cmd, timeout=300):
-    return subprocess.run(["adb", "-s", S, "shell", cmd], capture_output=True, text=True, timeout=timeout).stdout
+    return subprocess.run(["adb", "-s", S, "shell", cmd], capture_output=True, text=True, timeout=timeout, check=True).stdout
 
 
 def keys(seq, gap=0.25):
@@ -83,6 +96,9 @@ def collect():
                  ui=round(statistics.median(ui), 1), rt=round(statistics.median(rt), 1))
     if gpu:
         r.update(gpu=round(statistics.median(gpu), 1), gpu90=round(pct(gpu, 90), 1))
+    if r.get("frames") == 0:
+        for key in ("p50", "p90", "p99"):
+            r.pop(key, None)
     return r
 
 
@@ -124,9 +140,80 @@ def cold():
     return int(m.group(1)) if m else None
 
 
+def foreground():
+    output = sh("dumpsys activity activities | grep -E 'topResumedActivity=|mResumedActivity:|mFocusedActivity:' || true")
+    match = re.search(r" u\d+ ([\w.$]+/[^ }]+)", output)
+    return match.group(1) if match else None
+
+
+def cpu_sample():
+    # USER_HZ is 100 on these Android ABIs. Keep the process start tick to detect restarts.
+    output = sh(f'p=$(pidof {PKG}); [ -n "$p" ] && cat /proc/$p/stat /proc/uptime')
+    stat, uptime = output.strip().splitlines()
+    fields = stat.rsplit(")", 1)[1].split()
+    return fields[19], int(fields[11]) + int(fields[12]), float(uptime.split()[0])
+
+
+def resources():
+    before = foreground()
+    start, ticks, uptime = cpu_sample()
+    time.sleep(5)
+    end, final_ticks, final_uptime = cpu_sample()
+    seconds = final_uptime - uptime
+    output = sh(f"dumpsys meminfo {PKG}")
+    pss = re.search(r"TOTAL(?: PSS)?:\s+(\d+)", output)
+    return {"foreground_before": before, "foreground_after": foreground(),
+            "sample_seconds": round(seconds, 2),
+            "cpu_percent_one_core": round((final_ticks - ticks) / seconds, 2)
+            if start == end and seconds > 0 else None,
+            "pss_kib": int(pss[1]) if pss else None}
+
+
+def home(name):
+    # The first observed departure timestamps a manual transition. ADB runs are timed
+    # from dispatch. Sampling can miss short intermediate windows; report what was seen.
+    initial = foreground()
+    if not initial or initial.startswith(PKG + "/"):
+        parser.error("Start Home measurements from another app")
+    changes = []
+    started = time.monotonic()
+    previous = initial
+    if name == "home-adb":
+        sh("input keyevent KEYCODE_HOME")
+    else:
+        print("Press Home once on the physical remote within 30 seconds.", flush=True)
+    while time.monotonic() - started < 30:
+        current = foreground()
+        if current and current != previous:
+            elapsed = round((time.monotonic() - started) * 1000)
+            changes.append({"component": current, "observed_ms": elapsed})
+            previous = current
+            if current.startswith(PKG + "/"):
+                break
+        time.sleep(0.05)
+    reached = previous.startswith(PKG + "/")
+    return {"initial": initial, "changes": changes, "reached_aerial": reached,
+            "adb_dispatch_to_observed_ms": changes[-1]["observed_ms"]
+            if name == "home-adb" and reached else None}
+
+
+unknown = set(ONLY) - set(SCENARIOS) - {"resources", "home-adb", "home-remote", "cold"}
+if unknown:
+    parser.error("Unknown scenarios: " + ", ".join(sorted(unknown)))
+
+results = {}
 for name in ONLY or list(SCENARIOS) + ["cold"]:
+    if name == "resources":
+        results[name] = resources()
+        print(name, results[name], flush=True)
+        continue
+    if name in ("home-adb", "home-remote"):
+        results[name] = home(name)
+        print(name, results[name], flush=True)
+        continue
     if name == "cold":
-        print("cold", "start ms:", [cold() for _ in range(3)], flush=True)
+        results[name] = [cold() for _ in range(3)]
+        print("cold", "start ms:", results[name], flush=True)
         continue
     keys([3, ("sleep", 2.5)])  # Home, out of any panel or screensaver
     if name.startswith("film_"):
@@ -134,5 +221,9 @@ for name in ONLY or list(SCENARIOS) + ["cold"]:
     sh(f"dumpsys gfxinfo {PKG} reset")
     SCENARIOS[name]()
     time.sleep(1)
-    print(name, collect(), flush=True)
+    results[name] = collect()
+    print(name, results[name], flush=True)
     keys([3, ("sleep", 2.5)])
+
+if args.json:
+    args.json.write_text(json.dumps(results, indent=2) + "\n", encoding="utf-8")
