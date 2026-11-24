@@ -1,0 +1,9 @@
+<resources>
+    <string name="media_now_playing">Қазір ойнатылуда</string>
+    <string name="media_idle">Ештеңе ойнатылмайды</string>
+    <string name="media_access_needed">Хабарландыруларға рұқсат беріңіз</string>
+    <string name="media_previous">Алдыңғы трек</string>
+    <string name="media_play">Ойнату</string>
+    <string name="media_pause">Кідірту</string>
+    <string name="media_next">Келесі трек</string>
+</resources>

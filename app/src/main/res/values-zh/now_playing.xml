@@ -1,0 +1,9 @@
+<resources>
+    <string name="media_now_playing">正在播放</string>
+    <string name="media_idle">未在播放</string>
+    <string name="media_access_needed">请开启通知使用权</string>
+    <string name="media_previous">上一首</string>
+    <string name="media_play">播放</string>
+    <string name="media_pause">暂停</string>
+    <string name="media_next">下一首</string>
+</resources>
