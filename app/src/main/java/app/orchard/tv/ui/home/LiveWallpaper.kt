@@ -530,14 +530,20 @@ fun LiveWallpaper(
                     // MiTV-MFTR0). An open panel keeps the glass it opened with (liquidGlass), so
                     // nothing waits on it there; the grid's glass does, and the grid has no wait.
                     if (panelNow) delay(PANEL_IN_MS)
-                    if (!live.stopped) reader.frame(film, at, 320, 180, exact = false)?.let {
+                    // Where the file is shut to the retriever, the key frame nearest, decoded in the
+                    // app, a second or so off at most: the picture went back to an older frame
+                    // instead (film_in_app on Xiaomi MiTV-MFTR0 standing in for Amlogic, issue #1759).
+                    // Not where a slow copy reads the film (TCL MT5879): the exact frame is copied
+                    // once Home is quiet, below.
+                    if (fileFramesShut(context) && !copySlow) frame = reader.keyFrameInApp(film, at, w, h)
+                    if (frame == null && !live.stopped) reader.frame(film, at, 320, 180, exact = false)?.let {
                         Wallpapers.useLiveFrost(it)
                         glassReady(live)
                     }
                     // The exact frame is decoded from the key frame before it, reading that whole
                     // stretch of file while the paused player still fills its buffer; on MFTR0 that
                     // timed out at times. The nearest key frame alone is a second or so off at most.
-                    frame = reader.frame(film, at, w, h, exact = true)
+                    if (frame == null) frame = reader.frame(film, at, w, h, exact = true)
                         ?: reader.frame(film, at, w, h, exact = false, nearest = true)
                     if (frame == null && live.stopped) Wallpapers.restoreFrost(before)
                 }
