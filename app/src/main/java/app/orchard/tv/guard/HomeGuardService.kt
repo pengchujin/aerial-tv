@@ -1681,7 +1681,10 @@ class HomeGuardService : AccessibilityService() {
         // A profile's filterHomeAlways takes Home with Aerial the default too: Coocaa starts its own
         // launcher whatever Home resolves to, so a Home handed back flashed it (8R39_K5C, Android 8,
         // issue #1462; the reporter built 1.94 with this line and the flash was gone).
-        if (isDefaultHome() && !defaultHomeNeedsHomeFilter && !filterHomeAlways()) return false
+        if (isDefaultHome() && !defaultHomeNeedsHomeFilter && !filterHomeAlways()) {
+            if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) DiagLog.i("guard: Home key left to the system, Aerial being the default Home")
+            return false
+        }
         // Held, Home is the firmware's task center, which taking the key hid (Xiaomi, issue #185):
         // open the recent apps instead, and leave Home alone when the key comes up. Timed here:
         // the filter sees keys before Android makes the repeats that would say the key is held.
@@ -1711,6 +1714,9 @@ class HomeGuardService : AccessibilityService() {
             }
             if (!event.isCanceled && !homeHeld) {
                 Log.i(TAG, "Home key taken before the system saw it")
+                // In the diagnostics too: on TVs whose logcat cannot be read, nothing said whether
+                // the guard had the key (XGIMI H6 4K, issue #1618; TCL ak30a5, issue #1602).
+                DiagLog.i("guard: Home key taken before the system saw it; bringing Aerial back")
                 // Over Aerial's screensaver, Home closes it. Not counted toward a double press: an IR
                 // remote's press can come twice (TCL MT5879), and the second opened the recent apps.
                 lastHomeUpAt = if (AerialDream.endForHome()) Long.MIN_VALUE / 2 else event.eventTime
