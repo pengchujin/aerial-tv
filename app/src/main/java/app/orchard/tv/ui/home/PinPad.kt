@@ -11,6 +11,7 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -36,6 +37,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.KeyEventType
@@ -166,6 +168,11 @@ private fun PinPanel(mode: PinMode, onDone: () -> Unit, onCancel: () -> Unit) {
         Column(
             Modifier
                 .consumeTaps()
+                // The arrows stay among the keys: what lies under the panel can be focused too, and
+                // was nearer than 8 for 5, 7 and 9, so focus went out of sight and a second press
+                // was needed (Hisense E7Q, Android 14, leaving Kids mode, issue #1766).
+                .focusProperties { onExit = { cancelFocusChange() } }
+                .focusGroup()
                 .liquidGlass(28.dp)
                 .padding(horizontal = 36.dp, vertical = 28.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
