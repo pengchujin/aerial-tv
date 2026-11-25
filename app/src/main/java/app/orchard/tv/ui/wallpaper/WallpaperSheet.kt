@@ -71,6 +71,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import app.orchard.tv.BuildConfig
+import app.orchard.tv.WallpaperFocus
 import app.orchard.tv.R
 import app.orchard.tv.system.HomeStatus
 import app.orchard.tv.update.Updates
@@ -121,6 +122,7 @@ import androidx.compose.ui.geometry.Size
 @Composable
 fun WallpaperSheet(
     visible: Boolean,
+    focusTarget: WallpaperFocus = WallpaperFocus.Default,
     onDismiss: () -> Unit,
     hiddenCount: Int,
     onHiddenApps: () -> Unit,
@@ -139,6 +141,7 @@ fun WallpaperSheet(
     warm: Boolean = false,
 ) {
     val context = LocalContext.current
+    val hiddenAppsFocus = remember { FocusRequester() }
     var phoneUrl by remember { mutableStateOf<String?>(null) }
     var qr by remember { mutableStateOf<ImageBitmap?>(null) }
 
@@ -157,6 +160,13 @@ fun WallpaperSheet(
     shown.targetState = visible
     val settled = shown.isIdle && shown.currentState
     LaunchedEffect(settled) { onSettled(settled) }
+
+    // Hidden apps return to this sheet; wait until its entrance has settled before requesting focus.
+    LaunchedEffect(visible, focusTarget, settled) {
+        if (!visible || !settled || focusTarget != WallpaperFocus.HiddenApps) return@LaunchedEffect
+        withFrameNanos { }
+        runCatching { hiddenAppsFocus.requestFocus() }
+    }
 
     AnimatedVisibility(visible = visible, enter = fadeIn(tween(220, easing = Motion.EaseOut)), exit = fadeOut(tween(180, easing = Motion.EaseOut)), modifier = Modifier.fillMaxSize()) {
         // A tap above the sheet closes it, back to Control Center as Back does. Once the sheet is
@@ -191,7 +201,7 @@ fun WallpaperSheet(
                 BasicText(stringResource(R.string.wp_title), style = Type.LargeTitle)
                 Spacer(Modifier.height(16.dp))
                 SectionTitle(R.string.wp_wallpaper)
-                WallpaperRows(takeFocus)
+                WallpaperRows(takeFocus && focusTarget == WallpaperFocus.Default)
                 // Only for the owner's videos: whether keys stop them. The aerial films always move.
                 if (Wallpapers.isVideo()) Group { note ->
                     Choices(
@@ -251,6 +261,7 @@ fun WallpaperSheet(
                             if (hiddenCount == 0) stringResource(R.string.st_hidden_none) else stringResource(R.string.st_hidden_count, hiddenCount),
                             Glyph.ChevronRight,
                             onHiddenApps,
+                            focusRequester = hiddenAppsFocus,
                         )
                     }
                     Choices(
@@ -770,9 +781,9 @@ private fun Chip(
 
 /** A pill that does something rather than choosing a value: white when focused, a glyph after its label. */
 @Composable
-private fun ActionChip(label: String, glyph: Glyph, onClick: () -> Unit) {
+private fun ActionChip(label: String, glyph: Glyph, onClick: () -> Unit, focusRequester: FocusRequester? = null) {
     Pressable(
-        onClick = onClick, focusedScale = 1.06f,
+        onClick = onClick, focusRequester = focusRequester, focusedScale = 1.06f,
         modifier = Modifier.focusProperties {
             left = FocusRequester.Cancel
             right = FocusRequester.Cancel
