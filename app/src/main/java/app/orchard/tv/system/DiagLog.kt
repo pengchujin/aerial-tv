@@ -59,6 +59,15 @@ object DiagLog {
         if (p.contains("soft_clock")) p.getBoolean("soft_clock", false) else glesMajor(context) in 1..2
     }
 
+    /**
+     * Whether a moving wallpaper's frames are decoded in the app only, never copied off the screen
+     * or read by the media server's retriever, when film_in_app is set over ADB; null to let the
+     * TV's video decoder decide (issue #1759, see FilmFrames.inAppOnly).
+     */
+    fun filmInApp(context: Context): Boolean? = prefs(context).let { p ->
+        if (p.contains("film_in_app")) p.getBoolean("film_in_app", false) else null
+    }
+
     /** The OpenGL ES major version the device declares, 0 when unknown. */
     fun glesMajor(context: Context): Int =
         (context.getSystemService(Context.ACTIVITY_SERVICE) as? android.app.ActivityManager)

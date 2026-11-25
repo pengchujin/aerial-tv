@@ -151,7 +151,11 @@ class ConfigReceiver : BroadcastReceiver() {
         // ... --ez soft_clock true|false   (issue #1658, see DiagLog.softClock; --es soft_clock auto
         //                                 goes back to deciding by the GPU)
         if (intent.extras?.get("soft_clock") is String) DiagLog.clearOption(context, "soft_clock")
-        for (key in listOf("mode_switch", "soft_layer", "saver_fade_offscreen", "soft_clock")) {
+        // ... --ez film_in_app true|false   (issue #1759, see FilmFrames.inAppOnly; --es film_in_app
+        //                                 auto goes back to deciding by the video decoder; applies
+        //                                 the next time Aerial starts)
+        if (intent.extras?.get("film_in_app") is String) DiagLog.clearOption(context, "film_in_app")
+        for (key in listOf("mode_switch", "soft_layer", "saver_fade_offscreen", "soft_clock", "film_in_app")) {
             if (intent.extras?.get(key) is String) continue
             if (intent.hasExtra(key)) DiagLog.setOption(context, key, intent.getBooleanExtra(key, false))
         }

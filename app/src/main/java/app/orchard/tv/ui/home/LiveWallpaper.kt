@@ -730,12 +730,12 @@ private var pixelCopy: Boolean? = null
 
 /**
  * Whether reading frames from a film's file can jam the media server here: TCL's own MP4 extractor
- * (see FilmFrames.tclExtractor), whatever PixelCopy did. Reads a library once per firmware: call it
+ * (see FilmFrames.tclExtractor), whatever PixelCopy did, or Amlogic's decoder (FilmFrames.inAppOnly). Reads a library once per firmware: call it
  * off the main thread.
  */
 internal fun fileFramesJam(context: android.content.Context): Boolean {
     FilmFrames.load(context)
-    return FilmFrames.tclExtractor(context)
+    return FilmFrames.inAppOnly || FilmFrames.tclExtractor(context)
 }
 
 /**
@@ -746,7 +746,7 @@ internal fun fileFramesJam(context: android.content.Context): Boolean {
 internal fun filmGlassReport(context: android.content.Context): String {
     FilmFrames.load(context)
     return "copy=${pixelCopy ?: "untried"} copy_slow=$copySlow copy_crashed=${FilmFrames.copyCrashed} tcl_extractor=${FilmFrames.tclExtractor(context)} " +
-        "file_stuck=${FileFramesStuck.now(context)} glassless=${Wallpapers.filmGlassless}"
+        "file_stuck=${FileFramesStuck.now(context)} in_app_only=${FilmFrames.inAppOnly} glassless=${Wallpapers.filmGlassless}"
 }
 
 /**
@@ -889,7 +889,7 @@ private suspend fun captureOnce(view: SurfaceView, w: Int = view.width, h: Int =
     val result: Int = withContext(Dispatchers.IO) {
         // A copy that once took the whole process down is not asked again (FilmFrames.copyCrashed).
         FilmFrames.load(view.context)
-        if (FilmFrames.copyCrashed) return@withContext null
+        if (FilmFrames.copyCrashed || FilmFrames.inAppOnly) return@withContext null
         FilmFrames.copyStarting()
         try {
             suspendCancellableCoroutine<Int> { done ->
@@ -1221,7 +1221,45 @@ private object FilmFrames {
             copyCrashed = true
             pixelCopy = false
         }
+        val forced = DiagLog.filmInApp(c)
+        inAppOnly = forced ?: amlogicDecoder(c)
+        if (inAppOnly) {
+            pixelCopy = false
+            DiagLog.i("wallpaper film: frames decoded in the app only, no copies and no retriever (${if (forced != null) "film_in_app set" else "Amlogic's video decoder"})")
+        }
         update()
+    }
+
+    /**
+     * Whether the film's frames are only ever decoded in the app (FilmKeyFrame): never copied off
+     * the screen (PixelCopy) nor read by the media server's retriever. Where the video decoder is
+     * Amlogic's: on Redmi A85 Pro (MiTV-ASTR0, Android 11, issues #1485 #1517) and Hisense VIDAA_TV
+     * T963D4 (Android 11, issue #1759) every copy of the film read black, a retriever frame took
+     * 10-22 s while the film played (ACodec omxError 0x90000001), SurfaceFlinger timed out taking
+     * Aerial's frames ("DequeueBuffer time out"), and Home froze: the focus stayed put with keys
+     * arriving. Only with Full effects, which take a frame for the glass every few seconds; with
+     * Smooth, which take none while the film moves, it did not. Set by film_in_app over ADB too.
+     */
+    @Volatile var inAppOnly = false
+        private set
+
+    /**
+     * Whether the TV's media codecs list Amlogic's hardware decoders (OMX.amlogic.* before Codec2,
+     * c2.amlogic.* after), read from the codec lists once per firmware: not by MediaCodecList,
+     * which asks the media server and so could wait on it from wherever this is first asked.
+     */
+    private fun amlogicDecoder(context: android.content.Context): Boolean {
+        val prefs = prefs(context)
+        val known = prefs.getString(AMLOGIC_KEY, null)
+        if (known?.substringBeforeLast('|') == Build.FINGERPRINT) return known.endsWith("|true")
+        val dirs = listOf("/vendor/etc", "/odm/etc", "/system/etc", "/system/vendor/etc")
+        val lists = dirs.flatMap { dir ->
+            runCatching { java.io.File(dir).listFiles { f -> f.name.startsWith("media_codecs") && f.name.endsWith(".xml") }?.toList() }.getOrNull().orEmpty()
+        }
+        val found = lists.any { list -> runCatching { containsAscii(list, "OMX.amlogic.") || containsAscii(list, "c2.amlogic.") }.getOrDefault(false) }
+        prefs.edit().putString(AMLOGIC_KEY, "${Build.FINGERPRINT}|$found").apply()
+        DiagLog.i("wallpaper film: ${lists.size} codec lists read, Amlogic's decoder $found")
+        return found
     }
 
     /**
@@ -1303,16 +1341,19 @@ private object FilmFrames {
     private const val CRASHED_KEY = "copy_crashed"
     // A new key: before 1.94 Android 6-8 were read in the wrong place and kept as TCL's.
     private const val TCL_KEY = "tcl_extractor_lib"
+    private const val AMLOGIC_KEY = "amlogic_decoder"
 }
 
 /**
- * Whether the film's file is not read here: PixelCopy reads the film but slowly on a TV whose
- * media server would jam on the file (FilmFrames.tclExtractor), or a frame of it has stuck since
- * the TV started (FileFramesStuck). The plate and panels then go without the film's frames
+ * Whether the film's file is not read here: frames are decoded in the app only (FilmFrames.inAppOnly),
+ * PixelCopy reads the film but slowly on a TV whose media server would jam on the file
+ * (FilmFrames.tclExtractor), or a frame of it has stuck since the TV started (FileFramesStuck). The plate and panels then go without the film's frames
  * (Wallpapers.filmGlassless).
  */
-private fun fileFramesShut(context: android.content.Context): Boolean =
-    (copySlow && FilmFrames.tclExtractor(context)) || FileFramesStuck.now(context) || FilmFrames.retrieverRefused
+private fun fileFramesShut(context: android.content.Context): Boolean {
+    FilmFrames.load(context)
+    return FilmFrames.inAppOnly || (copySlow && FilmFrames.tclExtractor(context)) || FileFramesStuck.now(context) || FilmFrames.retrieverRefused
+}
 
 /** Whether [file] holds the ASCII text [text], read in pieces. */
 private fun containsAscii(file: java.io.File, text: String): Boolean {
