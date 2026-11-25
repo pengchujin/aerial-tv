@@ -9,3 +9,4 @@
 - 信号源界面（`com.tcl.tv/.TVActivity`，独立任务）按返回落到 TCL 桌面，守护拉回 Aerial 时正赶上安卓 9 的 5 秒切换保护；`am start` 原桌面不经过这条路就没有 5 秒。
 - 每次重启后固件关掉 ADB（5555 拒绝连接），要在 设置 → 关于 → 本机信息 里按 上下左右 → 更多 → ADB 重开；待机后电视从网络上消失。
 - 981 MB 内存、`ro.config.low_ram=true` 的机器上，几天不重启后整机换页卡死（swap 用到 300 MB，系统反复杀进程）；航拍壁纸在播时 Aerial 多占约 49 MB（PSS 266 MB 对静态壁纸 217 MB），取不到帧（`wallpaper key frame decoded: false`）。报告人提议低内存且取不到帧时不放影片，转户主决定，没改。
+- 2.18 之后：Amlogic 的解码器在 codec 列表里，影片只在 App 内软解关键帧（`FilmFrames.inAppOnly`，见 ARCHITECTURE「Amlogic 上只在 App 内取帧」），上面「取不到帧」那条应该不再走媒体服务；没有真机验证。守护接住主页键现在也写进诊断（`guard: Home key ...`，#1602），这台 logcat 读不了时可以看。

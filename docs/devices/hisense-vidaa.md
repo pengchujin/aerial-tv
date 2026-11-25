@@ -22,6 +22,7 @@
 | 海信会议室触屏电视、海信投影 | 未说 | 投影打不开 ADB；会议室机只问了能否保留触屏（能，1.20 起支持触屏） | 微博 |
 | VIDAA_TV | Android 9，MTK9652（`m7642`），1080p，armeabi-v7a | 1.83 我的视频壁纸：打开控制中心或在里面按上下键后背景变黑，几秒后恢复；PixelCopy 太慢被停用（`copy=false copy_slow=true`），每次暂停都用 MediaMetadataRetriever 读帧，视频随后恢复时 `DECODING_FAILED`。下个版本起控制中心里不读帧、在 App 里软件解码关键帧、出错重试同一部（见下面「我的视频壁纸黑屏」） | #1251 |
 | VIDAA_TV | Android 9，Amlogic T963（`t5fl`），1080p | 1.72 起应用内升级不弹安装界面：安装会话提交后没有回复也没有确认页（1.71 及以前用 `ACTION_VIEW` 正常）；下个版本起会话 8 秒没回复就退回系统安装器（见 ARCHITECTURE「升级」），已在 1.72–1.74 的要手动升一次 | #1004 |
+| VIDAA_TV | Android 11，Amlogic T963D4（`t5m`），1080p | 航拍 / 我的视频壁纸 +「完整」效果首页 100% 卡住（按键有声音、画面不动，按主页键后黑屏），「流畅」不卡；同 ASTR0 #1485。2.18 之后 Amlogic 上只在 App 内取帧（见 ARCHITECTURE），没有真机验证 | #1759 |
 
 Vidda C1S 激光投影（VIDAA_TV，MT9669，Android 9，PR #545）：聚好看（`com.jamdeo.tv.vod`）不向第三方无障碍服务发窗口事件，别的 App 的事件照常；`set-home-activity` 写了 preferred 也不生效；用量统计里有聚好看的 `MOVE_TO_FOREGROUND`。1.49 起原桌面里有聚好看就每秒查一次用量统计（要 `GET_USAGE_STATS`，安装命令会给），报告人实测从 B 站按主页键 1–2 秒回到 Aerial。
 
