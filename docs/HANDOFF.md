@@ -4,6 +4,8 @@
 
 ## 现状（2026-11-25）
 
+- **2.19（versionCode 165），2026-11-25 发布**（[v2.19](https://github.com/pengchujin/aerial-tv/releases/tag/v2.19)）：下面巡检的全部修复和 PR #1754 #1755 #1762；Lite 没改，仍附 1.41（43）。三个包签名 e089…6685，standard 单测 291 个、Lite lint 通过。两台装正式包回归：小米 MFTR0（install-multiple + 31.dm，speed-profile / install-dm）主页键从设置拉回、8 个信号源；TCL（`tcast-push.py`，截图确认焦点在「同意」后确定，compile speed）主页键从浏览器 0.2 s 拉回、7 个信号源，两个 walleve 服务不变、守护已绑定。官网已部署：两个域名 version.txt=v2.19，notes.json 第一条 2.19，三个 APK 字节数和 Release 一致（standard 3244495、guard 3244417、lite 1013099），`/diag/aerial-710.apk` 还在。#1759 #1485 #1517 #1766 #1618 #1602 和 PR #1754 #1755 #1762 贴了发布链接（`local/triage/release-2.19-posts.py`），issue 留着等确认。下次发版 versionCode ≥ 166，Lite ≥ 44。
+
 - **2026-11-25 全量巡检**（记录 `local/triage/2026-11-25-full.md`，回复 `replies-2026-11-25.py`，发出 `posted-2026-11-25.txt`，29 条）：322 issue / 74 PR，新的或有新回复的 24 个逐个读过（含 #1485 的两组对照和录屏说明）；关闭 10 个 issue（#1748 用户确认修好，#1753 用户自己查到是盒子休眠，#1581 用户不再需要，#1763 重复，6 个十天没回音）和 3 个 PR（合入）。复查（`raw-2026-11-25b`）没有新的。改动（每个一个提交，**main 上，未发版**，已推送）：
   - **Amlogic 上影片只在 App 内取帧**（#1759 #1485 #1517，435bcc3 + c910cfe）：codec 列表里有 Amlogic 解码器时不用 PixelCopy、不用 MediaMetadataRetriever，底板走静止磨砂、首页停下取最近关键帧（进程内软解）；`film_in_app` 开关可强制。小米 MFTR0 强制打开验证：首页上下、控制中心、停下取帧 0.5 s 正常，测完改回 auto（MFTR0 自动为否，诊断 `in_app_only=false`）；TCL 读到 12 份 codec 列表、判定为否。**没有 Amlogic 真机，卡死是否解决没验证。** c910cfe 也让「文件读不了、又没有慢拷贝」的电视停下时用进程内关键帧，不再跳回旧图；TCL MT5879（copySlow）仍走安静后 PixelCopy。
   - **密码面板圈住焦点**（#1766，f21095c）：面板 `focusGroup` + `onExit` 取消，方向键不再跑到面板后面的控件。安卓 9 模拟器 aerial28 上新建 PIN（没保存）验证：5↓8、左上下边按不出去；原来的现象（儿童模式锁屏后面的按钮）没在模拟器上复现，原因是按报告人的四个方向推出来的。
