@@ -60,6 +60,9 @@
         <!-- SystemProbe.coocaaInputPanel: coocaaInputPanel asks whether Coocaa's Quick Panel
              service exists; without this the Android 11 visibility filter hides it. -->
         <package android:name="com.coocaa.os.ccosservice" />
+        <!-- SystemProbe.tclQuickPanel: TCL Google TV (G10) firmware opens com.tcl.suspension's Quick
+             Panel on the input key; without this the Android 11 visibility filter hides its service. -->
+        <package android:name="com.tcl.suspension" />
         <!-- SystemProbe.skyworthPicturePanel: on Skyworth/Coocaa TVs (75A7D) Control Center opens
              the picture panel through SkySetting's exported HalfScreenService; without this the
              Android 11 visibility filter hides the service. -->
