@@ -563,16 +563,25 @@ class Personalize(
         }
         col.add(space(context, 10f))
         group {
-            choices(R.string.st_focus_style, string(if (LiteSettings.focusStyle == FocusStyle.HighContrast) R.string.st_focus_high_hint else R.string.st_focus_standard_hint),
+            choices(R.string.st_focus_style, null,
                 listOf(FocusStyle.HighContrast to R.string.st_focus_high, FocusStyle.Standard to R.string.st_focus_standard),
-                LiteSettings.focusStyle) { LiteSettings.chooseFocusStyle(it); onLayout() }
-            choices(R.string.st_sounds, string(if (LiteSettings.uiSounds == UiSounds.Tv) R.string.st_sounds_tv_hint else R.string.st_sounds_hint),
+                LiteSettings.focusStyle, hintOf = { string(if (it == FocusStyle.HighContrast) R.string.st_focus_high_hint else R.string.st_focus_standard_hint) },
+            ) { LiteSettings.chooseFocusStyle(it); onLayout() }
+            choices(R.string.st_sounds, null,
                 listOf(UiSounds.Tv to R.string.st_sounds_tv, UiSounds.Aerial to R.string.st_sounds_aerial, UiSounds.Off to R.string.st_off),
-                LiteSettings.uiSounds) { LiteSettings.chooseUiSounds(it); Sounds.prepare() }
-            choices(R.string.st_effects,
-                string(if (LiteSettings.effects == Effects.Auto && !(context as android.app.Activity).window.decorView.isHardwareAccelerated) R.string.st_effects_auto_lite_hint else R.string.st_effects_hint),
+                LiteSettings.uiSounds, hintOf = {
+                    when (it) {
+                        UiSounds.Tv -> string(R.string.st_sounds_tv_hint)
+                        UiSounds.Aerial -> string(R.string.st_sounds_hint)
+                        else -> null
+                    }
+                },
+            ) { LiteSettings.chooseUiSounds(it); Sounds.prepare() }
+            val software = !(context as android.app.Activity).window.decorView.isHardwareAccelerated
+            choices(R.string.st_effects, null,
                 listOf(Effects.Auto to R.string.st_effects_auto, Effects.Full to R.string.st_effects_full, Effects.Lite to R.string.st_effects_lite),
-                LiteSettings.effects) { LiteSettings.chooseEffects(it); onLayout() }
+                LiteSettings.effects, hintOf = { string(if (it == Effects.Auto && software) R.string.st_effects_auto_lite_hint else R.string.st_effects_hint) },
+            ) { LiteSettings.chooseEffects(it); onLayout() }
         }
 
         col.add(section(R.string.wp_screensaver), top = 22f)
@@ -583,14 +592,18 @@ class Personalize(
                 ScreensaverMode.Photos to R.string.ss_photos,
                 ScreensaverMode.Clock to R.string.ss_clock,
                 ScreensaverMode.Videos to R.string.ss_videos,
-            ).map { (m, label) -> Chip(context, string(label), { Wallpapers.screensaver == m }).apply { action = { Wallpapers.chooseScreensaver(m); refreshChips() } } }
+            )
+            val chips = kinds.map { (m, label) -> Chip(context, string(label), { Wallpapers.screensaver == m }).apply { action = { Wallpapers.chooseScreensaver(m); refreshChips() } } }
             val start = Chip(context, string(R.string.ss_start), { false }, Glyph.Play).apply { action = onSaverNow }
-            settingRow(R.string.ss_kind, when {
-                mode == ScreensaverMode.Videos -> string(R.string.ss_videos_hint)
-                Wallpapers.screensaverFollows -> string(R.string.ss_follow_hint)
+            // Each chip's own note (the chosen one's on "Start Now"), as in the full app (#1782).
+            fun kindHint(m: ScreensaverMode) = when {
+                m == ScreensaverMode.Videos -> string(R.string.ss_videos_hint)
+                m == mode && Wallpapers.screensaverFollows -> string(R.string.ss_follow_hint)
                 LiteSettings.backStartsScreensaver -> string(R.string.ss_back_hint)
                 else -> null
-            }, kinds + start)
+            }
+            settingRow(R.string.ss_kind, kindHint(mode), chips + start)
+            chips.forEachIndexed { i, chip -> hints[chip] = kindHint(kinds[i].first) to cardNoteView!! }
             // The clock screensaver is its clock, and the others show none.
             if (mode == ScreensaverMode.Aerial || mode == ScreensaverMode.Photos) choices(R.string.ss_show_time, string(R.string.ss_show_time_hint),
                 listOf(true to R.string.st_on, false to R.string.st_off), LiteSettings.screensaverClock) { LiteSettings.chooseScreensaverClock(it) }
@@ -685,14 +698,18 @@ class Personalize(
         if (controls.isNotEmpty()) row(*controls.toTypedArray())
     }
 
-    /** A row of chips for one of a few values; [labels] are string ids or the text itself. */
-    private fun <T> choices(label: Int, hint: String?, labels: List<Pair<T, Any>>, current: T, choose: (T) -> Unit) {
+    /**
+     * A row of chips for one of a few values; [labels] are string ids or the text itself. With
+     * [hintOf], each chip shows its own value's note while focused (the full app's issue #1782).
+     */
+    private fun <T> choices(label: Int, hint: String?, labels: List<Pair<T, Any>>, current: T, hintOf: ((T) -> String?)? = null, choose: (T) -> Unit) {
         val chips = labels.map { (v, text) ->
             Chip(context, if (text is Int) string(text) else text.toString(), { current == v }).apply {
                 action = { if (current != v) { choose(v); refreshChips() } }
             }
         }
         settingRow(label, hint, chips)
+        if (hintOf != null) chips.forEachIndexed { i, chip -> hints[chip] = hintOf(labels[i].first) to cardNoteView!! }
     }
 
     /** Where the weather is for and what it is now; the city is set on the phone page. */
