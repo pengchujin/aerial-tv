@@ -70,9 +70,11 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import app.orchard.tv.CcPage
+import app.orchard.tv.ControlCenterFocus
 import app.orchard.tv.apps.SourceLooks
 import app.orchard.tv.HomeViewModel
 import app.orchard.tv.Overlay
+import app.orchard.tv.WallpaperFocus
 import app.orchard.tv.R
 import app.orchard.tv.settings.AerialSettings
 import app.orchard.tv.settings.Restricted
@@ -979,6 +981,7 @@ fun HomeScreen(
             warm = ccWarm,
             onShelf = !pastShelf,
             focusInputSettings = (overlay as? Overlay.ControlCenter)?.focusInputSettings == true,
+            focus = (overlay as? Overlay.ControlCenter)?.focus ?: ControlCenterFocus.Default,
         )
 
         FolderView(
@@ -1084,7 +1087,7 @@ fun HomeScreen(
                 vm.homeResetPending = true
                 KidsWatch.poke()
             },
-            onDismiss = { vm.overlay = Overlay.Wallpaper },
+            onDismiss = { vm.overlay = Overlay.Wallpaper() },
         )
 
         // Locked mid-panel (the day's time ran out with Control Center open): the lock is all there is.
@@ -1103,24 +1106,25 @@ fun HomeScreen(
             apps = vm.hiddenApps,
             onUnhide = { key ->
                 vm.unhide(key)
-                if (vm.hiddenApps.isEmpty()) vm.overlay = Overlay.Wallpaper
+                if (vm.hiddenApps.isEmpty()) vm.overlay = Overlay.Wallpaper(WallpaperFocus.HiddenApps)
             },
             // Hidden apps are reached from Personalization, and Back returns there.
-            onDismiss = { vm.overlay = Overlay.Wallpaper },
+            onDismiss = { vm.overlay = Overlay.Wallpaper(WallpaperFocus.HiddenApps) },
         )
 
         WallpaperSheet(
             visible = overlay is Overlay.Wallpaper,
+            focusTarget = (overlay as? Overlay.Wallpaper)?.focus ?: WallpaperFocus.Default,
             onSettled = { sheetIn = it },
             warm = sheetWarm,
-            onDismiss = { vm.overlay = Overlay.ControlCenter() },
+            onDismiss = { vm.overlay = Overlay.ControlCenter(CcPage.Main, focus = ControlCenterFocus.Personalize) },
             hiddenCount = vm.hiddenApps.size,
             onHiddenApps = { vm.whenUnlocked { vm.overlay = Overlay.HiddenApps } },
             // Locking needs nothing; unlocking, the PIN where one is set.
             onHomeLock = { on ->
                 if (on == AerialSettings.homeLocked) Unit
                 else if (on) AerialSettings.chooseHomeLocked(true)
-                else vm.whenUnlocked { AerialSettings.chooseHomeLocked(false); vm.overlay = Overlay.Wallpaper }
+                else vm.whenUnlocked { AerialSettings.chooseHomeLocked(false); vm.overlay = Overlay.Wallpaper() }
             },
             onKids = vm::setUpKidsMode,
             homeStatus = vm.homeStatus,
@@ -1130,9 +1134,9 @@ fun HomeScreen(
                 onStartScreensaver()
             },
             onPin = { on ->
-                if (on) vm.overlay = Overlay.Pin(PinMode.Create) { vm.overlay = Overlay.Wallpaper }
+                if (on) vm.overlay = Overlay.Pin(PinMode.Create) { vm.overlay = Overlay.Wallpaper() }
                 // Kids mode cannot be left without a PIN: it goes with it.
-                else vm.whenUnlocked { AerialSettings.choosePin(null); Restricted.chooseEnabled(false); vm.overlay = Overlay.Wallpaper }
+                else vm.whenUnlocked { AerialSettings.choosePin(null); Restricted.chooseEnabled(false); vm.overlay = Overlay.Wallpaper() }
             },
         )
 

@@ -86,6 +86,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.orchard.tv.CcPage
+import app.orchard.tv.ControlCenterFocus
 import app.orchard.tv.BuildConfig
 import app.orchard.tv.HomeViewModel
 import app.orchard.tv.Overlay
@@ -139,6 +140,7 @@ fun ControlCenter(
     /** Home is on its top row: no tiles under the panel, only the wallpaper (see liquidGlass). */
     onShelf: Boolean = false,
     focusInputSettings: Boolean = false,
+    focus: ControlCenterFocus = ControlCenterFocus.Default,
 ) {
     BackHandler(enabled = visible) {
         when (page) {
@@ -208,7 +210,7 @@ fun ControlCenter(
                             CcPage.Main -> if (Restricted.active) {
                                 KidsPage(vm, now, visible)
                             } else {
-                                MainPage(vm, now, takeFocus = visible, poll = visible, onOpen = onOpen)
+                                MainPage(vm, now, takeFocus = visible, focus = focus, poll = visible, onOpen = onOpen)
                             }
                             CcPage.Inputs -> InputsPage(vm, visible && page == p, focusInputSettings, onOpen)
                             CcPage.InputSettings -> InputSettingsPage(vm, visible && page == p)
@@ -268,6 +270,7 @@ private fun MainPage(
     vm: HomeViewModel,
     now: LocalDateTime,
     takeFocus: Boolean,
+    focus: ControlCenterFocus = ControlCenterFocus.Default,
     /** The row polls the picture service, so only the copy that is on screen may do it. */
     poll: Boolean,
     onOpen: (android.content.Intent) -> Unit,
@@ -280,6 +283,7 @@ private fun MainPage(
     val showsBrightness = remember { OutputDevice.showsBrightness() && !SystemProbe.hidesBrightness(context) }
     PollBrightness(vm, laser, poll)
     val first = remember { FocusRequester() }
+    val personalizeFocus = remember { FocusRequester() }
     val networkFocus = remember { FocusRequester() }
     val settingsFocus = remember { FocusRequester() }
     // The buttons share one row above a panel-wide slider, so focus searching up from it has three
@@ -296,10 +300,13 @@ private fun MainPage(
             vm.refreshSources()
         }
     }
-    LaunchedEffect(Unit) {
+    LaunchedEffect(takeFocus, focus) {
         if (!takeFocus) return@LaunchedEffect
         withFrameNanos { }
-        runCatching { first.requestFocus() }
+        runCatching {
+            if (focus == ControlCenterFocus.Personalize) personalizeFocus.requestFocus()
+            else first.requestFocus()
+        }
     }
 
     Column {
@@ -383,7 +390,8 @@ private fun MainPage(
         MenuRow(
             Glyph.Photo,
             stringResource(R.string.cc_personalize),
-            onClick = { vm.overlay = Overlay.Wallpaper },
+            focusRequester = personalizeFocus,
+            onClick = { vm.overlay = Overlay.Wallpaper() },
         )
         // What the TV opens when switched on: easy to forget, and puzzling when it happens.
         vm.bootTargetLabel()?.let { name ->

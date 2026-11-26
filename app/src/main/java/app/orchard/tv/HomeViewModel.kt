@@ -60,18 +60,23 @@ sealed interface Overlay {
         val page: CcPage = CcPage.Main,
         /** Return from Input settings to its row in the input list. */
         val focusInputSettings: Boolean = false,
+        val focus: ControlCenterFocus = ControlCenterFocus.Default,
     ) : Overlay
     /** [inFolder]: the menu was opened inside that folder, and closes back to it. */
     data class AppMenu(val key: String, val anchor: Rect, val inFolder: String? = null) : Overlay
     data class Folder(val id: String) : Overlay
     data object HiddenApps : Overlay
-    data object Wallpaper : Overlay
+    data class Wallpaper(val focus: WallpaperFocus = WallpaperFocus.Default) : Overlay
     data class Pin(val mode: PinMode, val onDone: () -> Unit) : Overlay
     /** Setting up Kids and Elders mode (Restricted), from Personalize. */
     data object Kids : Overlay
 }
 
 enum class CcPage { Main, Inputs, InputSettings, Update, Setup }
+
+enum class ControlCenterFocus { Default, Personalize }
+
+enum class WallpaperFocus { Default, HiddenApps }
 
 /**
  * Tiles a cold start reads whole before showing Home (two rows and a half, as many as can show);
