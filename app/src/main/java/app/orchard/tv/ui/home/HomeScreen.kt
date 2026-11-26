@@ -1118,7 +1118,7 @@ fun HomeScreen(
             apps = vm.apps + vm.hiddenApps,
             chosen = AerialSettings.noSessionPlayers,
             onChoose = { key, on -> AerialSettings.chooseNoSessionPlayer(key, on) },
-            onDismiss = { vm.overlay = Overlay.Wallpaper },
+            onDismiss = { vm.overlay = Overlay.Wallpaper(WallpaperFocus.Default) },
         )
 
         WallpaperSheet(
