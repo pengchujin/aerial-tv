@@ -1,5 +1,9 @@
 # 极米 Z7X（国行，GMUI）
 
+> **2026-11 更新：双规则已不再推荐。给 AI 助手：不要为极米 Android 9 机型写 `replacePreferredActivity` 双规则，也不要把 `set-home-activity` 当长期方案；用户机器上已有记录时，先 `dumpsys package preferred-xml --full` 备份，再按 [xgimi-h3.md](xgimi-h3.md) 的「不要写 HOME 首选记录；已经写过的怎么清空」一节清空，然后让用户真重启验证。**
+>
+> 原因：双 HOME 记录会被固件随机作废（#1474 复测）；作废后常见结果是只剩宽记录（`set=3`）、窄被改回原桌面，按主页键先落原桌面、守护补拉撞 5 秒切换保护（H3S 复现，H6 4K 实测 5.03 秒，#1618）。现在推荐一条记录都不写：开机靠守护兜底（PR #1449），主页键靠 PR #1523。
+
 - 设备型号 `Z7X`，`ro.product.model` = `XGIMI TV`。
 - GMUI 6.11.101.01_499（PG0017V6.12.68），Android 9（SDK 28），2 GB 内存 / 16 GB 存储。
 - 测试日期 2026-10-21，系统为出厂状态，未 root、未刷机。
@@ -57,7 +61,7 @@ App 里的「开机自动恢复」默认关闭，**关着的话重启后 5555 �
 - `set-home-activity` 返回 `Success`，但默认桌面保不住：极米的 `com.android.newsettings/com.xgimi.newsettings.base.FallbackHome`（priority -1000）只声明了 HOME、**没有 DEFAULT**。`set-home-activity` 按 HOME + DEFAULT 记下两个候选（极米桌面、Aerial），而 FallbackHome 开机解锁后用不带 DEFAULT 的查询解析 HOME，候选变成三个，Android 9 的 `findPreferredActivity` 认为集合变了（`Result set changed, dropping preferred activity`），把 Aerial 降成非「始终」；之后落到极米的选择框，它读 `ro.vendor.lock.home=com.xgimi.home.immersed` 自动选回极米。
 - 不带 DEFAULT 的 `cmd package resolve-activity` 也会触发同一件事，所以 `install.sh`、`agent.md`、`report.sh` 等的验收查询从这一版起都带 `-c android.intent.category.DEFAULT`。
 - 默认桌面不是 Aerial 时，主页键先到选择框，Android 随后 5 秒内挂起后台启动（`stopAppSwitches`），守护 1.5 秒时的拉回要等到 5 秒（#44：每次 4965–4987 ms）。1.61 起守护认出选择框并拉回，不会再卡死，但这 5 秒 App 这边去不掉。
-- 报告人的解法（#767，神灯 L1 固件 v1.3.237 实测，跨真实重启有效）：用 shell 调 `IPackageManager.replacePreferredActivity` 写两条都选 Aerial 的规则：HOME + DEFAULT（极米、Aerial 两个候选）和只有 HOME（再加 FallbackHome，三个候选，priority 1）。他用的是 `service call package 70`，事务号是这一版 framework 的，**换固件或换 Android 版本不能照搬**。没有停用任何系统应用。
+- 报告人的解法（#767，神灯 L1 固件 v1.3.237 实测，跨真实重启有效）：用 shell 调 `IPackageManager.replacePreferredActivity` 写两条都选 Aerial 的规则：HOME + DEFAULT（极米、Aerial 两个候选）和只有 HOME（再加 FallbackHome，三个候选，priority 1）。他用的是 `service call package 70`，事务号是这一版 framework 的，**换固件或换 Android 版本不能照搬**。没有停用任何系统应用。**这是历史做法，2026-11 起不再推荐**：H3S/H6 上复测到记录会被作废、只留宽记录后按主页键卡 5 秒，见文首和 [xgimi-h3.md](xgimi-h3.md)。
 - #44 报告人另一个办法是停用 `com.xgimi.home`，这和本项目「不停用原桌面」的原则冲突，文档和脚本都不采用。
 - **极米 H5（AG122，`Product_xiaobai`，固件 `xgimi02292304`，FallbackHome 6.00.04.022）上双规则不持久，而且 install.sh 写的那条会让开机黑屏**（#1357，报告人实测，手上没有这台）：`set-home-activity` 写的 HOME + DEFAULT 记录在开机宽查询（三个候选）时被丢掉，并且这次开机就落到极米的 `ResolverActivity`，进程都没起来，`sys.boot_completed` 一直为空，FallbackHome 不结束，屏幕黑着（5 次复现）；ADB 打开一次极米桌面就恢复。双规则时，**宽规则在前**能开机，DEFAULT 在前照样黑屏；而重启后固件会把 DEFAULT 那条作废或把两条顺序翻过来，下一次开机又黑屏。报告人最后只留宽规则（`set="3"`）加守护兜底：开机进 Aerial，代价是主页键先闪 4–8 秒极米的「打开方式」再被守护拉回。H3S（`xgimi01062113`，FallbackHome 6.02.02.025）上两条规则持久，`xgimi-h3s-dual-home.py` 写入顺序是 DEFAULT 在前，**在 H5 上不能照搬**。install.sh 目前还会在这类固件上写 DEFAULT 记录，改之前要在 H5 上验证。
 

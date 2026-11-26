@@ -291,7 +291,7 @@ curl -fsSL https://aerial.qust.me/install.sh | TV=192.168.1.20 bash -s restore
 | 极米 | Z9X 4K 高亮版（goat_elegant） | Android 13 | ⚠️ 1.76 有限实测：初次显示、UID app-op 与重启前台恢复；启动画面和待机仍待验（[笔记](docs/devices/xgimi-z9x-4k.md)） |
 | 极米 | Z7X、m7642 | Android 9 | ✅ Z7X 要用第三方工具打开 ADB（[笔记](docs/devices/xgimi-z7x.md)） |
 | 极米 | 神灯 L1（m7642，pig_chivalrous） | Android 9 | ✅ 默认桌面开机后会丢，报告人的双规则办法见[笔记](docs/devices/xgimi-z7x.md)（[#767](https://github.com/pengchujin/aerial-tv/issues/767)） |
-| 极米 | H3S、AG111（Product_ym01，m7642，pig_chivalrous） | Android 9 | ✅ standard 版用[笔记](docs/devices/xgimi-z7x.md)里的双规则办法开机直接进；guard 版重启约 1 分钟后进 Aerial（[#1336](https://github.com/pengchujin/aerial-tv/issues/1336)） |
+| 极米 | H3S、AG111（Product_ym01，m7642，pig_chivalrous） | Android 9 | ✅ H3S：全新装 Aerial 即可，1.97 起已适配，不用再设双规则；已经设过的，把 HOME 首选记录清空（宽窄都不写，步骤见 [docs/devices/xgimi-h3.md](docs/devices/xgimi-h3.md)）后重启最稳。原因：双 HOME 记录会被固件作废，作废后按主页键落到极米的选择框，没有 [#1523](https://github.com/pengchujin/aerial-tv/pull/1523) 就要卡安卓的 5 秒切换保护、中途闪一下原桌面。现在开机靠守护兜底（[#1449](https://github.com/pengchujin/aerial-tv/pull/1449)）、主页键靠 #1523，Aerial 前台 0.19–0.35 秒（[#1474](https://github.com/pengchujin/aerial-tv/issues/1474) 复测）。AG111 未复测 |
 | 极米 | H5（AG122，m7642，pig_chivalrous，固件 xgimi02292304） | Android 9 | ⚠️ 用安装命令装完后重启会黑屏（默认桌面记录被固件丢掉、开机卡住），ADB 打开一次极米桌面能恢复；报告人只留不带 DEFAULT 的规则加守护能开机进 Aerial（[笔记](docs/devices/xgimi-z7x.md)、[#1357](https://github.com/pengchujin/aerial-tv/issues/1357)） |
 | 极米 | Z6X 第四代（XK03U / ironman / m7221） | Android 8 | ⚠️ HDMI1 列表与切换已实测，未测视频输出；2GB 机型后台约 15–45 秒被杀、开机默认桌面被改回极米（[笔记](docs/devices/xgimi-xk03u-android8.md)） |
 | 极米 | H3、m7221 | Android 8 | ✅ 要用第三方工具打开 ADB；开机和屏保与 Z7X 一致（[笔记](docs/devices/xgimi-h3.md)） |
