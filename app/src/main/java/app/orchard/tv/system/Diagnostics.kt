@@ -139,7 +139,7 @@ object Diagnostics {
         appendLine("**Brightness**")
         appendLine("```")
         appendLine("Aerial can set it: ${Brightness.level(context) != null}")
-        appendLine("  global picture_backlight=${global(context, "picture_backlight")}  system screen_brightness=${system(context, Settings.System.SCREEN_BRIGHTNESS)} mode=${system(context, Settings.System.SCREEN_BRIGHTNESS_MODE)}")
+        appendLine("  global picture_backlight=${global(context, "picture_backlight")} xiaomi_picture_backlight=${global(context, "xiaomi_picture_backlight")}  system screen_brightness=${system(context, Settings.System.SCREEN_BRIGHTNESS)} mode=${system(context, Settings.System.SCREEN_BRIGHTNESS_MODE)}")
         appendLine("```")
 
         appendLine()

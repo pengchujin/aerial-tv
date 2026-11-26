@@ -19,6 +19,9 @@ import android.util.Log
  */
 object Brightness {
     private const val XIAOMI_BACKLIGHT = "picture_backlight"
+    // Xiaomi's panel's own key on newer firmware, read where it exists and written with the other
+    // (the full app's Brightness.XIAOMI_PANEL_BACKLIGHT, issue #1752).
+    private const val XIAOMI_PANEL_BACKLIGHT = "xiaomi_picture_backlight"
     private var mitvLevel: Int? = null
 
     private fun installed(context: Context, pkg: String) = runCatching { context.packageManager.getPackageInfo(pkg, 0) }.isSuccess
@@ -54,6 +57,7 @@ object Brightness {
         return when {
             usesXiaomiBacklight(context) -> {
                 if (context.checkCallingOrSelfPermission("android.permission.WRITE_SECURE_SETTINGS") != PackageManager.PERMISSION_GRANTED) return null
+                Settings.Global.getString(r, XIAOMI_PANEL_BACKLIGHT)?.toIntOrNull()?.let { return it.coerceIn(0, 100) / 100f }
                 Settings.Global.getInt(r, XIAOMI_BACKLIGHT, 50) / 100f
             }
             MitvPanel.usable(context) -> (mitvLevel ?: MitvPanel.level(context) ?: storedLevel(context) ?: 50) / 100f
@@ -102,7 +106,10 @@ object Brightness {
         runCatching {
             when {
                 installed(context, "com.tcl.settings") && TclPicture.backlight(context) != null -> TclPicture.setBacklight(context, next)
-                usesXiaomiBacklight(context) -> Settings.Global.putInt(r, XIAOMI_BACKLIGHT, next)
+                usesXiaomiBacklight(context) -> {
+                    if (Settings.Global.getString(r, XIAOMI_PANEL_BACKLIGHT) != null) Settings.Global.putInt(r, XIAOMI_PANEL_BACKLIGHT, next)
+                    Settings.Global.putInt(r, XIAOMI_BACKLIGHT, next)
+                }
                 else -> {
                     Settings.System.putInt(r, Settings.System.SCREEN_BRIGHTNESS_MODE, Settings.System.SCREEN_BRIGHTNESS_MODE_MANUAL)
                     Settings.System.putInt(r, Settings.System.SCREEN_BRIGHTNESS, (next * 255 / 100).coerceAtLeast(1))

@@ -40,6 +40,16 @@ import androidx.core.content.ContextCompat
 object Brightness {
     private const val XIAOMI_BACKLIGHT = "picture_backlight"
 
+    /**
+     * Where Xiaomi's own picture panel keeps the level on newer firmware. Redmi G Pro 27U
+     * (MiTV-MFFU1, Android 14, OS3) keeps picture_backlight at 100 and follows only this one, 0–100
+     * (issue #1752: the owner's panel moved it and backLightForNormal, and mirroring Aerial's write
+     * into it moved the backlight). MiTV-MFTR0 has both keys at the same level and follows
+     * picture_backlight, which does not copy itself into this one. So where it exists it is read,
+     * and both are written, as Xiaomi's panel leaves them.
+     */
+    private const val XIAOMI_PANEL_BACKLIGHT = "xiaomi_picture_backlight"
+
     // MiTV-MFTP0 keeps picture_backlight without following it: DeviceProfile.ignoresPictureBacklight.
 
     private fun usesXiaomiBacklight(context: Context) =
@@ -121,6 +131,7 @@ object Brightness {
         return when {
             usesXiaomiBacklight(context) -> {
                 if (ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_SECURE_SETTINGS) != PackageManager.PERMISSION_GRANTED) return null
+                Settings.Global.getString(r, XIAOMI_PANEL_BACKLIGHT)?.toIntOrNull()?.let { return it.coerceIn(0, 100) / 100f }
                 Settings.Global.getInt(r, XIAOMI_BACKLIGHT, 50) / 100f
             }
             // The MiTV middleware is driven over its own binder and Aerial keeps the level in its own
@@ -217,6 +228,7 @@ object Brightness {
             } else if (isTcl(context)) {
                 TclPicture.setBacklight(context, next)
             } else if (usesXiaomiBacklight(context)) {
+                if (Settings.Global.getString(r, XIAOMI_PANEL_BACKLIGHT) != null) Settings.Global.putInt(r, XIAOMI_PANEL_BACKLIGHT, next)
                 Settings.Global.putInt(r, XIAOMI_BACKLIGHT, next)
             } else {
                 // Reached only after the original native and picture-settings paths were ruled out.
