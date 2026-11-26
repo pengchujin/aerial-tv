@@ -4,6 +4,8 @@
 
 ## 现状（2026-11-26）
 
+- **2.20（versionCode 168），Lite 1.42（44），2026-11-26 发布**（[v2.20](https://github.com/pengchujin/aerial-tv/releases/tag/v2.20)）：下面巡检的 #1782 #1752 和 PR #1776 #1780，Lite 同步了前两项。三个包签名 e089…6685，standard 单测 291 个、Lite lint 通过。两台装正式包回归：小米 MFTR0（install-multiple + 31.dm，speed-profile / install-dm）守护、主页键从设置装完第一次 1.1 s、之后 0.4 / 0.3 s、8 个信号源；TCL（户主要求用 `install.sh guard`：adb 安装 `INSTALL_FAILED_VERIFICATION_FAILURE` 后自动走多屏互动，截图确认焦点在「同意」后确定，compile speed）守护、主页键从浏览器第一次 1.2 s、再测 0.3 s、7 个信号源，信号源键弹 TCL 面板、返回回 Aerial，两个 walleve 服务、开机进入和 `APP_AUTO_START` 不变。官网已部署：两个域名 version.txt=v2.20，notes.json 第一条 2.20，三个 APK 字节数和 Release 一致（standard 3246616、guard 3246371、lite 1013379），`/diag/aerial-710.apk` 还在。#1782 #1752 和 PR #1776 #1780 贴了发布链接（`local/triage/release-2.20-posts.py`），issue 留着等确认。下次发版 versionCode ≥ 169，Lite ≥ 45。
+
 - **2026-11-26 全量巡检**（记录 `local/triage/2026-11-26-full.md`，回复 `replies-2026-11-26.py`，发出 `posted-2026-11-26.txt`，22 条）：318 issue / 73 PR，新的或有新回复的 23 个逐个读过；关闭 4 个 issue（#1766 #1485 用户确认修好，#1778 改包名进白名单和原则冲突、不进机型表，#1370 海尔信号源和设置要 signature 级权限、App 打不开）。复查（`raw-2026-11-26b`）没有新的。改动（每个一个提交，**main 上，未发版**，已推送）：
   - **个性化说明对不上**（#1782，59eabde）：焦点样式、按键声音、效果、屏保类型的说明按已选的值取、只在焦点进这一行时取一次。现在跟着焦点所在的选项（`Choices(hintOf=)`，屏保行 `onFocusMode`），`SettingRow` 有焦点时说明变了也更新。Lite 同步（`choices(hintOf=)`）。小米 MFTR0 上看了焦点样式、按键声音；屏保类型那组在两台电视上说明被挤到屏幕下面（4K 画质行让卡片变高，原来就这样），在安卓 9 模拟器 aerial28 上逐个选项看过。Lite 只编译 + lint。
   - **红米 27U 亮度**（#1752，157ec3a）：有 `global xiaomi_picture_backlight` 时读它、两个键一起写；诊断 Brightness 段打印它。Lite 同步。小米 MFTR0 上调一格两个键都变 5、调回 1（户主原值），27U 没有真机。
