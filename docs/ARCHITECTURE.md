@@ -48,7 +48,7 @@ app/src/main/java/app/orchard/tv/
 ├── system/
 │   ├── SystemState.kt       SystemProbe：网络、音量、桌面状态、设置入口、信号源（TvInputManager + 小米路由 + 机型修正；没有框架信号源时按厂商兜底，当贝 Huanglong 投影走 `com.huanglong.tvui` 的 `SourceName`，#1477；安卓 14 极米的 HDMI passthrough 没人接时走 xhplayer `sw=HDMI<n>`，#1483；控制中心打开时重读一次）
 │   ├── VidaaSiloSources.kt  旧海信 VIDAA 4.1（安卓 5.1，Hi3751V551）的信号源：读 `/system/etc/silo_config.xml`，用不带包名的 `SILO_SWITCH_EVENT` 广播切 HDMI 1/2、电视直播（#1386，报告人从普通 App 身份实测）
-│   ├── Brightness.kt        亮度：小米 picture_backlight / 海信激光 HisenseLaserPanel / 标准 screen_brightness / TCL 走面板
+│   ├── Brightness.kt        亮度：小米 picture_backlight（有 xiaomi_picture_backlight 时读它、两个都写，红米 27U #1752）/ 海信激光 HisenseLaserPanel / 标准 screen_brightness / TCL 走面板
 │   ├── DeviceProfile.kt     按机型的修正（数据在 assets/devices.json），这台电视自己的修正可以覆盖它
 │   └── Diagnostics.kt       给 GitHub issue 用的诊断报告（手机页「反馈问题」、`dumpsys activity …MainActivity report`、tools/report.sh）
 ├── guard/
@@ -150,7 +150,7 @@ Logo 的大小统一：先在 256×256 的采样里找出 Logo 的范围，再�
 
 ## 个性化：壁纸、屏保、焦点样式、天气
 
-控制中心的「个性化」打开 `WallpaperSheet`，按「看得到的效果」从上到下分组：壁纸（一行缩略图：航拍、每日一图、我的照片（两张以上时加「每天换」）、6 张内置图 `Wallpapers.FEATURED_BUILTINS`、跟随 App；以前的每日图和其余内置图只在被选中时出现；行下面一条说明跟着聚焦的卡片变）、主屏幕（三张卡片：布局/第二排/底板/App 名称/隐藏的 App；时钟位置和大小；焦点样式和按键声音）、屏幕保护程序（类型和立即开始、开始时间）、天气（只读）、家长密码。除壁纸外都是 tvOS 设置那样的分组卡片，一行一个设置，左边名称、右边选项；每组下面一条说明，跟着组里聚焦的那一行变（`Group` / `SettingRow`），说明区固定两行高，焦点移动时面板不跳。天气的城市在手机页设置。右边是手机扫码卡片。焦点移到最后一行「家长密码」时，面板滚到底，让它下面的说明也露出来。
+控制中心的「个性化」打开 `WallpaperSheet`，按「看得到的效果」从上到下分组：壁纸（一行缩略图：航拍、每日一图、我的照片（两张以上时加「每天换」）、6 张内置图 `Wallpapers.FEATURED_BUILTINS`、跟随 App；以前的每日图和其余内置图只在被选中时出现；行下面一条说明跟着聚焦的卡片变）、主屏幕（三张卡片：布局/第二排/底板/App 名称/隐藏的 App；时钟位置和大小；焦点样式和按键声音）、屏幕保护程序（类型和立即开始、开始时间）、天气（只读）。每组卡片下面一条说明：焦点所在那一行的；一行里各选项意思不同的（焦点样式、按键声音、效果、屏保类型）说明跟着焦点所在的选项，不按已选的值（#1782，Lite 同样）、家长密码。除壁纸外都是 tvOS 设置那样的分组卡片，一行一个设置，左边名称、右边选项；每组下面一条说明，跟着组里聚焦的那一行变（`Group` / `SettingRow`），说明区固定两行高，焦点移动时面板不跳。天气的城市在手机页设置。右边是手机扫码卡片。焦点移到最后一行「家长密码」时，面板滚到底，让它下面的说明也露出来。
 
 「隐藏的 App」从控制中心挪到了这里：点开是原来的 `HiddenAppsSheet`，返回回到个性化；设了家长密码时先输密码。
 

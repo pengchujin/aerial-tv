@@ -2,6 +2,18 @@
 
 写给接手 Aerial 的人或 AI。先读这份，再读 [ARCHITECTURE.md](ARCHITECTURE.md) 和 [devices/](devices/)。
 
+## 现状（2026-11-26）
+
+- **2026-11-26 全量巡检**（记录 `local/triage/2026-11-26-full.md`，回复 `replies-2026-11-26.py`，发出 `posted-2026-11-26.txt`，22 条）：318 issue / 73 PR，新的或有新回复的 23 个逐个读过；关闭 4 个 issue（#1766 #1485 用户确认修好，#1778 改包名进白名单和原则冲突、不进机型表，#1370 海尔信号源和设置要 signature 级权限、App 打不开）。复查（`raw-2026-11-26b`）没有新的。改动（每个一个提交，**main 上，未发版**，已推送）：
+  - **个性化说明对不上**（#1782，59eabde）：焦点样式、按键声音、效果、屏保类型的说明按已选的值取、只在焦点进这一行时取一次。现在跟着焦点所在的选项（`Choices(hintOf=)`，屏保行 `onFocusMode`），`SettingRow` 有焦点时说明变了也更新。Lite 同步（`choices(hintOf=)`）。小米 MFTR0 上看了焦点样式、按键声音；屏保类型那组在两台电视上说明被挤到屏幕下面（4K 画质行让卡片变高，原来就这样），在安卓 9 模拟器 aerial28 上逐个选项看过。Lite 只编译 + lint。
+  - **红米 27U 亮度**（#1752，157ec3a）：有 `global xiaomi_picture_backlight` 时读它、两个键一起写；诊断 Brightness 段打印它。Lite 同步。小米 MFTR0 上调一格两个键都变 5、调回 1（户主原值），27U 没有真机。
+  - **合 PR**（squash，保留作者）：#1776 设置返回焦点（7e02f60，小米 MFTR0 上个性化返回落在「个性化」、隐藏的 App 返回落在「隐藏的 App」、重开控制中心落在第一个按钮）；#1780 极米 H3S 文档（b101d8b，只改文档，清空步骤没在真机跑过）。
+  - 文档：ARCHITECTURE 亮度和个性化说明两处，`devices/xiaomi-mitv-mffu0.md` 加 27U（MFFU1）亮度。
+- **#1781 查过、没改代码**：TCL 85Q10K 报升级 2.18 后开机又闪 TCL 桌面。我们的 TCL MT5879 上多屏互动升级（166→167）和 App 内安装（`self_compile`，和「下载并安装」同一种 session 安装，装完 installer=app.orchard.tv）前后，`boot_app_mode` / `boot_app_componentname` / `APP_AUTO_START` / `APP_ASSOC_START` 都没变。已请报告人升级后先读这几项。顺带：TCL 上 `compile -m speed` 后马上 `self_compile`，守护「升级后重绑」那条把 Aerial 拉到了安装确认框上面（日志 `bringing Aerial back over the installer`），是测试顺序造成的，再触发一次就正常。
+- 验证：standard 单测 291 个、Lite lint 通过，两个测试包签名 e089…6685；测试包 versionCode 167（versionName 2.19-test，**未提交**，已改回 165）。小米 MFTR0（install-multiple + 31.dm，speed-profile / install-dm）selftest 守护、主页键从设置 0.3 s、8 个信号源，屏保进出录屏无黑帧（MFTR0 的 screenrecord 约每秒一帧）；TCL（`tcast-push.py`，截图确认焦点在「同意」后确定，compile speed，之后又被 `self_compile` 重装成 speed-profile / install-dm）selftest 守护、主页键从浏览器 0.2 s、7 个信号源，两个 walleve 服务不变，屏保进出录屏 10 fps 逐帧无黑帧。两台现在装的是测试包 167，**下次发版 versionCode ≥ 168**，Lite ≥ 44（Lite 改了）。
+- 测试时改过、已改回：小米亮度 1→5→1。小米前台曾有一个 `UsbDebuggingActivity`（别的电脑的 ADB 授权框，不是这次弹的），没动它，Aerial 盖在上面。模拟器 aerial28 装了 167 测试包。
+- 等回复：#1781 #1779 #1775 #1744 #1693 #1654 #1618 #1383 #1757（说下次带诊断）。等户主：PR #1760、#1749；#1772 空电视输入是否进代码。
+
 ## 现状（2026-11-25）
 
 - **2.19（versionCode 165），2026-11-25 发布**（[v2.19](https://github.com/pengchujin/aerial-tv/releases/tag/v2.19)）：下面巡检的全部修复和 PR #1754 #1755 #1762；Lite 没改，仍附 1.41（43）。三个包签名 e089…6685，standard 单测 291 个、Lite lint 通过。两台装正式包回归：小米 MFTR0（install-multiple + 31.dm，speed-profile / install-dm）主页键从设置拉回、8 个信号源；TCL（`tcast-push.py`，截图确认焦点在「同意」后确定，compile speed）主页键从浏览器 0.2 s 拉回、7 个信号源，两个 walleve 服务不变、守护已绑定。官网已部署：两个域名 version.txt=v2.19，notes.json 第一条 2.19，三个 APK 字节数和 Release 一致（standard 3244495、guard 3244417、lite 1013099），`/diag/aerial-710.apk` 还在。#1759 #1485 #1517 #1766 #1618 #1602 和 PR #1754 #1755 #1762 贴了发布链接（`local/triage/release-2.19-posts.py`），issue 留着等确认。下次发版 versionCode ≥ 166，Lite ≥ 44。

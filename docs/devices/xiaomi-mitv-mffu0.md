@@ -86,3 +86,9 @@ Home Guard is running. Press Home on the remote.
 ## 别的 App 里按主页键闪 PatchWall
 
 在小米显示器 MFFU1（Android 14，和这台同一套固件）上查的，记录和修复见 [xiaomi-mitv-mftr0.md](xiaomi-mitv-mftr0.md) 的「别的 App 里按主页键先闪 PatchWall」。
+
+## 红米 G Pro 27U（MiTV-MFFU1）的亮度（#1752，报告人实测）
+
+- Android 14，OS3.0.109.0.UFFAMN。`/sys/class/backlight` 是空的；`global picture_backlight` 一直是 100、改它背光不动。
+- 小米自己的「显示器模式」面板（`com.xiaomi.mitv.smartpanel`）调亮度时只改 `global xiaomi_picture_backlight` 和 `system backLightForNormal`（0–100）；报告人用 hook 把 Aerial 的写入镜像到 `xiaomi_picture_backlight` 后背光跟着变。`backLightForNormal` 会被画质服务按环境光改写，普通 App 写它报 `IllegalArgumentException`。
+- 2.19 之后：有 `xiaomi_picture_backlight` 时控制中心读它、两个键一起写（`Brightness.XIAOMI_PANEL_BACKLIGHT`）。MiTV-MFTR0 上两个键都有、写 `picture_backlight` 不会带动另一个，回归时两个都写，原来的调法不变。27U 上没有真机验证。
