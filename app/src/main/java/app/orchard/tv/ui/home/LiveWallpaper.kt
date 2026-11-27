@@ -91,7 +91,7 @@ internal fun rememberStops(letGo: () -> Boolean): Int {
  */
 class LiveFilm {
     var film by mutableStateOf<Aerial?>(null); internal set
-    internal var player: ExoPlayer? = null
+    internal var player by mutableStateOf<ExoPlayer?>(null)
 
     /**
      * Stopped on a frame that is not yet the wallpaper's picture, with the glass for it ready
@@ -107,7 +107,19 @@ class LiveFilm {
     val positionMs: Long get() = player?.currentPosition ?: 0L
 
     /** Adds a film after the one playing and goes to it; set by the player that has the film. */
-    internal var insert: ((Aerial) -> Unit)? = null
+    internal var insert by mutableStateOf<((Aerial) -> Unit)?>(null)
+
+    internal val readyForDaily: Boolean get() = player != null && insert != null
+
+    internal fun advanceDaily(context: android.content.Context): Boolean {
+        if (!readyForDaily) return false
+        val add = insert ?: return false
+        return AerialSet.takeDailyWhen(context) { next ->
+            runCatching { add(next) }.onFailure {
+                DiagLog.i("daily film not accepted: ${it.javaClass.simpleName}")
+            }.isSuccess
+        }
+    }
 
     /**
      * The viewer's left and right in the screensaver carrying this film: right brings in a new
