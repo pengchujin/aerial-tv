@@ -85,7 +85,7 @@ object Diagnostics {
         appendLine("Screen      ${screen(context)}")
         appendLine("Memory      ${memory(context)}")
         appendLine("Output      ${OutputDevice.describe(context)}")
-        appendLine("Network     ${SystemProbe.network(context).kind}")
+        appendLine("Network     ${networkSummary(context)}")
         appendLine("```")
 
         appendLine()
@@ -192,6 +192,22 @@ object Diagnostics {
         appendLine()
         appendLine("</details>")
     }
+
+    /** Passive Android connectivity state only; never probes the network or reports identifiers. */
+    internal fun networkSummary(context: Context): String {
+        val kind = SystemProbe.network(context).kind
+        val validated = networkValidated(context)
+        return "$kind validated=${validated?.toString() ?: "unknown"}"
+    }
+
+    @Suppress("InlinedApi")
+    internal fun networkValidated(context: Context, sdkInt: Int = Build.VERSION.SDK_INT): Boolean? =
+        if (sdkInt < 23) null else runCatching {
+            val connectivity = context.getSystemService<android.net.ConnectivityManager>()
+            val network = connectivity?.currentNetwork() ?: return@runCatching null
+            connectivity.getNetworkCapabilities(network)
+                ?.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+        }.getOrNull()
 
     private fun inputs(context: Context): List<String> {
         val tim = context.getSystemService<TvInputManager>() ?: return listOf("no TvInputManager")

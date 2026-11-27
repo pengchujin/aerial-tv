@@ -174,6 +174,51 @@ class NetworkStatusTest {
     }
 
     @Test
+    fun diagnosticsReportsValidatedWifiAndEthernetWithoutIdentifiers() {
+        for ((type, transport, expected) in listOf(
+            Triple(ConnectivityManager.TYPE_WIFI, NetworkCapabilities.TRANSPORT_WIFI, "Wifi validated=true"),
+            Triple(ConnectivityManager.TYPE_ETHERNET, NetworkCapabilities.TRANSPORT_ETHERNET, "Ethernet validated=true"),
+        )) {
+            clearNetworks()
+            setWifiInfo("Private SSID", -40)
+            val network = setDefault(type, transport)
+            connectivity.setNetworkCapabilities(network, capabilities(transport).apply {
+                shadowOf(this).addCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+            })
+            val summary = Diagnostics.networkSummary(context)
+            assertEquals(expected, summary)
+            assertEquals(false, summary.contains("Private SSID"))
+        }
+    }
+
+    @Test
+    fun diagnosticsReportsUnvalidatedWifiAndEthernet() {
+        for ((type, transport, expected) in listOf(
+            Triple(ConnectivityManager.TYPE_WIFI, NetworkCapabilities.TRANSPORT_WIFI, "Wifi validated=false"),
+            Triple(ConnectivityManager.TYPE_ETHERNET, NetworkCapabilities.TRANSPORT_ETHERNET, "Ethernet validated=false"),
+        )) {
+            clearNetworks()
+            val network = setDefault(type, transport)
+            connectivity.setNetworkCapabilities(network, capabilities(transport))
+            assertEquals(expected, Diagnostics.networkSummary(context))
+        }
+    }
+
+    @Test
+    fun diagnosticsReportsUnknownWhenOfflineOrBeforeValidationApi() {
+        assertEquals("Offline validated=unknown", Diagnostics.networkSummary(context))
+
+        val network = setDefault(ConnectivityManager.TYPE_WIFI, NetworkCapabilities.TRANSPORT_WIFI)
+        connectivity.setNetworkCapabilities(network, null)
+        assertEquals("Offline validated=unknown", Diagnostics.networkSummary(context))
+    }
+
+    @Test
+    fun diagnosticsReportsUnknownBeforeAndroidSix() {
+        assertNull(Diagnostics.networkValidated(context, sdkInt = 22))
+    }
+
+    @Test
     @Config(sdk = [23])
     fun vpnOnlyDefaultFindsConnectedWifiOnAndroidSix() {
         setDefault(ConnectivityManager.TYPE_VPN, NetworkCapabilities.TRANSPORT_VPN)
