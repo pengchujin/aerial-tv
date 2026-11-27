@@ -115,7 +115,14 @@ object Diagnostics {
             " usage=${HomeGuardService.usageStatsAllowed(context)}" + restrictedSettings(context))
         appendLine("ADB         adb_enabled=${global(context, Settings.Global.ADB_ENABLED)} keep_adb=${GuardSetup.keepAdb(context)} guard_off_in_standby=${GuardSetup.offInStandby(context)}")
         appendLine("Screensaver enabled=${secure(context, "screensaver_enabled")} components=${secure(context, "screensaver_components")} Aerial's=${Wallpapers.screensaver}")
-        appendLine("Sounds      sound_effects_enabled=${system(context, Settings.System.SOUND_EFFECTS_ENABLED)}")
+        // TCL's "open at power-on", which install.sh sets and Aerial cannot write back itself (a
+        // private system setting): whether an update left it, for a report like issue #1781's.
+        val bootApp = system(context, "boot_app_componentname")
+        val bootKept = global(context, "aerial_boot_app_componentname")
+        if (bootApp != null || bootKept != null) {
+            appendLine("Boot app    boot_app_mode=${system(context, "boot_app_mode")} boot_app_componentname=$bootApp; install.sh kept ${bootKept ?: "-"}")
+        }
+        appendLine("Sounds     sound_effects_enabled=${system(context, Settings.System.SOUND_EFFECTS_ENABLED)}")
         appendLine("Effects     ${AerialSettings.effects.key}, lite=${AerialSettings.lite}; ${DeviceClass.describe(context)}")
         appendLine("Compiled    ${compiled(context)}; self compile ${app.orchard.tv.update.SelfCompile.diagnostics(context)}")
         appendLine("Frames      ${FrameStats.summary()}")

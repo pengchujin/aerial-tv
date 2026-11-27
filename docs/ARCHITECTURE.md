@@ -232,7 +232,7 @@ NanoHTTPD 监听 8790 端口，路径前缀是 8 位随机令牌（每次打开�
 
 ## 诊断报告（system/Diagnostics.kt）
 
-给维护者没有的电视用：机型、固件指纹、屏幕和内存、HOME 解析和所有候选、守护看着的原桌面、守护和通知监听的状态、各项授权、屏保和按键音设置、亮度、`TvInputManager` 的输入和 Aerial 显示的信号源、Aerial 认识的厂商包（只列这些，不列全部 App）、天气状态（`Weather.diagnostics`：有没有显示、上次取到和尝试的时间、结果、是否还在请求，不含城市和坐标，#1506）、DiagLog 最近 150 行、本进程 Aerial 各 tag 的 logcat（不含 AerialWeather，里面有城市）。日志里的 IP、MAC、手机页令牌打码。不收集账号、序列号、Wi-Fi 名称、天气城市。
+给维护者没有的电视用：机型、固件指纹、屏幕和内存、HOME 解析和所有候选、守护看着的原桌面、守护和通知监听的状态、各项授权、屏保和按键音设置、TCL 的开机进入（`boot_app_*`，有这两项或 `install.sh` 记过原值时才打印；App 自己写不了这两项私有系统设置，#1781）、亮度、`TvInputManager` 的输入和 Aerial 显示的信号源、Aerial 认识的厂商包（只列这些，不列全部 App）、天气状态（`Weather.diagnostics`：有没有显示、上次取到和尝试的时间、结果、是否还在请求，不含城市和坐标，#1506）、DiagLog 最近 150 行、本进程 Aerial 各 tag 的 logcat（不含 AerialWeather，里面有城市）。日志里的 IP、MAC、手机页令牌打码。不收集账号、序列号、Wi-Fi 名称、天气城市。
 
 三个出口：手机页 `GET api/diagnostics`（页面最下面「反馈问题」，可复制，局域网 HTTP 没有 `navigator.clipboard`，用 `execCommand`）；`adb shell dumpsys activity app.orchard.tv/.MainActivity report`；`tools/report.sh` 在它前面再加只有 shell 能读的：getprop、包信息和 appops、HOME 候选和 role、相关 settings、无障碍绑定、tv_input 硬件、系统服务里关于 Aerial 的 logcat（只按 tag 取：小米应用商店会在日志里打印已装 App 列表）。
 
