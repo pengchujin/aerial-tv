@@ -1289,9 +1289,10 @@ class MainActivity : ComponentActivity() {
         try {
             SystemProbe.startSettingsIntent(this, bareOnRewritingFirmware(intent))
         } catch (e: Exception) {
-            // XGIMI (GMUI): its inputs carry a passthrough intent that nothing answers, so switching
-            // goes through the source page of its settings service (issue #241).
-            if (intent.data?.host == "android.media.tv" &&
+            // XGIMI: both an unresolved passthrough (issue #241) and an explicit HDMI player the
+            // firmware rejects when it is no longer launchable both go to the source page. The
+            // rejected player is not retried here, as the page already failed to start it.
+            if ((intent.data?.host == "android.media.tv" || SystemProbe.isXgimiInputIntent(intent)) &&
                 (SystemProbe.openXgimiInput(this, intent) || SystemProbe.openInputPicker(this))
             ) return
             LaunchFallback.next()?.let { return open(it) }

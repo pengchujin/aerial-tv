@@ -722,7 +722,15 @@ object SystemProbe {
      * TCL settings' otherwise (TclShortCutKeyManager.startTVInputService).
      */
     private val XGIMI_PLAYER = ComponentName("com.xgimi.xhplayer", "com.xgimi.xhplayer.InputActivity")
+    private const val XGIMI_HDMI_ACTION = "com.xgimi.action.hdmiPlayer"
     private val XGIMI_HDMI_INPUT = Regex("""^com\.xgimi\.tvinput/\.inputservice\.Hdmi(\d)TvInputService/HW\d+$""")
+
+    /**
+     * An HDMI input's explicit player ([openXgimiInput]'s intent), still one when the firmware
+     * stops launching it after the ports were listed; the caller falls back to the source page.
+     */
+    internal fun isXgimiInputIntent(intent: Intent): Boolean =
+        intent.component == XGIMI_PLAYER && intent.action == XGIMI_HDMI_ACTION
 
     /**
      * XGIMI GMUI on Android 14 (RS20 Pro Max, DOHKO): the passthrough intent of an HDMI input has
@@ -738,7 +746,7 @@ object SystemProbe {
         val port = XGIMI_HDMI_INPUT.matchEntire(id)?.groupValues?.get(1) ?: return false
         val info = runCatching { context.packageManager.getActivityInfo(XGIMI_PLAYER, 0) }.getOrNull() ?: return false
         if (!info.exported || !info.enabled || info.permission != null) return false
-        val intent = Intent("com.xgimi.action.hdmiPlayer").setComponent(XGIMI_PLAYER)
+        val intent = Intent(XGIMI_HDMI_ACTION).setComponent(XGIMI_PLAYER)
             .putExtra("sw", "HDMI$port").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         return runCatching { context.startActivity(intent) }.isSuccess
     }
