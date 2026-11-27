@@ -193,7 +193,9 @@ VIDAA_TV（MT9655，Android 14，固件 07.02.70.202605110330）上，报告人�
 
 第三台：海信 85U7Q（VIDAA_TV，MT9655 / mt5877，安卓 14，固件 07.02.70.202606040023，#1727，报告人 Agent 实测）：只设 `use_home_pkg` 时 `adb reboot` 后属性被改回 `com.jamdeo.tv.vod`、`SYSTEM_ALERT_WINDOW` 被改回 ignore、开机期间 Aerial 进程被移除 3 次、守护一直 `Binding services`；补设 `boot.source_pkg`（原值空）后重启，3 分钟每 10 秒采样前台都是 Aerial，两个属性都保留。没测拔电冷启动和待机唤醒。这台 ADB 只有无线调试（TLS，`adb pair`，端口每次重启变）。`dumpsys tv_input` 为空，但 shell 发 `com.jamdeo.tv.policy.SILO_SWITCH_EVENT`（`-p com.hisense.tv.tiletransition --ei silo_input_src_id 1283`）能切到 HDMI 3，`settings get global touch_angle_*` 里有 HDMI 1/2/3 = 1281/1282/1283（没进 Aerial）。
 
-2026-11-23 起 `install.sh` / agent.md：安卓 14 及以上、装有聚好看、`persist.sys.boot.source_pkg` 为空时设成 Aerial，`aerial_boot_source_pkg` 记 `-`，`restore.sh` 清空。我们没有海信真机，脚本这一步只跑了离线测试。
+安卓 11 上也有效：Vidda X75 Ultra（75V7N-Ultra，VIDAA_TV，MT9653 / board mt5879，安卓 11，固件 02.02.70.01，#1788，报告人实测）：`install.sh` 只设了 `use_home_pkg`（当时只在安卓 14 设 `boot.source_pkg`），手动补设 `boot.source_pkg`（原值空）后 `adb reboot`，28 秒采样前台是 Aerial、没有聚好看首屏，两个属性都保留；待机唤醒聚好看先出来，0.5–1 秒后自己切到 Aerial。开机时 Aerial 崩过一次（`MainActivity.onWindowFocusChanged` 在用户解锁前读设置，见上面「开机反复选择桌面」），2026-11-27 起不再在解锁前读（main，下个版本）。
+
+2026-11-23 起 `install.sh` / agent.md：安卓 14 及以上、装有聚好看、`persist.sys.boot.source_pkg` 为空时设成 Aerial，`aerial_boot_source_pkg` 记 `-`，`restore.sh` 清空；2026-11-27 起放宽到安卓 11 及以上（#1788）。我们没有海信真机，脚本这一步只跑了离线测试。
 
 ## 海信 E8H（m7642，安卓 9，#1227）
 

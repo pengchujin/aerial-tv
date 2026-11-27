@@ -457,9 +457,11 @@ if [ "$FLAVOR" = standard ]; then
   # VIDAA on Android 14 (MT9655, 07.02.70 firmwares) also opens the app named here at power-on and
   # on wake (TileTransition's AppSwitchManager.switchToAppForSTR). With only the property above,
   # 聚好看 took the front for minutes after a cold boot and the guard lost the race; with both, the
-  # boot went straight to Aerial: three TVs, each set by hand (#1274, #1495, #1727). Only where it
-  # is empty and 聚好看 is there; restore.sh empties it again ("-" kept on the TV).
-  if [ "${SDK:-0}" -ge 34 ] 2>/dev/null && adb shell pm path com.jamdeo.tv.vod 2>/dev/null | grep -q package: &&
+  # boot went straight to Aerial: three TVs, each set by hand (#1274, #1495, #1727). Android 11
+  # firmwares have it too: Vidda X75 Ultra (MT9653, 02.02.70) booted straight into Aerial with it
+  # set by hand (#1788). Only where it is empty and 聚好看 is there; restore.sh empties it again
+  # ("-" kept on the TV).
+  if [ "${SDK:-0}" -ge 30 ] 2>/dev/null && adb shell pm path com.jamdeo.tv.vod 2>/dev/null | grep -q package: &&
      [ -z "$(adb shell getprop persist.sys.boot.source_pkg | tr -d '\r')" ]; then
     adb shell settings put global aerial_boot_source_pkg -
     adb shell setprop persist.sys.boot.source_pkg "$PKG"

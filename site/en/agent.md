@@ -171,7 +171,7 @@ Run these in PowerShell, with the adb from step 1. Everything inside `adb shell 
    ```
    If both print nothing, skip this; other TVs don't have the property.
 
-   Hisense VIDAA on Android 14 or later (`adb shell getprop ro.build.version.sdk` is 34 or more, `com.jamdeo.tv.vod` installed): also check `adb shell getprop persist.sys.boot.source_pkg`. If it prints nothing, run the two lines below so the TV powers on straight into Aerial (with only the property above, 聚好看 kept taking the front for minutes after a cold boot, #1274 #1495 #1727); if it prints something, leave it:
+   Hisense VIDAA on Android 11 or later (`adb shell getprop ro.build.version.sdk` is 30 or more, `com.jamdeo.tv.vod` installed): also check `adb shell getprop persist.sys.boot.source_pkg`. If it prints nothing, run the two lines below so the TV powers on straight into Aerial (with only the property above, 聚好看 kept taking the front for minutes after a cold boot, #1274 #1495 #1727; it works on the Android 11 Vidda X75 Ultra too, #1788); if it prints something, leave it:
    ```
    adb shell settings put global aerial_boot_source_pkg -
    adb shell setprop persist.sys.boot.source_pkg app.orchard.tv

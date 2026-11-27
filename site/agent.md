@@ -171,7 +171,7 @@ curl -fsSL https://aerial.qust.me/install.sh | KEEP_ADB=1 TV=<IP> bash
    ```
    两个都没有输出就跳过，其他电视没有这个属性。
 
-   海信 VIDAA 并且是 Android 14 及以上（`adb shell getprop ro.build.version.sdk` ≥ 34，装有 `com.jamdeo.tv.vod`）：再看 `adb shell getprop persist.sys.boot.source_pkg`，没有输出时运行下面两条，开机直接进 Aerial（只设上面那个属性时，冷开机几分钟里聚好看会反复抢前台，#1274 #1495 #1727）；有输出就不改：
+   海信 VIDAA 并且是 Android 11 及以上（`adb shell getprop ro.build.version.sdk` ≥ 30，装有 `com.jamdeo.tv.vod`）：再看 `adb shell getprop persist.sys.boot.source_pkg`，没有输出时运行下面两条，开机直接进 Aerial（只设上面那个属性时，冷开机几分钟里聚好看会反复抢前台，#1274 #1495 #1727；安卓 11 的 Vidda X75 Ultra 也有效，#1788）；有输出就不改：
    ```
    adb shell settings put global aerial_boot_source_pkg -
    adb shell setprop persist.sys.boot.source_pkg app.orchard.tv

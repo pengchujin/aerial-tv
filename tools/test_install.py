@@ -103,8 +103,14 @@ esac
         self.assertIn('shell settings put global aerial_boot_source_pkg -', calls)
         self.assertIn('shell setprop persist.sys.boot.source_pkg app.orchard.tv', calls)
 
+    def test_vidaa_on_android_11_also_opens_aerial_at_power_on(self):
+        # Issue #1788: Vidda X75 Ultra (MT9653, Android 11) took it as well.
+        result, calls = self.run_install('Success', 0, jamdeo='1', sdk='30')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('shell setprop persist.sys.boot.source_pkg app.orchard.tv', calls)
+
     def test_older_vidaa_keeps_its_boot_source(self):
-        result, calls = self.run_install('Success', 0, jamdeo='1')
+        result, calls = self.run_install('Success', 0, jamdeo='1', sdk='28')
         self.assertNotIn('persist.sys.boot.source_pkg', calls)
 
     def test_other_tv_with_empty_home_property_is_left_alone(self):
