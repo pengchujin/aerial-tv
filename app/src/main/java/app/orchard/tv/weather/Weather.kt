@@ -58,6 +58,12 @@ object Weather {
     private const val STALE_MS = 3 * 60 * 60 * 1000L
     /** A reading older than this is not shown at all. */
     private const val SHOWN_MS = 12 * 60 * 60 * 1000L
+    /**
+     * Allows a reading to sit slightly ahead of [atMs]: HomeChrome ticks on the minute, so a
+     * freshly fetched reading can be up to a minute ahead of the displayed clock. Beyond this,
+     * a reading timestamped in the future means the clock jumped back and its age is unknown.
+     */
+    private const val CLOCK_SKEW_MS = 2 * 60 * 1000L
     /** Stands for "no high or low" in the prefs. */
     private const val NONE = Int.MIN_VALUE
 
@@ -84,7 +90,7 @@ object Weather {
         place = prefs.getString("place", null)
         chosen = prefs.getBoolean("chosen", false)
         val readAt = prefs.getLong("fetched_at", 0)
-        if (System.currentTimeMillis() - readAt < SHOWN_MS) {
+        if (readAt != 0L && isReadingShown(readAt, System.currentTimeMillis())) {
             val kind = runCatching { WeatherKind.valueOf(prefs.getString("kind", null) ?: "") }.getOrNull()
             if (kind != null) now = WeatherNow(
                 prefs.getInt("celsius", 0), kind, prefs.getBoolean("day", true),
@@ -95,12 +101,18 @@ object Weather {
         }
     }
 
+    internal fun isReadingShown(readAtMs: Long, atMs: Long): Boolean {
+        val age = atMs - readAtMs
+        return age in -CLOCK_SKEW_MS until SHOWN_MS
+    }
+
     /**
-     * The reading to show at [atMs], or null once it is over [SHOWN_MS] old. Up to that it stays,
-     * with its age beside it past [STALE_MS] ([hoursOld]): a line that blocks Open-Meteo for a few
-     * hours left the row blank, and a blank row read as broken (issue #1576, two reporters).
+     * The reading to show at [atMs], or null once it is over [SHOWN_MS] old (or far in the future
+     * after a backward clock jump). Up to that it stays, with its age beside it past [STALE_MS]
+     * ([hoursOld]): a line that blocks Open-Meteo for a few hours left the row blank, and a blank
+     * row read as broken (issue #1576, two reporters).
      */
-    fun shown(atMs: Long): WeatherNow? = now?.takeIf { atMs - it.readAt < SHOWN_MS }
+    fun shown(atMs: Long): WeatherNow? = now?.takeIf { isReadingShown(it.readAt, atMs) }
 
     /** Whole hours since [w] was read, once that is over [STALE_MS]; else null. */
     fun hoursOld(w: WeatherNow, atMs: Long): Int? =
@@ -111,20 +123,39 @@ object Weather {
     /** Failed readings in a row, for the retry's back-off. */
     private var failures = 0
 
-    private fun retryMs(): Long = (RETRY_MS shl (failures - 1).coerceIn(0, 5)).coerceAtMost(REFRESH_MS)
+    internal fun retryMs(failures: Int): Long = (RETRY_MS shl (failures - 1).coerceIn(0, 5)).coerceAtMost(REFRESH_MS)
 
     /** How long until [refreshIfStale] would fetch, at the earliest. */
-    private fun dueInMs(): Long {
-        val since = System.currentTimeMillis() - lastAttempt
-        return ((if (failed) retryMs() else REFRESH_MS) - since).coerceAtLeast(0L)
+    internal fun dueInMs(nowMs: Long, lastAttemptMs: Long, failed: Boolean, failures: Int): Long {
+        val since = nowMs - lastAttemptMs
+        // A clock set back (a TV that booted ahead of the time) makes since negative: due at once.
+        if (since < 0L) return 0L
+        return ((if (failed) retryMs(failures) else REFRESH_MS) - since).coerceAtLeast(0L)
+    }
+
+    private fun dueInMs(): Long = dueInMs(System.currentTimeMillis(), lastAttempt, failed, failures)
+
+    internal fun isRefreshDue(
+        nowMs: Long,
+        lastAttemptMs: Long,
+        failed: Boolean,
+        failures: Int,
+        networkCameUp: Boolean = false,
+    ): Boolean {
+        val since = nowMs - lastAttemptMs
+        return since < 0L || since >= REFRESH_MS || (failed && (networkCameUp || since >= retryMs(failures)))
+    }
+
+    internal fun needsRelocation(nowMs: Long, locatedAtMs: Long): Boolean {
+        val since = nowMs - locatedAtMs
+        return since < 0L || since > RELOCATE_MS
     }
 
     /** Like the daily photos: a failed reading is retried when the network connects (issue #129). */
     fun refreshIfStale(networkCameUp: Boolean = false) {
         if (!started) return
         if (job?.isActive == true) return
-        val since = System.currentTimeMillis() - lastAttempt
-        if (since >= REFRESH_MS || (failed && (networkCameUp || since >= retryMs()))) refresh()
+        if (isRefreshDue(System.currentTimeMillis(), lastAttempt, failed, failures, networkCameUp)) refresh()
     }
 
     private var ticker: Job? = null
@@ -201,36 +232,67 @@ object Weather {
 
     private class HttpStatus(code: Int) : java.io.IOException("HTTP $code")
 
-    /** Off the main thread. */
-    private fun fetch(): WeatherNow {
-        var lat = prefs.getFloat("lat", Float.NaN)
-        var lon = prefs.getFloat("lon", Float.NaN)
-        val guessedLongAgo = System.currentTimeMillis() - prefs.getLong("located_at", 0) > RELOCATE_MS
-        if (prefs.getBoolean("chosen", false) && !lat.isNaN() && !prefs.getBoolean("checked_against_cities", false)) {
-            correctChosenPlace(lat, lon)?.let { lat = it.lat.toFloat(); lon = it.lon.toFloat() }
-        }
-        if (!prefs.getBoolean("chosen", false) && (lat.isNaN() || guessedLongAgo)) {
+    /**
+     * Resolves coordinates for Open-Meteo: relocates when unchosen and coordinates are missing or
+     * stale, keeps saved coordinates if relocation fails, and fails before hitting Open-Meteo when
+     * no coordinates are available.
+     */
+    internal fun resolveCoordinates(
+        chosen: Boolean,
+        savedLat: Float,
+        savedLon: Float,
+        locatedAtMs: Long,
+        nowMs: Long,
+        locate: () -> Guess?,
+        onLocated: (Guess) -> Unit,
+    ): Pair<Float, Float> {
+        var lat = savedLat
+        var lon = savedLon
+        if (!chosen && (lat.isNaN() || lon.isNaN() || needsRelocation(nowMs, locatedAtMs))) {
             val guess = locate()
             if (guess != null) {
                 lat = guess.lat
                 lon = guess.lon
+                onLocated(guess)
+            }
+        }
+        if (lat.isNaN() || lon.isNaN()) throw IOException("no location")
+        return lat to lon
+    }
+
+    /** Off the main thread. */
+    private fun fetch(): WeatherNow {
+        val chosen = prefs.getBoolean("chosen", false)
+        var lat = prefs.getFloat("lat", Float.NaN)
+        var lon = prefs.getFloat("lon", Float.NaN)
+        if (chosen && !lat.isNaN() && !lon.isNaN() && !prefs.getBoolean("checked_against_cities", false)) {
+            correctChosenPlace(lat, lon)?.let { lat = it.lat.toFloat(); lon = it.lon.toFloat() }
+        }
+        val (resolvedLat, resolvedLon) = resolveCoordinates(
+            chosen = chosen,
+            savedLat = lat,
+            savedLon = lon,
+            locatedAtMs = prefs.getLong("located_at", 0),
+            nowMs = System.currentTimeMillis(),
+            locate = ::locate,
+            onLocated = { guess ->
                 val city = guess.city
                 // The services name the city in English ("Foshan"); in China, say it as the owner would.
                 // A name the table spells otherwise, or a district's, stayed in pinyin among Chinese
                 // text (Hisense 43E3G, issue #1195): then the main listed place at that point names it.
                 val zh = city?.takeIf { guess.cn && Locale.getDefault().language == "zh" }
                     ?.let {
-                        (Cities.near(app, it, lat.toDouble(), lon.toDouble(), km = 80.0, ascii = true)
-                            ?: Cities.mainNear(app, lat.toDouble(), lon.toDouble(), km = 20.0))?.name
+                        (Cities.near(app, it, guess.lat.toDouble(), guess.lon.toDouble(), km = 80.0, ascii = true)
+                            ?: Cities.mainNear(app, guess.lat.toDouble(), guess.lon.toDouble(), km = 20.0))?.name
                     }
                 prefs.edit {
-                    putFloat("lat", lat); putFloat("lon", lon)
+                    putFloat("lat", guess.lat); putFloat("lon", guess.lon)
                     putString("place", zh ?: city)
                     putLong("located_at", System.currentTimeMillis())
                 }
-            }
-        }
-        val json = JSONObject(get("https://api.open-meteo.com/v1/forecast?latitude=$lat&longitude=$lon&current=temperature_2m,weather_code,is_day&daily=temperature_2m_max,temperature_2m_min&forecast_days=1&timezone=auto"))
+            },
+        )
+        val json = JSONObject(get("https://api.open-meteo.com/v1/forecast?latitude=$resolvedLat&longitude=$resolvedLon&current=temperature_2m,weather_code,is_day&daily=temperature_2m_max,temperature_2m_min&forecast_days=1&timezone=auto"))
         val current = json.getJSONObject("current")
         val daily = json.optJSONObject("daily")
         fun today(key: String) = daily?.optJSONArray(key)?.optDouble(0)?.takeIf { !it.isNaN() }?.roundToInt()
@@ -248,7 +310,7 @@ object Weather {
      * pooled addresses in the wrong province (a Foshan, Guangdong line came out as Jiaxing,
      * Zhejiang), where ipwho.is names the city; both are keyless and answer over HTTPS.
      */
-    private class Guess(val lat: Float, val lon: Float, val city: String?, val cn: Boolean)
+    internal class Guess(val lat: Float, val lon: Float, val city: String?, val cn: Boolean)
 
     private fun locate(): Guess? {
         // Over IPv6 the databases place China Mobile's prefixes in another city of the province

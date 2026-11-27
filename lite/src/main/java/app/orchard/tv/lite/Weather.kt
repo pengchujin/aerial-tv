@@ -23,6 +23,8 @@ object Weather {
     /** Past this a reading shows its age; past [SHOWN_MS] it is not shown (the full app's #1576). */
     private const val STALE_MS = 3 * 60 * 60 * 1000L
     private const val SHOWN_MS = 12 * 60 * 60 * 1000L
+    /** Matches the full app: hides a reading timestamped far in the future after a backward clock jump. */
+    private const val CLOCK_SKEW_MS = 2 * 60 * 1000L
     private const val NONE = Int.MIN_VALUE
 
     enum class Kind { Clear, PartlyCloudy, Cloudy, Fog, Rain, Snow, Thunder }
@@ -41,7 +43,52 @@ object Weather {
     @Volatile private var failures = 0
     @Volatile private var inFlight = false
 
-    private fun retryMs(): Long = (RETRY_MS shl (failures - 1).coerceIn(0, 5)).coerceAtMost(REFRESH_MS)
+    internal fun retryMs(failures: Int): Long = (RETRY_MS shl (failures - 1).coerceIn(0, 5)).coerceAtMost(REFRESH_MS)
+
+    internal fun isRefreshDue(
+        nowMs: Long,
+        lastAttemptMs: Long,
+        failed: Boolean,
+        failures: Int,
+        networkUp: Boolean = false,
+    ): Boolean {
+        val since = nowMs - lastAttemptMs
+        // A clock set back (a TV that booted ahead of the time) makes since negative: due as well.
+        return since < 0L || since >= REFRESH_MS || (failed && (since >= retryMs(failures) || networkUp))
+    }
+
+    internal fun needsRelocation(nowMs: Long, locatedAtMs: Long): Boolean {
+        val since = nowMs - locatedAtMs
+        return since < 0L || since > RELOCATE_MS
+    }
+
+    internal fun isReadingShown(readAtMs: Long, atMs: Long): Boolean {
+        val age = atMs - readAtMs
+        return age in -CLOCK_SKEW_MS until SHOWN_MS
+    }
+
+    internal fun resolveCoordinates(
+        chosen: Boolean,
+        savedLat: Float,
+        savedLon: Float,
+        locatedAtMs: Long,
+        nowMs: Long,
+        locate: () -> Guess?,
+        onLocated: (Guess) -> Unit,
+    ): Pair<Float, Float> {
+        var lat = savedLat
+        var lon = savedLon
+        if (!chosen && (lat.isNaN() || lon.isNaN() || needsRelocation(nowMs, locatedAtMs))) {
+            val guess = locate()
+            if (guess != null) {
+                lat = guess.lat
+                lon = guess.lon
+                onLocated(guess)
+            }
+        }
+        if (lat.isNaN() || lon.isNaN()) throw java.io.IOException("no location")
+        return lat to lon
+    }
 
     fun init(context: Context) {
         if (::prefs.isInitialized) return
@@ -50,7 +97,7 @@ object Weather {
         place = prefs.getString("place", null)
         chosen = prefs.getBoolean("chosen", false)
         val readAt = prefs.getLong("fetched_at", 0)
-        if (System.currentTimeMillis() - readAt < SHOWN_MS) {
+        if (readAt != 0L && isReadingShown(readAt, System.currentTimeMillis())) {
             val kind = runCatching { Kind.valueOf(prefs.getString("kind", null) ?: "") }.getOrNull()
             if (kind != null) now = Now(
                 prefs.getInt("celsius", 0), kind, prefs.getBoolean("day", true),
@@ -62,11 +109,10 @@ object Weather {
     /** Fetches on [run] (a background executor) when due; [done] on the main thread when it changed. */
     fun refreshIfStale(run: (Runnable) -> Unit, force: Boolean = false, networkUp: Boolean = false, done: () -> Unit) {
         if (!::prefs.isInitialized) return
-        val since = System.currentTimeMillis() - lastAttempt
         // A network come up after a failed try is tried at once: Home started at boot before Wi-Fi
         // joined kept the weather of the day before (ZTE W152D, issue #1443).
         if (inFlight) return
-        if (!force && since < REFRESH_MS && !(failed && (since >= retryMs() || networkUp))) return
+        if (!force && !isRefreshDue(System.currentTimeMillis(), lastAttempt, failed, failures, networkUp)) return
         lastAttempt = System.currentTimeMillis()
         inFlight = true
         run(Runnable {
@@ -89,25 +135,28 @@ object Weather {
     }
 
     private fun fetch(): Now {
-        var lat = prefs.getFloat("lat", Float.NaN)
-        var lon = prefs.getFloat("lon", Float.NaN)
-        if (!prefs.getBoolean("chosen", false) && (lat.isNaN() || System.currentTimeMillis() - prefs.getLong("located_at", 0) > RELOCATE_MS)) {
-            val guess = locate() ?: throw java.io.IOException("no location")
-            lat = guess.lat
-            lon = guess.lon
-            // The services name the city in English ("Shangqiu"); in China, say it as the TV's owner would.
-            val city = guess.city
-            val zh = city?.takeIf { guess.cn && Locale.getDefault().language == "zh" }
-                ?.let {
-                    // Else the main listed place at ipinfo's point (the full app's issue #1195).
-                    runCatching {
-                        (Cities.near(app, it, lat.toDouble(), lon.toDouble(), km = 80.0, ascii = true)
-                            ?: Cities.mainNear(app, lat.toDouble(), lon.toDouble(), km = 20.0))?.name
-                    }.getOrNull()
-                }
-            prefs.edit().putFloat("lat", lat).putFloat("lon", lon).putString("place", zh ?: city)
-                .putLong("located_at", System.currentTimeMillis()).apply()
-        }
+        val (lat, lon) = resolveCoordinates(
+            chosen = prefs.getBoolean("chosen", false),
+            savedLat = prefs.getFloat("lat", Float.NaN),
+            savedLon = prefs.getFloat("lon", Float.NaN),
+            locatedAtMs = prefs.getLong("located_at", 0),
+            nowMs = System.currentTimeMillis(),
+            locate = ::locate,
+            onLocated = { guess ->
+                // The services name the city in English ("Shangqiu"); in China, say it as the TV's owner would.
+                val city = guess.city
+                val zh = city?.takeIf { guess.cn && Locale.getDefault().language == "zh" }
+                    ?.let {
+                        // Else the main listed place at ipinfo's point (the full app's issue #1195).
+                        runCatching {
+                            (Cities.near(app, it, guess.lat.toDouble(), guess.lon.toDouble(), km = 80.0, ascii = true)
+                                ?: Cities.mainNear(app, guess.lat.toDouble(), guess.lon.toDouble(), km = 20.0))?.name
+                        }.getOrNull()
+                    }
+                prefs.edit().putFloat("lat", guess.lat).putFloat("lon", guess.lon).putString("place", zh ?: city)
+                    .putLong("located_at", System.currentTimeMillis()).apply()
+            },
+        )
         val json = JSONObject(get("https://api.open-meteo.com/v1/forecast?latitude=$lat&longitude=$lon&current=temperature_2m,weather_code,is_day&daily=temperature_2m_max,temperature_2m_min&forecast_days=1&timezone=auto"))
         val current = json.getJSONObject("current")
         val daily = json.optJSONObject("daily")
@@ -157,7 +206,7 @@ object Weather {
     }
 
     /** Old Androids do not trust the Let's Encrypt root these hosts use; they answer the same over plain HTTP. */
-    private class Guess(val lat: Float, val lon: Float, val city: String?, val cn: Boolean)
+    internal class Guess(val lat: Float, val lon: Float, val city: String?, val cn: Boolean)
 
     /**
      * ipwho.is by the IPv4 address first, ipinfo.io after it, as in the full app (PR #1191: ipinfo
@@ -192,8 +241,9 @@ object Weather {
     /** The clock's weather line: glyph, temperature, and "place · condition · high low", as the full app's. */
     fun line(context: Context): WeatherLine? {
         val w = now ?: return null
-        val age = System.currentTimeMillis() - w.readAt
-        if (age >= SHOWN_MS) return null
+        val nowMs = System.currentTimeMillis()
+        if (!isReadingShown(w.readAt, nowMs)) return null
+        val age = nowMs - w.readAt
         val old = if (age >= STALE_MS) context.getString(R.string.weather_hours_ago, (age / (60 * 60 * 1000L)).toInt()) else null
         val glyph = when (w.kind) {
             Kind.Clear -> if (w.day) Glyph.Sun else Glyph.Moon
