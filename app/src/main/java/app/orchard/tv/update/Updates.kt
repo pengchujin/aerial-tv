@@ -620,18 +620,16 @@ object Updates {
             // Broken off part way, the download carries on from where it stopped, from the same
             // source: started over each time, it never finished on a home network that drops now
             // and then (Hisense 43E3G, issue #1480: "half way, then Download and Install again").
-            // Nothing delivered at all goes to the next source, as before (#390).
-            var tries = 0
-            while (true) {
-                try {
-                    fetch(url, part)
-                    break
-                } catch (e: Exception) {
-                    if (e is kotlin.coroutines.cancellation.CancellationException) throw e
-                    if (++tries >= RESUME_TRIES || part.length() == 0L) throw e
-                    Log.w(TAG, "download broke off at ${part.length()} bytes; resuming", e)
-                    DiagLog.i("update: download broke off at ${part.length() / 1024} KB (${e.javaClass.simpleName} ${e.message}); resuming")
-                }
+            // A try that delivers no new bytes goes to the next source, as before (#390).
+            downloadWithResume(
+                maxTries = RESUME_TRIES,
+                currentBytes = part::length,
+                onResume = { bytes, e ->
+                    Log.w(TAG, "download broke off at $bytes bytes; resuming", e)
+                    DiagLog.i("update: download broke off at ${bytes / 1024} KB (${e.javaClass.simpleName} ${e.message}); resuming")
+                },
+            ) {
+                fetch(url, part)
             }
             if (!part.renameTo(file)) error("could not keep the download")
             // The installer on Android 5 and 6 opens the file itself.
@@ -656,16 +654,23 @@ object Updates {
         var windowFrom = 0L
         try {
             val code = c.responseCode
-            // A server that ignores the range sends it all again: start over.
-            val append = from > 0 && code == HttpURLConnection.HTTP_PARTIAL
-            if (code != HttpURLConnection.HTTP_OK && !append) error("HTTP $code")
-            val length = c.contentLength.toLong()
-            val total = if (length < 0) -1L else if (append) from + length else length
-            var done = if (append) from else 0L
+            val contentLength = if (Build.VERSION.SDK_INT >= 24) {
+                c.contentLengthLong
+            } else {
+                parseContentLength(c.getHeaderField("Content-Length"), c.contentLength)
+            }
+            val plan = planDownloadResponse(
+                code = code,
+                from = from,
+                contentLength = contentLength,
+                contentRange = c.getHeaderField("Content-Range"),
+            )
+            val total = plan.totalBytes
+            var done = plan.startOffset
             windowFrom = done
             var shown = -1
             c.inputStream.use { input ->
-                java.io.FileOutputStream(part, append).use { out ->
+                java.io.FileOutputStream(part, plan.append).use { out ->
                     val buf = ByteArray(64 * 1024)
                     while (true) {
                         val n = input.read(buf)
@@ -678,7 +683,7 @@ object Updates {
                             windowAt = now
                             windowFrom = done
                         }
-                        val percent = if (total > 0) (done * 100 / total).toInt() else 0
+                        val percent = if (total > 0) (done * 100 / total).toInt().coerceIn(0, 100) else 0
                         if (percent != shown) {
                             shown = percent
                             withContext(Dispatchers.Main) { install = Install.Downloading(percent / 100f) }
@@ -737,6 +742,104 @@ object Updates {
         } catch (e: SecurityException) {
             Log.w(TAG, "installer refused", e)
             false
+        }
+    }
+}
+
+internal data class ByteRange(
+    val start: Long,
+    val end: Long,
+    val completeLength: Long?,
+) {
+    val length: Long get() = end - start + 1L
+}
+
+internal data class DownloadPlan(
+    val append: Boolean,
+    val startOffset: Long,
+    val totalBytes: Long,
+)
+
+private val CONTENT_RANGE_PATTERN = Regex("""^bytes +(\d+)-(\d+)/(\d+|\*)$""", RegexOption.IGNORE_CASE)
+
+/**
+ * Parses an HTTP `Content-Range` byte range (`bytes <start>-<end>/<total|*>`). Returns null for
+ * missing, malformed, unsatisfied, or out-of-bounds ranges.
+ */
+internal fun parseContentRange(header: String?): ByteRange? {
+    val match = header?.trim()?.let(CONTENT_RANGE_PATTERN::matchEntire) ?: return null
+    val start = match.groupValues[1].toLongOrNull() ?: return null
+    val end = match.groupValues[2].toLongOrNull() ?: return null
+    if (end < start || end == Long.MAX_VALUE) return null
+    val rawTotal = match.groupValues[3]
+    val complete = if (rawTotal == "*") null else rawTotal.toLongOrNull() ?: return null
+    if (complete != null && complete <= end) return null
+    return ByteRange(start, end, complete)
+}
+
+/** Parses a non-negative `Content-Length` header on API < 24 where `contentLengthLong` is absent. */
+internal fun parseContentLength(header: String?, fallback: Int): Long =
+    header?.trim()?.toLongOrNull()?.takeIf { it >= 0L }
+        ?: fallback.toLong().takeIf { it >= 0L }
+        ?: -1L
+
+/**
+ * Validates an update download HTTP response and decides whether to append from [from] or start
+ * over from byte 0. Rejects HTTP 206 whose `Content-Range` is missing, malformed, starts at a
+ * different offset, or contradicts `Content-Length`, preventing silent `.part` corruption.
+ */
+internal fun planDownloadResponse(
+    code: Int,
+    from: Long,
+    contentLength: Long,
+    contentRange: String?,
+): DownloadPlan = when (code) {
+    HttpURLConnection.HTTP_OK -> DownloadPlan(
+        append = false,
+        startOffset = 0L,
+        totalBytes = if (contentLength >= 0L) contentLength else -1L,
+    )
+    HttpURLConnection.HTTP_PARTIAL -> {
+        if (from <= 0L) error("HTTP $code")
+        val range = parseContentRange(contentRange)
+            ?: error("HTTP 206 with invalid Content-Range: $contentRange")
+        if (range.start != from) {
+            error("HTTP 206 Content-Range start ${range.start} != $from ($contentRange)")
+        }
+        if (contentLength >= 0L && contentLength != range.length) {
+            error("HTTP 206 Content-Length $contentLength != range length ${range.length} ($contentRange)")
+        }
+        DownloadPlan(
+            append = true,
+            startOffset = from,
+            totalBytes = range.completeLength ?: (range.end + 1L),
+        )
+    }
+    else -> error("HTTP $code")
+}
+
+/**
+ * Runs [attempt] up to [maxTries] times while each failed try delivers bytes past its starting
+ * size. A try that fails without forward progress (`after <= before`) stops immediately so the
+ * caller can move on to the fallback source instead of wasting another try on a dead source.
+ */
+internal suspend fun downloadWithResume(
+    maxTries: Int,
+    currentBytes: () -> Long,
+    onResume: (bytes: Long, error: Exception) -> Unit = { _, _ -> },
+    attempt: suspend () -> Unit,
+) {
+    var tries = 0
+    while (true) {
+        val before = currentBytes()
+        try {
+            attempt()
+            return
+        } catch (e: Exception) {
+            if (e is kotlin.coroutines.cancellation.CancellationException) throw e
+            val after = currentBytes()
+            if (++tries >= maxTries || after <= before) throw e
+            onResume(after, e)
         }
     }
 }
