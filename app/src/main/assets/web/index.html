@@ -2113,7 +2113,7 @@ function tileSheet(e, inFolder, hidden) {
     }
     // Where the picture comes from, when the icon library has one for this app: one of its
     // pictures (each named by where it came from), the app's own art, or the one sent from this phone.
-    if (!a.source && a.library) {
+    if ((!a.source || state.sourceIconLibrary) && a.library) {
       const lib = `${base}library/${encodeURIComponent(a.key)}`;
       const from = by => (by && (by[LANG] || by.name)) || '';
       const library = (a.choices && a.choices.length ? a.choices : [{ id: '', on: a.icon === 'library' }]).map(c => ({
@@ -2145,7 +2145,7 @@ function tileSheet(e, inFolder, hidden) {
       }
     }
     // Any picture in the icon library, for an app it has none of or not the right one (#1486).
-    if (!a.source) action(il, t('icon_more'), 'tint', () => libraryChooser(a));
+    if (!a.source || state.sourceIconLibrary) action(il, t('icon_more'), 'tint', () => libraryChooser(a));
     // The picker opens from this tap, so iOS treats it as the user's own gesture.
     action(il, t('change_icon'), 'tint', () => { iconFor = a; $('#iconFile').click(); closeSheet(); });
     if (a.custom) action(il, t('aria_reset_icon'), 'tint', async () => {
