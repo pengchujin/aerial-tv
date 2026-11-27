@@ -4,6 +4,8 @@
 
 ## 现状（2026-11-27）
 
+- **2.21（versionCode 170），Lite 1.43（45），2026-11-27 发布**（[v2.21](https://github.com/pengchujin/aerial-tv/releases/tag/v2.21)）：下面巡检的 #1783 #1788 #1787 #1789 #1712 #1781 和解锁前绑定的守护崩溃；Lite 同步了 #1712。三个包签名 e089…6685，standard 单测 291 个、Lite lint 0 错误。两台装正式包回归：小米 MFTR0（install-multiple + 31.dm，speed-profile / install-dm）selftest 守护、主页键从设置 0.3 s、8 个信号源；TCL（`install.sh guard`，adb 安装 `INSTALL_FAILED_VERIFICATION_FAILURE` 后自动走多屏互动，截图确认焦点在「同意」后确定，compile speed）selftest 守护、主页键从浏览器 0.2 s、7 个信号源，两个 walleve 服务、AerialDream 屏保、开机进入和 `APP_AUTO_START` 不变。官网已部署：两个域名 `/download/version.txt`=v2.21，notes.json 第一条 2.21，三个 APK 字节数和 Release 一致（standard 3247531、guard 3247342、lite 1013452），`/diag/aerial-710.apk` 还在。#1783 #1788 #1787 #1789 #1712 #1781 贴了发布链接（`local/triage/release-2.21-posts.py`），issue 留着等确认。下次发版 versionCode ≥ 171，Lite ≥ 46。
+
 - **2026-11-27 全量巡检**（记录 `local/triage/2026-11-27-full.md`，回复 `replies-2026-11-27.py` / `-27b.py`，发出 `posted-2026-11-27.txt`，34 条）：327 issue / 71 PR，新 issue 13 个、有新回复 15 个，逐个读过（含 #1712 三张截图、#1693 的 skyresource.zip）。关了 11 个 issue：#1784 重复，#1790 当贝白名单壳和原则冲突、不进机型表，#1794 海信 85E7H 进机型表，8 个十天没回音（#1558 #1582 #1570 #1559 #1560 #1565 #1566 #1574）。复查（`raw-2026-11-27b`）只多了 #1796，已回复。改动（每个一个提交，**main 上，未发版**，已推送）：
   - **#1783 小米电视 4（安卓 6）冷启动 ANR**（8bc85c3）：`MainActivity.onPause → onAerialPaused → closeChooserAfterWake` 在主线程同步查使用记录（11-19 为极米 H3S 加的那段）。改到 `AerialGuardUsage` 线程查、回主线程处理。守护绑定时还有几次一次性的主线程查询，这次没动。
   - **#1788 Vidda X75 Ultra（MT9653，安卓 11）**（bfa7d3e）：锁着启动时失焦，`onWindowFocusChanged` 碰了 view model（读加密存储）崩一次，改成 `realStarted` 之后才走；install.sh / agent.md 的 `persist.sys.boot.source_pkg` 门槛从安卓 14 放到 11（报告人手设后开机直达），单测补一条，hisense-vidaa.md 记下。
@@ -15,7 +17,7 @@
   - 文档（4da674f）：README / README.en 加海信 85E7H、Vidda X75 Ultra；xgimi-h3.md 记 H6 4K 开机会重写 HOME 记录（#1618），不写冻结极米桌面的办法。
 - 验证：standard 单测 291 个全过、Lite lint 0 错误，三个包签名 e089…6685；测试包 versionCode 169（versionName 2.20-test，**未提交**，已改回 168）。小米 MFTR0（install-multiple + 31.dm，speed-profile / install-dm）selftest 守护、主页键从设置 0.3 s、8 个信号源，屏保（户主选的照片屏保）进出录屏亮度最低 114、无黑帧。TCL（`tcast-push.py`，截图确认焦点在「同意」后确定，compile speed）selftest 守护、主页键从浏览器 0.3 s、7 个信号源，两个 walleve 服务、AerialDream 屏保、开机进入和 `APP_AUTO_START` 不变，诊断里 `Boot app` 一行正确（小米上没有这两项不打印）；航拍屏保进出截图序列正常（screenrecord 在 TCL 上只录到一帧）。安卓 9 模拟器 aerial28（开机 PIN）：锁定开机后解锁，169 第一版有上面那个守护崩溃，修了后重启再解锁没有崩溃、`onCreate before the user is unlocked` 正常。
 - **没在真机上验证的**：#1783（没有安卓 6 小米）、#1788（没有海信；模拟器上锁定启动没走到失焦那条路）、#1787、#1712、#1789（我们的电视和模拟器关屏都会暂停 Aerial，新的两处一次都没被触发；模拟器上只确认了关屏 / 亮屏后影片照常停和接着播）。
-- 测试时改过、已改回：模拟器 aerial28 的 PIN 1234 清掉又设回，壁纸 aerial:live 测完改回 daily:latest。两台电视的户主设置没动。两台现在装的是测试包 169，**下次发版 versionCode ≥ 170**，Lite ≥ 45（Lite 改了 #1712）。
+- 测试时改过、已改回：模拟器 aerial28 的 PIN 1234 清掉又设回，壁纸 aerial:live 测完改回 daily:latest。两台电视的户主设置没动。两台现在装的是正式包 2.21（170），见上一条。
 - 等回复：#1785 #1786 #1792 #1793 #1383 #1693 #1779 #1775 #1744 #1796，以及上面没真机验证的几条发版后确认。等户主：PR #1632（西班牙语）、#1760、#1749；#1772 空电视输入；#1791 TMDB 要 API key。
 
 ## 现状（2026-11-26）
