@@ -118,6 +118,19 @@
             </intent-filter>
         </activity>
 
+        <!-- The screensaver the guard starts over another app on its idle check (see
+             HomeGuardService.idleDreamCheck): the same content AerialDream hosts, for firmwares
+             that never start a dream outside their own launcher. -->
+        <activity
+            android:name=".dream.IdleScreensaverActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:launchMode="singleTask"
+            android:screenOrientation="landscape"
+            android:stateNotNeeded="true"
+            android:taskAffinity=""
+            android:theme="@style/Theme.Aerial" />
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.files"

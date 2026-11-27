@@ -34,7 +34,10 @@ import androidx.core.content.ContextCompat
 import androidx.core.content.getSystemService
 import app.orchard.tv.MainActivity
 import app.orchard.tv.dream.AerialDream
+import app.orchard.tv.dream.IdleScreensaverActivity
 import app.orchard.tv.settings.AerialSettings
+import app.orchard.tv.wallpaper.ScreensaverMode
+import app.orchard.tv.wallpaper.Wallpapers
 import app.orchard.tv.system.BootOpen
 import app.orchard.tv.system.CecSwitch
 import app.orchard.tv.system.CoocaaHome
@@ -1027,6 +1030,7 @@ class HomeGuardService : AccessibilityService() {
         watchUiBoost()
         watchRunningPackage()
         CecSwitch.register(this)
+        handler.postDelayed(idleDreamCheck, IDLE_DREAM_POLL_MS)
         // The profile is in credential storage: only once unlocked.
         if (SystemClock.elapsedRealtime() < BOOT_WINDOW_MS && GuardSetup.isUserUnlocked(this) &&
             DeviceProfile.current(this).bootStockMs > 0
@@ -1298,6 +1302,19 @@ class HomeGuardService : AccessibilityService() {
         pkg in FIRMWARE_BOOT_APPS && SystemClock.elapsedRealtime() < BOOT_WINDOW_MS && !keySeen
 
     private var keySeen = false
+
+    /** The last key or window change, elapsed time; the idle dream resets it when it starts one. */
+    @Volatile private var lastActivity = SystemClock.elapsedRealtime()
+    private val idleDreamCheck = object : Runnable {
+        override fun run() {
+            try {
+                idleDreamCheck()
+            } catch (t: Throwable) {
+                Log.w(TAG, "idle dream check failed", t)
+            }
+            handler.postDelayed(this, IDLE_DREAM_POLL_MS)
+        }
+    }
 
     private fun justUpdated(): Boolean = runCatching {
         System.currentTimeMillis() - packageManager.getPackageInfo(packageName, 0).lastUpdateTime < 2 * 60_000
@@ -1680,6 +1697,7 @@ class HomeGuardService : AccessibilityService() {
 
     override fun onKeyEvent(event: KeyEvent): Boolean {
         keySeen = true
+        lastActivity = SystemClock.elapsedRealtime()
         if (!GuardSetup.isUserUnlocked(this)) return false
         if (event.keyCode in VOLUME_KEYS) {
             return if (filteringForCecOnly || (isDefaultHome() && defaultHomeNeedsHomeFilter)) {
@@ -2060,6 +2078,53 @@ class HomeGuardService : AccessibilityService() {
         performGlobalAction(GLOBAL_ACTION_RECENTS)
     }
 
+    /**
+     * The screensaver over other apps, for firmwares that never start a dream outside their own
+     * launcher. Xiaomi's Android 9 boxes bring their own screensaver (com.mitv.screensaver,
+     * tv.gallery) over any app themselves, so once the owner disables those for their ads nothing
+     * starts the dream but Home: MiTV-AZFP0 (Android 9), idle in another app with no wake lock
+     * held and screensaver_timeout set, never dreamed — and its SystemUI starts Somnambulator
+     * without ever rendering the dream, so SystemScreensaver.startDream is a no-op there. The
+     * guard shows [IdleScreensaverActivity] instead: the same content AerialDream hosts, over
+     * whatever was on screen. Only with the flag on (--ez idle_dream true), since a screensaver
+     * over whatever is on screen is not wanted everywhere (issue #333: one came up over casting
+     * on a Haier Android 9); casting receivers are left alone for the same reason.
+     */
+    private fun idleDreamCheck() {
+        if (!GuardSetup.isUserUnlocked(this)) return
+        if (!GuardSetup.idleDream(this)) return
+        val minutes = AerialSettings.screensaverMinutes
+        if (minutes == AerialSettings.NEVER) return
+        if (aerialResumed) return // Home starts its own screensaver.
+        val power = getSystemService<PowerManager>() ?: return
+        if (!power.isInteractive) return
+        // The window seen last, or — bound with the screen already on an app and no change since
+        // (an update while a player sat in front) — what usage stats say came to the front. Unknown
+        // still goes ahead: Aerial in front is already ruled out by aerialResumed above, and
+        // staying put would leave the box showing whatever was there, the thing this replaces.
+        val front = lastWindow?.first ?: frontByUsage()?.first
+        if (front == packageName || front in castFronts) return
+        val idleMs = SystemClock.elapsedRealtime() - lastActivity
+        if (idleMs < minutes * 60_000L) return
+        if (MediaPlaying.playing(this, front)) {
+            Log.i(TAG, "idle ${idleMs / 60_000} m over $front, but it is playing (a session announces it, or a chosen silent player has audio); leaving it alone")
+            return
+        }
+        // The screensaver chosen in Personalize governs here too: Standby (Sleep) puts the TV to
+        // sleep on the timer, as Home does on its own (see MainActivity.startScreensaver) — and
+        // this is the guard itself, so sleep() is at hand. Where it cannot, the film shows as
+        // usual instead. lastActivity resets either way, so a firmware that stayed awake is not
+        // asked again at every poll.
+        if (Wallpapers.screensaver == ScreensaverMode.Sleep && sleep("idle screensaver")) {
+            Log.i(TAG, "idle ${idleMs / 60_000} m over $front with nothing playing; going to standby")
+            lastActivity = SystemClock.elapsedRealtime()
+            return
+        }
+        Log.i(TAG, "idle ${idleMs / 60_000} m over $front with nothing playing; showing the screensaver over it")
+        IdleScreensaverActivity.show(applicationContext)
+        lastActivity = SystemClock.elapsedRealtime()
+    }
+
     override fun onAccessibilityEvent(event: AccessibilityEvent) {
         sawEvent = true
         if (!sawScreenEvent && isScreenEvent(event)) {
@@ -2069,6 +2134,7 @@ class HomeGuardService : AccessibilityService() {
         deafAfterHome = false
         windowsSeen++
         if (event.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
+        lastActivity = SystemClock.elapsedRealtime()
         val pkg = event.packageName?.toString() ?: return
         val cls = event.className?.toString() ?: return
         // Only activities count as what is in front. Overlays and dialogs also raise this event:
@@ -2598,6 +2664,13 @@ class HomeGuardService : AccessibilityService() {
         private const val UNKNOWN_FRONT_HOME_MS = 400L
         /** See watchUnseenApp. */
         private const val UNSEEN_APP_POLL_MS = 2_000L
+        /** The idle dream re-checks at this pace; see idleDreamCheck. */
+        private const val IDLE_DREAM_POLL_MS = 30_000L
+        /** Apps that show what another device casts; a dream over them hides the cast (issue #333). */
+        private val castFronts = setOf(
+            "com.xiaomi.miplay", "com.xiaomi.mitv.smartshare", "com.duokan.airkan.tvbox",
+            "com.xiaomi.wfdsinkhelperservice",
+        )
         private const val UNSEEN_APP_WATCH_MS = 2 * 60_000L
         /** How long a stock launcher's window change may take to arrive after Home (see frontAfterHome). */
         private const val FRONT_AFTER_HOME_MS = 1_500L

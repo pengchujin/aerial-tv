@@ -126,6 +126,7 @@ fun WallpaperSheet(
     onDismiss: () -> Unit,
     hiddenCount: Int,
     onHiddenApps: () -> Unit,
+    onNoSessionPlayers: () -> Unit,
     onHomeLock: (on: Boolean) -> Unit,
     onStartScreensaver: () -> Unit,
     onPin: (on: Boolean) -> Unit,
@@ -394,6 +395,25 @@ fun WallpaperSheet(
                             it to if (it == AerialSettings.NEVER) stringResource(R.string.ss_never) else stringResource(R.string.ss_minutes, it)
                         },
                         AerialSettings.screensaverMinutes, AerialSettings::chooseScreensaverMinutes,
+                    )
+                    // Players that announce no session of their own, for the idle screensaver to
+                    // excuse while they sound busy (see MediaPlaying).
+                    SettingRow(R.string.ss_no_session_players, stringResource(R.string.ss_no_session_players_hint), note) {
+                        ActionChip(
+                            if (AerialSettings.noSessionPlayers.isEmpty()) stringResource(R.string.ss_no_session_players_none)
+                            else stringResource(R.string.ss_no_session_players_count, AerialSettings.noSessionPlayers.size),
+                            Glyph.ChevronRight,
+                            onNoSessionPlayers,
+                        )
+                    }
+                    // After this long of screensaving the TV goes to standby, as with its power
+                    // button; Never keeps the screensaver running.
+                    Choices(
+                        R.string.ss_standby_after, stringResource(R.string.ss_standby_after_hint), note,
+                        AerialSettings.standbyAfterChoices.map {
+                            it to if (it == 0) stringResource(R.string.ss_never) else stringResource(R.string.ss_minutes, it)
+                        },
+                        AerialSettings.standbyAfterScreensaver, AerialSettings::chooseStandbyAfterScreensaver,
                     )
                     Choices(
                         R.string.ss_back, stringResource(R.string.ss_back_choice_hint), note,
