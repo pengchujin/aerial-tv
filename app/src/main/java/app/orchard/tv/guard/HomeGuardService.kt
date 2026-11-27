@@ -1118,8 +1118,11 @@ class HomeGuardService : AccessibilityService() {
         // so the guard is created after the screen lights, SCREEN_ON is already gone, and nothing
         // below counts as a wake — no boot window, no revival, nothing died in front. What the TV
         // starts on then stayed shut on every wake (issue #1229, the reporter's log).
+        // BootOpen reads credential storage: bound while locked outside the boot window (Aerial
+        // updated before the unlock, Android 9 emulator with a boot PIN), the guard crashed here
+        // three times in a row on 2026-11-27, as at #1213's sites above.
         if (!screenOff && !recoveryWindow() &&
-            (patchwallBootCover || BootOpen.dueAfterMissedWake(this))
+            (patchwallBootCover || (GuardSetup.isUserUnlocked(this) && BootOpen.dueAfterMissedWake(this)))
         ) {
             boundAwakeAt = SystemClock.elapsedRealtime()
         }
