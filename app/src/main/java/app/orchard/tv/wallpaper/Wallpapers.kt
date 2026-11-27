@@ -5,6 +5,7 @@ import android.os.Build
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.util.Log
+import android.util.LruCache
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -119,7 +120,7 @@ object Wallpapers {
     /** TV inputs that can play behind Home, by TvInputInfo id and name; set as Home lists inputs. */
     private var sources: List<Pair<String, String>> = emptyList()
     private val bakedDir by lazy { File(app.filesDir, "backdrop").apply { mkdirs() } }
-    private val thumbs = HashMap<String, Bitmap>()
+    private val thumbs = ThumbnailCache(16 * 1024 * 1024)
 
     var items by mutableStateOf<List<Wallpaper>>(emptyList()); private set
     var selectedId by mutableStateOf(LATEST_DAILY); private set
@@ -423,7 +424,7 @@ object Wallpapers {
     }
 
     /** Drops the thumbnails (about 330 KB each); the picker makes them again when it opens. */
-    fun trimMemory() = synchronized(thumbs) { thumbs.clear() }
+    fun trimMemory() = synchronized(thumbs) { thumbs.evictAll() }
 
     /** A 16:9 thumbnail for pickers and the phone page. Call off the main thread. */
     fun thumbnail(id: String): Bitmap? {
@@ -437,7 +438,7 @@ object Wallpapers {
             WallpaperKind.Video -> videoPicture(id, 384, 216) ?: return Gradients.render(Gradients.presets.first(), 384, 216)
             else -> picture(wp, 384, 216)
         }
-        if (b != null) synchronized(thumbs) { if (version == pictureVersion) thumbs[id] = b }
+        if (b != null) synchronized(thumbs) { if (version == pictureVersion) thumbs.put(id, b) }
         return b
     }
 
@@ -710,7 +711,7 @@ object Wallpapers {
 
     /** The owner's videos changed (sent or deleted from the phone): their cards come or go. */
     fun videosChanged() {
-        synchronized(thumbs) { thumbs.keys.removeAll { isVideo(it) } }
+        synchronized(thumbs) { thumbs.snapshot().keys.filter(::isVideo).forEach(thumbs::remove) }
         rebuildList()
         // The film the frame was taken from gone: so is the frame.
         val spot = prefs.getString("video_film", null)
@@ -998,4 +999,10 @@ object Wallpapers {
         if (selectedId == id) select(LATEST_DAILY)
         else if (selectedId == ROTATE_PHOTOS) rebuildBackdrop()
     }
+}
+
+/** Byte-bounded thumbnail cache. Evicted bitmaps may still be in use by the UI. */
+internal class ThumbnailCache(maxSizeBytes: Int) : LruCache<String, Bitmap>(maxSizeBytes) {
+    override fun sizeOf(key: String, value: Bitmap): Int = maxOf(1,
+        if (Build.VERSION.SDK_INT >= 19) value.allocationByteCount else value.byteCount)
 }

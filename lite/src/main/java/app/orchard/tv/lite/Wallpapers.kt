@@ -5,6 +5,7 @@ import android.content.SharedPreferences
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.util.Log
+import android.util.LruCache
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
@@ -138,14 +139,16 @@ object Wallpapers {
         else -> fileFor(wp)?.takeIf { it.exists() }?.let { Images.decodeCover(it, w, h, whole = whole && wp.kind == WallpaperKind.Photo) }
     }
 
-    private val thumbs = HashMap<String, Bitmap>()
+    private val thumbs = object : LruCache<String, Bitmap>(8 * 1024 * 1024) {
+        override fun sizeOf(key: String, value: Bitmap): Int = maxOf(1, value.byteCount)
+    }
 
     /** A 384×216 thumbnail, for Personalize and the phone page. Off the main thread. */
     fun thumbnail(id: String): Bitmap? {
         synchronized(thumbs) { thumbs[id] }?.let { return it }
         val wp = resolve(id) ?: return null
         val b = picture(wp, 384, 216) ?: return null
-        synchronized(thumbs) { thumbs[id] = b }
+        synchronized(thumbs) { thumbs.put(id, b) }
         return b
     }
 
