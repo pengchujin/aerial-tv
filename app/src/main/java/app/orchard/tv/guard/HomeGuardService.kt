@@ -297,6 +297,20 @@ class HomeGuardService : AccessibilityService() {
         return (front.pkg to front.cls).takeIf { it.first != packageName }
     }
 
+    /**
+     * The activity that last moved to the front after the Home press at [pressedWallAt], from
+     * usage stats, unless it is Aerial's. Ignores events older than [HOME_USAGE_TOLERANCE_MS]
+     * before the press so a stale stock-launcher event from earlier cannot trigger a false
+     * take-over (issue #1649).
+     */
+    private fun frontByUsageAfterHome(pressedWallAt: Long): Pair<String, String>? {
+        if (!usageStatsAllowed(this)) return null
+        val now = System.currentTimeMillis()
+        val minAt = UsageFront.postHomeMinAt(pressedWallAt, now, HOME_USAGE_TOLERANCE_MS) ?: return null
+        val front = usageFrontSince(begin = minAt, now = now, minAt = minAt)?.takeIf { !it.closed } ?: return null
+        return (front.pkg to front.cls).takeIf { it.first != packageName }
+    }
+
     /** Whether usage stats say the app in front went to the back with nothing after it (UsageFront, issue #1023). */
     /**
      * An app left in front that only usage stats named, no window change seen since the binding:
@@ -341,12 +355,20 @@ class HomeGuardService : AccessibilityService() {
     @Volatile
     private var futureUsageLogged = false
 
-    private fun usageFront(lookbackMs: Long): UsageFront.Front? = runCatching {
+    private fun usageFront(lookbackMs: Long): UsageFront.Front? {
         val now = System.currentTimeMillis()
+        return usageFrontSince(begin = now - lookbackMs, now = now)
+    }
+
+    private fun usageFrontSince(begin: Long, now: Long, minAt: Long = Long.MIN_VALUE): UsageFront.Front? = runCatching {
         val usm = getSystemService<UsageStatsManager>() ?: return null
-        val events = UsageFront.queryEvents(usm, now - lookbackMs, now) ?: return null
+        val events = UsageFront.queryEvents(usm, begin, now) ?: return null
         val queryNow = System.currentTimeMillis()
-        val picker = UsageFront.Picker(queryNow + UsageFront.FUTURE_SLACK_MS)
+        if (minAt != Long.MIN_VALUE && queryNow < minAt) return null
+        val maxAt = if (queryNow <= Long.MAX_VALUE - UsageFront.FUTURE_SLACK_MS) {
+            queryNow + UsageFront.FUTURE_SLACK_MS
+        } else Long.MAX_VALUE
+        val picker = UsageFront.Picker(maxAt = maxAt, minAt = minAt)
         val event = UsageEvents.Event()
         while (events.hasNextEvent()) {
             events.getNextEvent(event)
@@ -684,15 +706,18 @@ class HomeGuardService : AccessibilityService() {
             if (backOnPause) noteHomeInAerial()
             val front = lastWindow?.first
             if (front != null && front !in stockHomes) {
+                cancelFrontAfterHome()
+                val generation = homeCheckGeneration
                 windowsAtHome = windowsSeen
                 homePressedAt = SystemClock.uptimeMillis()
+                homePressedWallAt = System.currentTimeMillis()
                 homeFrom = front
-                handler.removeCallbacks(frontAfterHome)
-                handler.removeCallbacks(frontAfterHomeAgain)
                 val quiet = deafAfterHome || front in quietHomeApps(this@HomeGuardService)
-                handler.postDelayed(frontAfterHome, if (quiet) DEAF_LOOK_MS else FRONT_AFTER_HOME_MS)
+                scheduleFrontAfterHome(generation, if (quiet) DEAF_LOOK_MS else FRONT_AFTER_HOME_MS)
                 return
             }
+            // Supersede any pending post-Home fallback check from an earlier press.
+            cancelFrontAfterHome()
             // The stock launcher's window change usually comes first and already brought Aerial
             // back; starting it again redid Home's resume (MiTV-MFTR0: 0.2 s apart).
             if (SystemClock.uptimeMillis() - broughtBackAt < 1_000) return
@@ -721,6 +746,25 @@ class HomeGuardService : AccessibilityService() {
     private var windowsSeen = 0L
     private var windowsAtHome = 0L
     private var homePressedAt = Long.MIN_VALUE / 2
+    private var homePressedWallAt = Long.MIN_VALUE / 2
+    private var homeCheckGeneration = 0L
+    private var pendingFrontAfterHome: Runnable? = null
+
+    private fun cancelFrontAfterHome() {
+        homeCheckGeneration++
+        pendingFrontAfterHome?.let(handler::removeCallbacks)
+        pendingFrontAfterHome = null
+    }
+
+    private fun scheduleFrontAfterHome(generation: Long, delayMs: Long) {
+        pendingFrontAfterHome?.let(handler::removeCallbacks)
+        val task = Runnable {
+            pendingFrontAfterHome = null
+            frontAfterHome(generation)
+        }
+        pendingFrontAfterHome = task
+        handler.postDelayed(task, delayMs)
+    }
 
     /**
      * Home pressed in another app, and no window change since: the guard may have gone deaf. On
@@ -733,24 +777,25 @@ class HomeGuardService : AccessibilityService() {
      * on screen (1.61, the reporter's log: 1.98 s every time). Once deaf, usage stats are read
      * every DEAF_LOOK_MS from the press on instead, until a window change is seen again.
      */
-    private val frontAfterHome: Runnable = Runnable {
+    private fun frontAfterHome(generation: Long) {
+        if (!UsageFront.isCurrentGeneration(generation, homeCheckGeneration)) return
         // XGIMI (Android 9, m7642) answers Home with its own Home chooser when set-home-activity did
         // not take; it was never drawn and the remote went dead over it (issue #44). Only right
         // after Home: the same chooser also serves apps' "open with".
         lastWindow?.takeIf { isHomeChooser(it.first, it.second) }?.let {
             Log.i(TAG, "Home pressed and the Home chooser (${it.first}) came up; bringing Aerial back")
             goHome()
-            return@Runnable
+            return
         }
-        if (windowsSeen != windowsAtHome) return@Runnable
-        val front = frontByUsage()
+        if (windowsSeen != windowsAtHome) return
+        val front = frontByUsageAfterHome(homePressedWallAt)
         if (front == null || (front.first !in stockHomes && !isFallbackHomeScreen(front.first, front.second))) {
             // Usage stats may not have the stock launcher yet: look again until the usual wait is up.
             val quiet = deafAfterHome || homeFrom in quietHomeApps(this)
             if (quiet && SystemClock.uptimeMillis() - homePressedAt < FRONT_AFTER_HOME_MS) {
-                handler.postDelayed(frontAfterHomeAgain, DEAF_LOOK_MS)
+                frontAfterHomeAgain(generation)
             }
-            return@Runnable
+            return
         }
         Log.i(TAG, "Home pressed, no window change since, and usage stats say ${front.first} is in front; bringing Aerial back")
         lastWindow = front
@@ -764,7 +809,11 @@ class HomeGuardService : AccessibilityService() {
             GuardSetup.restartAccessibility(this)
         }
     }
-    private val frontAfterHomeAgain: Runnable = Runnable { frontAfterHome.run() }
+
+    private fun frontAfterHomeAgain(generation: Long) {
+        if (!UsageFront.isCurrentGeneration(generation, homeCheckGeneration)) return
+        scheduleFrontAfterHome(generation, DEAF_LOOK_MS)
+    }
 
     /** The Home press this chooser Back was already sent for, so that it is sent once per press. */
     private var chooserBackFor = Long.MIN_VALUE
@@ -1482,6 +1531,7 @@ class HomeGuardService : AccessibilityService() {
             runCatching { contentResolver.unregisterContentObserver(cecInputObserver) }
             runCatching { getSystemService<TvInputManager>()?.unregisterCallback(cecInputCallback) }
         }
+        cancelFrontAfterHome()
         handler.removeCallbacksAndMessages(null)
         if (instance === this) instance = null
         super.onDestroy()
@@ -2104,8 +2154,7 @@ class HomeGuardService : AccessibilityService() {
                 chooserBackFor != homePressedAt
             ) {
                 chooserBackFor = homePressedAt
-                handler.removeCallbacks(frontAfterHome)
-                handler.removeCallbacks(frontAfterHomeAgain)
+                cancelFrontAfterHome()
                 handler.removeCallbacks(chooserAfterBack)
                 performGlobalAction(GLOBAL_ACTION_BACK)
                 // Same deadline as frontAfterHome, without a new constant of its own.
@@ -2124,8 +2173,7 @@ class HomeGuardService : AccessibilityService() {
                 SystemClock.uptimeMillis() - chooserHomeAt > DOUBLE_HOME_MS
             ) {
                 chooserBackFor = homePressedAt
-                handler.removeCallbacks(frontAfterHome)
-                handler.removeCallbacks(frontAfterHomeAgain)
+                cancelFrontAfterHome()
                 handler.removeCallbacks(chooserAfterBack)
                 Log.i(TAG, "Home over $before left the Home chooser; closing it, then Home again")
                 performGlobalAction(GLOBAL_ACTION_BACK)
@@ -2603,6 +2651,12 @@ class HomeGuardService : AccessibilityService() {
         private const val FRONT_AFTER_HOME_MS = 1_500L
         /** How often usage stats are read after Home once the guard has been found deaf. */
         private const val DEAF_LOOK_MS = 150L
+        /**
+         * Margin before the "homekey" broadcast's wall-clock time for usage-stats events to still
+         * count as belonging to that Home press (the broadcast can arrive hundreds of ms after the
+         * key; issue #1649).
+         */
+        internal const val HOME_USAGE_TOLERANCE_MS = 1_000L
         /** How recently PatchWall must have come to the front, and how often and how long to look; see uiBoostChanged. */
         private const val STOCK_HOME_FRONT_MS = 2_000L
         private const val STOCK_HOME_LOOK_MS = 20L

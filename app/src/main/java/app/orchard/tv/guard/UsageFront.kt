@@ -48,15 +48,60 @@ internal object UsageFront {
         return query(start, now)
     }
 
+    data class Event(val type: Int, val pkg: String, val cls: String?, val at: Long)
+
     data class Front(val pkg: String, val cls: String, val at: Long, val closed: Boolean)
 
-    class Picker(private val maxAt: Long = Long.MAX_VALUE) {
+    /**
+     * Lower bound for usage-stats events correlated with a Home press at wall-clock
+     * [homePressedWallAt], checked at wall-clock [now] with [toleranceMs] of broadcast latency
+     * margin. Returns null when inputs are invalid or the wall clock moved backward past the
+     * tolerance window.
+     */
+    fun postHomeMinAt(homePressedWallAt: Long, now: Long, toleranceMs: Long): Long? {
+        if (homePressedWallAt < 0L || now < 0L || toleranceMs < 0L) return null
+        val minAt = if (homePressedWallAt > toleranceMs) homePressedWallAt - toleranceMs else 0L
+        return minAt.takeIf { now >= it }
+    }
+
+    /** Whether a post-Home fallback callback's [expected] generation is still the [current] one. */
+    fun isCurrentGeneration(expected: Long, current: Long): Boolean = expected > 0L && expected == current
+
+    /**
+     * Selects the newest non-closed foreground event associated with a Home press at
+     * [homePressedWallAt], ignoring events strictly older than `homePressedWallAt - toleranceMs`
+     * and filtering out [ownPackage] as a take-over target (while still letting [ownPackage]
+     * supersede an earlier stock-launcher event).
+     */
+    fun selectPostHomeFront(
+        events: Iterable<Event>,
+        homePressedWallAt: Long,
+        now: Long,
+        toleranceMs: Long,
+        ownPackage: String,
+        activitySettleMs: Long = 0L,
+        futureSlackMs: Long = FUTURE_SLACK_MS,
+    ): Front? {
+        val minAt = postHomeMinAt(homePressedWallAt, now, toleranceMs) ?: return null
+        val maxAt = if (now <= Long.MAX_VALUE - futureSlackMs) now + futureSlackMs else Long.MAX_VALUE
+        val picker = Picker(maxAt = maxAt, minAt = minAt)
+        for (event in events) {
+            picker.add(event.type, event.pkg, event.cls, event.at)
+        }
+        return picker.result(now, activitySettleMs)?.takeIf { !it.closed && it.pkg != ownPackage }
+    }
+
+    class Picker(
+        private val maxAt: Long = Long.MAX_VALUE,
+        private val minAt: Long = Long.MIN_VALUE,
+    ) {
         private var front: Front? = null
         private var pausedAt: Long? = null
         var skippedFuture: Boolean = false
             private set
 
         fun add(type: Int, pkg: String, cls: String?, at: Long) {
+            if (at < minAt) return
             if (at > maxAt) {
                 skippedFuture = true
                 return
