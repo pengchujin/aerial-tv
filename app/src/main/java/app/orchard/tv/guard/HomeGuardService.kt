@@ -2902,9 +2902,14 @@ class HomeGuardService : AccessibilityService() {
             // Its elder mode's home, ElderMainActivity, is the one com.tianci.system starts on the
             // Home key once that mode is on (Skyworth 8R40_G20, RTD2852, Android 8, issue #1626;
             // persist.service.model.cls names it, see CoocaaHome.modeScreen).
+            // And the AI launcher built into this package rather than com.coocaa.aigc.home, where
+            // persist.service.homepage.* does not name it: Skyworth 8R710_A6E (rtd2885p, Android
+            // 13, issue #1787, the reporter's report) showed it as the stock launcher and the guard
+            // never took it for one. Only where the package has that activity (isActivity).
             "com.tianci.movieplatform" to listOf(
                 "com.coocaa.homepage.vast.HomePageActivity",
                 "com.ccos.cooui.movieplatform.ElderMainActivity",
+                "com.coocaa.aigc.home.home.rootpage.HomeActivity",
             ),
             // China Mobile "Mobile HD Box 6" 2024 (Skyworth E900V21F, S905L3S, Android 9): the
             // firmware starts LeJia's DesktopActivity by component at power-on and on the Home
