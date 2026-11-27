@@ -278,6 +278,8 @@ curl -fsSL https://aerial.qust.me/install.sh | TV=192.168.1.20 bash -s restore
 | 海信 | VIDAA_TV（MT9655，VX5SPRO） | Android 14 | ✅ 开机直达 Aerial 要按[笔记](docs/devices/hisense-vidaa.md)设好 `persist.sys.boot.source_pkg`（[#1495](https://github.com/pengchujin/aerial-tv/issues/1495)） |
 | 海信 | VIDAA_TV（HZ55E3D-J，Hi3751V551） | Android 7 | ✅ U 盘装 standard 版可用（[#1298](https://github.com/pengchujin/aerial-tv/issues/1298)） |
 | 海信 | HZ55A65 | Android 7 | ✅ U 盘装 standard 版，主页键、开机、待机、信号源、屏保、手机页正常，音量亮度没确认（[#1545](https://github.com/pengchujin/aerial-tv/issues/1545)） |
+| 海信 | 85E7H（VIDAA_TV，MTK9652 / m7642） | Android 9 | ✅ Agent 安装后 Aerial 是默认桌面（[#1794](https://github.com/pengchujin/aerial-tv/issues/1794)） |
+| Vidda | X75 Ultra（75V7N-Ultra，VIDAA_TV，MT9653） | Android 11 | ✅ 设两个海信属性后开机直达 Aerial，待机唤醒约 1 秒切回；安装脚本下个版本起在安卓 11 上也设 `persist.sys.boot.source_pkg`（[#1788](https://github.com/pengchujin/aerial-tv/issues/1788)） |
 | Vidda | 65V1R-Pro | Android 14 | ✅ 主页键、开机、待机、信号源、亮度、屏保都正常（[#1295](https://github.com/pengchujin/aerial-tv/issues/1295)） |
 | Vidda | VL7R-PRO 4K 激光投影仪（MT9655，mt5877） | Android 14 | ✅ 主页键由守护稳定接管，开机先出聚好看约 2 秒后进 Aerial；勿动对焦马达 com.hisense.screen（[笔记](docs/devices/hisense-vidaa.md#vidda-vl7r-pro-激光投影仪mt9655mt5877安卓-141605报告人-agent-实测-199)、[#1605](https://github.com/pengchujin/aerial-tv/issues/1605)） |
 | 小米 | MiTV-MTTP0（低内存） | Android 9 | ✅ 主页键、开机、待机、信号源通过；内存紧时回 Aerial 要几秒（[#1285](https://github.com/pengchujin/aerial-tv/issues/1285)） |

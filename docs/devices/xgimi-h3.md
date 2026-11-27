@@ -113,6 +113,8 @@ adb shell cmd package resolve-activity --brief -a android.intent.action.MAIN -c 
 
 已知固件差异：神灯 L1（v1.3.237）的 `ro.vendor.lock.home=com.xgimi.home.immersed`，H6 4K（v1.2.13）为空，两台开机行为不一样，不能互相照搬。
 
+H6 4K（`pig_chivalrous` / `Product_dahuangya`，固件 v1.2.13，#1618，报告人 2026-11-26 实测）就是「开机流程会重写」的那种：用 `service call package 71` 把两条 HOME 记录都清掉（其余 12 条「用哪个应用打开」的记录没动），`adb reboot` 后一个键都没按就 dump，已经有两条指向 `com.xgimi.home/com.xgimi.module.cellview.home.ui.HomeActivity` 的窄记录（`always=true set=2` 和 `always=false set=0`）。清空后不重启、Aerial 前台按一次主页键：选择框出现，0.6 秒后自己选了极米并写回记录，守护再拉回，共约 1.1 秒。所以这台上任何记录都撑不过重启，主页键是守护接住加 Android 的 5 秒切换保护（守护 41 ms 拉起 Aerial，之后极米桌面又被叫到前台，第二次拉回撞上保护）。sln162 的 H3S 清空后重启仍是空表，两个固件分支不同。不要在这台上停用 / 冻结极米桌面（`pm disable-user`）来绕：这是项目原则不做的事，冻结后回不到原桌面、Aerial 出问题时可能黑屏。
+
 ## 开机校正对话框挡住兜底（PR #1449 作者追加，1.97，2026-11-14）
 
 开机自动对焦 / 梯形校正时 `com.xgimi.systemui` 在锁定期间弹 `com.open.ui.widget.dialog.TVUIDialog`，产生一条窗口事件。9ebb603 要求「这次绑定一个事件都没收到」才兜底，于是这条对话框事件让兜底永远不出手：作废记录现场 8 分钟黑屏。报告人本地删掉这一项后 69.9 秒救援、73 秒 Aerial 到前台。main 上改成不算类名含 `Dialog` 的事件（`sawScreenEvent`），别的事件仍会挡住兜底：锁定期间安卓看不到不支持直接启动的 Activity，`lastWindow` 可能空着而屏幕上有东西，整项删掉会把 Aerial 拉到它上面。我们手上没有极米，没有真机验证。
