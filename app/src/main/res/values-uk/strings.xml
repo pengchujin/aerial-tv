@@ -156,6 +156,10 @@
     <string name="st_hidden_apps_hint">Застосунки, приховані з головного екрана, зберігаються тут, щоб їх можна було повернути. Якщо задано батьківський PIN-код, спочатку його буде запитано.</string>
     <string name="st_home_lock">Закріпити екран</string>
     <string name="st_home_lock_hint">Якщо ввімкнено, утримання OK або кнопка «Меню» на програмі не відкривають меню, і програми не можна випадково перемістити, сховати чи видалити. З батьківським PIN-кодом для вимкнення потрібен PIN.</string>
+    <string name="st_stock_home_time">Час головного екрана ТБ</string>
+    <string name="st_stock_home_hint">Як довго системний головний екран лишається відкритим зі своєї плитки, перш ніж Aerial повернеться.</string>
+    <string name="st_stock_home_off">Вимкнено</string>
+    <string name="st_stock_home_unlimited">Без обмежень</string>
     <string name="home_locked_notice">Екран закріплено. Щоб упорядкувати програми, вимкніть «Закріпити екран» у розділі «Персоналізація».</string>
     <string name="st_hidden_none">Немає</string>
     <string name="st_hidden_count">%d</string>

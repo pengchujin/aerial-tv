@@ -69,6 +69,21 @@ enum class ClockHours(val key: String) {
     }
 }
 
+/**
+ * How long the stock launcher (the TV's own home) may stay in front once opened from its tile
+ * before Aerial takes Home back: disabled (it comes back at once), 30 minutes, an hour, or no limit.
+ */
+enum class StockVisitLimit(val key: String, val millis: Long) {
+    Disabled("disabled", 0L),
+    Minutes30("30m", 30 * 60 * 1000L),
+    Hour("1h", 60 * 60 * 1000L),
+    Unrestricted("unrestricted", Long.MAX_VALUE);
+
+    companion object {
+        fun of(key: String?) = entries.firstOrNull { it.key == key } ?: Hour
+    }
+}
+
 /** Aerial's own preferences. Compose state, written on the main thread only. */
 object AerialSettings {
     private const val PREFS = "settings"
@@ -146,6 +161,9 @@ object AerialSettings {
      * Unlocking asks for the parental PIN when one is set.
      */
     var homeLocked by mutableStateOf(false); private set
+
+    /** How long the stock launcher may stay open from its tile before Aerial comes back. */
+    var stockVisitLimit by mutableStateOf(StockVisitLimit.Hour); private set
 
     /** The Liquid Glass plate under the top row; some prefer the apps straight on the wallpaper (#151). */
     var homePlate by mutableStateOf(true); private set
@@ -256,6 +274,7 @@ object AerialSettings {
         largeClock = prefs.getBoolean("large_clock", false)
         clockHours = ClockHours.of(prefs.getString("clock_hours", null))
         homeLocked = prefs.getBoolean("home_locked", false)
+        stockVisitLimit = StockVisitLimit.of(prefs.getString("stock_visit_limit", null))
         photoMinutes = prefs.getInt("photo_minutes", DAY_MINUTES).takeIf { it in PHOTO_MINUTES } ?: DAY_MINUTES
         homePlate = prefs.getBoolean("home_plate", true)
         chosenAllNames = prefs.getBoolean("show_all_names", false)
@@ -363,6 +382,11 @@ object AerialSettings {
     fun chooseHomeLocked(on: Boolean) {
         homeLocked = on
         app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit { putBoolean("home_locked", on) }
+    }
+
+    fun chooseStockVisitLimit(limit: StockVisitLimit) {
+        stockVisitLimit = limit
+        app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit { putString("stock_visit_limit", limit.key) }
     }
 
     fun chooseClockHours(hours: ClockHours) {

@@ -156,6 +156,10 @@
     <string name="st_hidden_apps_hint">Басты экраннан жасырылған қолданбалар қайтару үшін осында сақталады. Ата-аналық PIN-код орнатылған болса, алдымен сол сұралады.</string>
     <string name="st_home_lock">Экранды бекіту</string>
     <string name="st_home_lock_hint">Қосулы болса, қолданбада OK түймесін басып тұру немесе «Мәзір» мәзірді ашпайды, сондықтан қолданбаларды байқаусызда жылжыту, жасыру не жою мүмкін емес. Ата-ана PIN коды болса, өшіру үшін PIN керек.</string>
+    <string name="st_stock_home_time">ТД басты экранының уақыты</string>
+    <string name="st_stock_home_hint">Aerial қайтып келгенше, басты экран өз тақташасынан ашылғанда қанша уақыт ашық тұрады.</string>
+    <string name="st_stock_home_off">Өшірулі</string>
+    <string name="st_stock_home_unlimited">Шектеусіз</string>
     <string name="home_locked_notice">Экран бекітілген. Қолданбаларды реттеу үшін «Жекелендіру» бөлімінде «Экранды бекіту» параметрін өшіріңіз.</string>
     <string name="st_hidden_none">Жоқ</string>
     <string name="st_hidden_count">%d</string>

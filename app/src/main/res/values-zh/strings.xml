@@ -163,6 +163,10 @@
     <string name="st_hidden_apps_hint">从主屏幕隐藏的 App 在这里，可以放回主屏幕。设了家长密码时要先输入密码。</string>
     <string name="st_home_lock">锁定主屏幕</string>
     <string name="st_home_lock_hint">开启后，长按 App 或按菜单键不再弹出整理菜单，App 不会被误移动、隐藏或卸载。设了家长密码时，关闭要输入密码。</string>
+    <string name="st_stock_home_time">原桌面时间</string>
+    <string name="st_stock_home_hint">从磁贴打开原桌面后，它能在前面停留多久，之后 Aerial 会回到自己的桌面。</string>
+    <string name="st_stock_home_off">禁用</string>
+    <string name="st_stock_home_unlimited">不限制</string>
     <string name="home_locked_notice">主屏幕已锁定。要整理 App，在个性化里关闭「锁定主屏幕」。</string>
     <string name="st_hidden_none">没有</string>
     <string name="st_hidden_count">%d 个</string>
