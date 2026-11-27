@@ -18,8 +18,8 @@ adb shell cmd notification disallow_listener "$PKG/$PKG.guard.RevivalListener" >
 # Android 6 and 7 have no `cmd`: take it out of the setting itself, leaving the other listeners.
 LISTENERS=$(adb shell settings get secure enabled_notification_listeners 2>/dev/null | tr -d '\r')
 case "$LISTENERS" in
-  *"$PKG/$PKG.guard.RevivalListener"*)
-    REST=$(printf '%s' "$LISTENERS" | tr ':' '\n' | grep -v "^$PKG/" | paste -sd: - || true)
+  *"$PKG/$PKG.guard.RevivalListener"*|*"$PKG/.guard.RevivalListener"*)
+    REST=$(printf '%s' "$LISTENERS" | tr ':' '\n' | grep -v -F -x "$PKG/$PKG.guard.RevivalListener" | grep -v -F -x "$PKG/.guard.RevivalListener" | paste -sd: - || true)
     if [ -n "$REST" ]; then adb shell settings put secure enabled_notification_listeners "$REST" >/dev/null 2>&1 || true
     else adb shell settings delete secure enabled_notification_listeners >/dev/null 2>&1 || true; fi ;;
 esac
@@ -35,7 +35,13 @@ adb shell appops set "$PKG" ASSOC_START default >/dev/null 2>&1 || true
 adb shell appops set "$PKG" ACCESS_RESTRICTED_SETTINGS default >/dev/null 2>&1 || true   # Android 13+
 adb shell am force-stop "$PKG"
 case "$(adb shell settings get secure screensaver_components | tr -d '\r')" in
-  "$PKG"/*) adb shell settings put secure screensaver_components "$(adb shell settings get secure screensaver_default_component | tr -d '\r')" ;;
+  "$PKG"/*)
+    DEFAULT_DREAM=$(adb shell settings get secure screensaver_default_component 2>/dev/null | tr -d '\r')
+    if [ -z "$DEFAULT_DREAM" ] || [ "$DEFAULT_DREAM" = null ]; then
+      adb shell settings delete secure screensaver_components
+    else
+      adb shell settings put secure screensaver_components "$DEFAULT_DREAM"
+    fi ;;
 esac
 
 CURRENT=$(adb shell settings get secure enabled_accessibility_services | tr -d '\r')

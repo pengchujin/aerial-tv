@@ -12,7 +12,8 @@ ANOTHER = 'org.example.second/org.example.second.Listener'
 
 
 class RestoreListenerTest(unittest.TestCase):
-    def run_restore(self, listeners, cmd_status=127, vt_saved='', boot_source_saved=''):
+    def run_restore(self, listeners, cmd_status=127, vt_saved='', boot_source_saved='',
+                    screensaver='org.example/.Screensaver', default_dream='null'):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             log = root / 'calls'
@@ -23,7 +24,8 @@ case "$*" in
   connect*) echo connected ;;
   'shell cmd notification disallow_listener '*) exit "$CMD_STATUS" ;;
   'shell settings get secure enabled_notification_listeners') printf '%s\\n' "$LISTENERS" ;;
-  'shell settings get secure screensaver_components') echo org.example/.Screensaver ;;
+  'shell settings get secure screensaver_components') printf '%s\\n' "$SCREENSAVER" ;;
+  'shell settings get secure screensaver_default_component') printf '%s\\n' "$DEFAULT_DREAM" ;;
   'shell settings get secure enabled_accessibility_services') echo app.orchard.tv/app.orchard.tv.guard.HomeGuardService ;;
   'shell settings get global aerial_vt_home_pkg') echo "${VT_SAVED:-null}" ;;
   'shell settings get global aerial_boot_source_pkg') echo "${BOOT_SOURCE_SAVED:-null}" ;;
@@ -44,7 +46,8 @@ esac
             env = dict(os.environ, PATH=str(root) + os.pathsep + os.environ['PATH'],
                        TV='example.invalid', CALL_LOG=str(log),
                        LISTENERS=listeners, CMD_STATUS=str(cmd_status), VT_SAVED=vt_saved,
-                       BOOT_SOURCE_SAVED=boot_source_saved)
+                       BOOT_SOURCE_SAVED=boot_source_saved, SCREENSAVER=screensaver,
+                       DEFAULT_DREAM=default_dream)
             for name in ('SHELLOPTS', 'BASHOPTS', 'BASH_ENV', 'POSIXLY_CORRECT'):
                 env.pop(name, None)
             result = subprocess.run(['bash', str(SCRIPT)], env=env,
@@ -75,6 +78,41 @@ esac
                 self.assert_restored(result, calls)
                 self.assertIn('shell settings put secure enabled_notification_listeners ' + OTHER + ':' + ANOTHER, calls)
                 self.assertNotIn('shell settings delete secure enabled_notification_listeners', calls)
+
+    def test_short_form_sole_listener_is_deleted(self):
+        result, calls = self.run_restore('app.orchard.tv/.guard.RevivalListener')
+        self.assert_restored(result, calls)
+        self.assertIn('shell settings delete secure enabled_notification_listeners', calls)
+        self.assertFalse(any(call.startswith('shell settings put secure enabled_notification_listeners ') for call in calls))
+
+    def test_short_form_listener_is_removed_and_other_order_preserved(self):
+        listeners = ':'.join((OTHER, 'app.orchard.tv/.guard.RevivalListener', ANOTHER))
+        result, calls = self.run_restore(listeners)
+        self.assert_restored(result, calls)
+        self.assertIn('shell settings put secure enabled_notification_listeners ' + OTHER + ':' + ANOTHER, calls)
+
+    def test_aerial_screensaver_restores_default_component(self):
+        result, calls = self.run_restore('null', screensaver='app.orchard.tv/.AerialDream',
+                                         default_dream='org.example/.Dream')
+        self.assert_restored(result, calls)
+        self.assertIn('shell settings put secure screensaver_components org.example/.Dream', calls)
+        self.assertNotIn('shell settings delete secure screensaver_components', calls)
+
+    def test_aerial_screensaver_deletes_missing_default_component(self):
+        for default_dream in ('null', ''):
+            with self.subTest(default_dream=default_dream):
+                result, calls = self.run_restore('null', screensaver='app.orchard.tv/.AerialDream',
+                                                 default_dream=default_dream)
+                self.assert_restored(result, calls)
+                self.assertIn('shell settings delete secure screensaver_components', calls)
+                self.assertFalse(any(call.startswith('shell settings put secure screensaver_components ') for call in calls))
+
+    def test_other_screensaver_is_untouched(self):
+        result, calls = self.run_restore('null', screensaver='org.example/.Dream',
+                                         default_dream='org.example/.Fallback')
+        self.assert_restored(result, calls)
+        self.assertFalse(any(call.startswith('shell settings put secure screensaver_components ') or
+                             call == 'shell settings delete secure screensaver_components' for call in calls))
 
     def test_vidaa_home_property_that_was_empty_is_emptied(self):
         # Issue #1679: install.sh kept "-" for a persist.vt.use_home_pkg that was empty.
