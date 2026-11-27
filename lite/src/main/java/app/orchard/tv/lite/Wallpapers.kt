@@ -10,7 +10,6 @@ import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
 import java.io.InputStream
-import java.text.SimpleDateFormat
 import java.util.Locale
 import java.util.TimeZone
 
@@ -30,7 +29,8 @@ enum class ScreensaverMode(val key: String) {
 /**
  * What is behind Home, as the full app's wallpaper/Wallpapers.kt with its ids, so the phone page
  * works the same: Bing's photo of the day ("daily:latest" follows the newest; the last eight are
- * kept), Aerial's built-in pictures ("grad:<key>"), the owner's photos from the phone
+ * kept, plus a manually pinned older one while selected), Aerial's built-in pictures ("grad:<key>"),
+ * the owner's photos from the phone
  * ("photo:<id>"; "photos:rotate" shows a different one each day). Lite has no moving wallpapers.
  *
  * Home's backdrop is baked once per picture at the screen's size, shaded, kept on disk; its frosted
@@ -38,6 +38,7 @@ enum class ScreensaverMode(val key: String) {
  */
 object Wallpapers {
     private const val TAG = "AerialLite"
+    const val DAILY_PREFIX = "daily:"
     const val LATEST_DAILY = "daily:latest"
     const val ROTATE_PHOTOS = "photos:rotate"
     const val VIDEOS = "videos:mine"
@@ -49,7 +50,7 @@ object Wallpapers {
     private lateinit var dailyDir: File
     private lateinit var photoDir: File
 
-    var selectedId = LATEST_DAILY; private set
+    @Volatile var selectedId = LATEST_DAILY; private set
     @Volatile var items: List<Wallpaper> = emptyList(); private set
     /** Null: the screensaver follows the wallpaper. */
     private var chosenScreensaver: ScreensaverMode? = null
@@ -118,7 +119,7 @@ object Wallpapers {
 
     fun rebuildList() {
         val zh = Locale.getDefault().language == "zh"
-        val daily = readDailyIndex().map { Wallpaper("daily:${it.first}", WallpaperKind.Daily, it.second, it.third) }
+        val daily = readDailyIndex().map { Wallpaper("$DAILY_PREFIX${it.date}", WallpaperKind.Daily, it.title, it.caption) }
         val builtins = Gradients.presets.map { Wallpaper("grad:${it.key}", WallpaperKind.Builtin, if (zh) it.nameZh else it.nameEn) }
         val photos = (photoDir.listFiles { f -> f.name.endsWith(".jpg") } ?: emptyArray())
             .sortedByDescending { it.lastModified() }
@@ -127,7 +128,7 @@ object Wallpapers {
     }
 
     private fun fileFor(w: Wallpaper): File? = when (w.kind) {
-        WallpaperKind.Daily -> File(dailyDir, w.id.removePrefix("daily:") + ".jpg")
+        WallpaperKind.Daily -> File(dailyDir, w.id.removePrefix(DAILY_PREFIX) + ".jpg")
         WallpaperKind.Photo -> File(photoDir, w.id.removePrefix("photo:") + ".jpg")
         else -> null
     }
@@ -197,13 +198,24 @@ object Wallpapers {
 
     // ---- daily photos ----
 
-    private fun readDailyIndex(): List<Triple<String, String, String>> = runCatching {
+    private fun readDailyEntries(): List<DailyEntry> = runCatching {
         val arr = JSONArray(File(dailyDir, "index.json").readText())
         (0 until arr.length()).map { i ->
             val o = arr.getJSONObject(i)
-            Triple(o.getString("date"), o.getString("title"), o.getString("caption"))
-        }.filter { File(dailyDir, it.first + ".jpg").exists() }
+            DailyEntry(
+                date = o.getString("date"),
+                title = o.getString("title"),
+                caption = o.getString("caption"),
+                start = o.optString("start"),
+            )
+        }
     }.getOrDefault(emptyList())
+
+    private fun readDailyIndex(): List<DailyEntry> =
+        readDailyEntries().filter { File(dailyDir, "${it.date}.jpg").exists() }
+
+    private fun dailyJpgNames(): Set<String> =
+        dailyDir.listFiles { f -> f.isFile && f.name.endsWith(".jpg") }?.mapTo(HashSet()) { it.name }.orEmpty()
 
     /**
      * Whether the newest photo on hand is still the current one. Bing's `startdate` is not China's
@@ -211,14 +223,8 @@ object Wallpapers {
      * being UTC (the full app's issue #1630), so today's never seemed to be there. The next one is
      * due a day after the newest one's start; an index from before has no start and is fetched.
      */
-    fun hasTodaysDaily(): Boolean = runCatching {
-        val arr = JSONArray(File(dailyDir, "index.json").readText())
-        val fmt = SimpleDateFormat("yyyyMMddHHmm", Locale.US).apply { timeZone = TimeZone.getTimeZone("UTC"); isLenient = false }
-        val newest = (0 until arr.length()).mapNotNull { i ->
-            arr.getJSONObject(i).optString("start").takeIf { it.length == 12 }?.let { runCatching { fmt.parse(it)?.time }.getOrNull() }
-        }.maxOrNull() ?: return@runCatching false
-        System.currentTimeMillis() - newest < 24 * 60 * 60 * 1000L
-    }.getOrDefault(false)
+    fun hasTodaysDaily(): Boolean =
+        dailyIsCurrent(readDailyEntries().map { it.start }, System.currentTimeMillis())
 
     /**
      * Fetches the last eight of Bing's photos (cn.bing.com, reachable from China), as the full app:
@@ -236,33 +242,47 @@ object Wallpapers {
             val marketFile = File(dailyDir, "market")
             val before = marketFile.takeIf { it.exists() }?.readText() ?: market
             val json = JSONObject(bing("/HPImageArchive.aspx?format=js&idx=0&n=8&mkt=$market"))
-            if (before != market) dailyDir.listFiles { f -> f.name.endsWith(".jpg") }?.forEach { it.delete() }
-            marketFile.writeText(market)
+            val existing = readDailyEntries()
             val images = json.getJSONArray("images")
-            val index = JSONArray()
-            var added = false
+            val fetched = ArrayList<DailyEntry>(images.length())
+            val paths = ArrayList<String>(images.length())
             for (i in 0 until images.length()) {
                 val img = images.getJSONObject(i)
                 val date = img.getString("startdate")
-                val file = File(dailyDir, "$date.jpg")
+                val copyright = img.optString("copyright")
+                val title = img.optString("title").ifBlank { copyright.substringBefore(" (").ifBlank { date } }
+                fetched += DailyEntry(date, title, copyright, img.optString("fullstartdate"))
+                paths += if (Ui.screenW > 1920) img.getString("urlbase") + "_UHD.jpg" else img.getString("url")
+            }
+            if (before != market) {
+                val keepAcrossMarket = mergeDailyIndex(fetched, existing, selectedId, dailyJpgNames()).preservedFile
+                dailyDir.listFiles { f -> f.name.endsWith(".jpg") && f.name != keepAcrossMarket }?.forEach { it.delete() }
+            }
+            marketFile.writeText(market)
+            var added = false
+            for (i in fetched.indices) {
+                val file = File(dailyDir, "${fetched[i].date}.jpg")
                 if (!file.exists()) {
-                    val path = if (Ui.screenW > 1920) img.getString("urlbase") + "_UHD.jpg" else img.getString("url")
                     val tmp = File(file.path + ".part")
-                    val c = open("https://cn.bing.com$path")
+                    val c = open("https://cn.bing.com${paths[i]}")
                     try { c.inputStream.use { input -> FileOutputStream(tmp).use { input.copyTo(it) } } } finally { c.disconnect() }
                     if (tmp.renameTo(file)) added = true
                 }
-                val copyright = img.optString("copyright")
-                val title = img.optString("title").ifBlank { copyright.substringBefore(" (").ifBlank { date } }
-                index.put(JSONObject().put("date", date).put("title", title).put("caption", copyright).put("start", img.optString("fullstartdate")))
+            }
+            val plan = mergeDailyIndex(fetched, existing, selectedId, dailyJpgNames())
+            val index = JSONArray()
+            for (entry in plan.entries) {
+                index.put(
+                    JSONObject().put("date", entry.date).put("title", entry.title)
+                        .put("caption", entry.caption).put("start", entry.start),
+                )
             }
             File(dailyDir, "index.json").writeText(index.toString())
-            val keep = (0 until index.length()).map { index.getJSONObject(it).getString("date") + ".jpg" }.toSet()
-            dailyDir.listFiles { f -> f.name.endsWith(".jpg") && f.name !in keep }?.forEach { it.delete() }
+            val pruned = dailyDir.listFiles { f -> f.name.endsWith(".jpg") && f.name !in plan.keepFiles }?.count { it.delete() } ?: 0
             prefs.edit().putLong("daily_checked", now).apply()
             if (added) synchronized(thumbs) { thumbs.remove(LATEST_DAILY) }
             dailyFailed = false
-            added
+            added || pruned > 0
         }.onFailure { dailyFailed = true; Log.w(TAG, "daily photos unavailable", it) }.getOrDefault(false)
     }
 

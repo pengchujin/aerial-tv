@@ -88,6 +88,7 @@ val copySources by tasks.registering(Copy::class) {
     from(rootProject.file("app/src/main/java/app/orchard/tv/apps/AppNames.kt"))
     from(rootProject.file("app/src/main/java/app/orchard/tv/apps/CustomIcons.kt"))
     from(rootProject.file("app/src/main/java/app/orchard/tv/wallpaper/ScreensaverVideos.kt"))
+    from(rootProject.file("app/src/main/java/app/orchard/tv/wallpaper/DailyDates.kt"))
     from(rootProject.file("app/src/main/java/app/orchard/tv/system/MitvPanel.kt"))
     from(rootProject.file("app/src/main/java/app/orchard/tv/system/DeviceProfile.kt"))
     from(rootProject.file("app/src/main/java/app/orchard/tv/system/OutputDevice.kt"))
