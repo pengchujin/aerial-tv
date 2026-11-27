@@ -1,0 +1,9 @@
+<resources>
+    <string name="media_now_playing">Сейчас играет</string>
+    <string name="media_idle">Ничего не играет</string>
+    <string name="media_access_needed">Разрешите доступ к уведомлениям</string>
+    <string name="media_previous">Предыдущий трек</string>
+    <string name="media_play">Воспроизвести</string>
+    <string name="media_pause">Пауза</string>
+    <string name="media_next">Следующий трек</string>
+</resources>

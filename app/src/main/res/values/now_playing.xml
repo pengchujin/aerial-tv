@@ -1,0 +1,9 @@
+<resources>
+    <string name="media_now_playing">Now playing</string>
+    <string name="media_idle">Nothing playing</string>
+    <string name="media_access_needed">Enable notification access</string>
+    <string name="media_previous">Previous track</string>
+    <string name="media_play">Play</string>
+    <string name="media_pause">Pause</string>
+    <string name="media_next">Next track</string>
+</resources>

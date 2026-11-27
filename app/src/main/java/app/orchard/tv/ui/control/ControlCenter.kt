@@ -85,6 +85,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import app.orchard.tv.media.NowPlayingCard
 import app.orchard.tv.CcPage
 import app.orchard.tv.ControlCenterFocus
 import app.orchard.tv.BuildConfig
@@ -370,9 +371,16 @@ private fun MainPage(
         }
 
         Spacer(Modifier.height(12.dp))
+        var mediaControlsAvailable by remember { mutableStateOf(false) }
+        NowPlayingCard(
+            visible = poll,
+            onControlsAvailable = { mediaControlsAvailable = it },
+            onOpen = { intent -> vm.whenUnlocked { onOpen(intent) } },
+        )
+        Spacer(Modifier.height(6.dp))
         // A box or stick has neither a panel nor, with its volume fixed, a sound level of its own (#1307).
         if (showsVolume) {
-            VolumeRow(vm, cameFrom)
+            VolumeRow(vm, if (mediaControlsAvailable) FocusRequester.Default else cameFrom)
             Spacer(Modifier.height(6.dp))
         }
         if (showsBrightness) BrightnessRow(vm, laser)
