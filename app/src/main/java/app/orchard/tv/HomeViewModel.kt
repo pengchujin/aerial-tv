@@ -161,6 +161,15 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
      */
     var homeBounce by mutableStateOf(false)
 
+    /**
+     * The screen is off with Home still resumed: some firmwares go to standby without pausing the
+     * activity. The wallpaper's film stops then, as it would in an app: a film without sound keeps
+     * time by elapsedRealtime, which counts the sleep, and after a night in standby it woke 15.9 h
+     * into a video of a few minutes and every frame was dropped as late (Hisense VIDAA_TV T963D4,
+     * Android 11, issue #1789, the reporter's log).
+     */
+    var screenOff by mutableStateOf(false)
+
     /** In front for the wallpaper's film: resumed, or only bouncing off Home (homeBounce). */
     val filmFront: Boolean get() = resumed || homeBounce
 

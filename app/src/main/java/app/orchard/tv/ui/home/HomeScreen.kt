@@ -633,7 +633,7 @@ fun HomeScreen(
         // its picture stands in under Control Center, and a SurfaceView in a layer that is not
         // drawn cuts no hole in the window, so the paused film showed as the window's black
         // (Xiaomi MiTV-MFTR0, the aerial wallpaper under Control Center).
-        val filmMoves = vm.filmFront && overlay == Overlay.None && !vm.screensaverVisible && !pastShelf &&
+        val filmMoves = vm.filmFront && !vm.screenOff && overlay == Overlay.None && !vm.screensaverVisible && !pastShelf &&
             !inGrid && moving == null
         val sourceInput = Wallpapers.sourceInput
         // Nothing over Home blurs it: a paused film stays (why: at LiveWallpaper below).

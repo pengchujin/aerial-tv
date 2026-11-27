@@ -476,6 +476,7 @@ fun LiveWallpaper(
             if (player == null) FilmAfterInput.await()
             val p = player ?: open().also { player = it }
             DiagLog.i("wallpaper film starts (state ${p.playbackState}, ${p.currentMediaItem?.mediaId} at ${p.currentPosition} ms)")
+            afterSleep(p, "wallpaper film")
             // It moves on from the frame the picture is: that picture's glass until the first sample.
             Wallpapers.dropFilmFrost()
             // Its decoder was let go for the screensaver (LiveFilm.letDecoderGo).
@@ -872,6 +873,21 @@ internal suspend fun sampleGlass(
     }
     if (wait == 800L) delay(wait)
     Wallpapers.useStillFilmFrost()
+}
+
+/**
+ * Past the end of its film: played on through a standby that never paused Home, a film without
+ * sound keeps time by elapsedRealtime, which counts the sleep (Hisense VIDAA_TV T963D4, Android 11,
+ * issue #1789: 15.9 h into a video of a few minutes, every frame then dropped as late and the
+ * picture stuck). Back into the film at the same point of its loop; the screen-off stop
+ * (HomeViewModel.screenOff) keeps this from happening where the firmware says the screen went off.
+ */
+internal fun afterSleep(p: ExoPlayer, what: String) {
+    val duration = p.duration
+    val at = p.currentPosition
+    if (duration <= 0 || at <= duration + 1_000L) return
+    DiagLog.i("$what was at $at ms of $duration ms (slept while playing); back to ${at % duration} ms")
+    p.seekTo(p.currentMediaItemIndex, at % duration)
 }
 
 private fun droppedFrames(p: ExoPlayer): Int = p.videoDecoderCounters?.let { it.ensureUpdated(); it.droppedBufferCount } ?: 0

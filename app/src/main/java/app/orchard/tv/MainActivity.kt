@@ -20,6 +20,7 @@ import android.net.NetworkCapabilities
 import android.net.Uri
 import android.content.res.Configuration
 import android.os.Bundle
+import android.os.PowerManager
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
@@ -424,7 +425,12 @@ class MainActivity : ComponentActivity() {
      */
     private val screenOnReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
-            if (intent.action == Intent.ACTION_SCREEN_OFF) { BootOpen.noteScreenOff(context); return }
+            if (intent.action == Intent.ACTION_SCREEN_OFF) {
+                BootOpen.noteScreenOff(context)
+                if (realStarted) vm.screenOff = true
+                return
+            }
+            if (realStarted) vm.screenOff = false
             idleHandler.postDelayed({
                 if (lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) openBootSource("screen on")
             }, 1500)
@@ -1048,6 +1054,8 @@ class MainActivity : ComponentActivity() {
     /** What onResume does once the user is unlocked; also run by a start that was locked before. */
     private fun resumeWork() {
         vm.resumed = true
+        // Where a screen-on broadcast was missed: the screen's own state.
+        vm.screenOff = getSystemService<PowerManager>()?.isInteractive == false
         CecSwitch.register(this)
         if (!minuteReceiverOn) {
             // TIME_TICK is a protected system broadcast; it is only delivered to registered receivers.

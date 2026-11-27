@@ -329,6 +329,7 @@ fun VideoWallpaper(
             if (player == null) VideoSaverFrames.apply()
             val p = player ?: open()?.also { player = it; home.player = it } ?: return@LaunchedEffect
             DiagLog.i("video wallpaper starts (${p.currentMediaItem?.mediaId} at ${p.currentPosition} ms, idle $idle)")
+            afterSleep(p, "video wallpaper")
             Wallpapers.dropFilmFrost()
             if (p.playbackState == Player.STATE_IDLE) p.prepare()
             p.playWhenReady = true
