@@ -172,6 +172,12 @@ object SystemIntents {
         if (runCatching { pm.queryBroadcastReceivers(baofeng, 0) }.getOrNull().orEmpty().any { it.activityInfo.exported } &&
             runCatching { context.sendBroadcast(baofeng) }.isSuccess
         ) return true
+        // Cultraview's TV player, what the firmware's source menu opens where no inputs are
+        // registered (Guomei TV, the full app's issue #1712, read from the APK, not tried).
+        val cultraview = Intent("com.cultraview.common.signalsource").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        if (runCatching { pm.resolveActivity(cultraview, 0)?.activityInfo }.getOrNull()?.exported == true &&
+            runCatching { context.startActivity(cultraview) }.isSuccess
+        ) return true
         // Baofeng boards without BFTVSourceSwitch: FUI's source bar, opened by component (AML_T962,
         // Android 9, the full app's issue #1339); not verified on Baofeng's Android 4.x.
         val bftvRow = ComponentName("com.bftv.fui.biu", "com.bftv.fui.biu.views.activity.FRowActivity")

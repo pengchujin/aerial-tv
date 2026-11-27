@@ -854,6 +854,15 @@ object SystemProbe {
                 .putExtra(Intent.EXTRA_KEY_EVENT, android.view.KeyEvent(android.view.KeyEvent.ACTION_DOWN, android.view.KeyEvent.KEYCODE_TV_INPUT))
             if (runCatching { context.startService(key) }.getOrNull() != null) return true
         }
+        // Cultraview's TV player (com.cultraview.livetv), what the firmware's source menu and the
+        // remote's input key open on boards that register no inputs with Android: its MainActivity
+        // answers this action (Guomei TV, issue #1712; the reporter read it from the APK, the TV
+        // has no ADB, so not tried). Without a sourceId it plays the input in use, and the remote's
+        // input key picks another there. Only an exported one, after every other panel.
+        val cultraview = Intent(CULTRAVIEW_SIGNAL_SOURCE).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        if (runCatching { pm.resolveActivity(cultraview, 0)?.activityInfo }.getOrNull()?.exported == true &&
+            runCatching { context.startActivity(cultraview) }.isSuccess
+        ) return true
         // MStar's tvsetting has the panel the remote's input key shows (Philips 75PUF6393/T3, TV838,
         // MStar maxim, Android 6: no inputs in TvInputManager, and SOURCE_INFO below is only a
         // one-line banner there; the reporter's agent opened this with adb, issue #1580). Before
@@ -881,6 +890,7 @@ object SystemProbe {
     }
 
     private const val MSTAR_SOURCE_INFO = "com.mstar.tv.tvplayer.ui.intent.action.SOURCE_INFO"
+    private const val CULTRAVIEW_SIGNAL_SOURCE = "com.cultraview.common.signalsource"
     private val LETV_SOURCES = ComponentName("com.stv.signalsourcemanager", "com.stv.signalsourcemanager.MainActivity")
     private val MSTAR_SOURCE_LIST = ComponentName("com.mstar.tvsetting", "com.mstar.tvsetting.hotkey.InputSourceListViewActivity")
     private val FOXCONN_SOURCES = ComponentName("com.mstar.tvsetting", "com.foxconn.etvg.inputsource.FxcInputSourceActitvity")
