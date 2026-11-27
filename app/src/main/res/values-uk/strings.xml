@@ -145,6 +145,10 @@
     <string name="st_plate_hint">Підкладка з матового скла під верхнім рядом, як на Apple TV, або застосунки просто на шпалерах.</string>
     <string name="st_plate_glass">Скло</string>
     <string name="st_plate_none">Немає</string>
+    <string name="st_glass_tint">Прозорість скла</string>
+    <string name="st_glass_tint_hint">Наскільки прозоре скло підкладки, як у налаштуванні Liquid Glass в iOS. «Прозоре» показує більше шпалер, «Відтінок» робить скло щільнішим і підвищує контраст вмісту та елементів на ньому.</string>
+    <string name="st_glass_clear">Прозоре</string>
+    <string name="st_glass_tinted">Відтінок</string>
     <string name="st_sounds">Звуки</string>
     <string name="st_sounds_hint">Звук під час переміщення фокуса, вибору та натискання «Назад», як на Apple TV.</string>
     <string name="st_sounds_tv_hint">Власні звуки клавіш телевізора, як у його меню. Якщо їх вимкнено в налаштуваннях телевізора, звуку не буде: тоді виберіть Aerial.</string>

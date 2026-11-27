@@ -1,10 +1,13 @@
 package app.orchard.tv.ui.wallpaper
 
 import android.os.Build
+import android.view.KeyEvent as NativeKeyEvent
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -14,8 +17,10 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.relocation.BringIntoViewResponder
 import androidx.compose.foundation.relocation.bringIntoViewResponder
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.foundation.layout.Arrangement
@@ -47,6 +52,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
@@ -63,6 +69,9 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -250,6 +259,9 @@ fun WallpaperSheet(
                         listOf(true to R.string.st_plate_glass, false to R.string.st_plate_none),
                         AerialSettings.homePlate, AerialSettings::chooseHomePlate,
                     )
+                    // How see-through the plate's glass is, as in iOS's Liquid Glass setting.
+                    // Greyed out with no plate: there is no glass to tint.
+                    SettingRow(R.string.st_glass_tint, stringResource(R.string.st_glass_tint_hint), note) { GlassTintSlider() }
                     Choices(
                         R.string.st_names, stringResource(R.string.st_names_hint), note,
                         listOf(false to R.string.st_names_focused, true to R.string.st_names_all),
@@ -726,6 +738,75 @@ private fun <T> Choices(
         }
     }
 }
+
+/**
+ * The glass tint slider: Clear on the left, Tinted on the right, as in iOS's Liquid Glass
+ * setting. Left and Right step it by [GLASS_TINT_STEP]; a drag counts out the same steps. It
+ * writes at once, so the plate and the panels change while it moves. Greyed out with no plate:
+ * there is no glass to tint. OK leaves it as it is.
+ */
+@Composable
+private fun GlassTintSlider() {
+    val tint = AerialSettings.glassTint
+    val enabled = AerialSettings.homePlate
+    val steps = (1f / GLASS_TINT_STEP).roundToInt()
+    // Read through state: the drag handler below is made once and outlives this composition's values.
+    val atTint by rememberUpdatedState(tint)
+    val step = { by: Int ->
+        val next = (atTint + by * GLASS_TINT_STEP).coerceIn(0f, 1f)
+        if (next == atTint) Sounds.limit() else {
+            Sounds.step()
+            AerialSettings.chooseGlassTint(next)
+        }
+    }
+    Pressable(
+        onClick = {},
+        enabled = enabled,
+        focusedScale = 1.03f,
+        label = stringResource(R.string.st_glass_tint),
+        onKey = { e ->
+            val code = e.nativeKeyEvent.keyCode
+            if (!enabled || (code != NativeKeyEvent.KEYCODE_DPAD_LEFT && code != NativeKeyEvent.KEYCODE_DPAD_RIGHT)) return@Pressable false
+            if (e.type == KeyEventType.KeyDown) step(if (code == NativeKeyEvent.KEYCODE_DPAD_RIGHT) 1 else -1)
+            true
+        },
+    ) { state ->
+        val fg = if (state.focused) Palette.OnFocus else Palette.Label
+        val dimmed = if (enabled) fg else fg.copy(alpha = 0.4f)
+        val bg by animateColorAsState(if (state.focused) Palette.Focus else Palette.Fill, tween(140, easing = Motion.EaseOut), label = "glass-tint-bg")
+        val fraction by animateFloatAsState(tint, spring(dampingRatio = 1f, stiffness = 700f), label = "glass-tint-level")
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .pointerInput(enabled) {
+                    if (!enabled) return@pointerInput
+                    // The level only moves in the steps the system takes, so the drag is counted
+                    // out in steps rather than set to an exact point.
+                    var travelled = 0f
+                    detectHorizontalDragGestures(onDragStart = { travelled = 0f }) { change, dx ->
+                        change.consume()
+                        travelled += dx
+                        val pitch = size.width.toFloat() / steps
+                        while (travelled >= pitch) { step(1); travelled -= pitch }
+                        while (travelled <= -pitch) { step(-1); travelled += pitch }
+                    }
+                }
+                .smoothBackground({ bg }, 14.dp).height(40.dp).padding(horizontal = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            BasicText(stringResource(R.string.st_glass_clear), style = Type.Body.copy(color = dimmed), maxLines = 1)
+            Canvas(Modifier.weight(1f).height(6.dp)) {
+                val r = CornerRadius(size.height / 2)
+                drawRoundRect(dimmed.copy(alpha = 0.2f), cornerRadius = r)
+                drawRoundRect(dimmed, size = Size(size.width * fraction, size.height), cornerRadius = r)
+            }
+            BasicText(stringResource(R.string.st_glass_tinted), style = Type.Body.copy(color = dimmed), maxLines = 1)
+        }
+    }
+}
+
+private const val GLASS_TINT_STEP = 0.05f
 
 /** Parental PIN on or off; either way goes through the PIN pad (issue #10). */
 @Composable

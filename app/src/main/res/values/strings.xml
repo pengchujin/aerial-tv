@@ -153,6 +153,10 @@
     <string name="st_plate_hint">A plate of frosted glass under the top row, as on Apple TV, or the apps straight on the wallpaper.</string>
     <string name="st_plate_glass">Glass</string>
     <string name="st_plate_none">None</string>
+    <string name="st_glass_tint">Glass Tint</string>
+    <string name="st_glass_tint_hint">How see-through the plate’s glass is, as in iOS’s Liquid Glass setting. Clear shows more of the wallpaper; Tinted deepens the glass and raises the contrast of what sits on it.</string>
+    <string name="st_glass_clear">Clear</string>
+    <string name="st_glass_tinted">Tinted</string>
     <string name="st_sounds">Sounds</string>
     <string name="st_sounds_hint">A sound as focus moves, and on select and Back, as on Apple TV.</string>
     <string name="st_sounds_tv_hint">The TV\'s own key sounds, as in its menus. Silent if key sounds are off in the TV\'s settings: choose Aerial then.</string>

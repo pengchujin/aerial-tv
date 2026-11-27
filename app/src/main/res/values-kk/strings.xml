@@ -145,6 +145,10 @@
     <string name="st_plate_hint">Жоғарғы қатардың астындағы күңгірт шыны тақта, Apple TV сияқты, немесе қолданбалар тікелей түсқағазда.</string>
     <string name="st_plate_glass">Шыны</string>
     <string name="st_plate_none">Жоқ</string>
+    <string name="st_glass_tint">Шыны мөлдірлігі</string>
+    <string name="st_glass_tint_hint">Тақта шынысы қаншалықты мөлдір, iOS жүйесіндегі Liquid Glass баптауы сияқты. «Мөлдір» түсқағазды көбірек көрсетеді, «Реңк» шыныны қоюлатып, үстіндегі мазмұн мен басқару элементтерінің контрастын арттырады.</string>
+    <string name="st_glass_clear">Мөлдір</string>
+    <string name="st_glass_tinted">Реңк</string>
     <string name="st_sounds">Дыбыстар</string>
     <string name="st_sounds_hint">Фокус жылжығанда, таңдағанда және «Артқа» басқанда дыбыс шығады, Apple TV сияқты.</string>
     <string name="st_sounds_tv_hint">Теледидардың өз түйме дыбыстары, мәзірлеріндегідей. Теледидар параметрлерінде өшірулі болса, дыбыс болмайды: онда Aerial таңдаңыз.</string>
