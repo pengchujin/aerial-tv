@@ -251,7 +251,7 @@ private fun KidsPage(vm: HomeViewModel, now: LocalDateTime, takeFocus: Boolean) 
         Spacer(Modifier.height(12.dp))
         // A box or stick has neither a panel nor, with its volume fixed, a sound level of its own (#1307).
         if (showsVolume) {
-            VolumeRow(vm, first)
+            VolumeRow(vm)
             Spacer(Modifier.height(6.dp))
         }
         if (showsBrightness) BrightnessRow(vm, laser)
@@ -725,7 +725,7 @@ private fun SliderRow(
 }
 
 @Composable
-private fun VolumeRow(vm: HomeViewModel, returnTo: FocusRequester) {
+private fun VolumeRow(vm: HomeViewModel, returnTo: FocusRequester? = null) {
     val volume = vm.volume
     // A sound system over HDMI-CEC holds the volume; the TV's own level stands still, so neither
     // it nor its mute is shown, and the steps still go to the sound system (issue #1562).
@@ -740,7 +740,7 @@ private fun VolumeRow(vm: HomeViewModel, returnTo: FocusRequester) {
         },
         steps = volume.max,
         onStep = vm::adjustVolume,
-        modifier = Modifier.focusProperties { up = returnTo },
+        modifier = if (returnTo != null) Modifier.focusProperties { up = returnTo } else Modifier,
         onClick = vm::toggleMute,
     )
 }
