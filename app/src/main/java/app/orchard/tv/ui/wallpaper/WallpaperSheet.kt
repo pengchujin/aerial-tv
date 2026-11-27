@@ -80,11 +80,13 @@ import app.orchard.tv.settings.AerialSettings
 import app.orchard.tv.settings.ClockHours
 import app.orchard.tv.settings.Restricted
 import app.orchard.tv.settings.RestrictedKind
+import app.orchard.tv.settings.StockVisitLimit
 import app.orchard.tv.settings.FocusStyle
 import app.orchard.tv.settings.UiSounds
 import app.orchard.tv.settings.Effects
 import app.orchard.tv.system.Sounds
 import app.orchard.tv.ui.components.Pressable
+import app.orchard.tv.ui.components.SliderRow
 import app.orchard.tv.ui.components.consumeTaps
 import app.orchard.tv.ui.components.dismissOnTap
 import app.orchard.tv.ui.components.liquidGlass
@@ -269,6 +271,11 @@ fun WallpaperSheet(
                         listOf(false to R.string.st_off, true to R.string.st_on),
                         AerialSettings.homeLocked, onHomeLock,
                     )
+                }
+                Spacer(Modifier.height(6.dp))
+                SectionTitle(R.string.st_stock_home_time)
+                Group(stringResource(R.string.st_stock_home_hint)) { note ->
+                    StockVisitSlider(note)
                 }
                 Spacer(Modifier.height(10.dp))
                 Group { note ->
@@ -620,6 +627,33 @@ private fun WallpaperCard(wp: Wallpaper, focusRequester: FocusRequester?, onFocu
             )
         }
     }
+}
+
+@Composable
+private fun StockVisitSlider(note: (String?) -> Unit) {
+    val current = AerialSettings.stockVisitLimit
+    val entries = StockVisitLimit.entries
+    val index = entries.indexOf(current).coerceAtLeast(0)
+    val level = index.toFloat() / (entries.size - 1)
+    val value = when (current) {
+        StockVisitLimit.Disabled -> stringResource(R.string.st_stock_home_off)
+        StockVisitLimit.Minutes30 -> stringResource(R.string.ss_minutes, 30)
+        StockVisitLimit.Hour -> stringResource(R.string.ss_minutes, 60)
+        StockVisitLimit.Unrestricted -> stringResource(R.string.st_stock_home_unlimited)
+    }
+    val hint = stringResource(R.string.st_stock_home_hint)
+    SliderRow(
+        glyph = Glyph.Home,
+        label = stringResource(R.string.st_stock_home_time),
+        level = level,
+        value = value,
+        steps = entries.size - 1,
+        onStep = { by ->
+            AerialSettings.chooseStockVisitLimit(entries[(index + by).coerceIn(0, entries.size - 1)])
+        },
+        modifier = Modifier.onFocusChanged { if (it.hasFocus) note(hint) },
+        onClick = {},
+    )
 }
 
 @Composable

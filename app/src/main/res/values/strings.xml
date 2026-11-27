@@ -164,6 +164,10 @@
     <string name="st_hidden_apps_hint">Apps hidden from Home are kept here, to put back. With a parental PIN set, it asks for the PIN first.</string>
     <string name="st_home_lock">Lock Home</string>
     <string name="st_home_lock_hint">When on, holding OK or pressing Menu on an app opens no menu, so apps can’t be moved, hidden or uninstalled by accident. With a parental PIN, turning it off asks for the PIN.</string>
+    <string name="st_stock_home_time">TV home time</string>
+    <string name="st_stock_home_hint">How long the stock home stays open from its tile before Aerial comes back.</string>
+    <string name="st_stock_home_off">Disabled</string>
+    <string name="st_stock_home_unlimited">Unlimited</string>
     <string name="home_locked_notice">Home is locked. To arrange apps, turn off Lock Home in Personalize.</string>
     <string name="st_hidden_none">None</string>
     <string name="st_hidden_count">%d</string>

@@ -156,6 +156,10 @@
     <string name="st_hidden_apps_hint">Приложения, скрытые с главного экрана, хранятся здесь, чтобы их можно было вернуть. Если задан родительский PIN-код, сначала он будет запрошен.</string>
     <string name="st_home_lock">Закрепить экран</string>
     <string name="st_home_lock_hint">Если включено, удержание OK или кнопка «Меню» на приложении не открывают меню, и приложения нельзя случайно переместить, скрыть или удалить. С родительским PIN-кодом для выключения нужен PIN.</string>
+    <string name="st_stock_home_time">Время главного экрана ТВ</string>
+    <string name="st_stock_home_hint">Как долго штатный главный экран остаётся открытым из своей плитки, прежде чем Aerial вернётся.</string>
+    <string name="st_stock_home_off">Отключено</string>
+    <string name="st_stock_home_unlimited">Без ограничений</string>
     <string name="home_locked_notice">Экран закреплён. Чтобы упорядочить приложения, выключите «Закрепить экран» в разделе «Персонализация».</string>
     <string name="st_hidden_none">Нет</string>
     <string name="st_hidden_count">%d</string>

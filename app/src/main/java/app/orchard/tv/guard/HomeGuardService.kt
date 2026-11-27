@@ -2635,7 +2635,6 @@ class HomeGuardService : AccessibilityService() {
         /** How far back to look for the front when no window has been seen; see frontByUsage. */
         private const val UNKNOWN_FRONT_LOOKBACK_MS = 6 * 60 * 60 * 1000L
         private const val DOUBLE_HOME_MS = 400L
-        private const val STOCK_VISIT_MS = 60 * 60 * 1000L
         /** Android's hold on app starts after Home (stopAppSwitches), with a margin. */
         private const val APP_SWITCH_HOLD_MS = 5_500L
         private const val PACKAGE_SETTLE_MS = 1000L
@@ -3119,14 +3118,28 @@ class HomeGuardService : AccessibilityService() {
          * Kept on disk too, for a guard revived in a new process (GuardSetup.noteStockVisit).
          */
         fun allowStockLauncher(context: Context? = null) {
+            val app = context?.applicationContext ?: instance?.applicationContext
+            app?.let { AerialSettings.init(it) }
+            // The stock launcher may stay open for no time at all (Disabled: Aerial takes Home back
+            // at once), a chosen few minutes, or with no limit; the setting is read live so a change
+            // in Personalize applies to the next visit.
+            val limit = AerialSettings.stockVisitLimit.millis
             val now = SystemClock.uptimeMillis()
-            allowStockUntil = now + STOCK_VISIT_MS
+            // Saturate rather than overflow: Unrestricted is Long.MAX_VALUE, so now + limit would wrap.
+            allowStockUntil = if (limit > Long.MAX_VALUE - now) Long.MAX_VALUE else now + limit
             allowStockFrom = now
-            (context?.applicationContext ?: instance?.applicationContext)?.let {
+            app?.let {
                 visitContext = it
-                GuardSetup.noteStockVisit(it, SystemClock.elapsedRealtime() + STOCK_VISIT_MS)
+                val until = if (limit == Long.MAX_VALUE) Long.MAX_VALUE else SystemClock.elapsedRealtime() + limit
+                GuardSetup.noteStockVisit(it, until)
             }
-            DiagLog.i("guard: the stock launcher opened on purpose; leaving it in front")
+            DiagLog.i(
+                when {
+                    limit == 0L -> "guard: the stock launcher stay is disabled; Aerial takes Home back now"
+                    limit == Long.MAX_VALUE -> "guard: the stock launcher opened on purpose; it stays in front with no time limit"
+                    else -> "guard: the stock launcher opened on purpose; leaving it in front"
+                }
+            )
         }
 
         /** The visit a guard before this process allowed, if it still runs; see allowStockLauncher. */
@@ -3135,7 +3148,9 @@ class HomeGuardService : AccessibilityService() {
             if (aerialResumed) return GuardSetup.noteStockVisit(context, null)
             val left = GuardSetup.stockVisitLeftMs(context)
             if (left <= 0L || SystemClock.uptimeMillis() < allowStockUntil) return
-            allowStockUntil = SystemClock.uptimeMillis() + left
+            // Saturate for the no-limit visit noted as Long.MAX_VALUE.
+            val uptime = SystemClock.uptimeMillis()
+            allowStockUntil = if (left > Long.MAX_VALUE - uptime) Long.MAX_VALUE else uptime + left
             DiagLog.i("guard: the stock launcher visit opened before Aerial was stopped still holds; leaving it in front")
         }
 
