@@ -152,6 +152,10 @@
     <string name="st_plate_hint">第一排下面垫一块磨砂玻璃，像 Apple TV 一样；或者让 App 直接放在壁纸上。</string>
     <string name="st_plate_glass">玻璃</string>
     <string name="st_plate_none">不显示</string>
+    <string name="st_glass_tint">玻璃透明度</string>
+    <string name="st_glass_tint_hint">底板玻璃有多通透，和 iOS 的液态玻璃设置一样。透明更通透、看得见更多壁纸；色调加深不透明度，提升上面内容和控件的对比度。</string>
+    <string name="st_glass_clear">透明</string>
+    <string name="st_glass_tinted">色调</string>
     <string name="st_sounds">按键声音</string>
     <string name="st_sounds_hint">移动焦点、确认、返回时发出声音，像 Apple TV 一样。</string>
     <string name="st_sounds_tv_hint">用电视系统自带的按键音，和电视菜单里一样。电视设置里关了按键音时不会响，这时请选「Aerial」。</string>

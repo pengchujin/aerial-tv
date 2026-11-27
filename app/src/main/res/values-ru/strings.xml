@@ -145,6 +145,10 @@
     <string name="st_plate_hint">Подложка из матового стекла под верхним рядом, как на Apple TV, или приложения прямо на обоях.</string>
     <string name="st_plate_glass">Стекло</string>
     <string name="st_plate_none">Нет</string>
+    <string name="st_glass_tint">Прозрачность стекла</string>
+    <string name="st_glass_tint_hint">Насколько прозрачно стекло подложки, как в настройке Liquid Glass в iOS. «Прозрачное» показывает больше обоев, «Оттенок» делает стекло плотнее и повышает контраст содержимого и элементов на нём.</string>
+    <string name="st_glass_clear">Прозрачное</string>
+    <string name="st_glass_tinted">Оттенок</string>
     <string name="st_sounds">Звуки</string>
     <string name="st_sounds_hint">Звук при перемещении фокуса, выборе и нажатии «Назад», как на Apple TV.</string>
     <string name="st_sounds_tv_hint">Собственные звуки клавиш телевизора, как в его меню. Если они выключены в настройках телевизора, звука не будет: тогда выберите Aerial.</string>

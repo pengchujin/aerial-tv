@@ -84,6 +84,10 @@ fun Modifier.liquidGlass(corner: Dp, bottomCorners: Boolean = true, seeThroughFi
         .takeIf { Wallpapers.backdrop != null }
     val held = remember(Wallpapers.selectedId, latest == null) { latest }
     val (frost, under, swap) = rememberFrostSwap(held)
+    // The glass tint (Personalize): read here, so a change recomposes the modifier and the glass
+    // is drawn again with the new tint; the recorded layer is re-made with it below (drawnTint).
+    val tint = AerialSettings.glassTint
+    val panelTint = panelTint(tint)
     var at by remember { mutableStateOf(Offset.Zero) }
     var root by remember { mutableStateOf(IntSize.Zero) }
     val shape = if (bottomCorners) RoundedCornerShape(corner) else RoundedCornerShape(topStart = corner, topEnd = corner)
@@ -111,6 +115,7 @@ fun Modifier.liquidGlass(corner: Dp, bottomCorners: Boolean = true, seeThroughFi
             var drawnAt: Offset? = null
             var drawnRoot = IntSize.Zero
             var drawnT = -1f
+            var drawnTint = -1f
             onDrawBehind {
                 if (solid) {
                     drawImage(flat, dstSize = IntSize(w, h), colorFilter = ColorFilter.tint(if (seeThroughFilm) FilmGlass else FilmPanel))
@@ -128,10 +133,11 @@ fun Modifier.liquidGlass(corner: Dp, bottomCorners: Boolean = true, seeThroughFi
                     drawGlassEdge(size, radius, bottomCorners)
                 } else {
                     val t = swap()
-                    if (drawnAt != at || drawnRoot != root || drawnT != t) {
+                    if (drawnAt != at || drawnRoot != root || drawnT != t || drawnTint != tint) {
                         drawnAt = at
                         drawnRoot = root
                         drawnT = t
+                        drawnTint = tint
                         fun place(s: BitmapShader, image: ImageBitmap) = s.setLocalMatrix(Matrix().apply {
                             setScale(root.width.toFloat() / image.width, root.height.toFloat() / image.height)
                             postTranslate(-at.x, -at.y)
@@ -146,10 +152,10 @@ fun Modifier.liquidGlass(corner: Dp, bottomCorners: Boolean = true, seeThroughFi
                             if (underShader != null && under != null && t < 1f) {
                                 // A new frosted picture fades in over the old within the outline.
                                 place(underShader, under)
-                                drawRect(ShaderBrush(underShader), colorFilter = PanelTint, blendMode = BlendMode.SrcIn)
-                                drawRect(brush, alpha = t, colorFilter = PanelTint, blendMode = BlendMode.SrcAtop)
+                                drawRect(ShaderBrush(underShader), colorFilter = panelTint, blendMode = BlendMode.SrcIn)
+                                drawRect(brush, alpha = t, colorFilter = panelTint, blendMode = BlendMode.SrcAtop)
                             } else {
-                                drawRect(brush, colorFilter = PanelTint, blendMode = BlendMode.SrcIn)
+                                drawRect(brush, colorFilter = panelTint, blendMode = BlendMode.SrcIn)
                             }
                             drawGlassEdge(size, radius, bottomCorners)
                         }
@@ -235,26 +241,32 @@ fun glassEdge(w: Int, h: Int, radius: Float, rim: Float, bottomCorners: Boolean 
         bitmap.frozen().asImageBitmap()
     }
 
-/** Panels: the frosted picture at half its light, lifted a little, so white text reads on snow. */
-/** Lite's panel color for [frost]: its average color, dimmed as [PanelTint] dims the glass. Made once per picture. */
-private fun liteGlass(frost: ImageBitmap): Color = synchronized(liteColors) {
-    liteColors.getOrPut(frost) {
+/** Lite's panel color for [frost]: its average color, dimmed as [panelTint] dims the glass. The average is kept per picture; the tint is applied when drawn, so a tint change recolors it. */
+private fun liteGlass(frost: ImageBitmap): Color {
+    val avg = liteAverage(frost)
+    val scale = AerialSettings.glassScale(AerialSettings.glassTint)
+    fun dim(v: Float) = (v * scale + 14f / 255f).coerceIn(0f, 1f)
+    return Color(dim(avg.red), dim(avg.green), dim(avg.blue))
+}
+
+/** The frosted picture's average color, kept once per picture. */
+private fun liteAverage(frost: ImageBitmap): Color = synchronized(liteAverages) {
+    liteAverages.getOrPut(frost) {
         val small = android.graphics.Bitmap.createScaledBitmap(frost.asAndroidBitmap(), 16, 9, true)
         var r = 0f; var g = 0f; var b = 0f
         for (y in 0 until 9) for (x in 0 until 16) {
             val c = small.getPixel(x, y)
             r += android.graphics.Color.red(c); g += android.graphics.Color.green(c); b += android.graphics.Color.blue(c)
         }
-        fun dim(sum: Float) = ((sum / 144f) * 0.48f + 14f).coerceIn(0f, 255f) / 255f
-        Color(dim(r), dim(g), dim(b))
+        Color(r / 144f / 255f, g / 144f / 255f, b / 144f / 255f)
     }
 }
 
-private val liteColors = java.util.WeakHashMap<ImageBitmap, Color>()
+private val liteAverages = java.util.WeakHashMap<ImageBitmap, Color>()
 
 /**
  * A panel over a moving wallpaper whose frames cannot be had: opaque, so the tiles under it do not
- * show, and as light as the frosted glass is elsewhere (PanelTint over a daytime picture comes to
+ * show, and as light as the frosted glass is elsewhere (the panel tint over a daytime picture comes to
  * about this grey). The old near-black (0x26262A) read as a dark slab, not glass (the owner, TCL
  * MT5879, 2026-11-01).
  */
@@ -285,9 +297,18 @@ private val filmSheen: ImageBitmap by lazy {
     bitmap.asImageBitmap()
 }
 
-private val PanelTint = ColorFilter.colorMatrix(ColorMatrix(floatArrayOf(
-    0.48f, 0f, 0f, 0f, 14f,
-    0f, 0.48f, 0f, 0f, 14f,
-    0f, 0f, 0.48f, 0f, 14f,
-    0f, 0f, 0f, 1f, 0f,
-)))
+/**
+ * The frosted picture's tint for a panel, for a [tint] of 0 (Clear) to 1 (Tinted): its light
+ * scaled by [AerialSettings.glassScale], lifted a little, so white text reads on snow. Clear
+ * keeps most of the picture's light; Tinted dims it for contrast. At the default tint this is
+ * the shipped 0.48 and 14.
+ */
+private fun panelTint(tint: Float): ColorFilter {
+    val scale = AerialSettings.glassScale(tint)
+    return ColorFilter.colorMatrix(ColorMatrix(floatArrayOf(
+        scale, 0f, 0f, 0f, 14f,
+        0f, scale, 0f, 0f, 14f,
+        0f, 0f, scale, 0f, 14f,
+        0f, 0f, 0f, 1f, 0f,
+    )))
+}

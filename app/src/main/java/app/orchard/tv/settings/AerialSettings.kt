@@ -150,6 +150,65 @@ object AerialSettings {
     /** The Liquid Glass plate under the top row; some prefer the apps straight on the wallpaper (#151). */
     var homePlate by mutableStateOf(true); private set
 
+    /** The glass at the Clear end (tint 0): the frosted picture at 85% of its light. */
+    private const val GLASS_SCALE_CLEAR = 0.85f
+    /** The glass at the Tinted end (tint 1): the frosted picture at 30% of its light. */
+    private const val GLASS_SCALE_TINTED = 0.30f
+    /** The glass as it shipped: the frosted picture at 48% of its light. */
+    private const val GLASS_SCALE_SHIPPED = 0.48f
+
+    /**
+     * The tint that reproduces the glass as it shipped ([GLASS_SCALE_SHIPPED]): derived from the
+     * endpoints, so the default never drifts from the shipped look.
+     */
+    const val DEFAULT_GLASS_TINT: Float = (GLASS_SCALE_CLEAR - GLASS_SCALE_SHIPPED) / (GLASS_SCALE_CLEAR - GLASS_SCALE_TINTED)
+
+    /**
+     * How much tint the Liquid Glass carries, as in iOS's Liquid Glass setting: 0 is Clear, the
+     * frosted wallpaper at most of its light, and 1 is Tinted, the frosted wallpaper dimmed so the
+     * content and controls on it read with more contrast. The default reproduces the glass as it
+     * shipped (see [glassScale]).
+     */
+    var glassTint by mutableStateOf(DEFAULT_GLASS_TINT); private set
+
+    /**
+     * How much of the frosted picture's light a panel keeps, for a [tint] of 0 (Clear) to 1
+     * (Tinted): linear, from [GLASS_SCALE_CLEAR] down to [GLASS_SCALE_TINTED], so it falls as
+     * the tint rises. Pure, for tests.
+     */
+    fun glassScale(tint: Float): Float {
+        val t = tint.coerceIn(0f, 1f)
+        return GLASS_SCALE_CLEAR + (GLASS_SCALE_TINTED - GLASS_SCALE_CLEAR) * t
+    }
+
+    /** The plate's scale at the Clear end (tint 0): the frosted picture untouched, at full light. */
+    private const val PLATE_SCALE_CLEAR = 1.0f
+    /** The plate's lift at the Clear end (tint 0): no white added. */
+    private const val PLATE_LIFT_CLEAR = 0f
+    /** The plate's scale as shipped (tint [DEFAULT_GLASS_TINT]): 0.8. */
+    private const val PLATE_SCALE_SHIPPED = 0.8f
+    /** The plate's lift as shipped (tint [DEFAULT_GLASS_TINT]): 30. */
+    private const val PLATE_LIFT_SHIPPED = 30f
+
+    /**
+     * The top row's plate, for a [tint] of 0 (Clear) to 1 (Tinted): how much of the frosted
+     * picture's light it keeps, linear from the Clear end through the shipped look at
+     * [DEFAULT_GLASS_TINT]. Pure, for tests.
+     */
+    fun plateScale(tint: Float): Float {
+        val t = tint.coerceIn(0f, 1f)
+        return PLATE_SCALE_CLEAR + (PLATE_SCALE_SHIPPED - PLATE_SCALE_CLEAR) * (t / DEFAULT_GLASS_TINT)
+    }
+
+    /**
+     * The plate's white lift, for a [tint] of 0 (Clear) to 1 (Tinted): none when Clear, the
+     * shipped 30 at [DEFAULT_GLASS_TINT], deeper after. Pure, for tests.
+     */
+    fun plateLift(tint: Float): Float {
+        val t = tint.coerceIn(0f, 1f)
+        return PLATE_LIFT_CLEAR + (PLATE_LIFT_SHIPPED - PLATE_LIFT_CLEAR) * (t / DEFAULT_GLASS_TINT)
+    }
+
     /** The clock, with the date and weather, in the top right instead of the top left. */
     var clockRight by mutableStateOf(false); private set
 
@@ -258,6 +317,7 @@ object AerialSettings {
         homeLocked = prefs.getBoolean("home_locked", false)
         photoMinutes = prefs.getInt("photo_minutes", DAY_MINUTES).takeIf { it in PHOTO_MINUTES } ?: DAY_MINUTES
         homePlate = prefs.getBoolean("home_plate", true)
+        glassTint = prefs.getFloat("glass_tint", DEFAULT_GLASS_TINT).takeIf { it in 0f..1f } ?: DEFAULT_GLASS_TINT
         chosenAllNames = prefs.getBoolean("show_all_names", false)
         wallpaperAlwaysMoves = prefs.getBoolean("wallpaper_always_moves", false)
         showWeather = prefs.getBoolean("show_weather", true)
@@ -342,6 +402,12 @@ object AerialSettings {
     fun chooseHomePlate(on: Boolean) {
         homePlate = on
         app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit { putBoolean("home_plate", on) }
+    }
+
+    fun chooseGlassTint(tint: Float) {
+        val clamped = if (tint.isNaN()) DEFAULT_GLASS_TINT else tint.coerceIn(0f, 1f)
+        glassTint = clamped
+        app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit { putFloat("glass_tint", clamped) }
     }
 
     fun chooseClockRight(on: Boolean) {

@@ -33,6 +33,8 @@ import kotlinx.coroutines.launch
  *   ... --ei kids_continuous_minutes 28  (that many minutes watched since the last break)
  *   ... --ez large_clock true --ez clock_right false --ez one_row_home true
  *       --ez peek_next_row false --ez home_plate true --ez show_all_names false --ei home_columns 6
+ *       --ef glass_tint 0.5     (the glass tint, 0 Clear to 1 Tinted, as in Personalize;
+ *                                 clamped to 0..1)
  *                                   (Home's layout, as in Personalize; for screenshots of each)
  *   ... --ez screensaver_clock false --ez screensaver_caption false
  *                                   (the time and the place name over the aerial and photo
@@ -143,6 +145,10 @@ class ConfigReceiver : BroadcastReceiver() {
         if (intent.hasExtra("home_columns")) {
             AerialSettings.init(context)
             AerialSettings.chooseHomeColumns(intent.getIntExtra("home_columns", 5))
+        }
+        if (intent.hasExtra("glass_tint")) {
+            AerialSettings.init(context)
+            AerialSettings.chooseGlassTint(intent.getFloatExtra("glass_tint", AerialSettings.DEFAULT_GLASS_TINT))
         }
         // ... --ez diag true / --ez mode_switch false / --ez soft_layer true   (see DiagLog;
         //                                 the last two apply the next time Home starts)

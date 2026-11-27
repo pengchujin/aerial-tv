@@ -341,7 +341,8 @@ private fun Pictures(
     ) { bmp ->
         // In "Follow App" mode there is no frosted copy: the app's light is small and soft
         // already, so it makes the glass itself, changing with it.
-        val own = remember(bmp, frosted == null) { bmp?.takeIf { frosted == null }?.let(::plateTinted) }
+        val tint = AerialSettings.glassTint
+        val own = remember(bmp, frosted == null, tint) { bmp?.takeIf { frosted == null }?.let { plateTinted(it, tint) } }
         Canvas(Modifier.fillMaxSize()) {
             val film = cover()
             // On the top row, the film alone through the window: nothing of Compose's full-screen.
@@ -369,8 +370,9 @@ private fun Pictures(
         modifier = Modifier.fillMaxSize(),
         label = "glass",
     ) { (frost, _) ->
-        val glass = remember(frost) { frost?.let(::plateTinted) }
-        val moved = remember(filmGlass) { filmGlass?.let(::plateTinted) }
+        val tint = AerialSettings.glassTint
+        val glass = remember(frost, tint) { frost?.let { plateTinted(it, tint) } }
+        val moved = remember(filmGlass, tint) { filmGlass?.let { plateTinted(it, tint) } }
         Canvas(Modifier.fillMaxSize()) {
             val g = gridGlass()
             if (g < 0.01f) return@Canvas
@@ -425,16 +427,18 @@ private fun Plate(glass: ImageBitmap?, film: ImageBitmap?, filmPlate: Boolean, d
     // opening. A glass not baked yet is not drawn; until then the one before it stays.
     val density = LocalDensity.current
     var screen by remember { mutableStateOf(Size.Zero) }
+    // The glass tint (Personalize): baked into the plate's glass, so a change re-bakes it.
+    val tint = AerialSettings.glassTint
     suspend fun baked(glass: ImageBitmap?): ImageBitmap? {
         // A film's plate is never the still glass (below): nothing to bake.
         if (glass == null || plate == null || screen == Size.Zero || filmPlate) return null
         val size = screen
         return withContext(Dispatchers.Default) {
-            bakePlate(plateTinted(glass), size, plate, with(density) { PlateCorner.toPx() }, with(density) { 1.2.dp.toPx() })
+            bakePlate(plateTinted(glass, tint), size, plate, with(density) { PlateCorner.toPx() }, with(density) { 1.2.dp.toPx() })
         }
     }
-    val top by produceState<ImageBitmap?>(null, shown, plate, screen) { value = baked(shown) }
-    val bottom by produceState<ImageBitmap?>(null, under, plate, screen) { value = baked(under) }
+    val top by produceState<ImageBitmap?>(null, shown, plate, screen, tint) { value = baked(shown) }
+    val bottom by produceState<ImageBitmap?>(null, under, plate, screen, tint) { value = baked(under) }
     var filmTop by remember { mutableStateOf<ImageBitmap?>(null) }
     var filmBottom by remember { mutableStateOf<ImageBitmap?>(null) }
     var smoke by remember { mutableStateOf<ImageBitmap?>(null) }
@@ -443,13 +447,13 @@ private fun Plate(glass: ImageBitmap?, film: ImageBitmap?, filmPlate: Boolean, d
         if (plate == null || screen == Size.Zero) return@LaunchedEffect
         smoke = withContext(Dispatchers.Default) { bakePlate(smokeGlass(if (deepSmoke) FILM_SMOKE_ALONE else FILM_SMOKE), screen, plate, with(density) { PlateCorner.toPx() }, with(density) { 1.2.dp.toPx() }) }
     }
-    LaunchedEffect(film, plate, screen) {
+    LaunchedEffect(film, plate, screen, tint) {
         if (film == null || plate == null || screen == Size.Zero) {
             filmTop = null
             filmBottom = null
             return@LaunchedEffect
         }
-        val baked = withContext(Dispatchers.Default) { bakePlate(plateTinted(film), screen, plate, with(density) { PlateCorner.toPx() }, 0f, edge = false) }
+        val baked = withContext(Dispatchers.Default) { bakePlate(plateTinted(film, tint), screen, plate, with(density) { PlateCorner.toPx() }, 0f, edge = false) }
         // Not on screen: the new frame simply takes over.
         if (filmTop == null || cover() < 0.01f) {
             filmTop = baked
@@ -558,18 +562,27 @@ private const val GRID_SHADE = 0.55f
 /** How much the plate swells as it dissolves into the grid's background. */
 private val PlateSwell = 14.dp
 
-/** The plate's tint: the frosted picture a little darker, lifted with white, so it reads as milky glass. */
-private val PlateTint = floatArrayOf(
-    0.8f, 0f, 0f, 0f, 30f,
-    0f, 0.8f, 0f, 0f, 30f,
-    0f, 0f, 0.8f, 0f, 30f,
-    0f, 0f, 0f, 1f, 0f,
-)
+/**
+ * The plate's tint, for a [tint] of 0 (Clear) to 1 (Tinted): the frosted picture dimmed by
+ * [AerialSettings.plateScale] and lifted with white by [AerialSettings.plateLift], so it reads as
+ * milky glass. Clear keeps the picture at full light with no white added; Tinted dims and whitens
+ * it further for contrast. At the default tint this is the shipped 0.8 and 30.
+ */
+private fun plateTint(tint: Float): FloatArray {
+    val scale = AerialSettings.plateScale(tint)
+    val lift = AerialSettings.plateLift(tint)
+    return floatArrayOf(
+        scale, 0f, 0f, 0f, lift,
+        0f, scale, 0f, 0f, lift,
+        0f, 0f, scale, 0f, lift,
+        0f, 0f, 0f, 1f, 0f,
+    )
+}
 
 /** The glass picture with the plate's tint applied ahead of time, so the plate is one plain draw. */
-private fun plateTinted(src: ImageBitmap): ImageBitmap {
+private fun plateTinted(src: ImageBitmap, tint: Float): ImageBitmap {
     val out = src.asAndroidBitmap().copy(android.graphics.Bitmap.Config.ARGB_8888, true)
-    val paint = android.graphics.Paint().apply { colorFilter = android.graphics.ColorMatrixColorFilter(PlateTint) }
+    val paint = android.graphics.Paint().apply { colorFilter = android.graphics.ColorMatrixColorFilter(plateTint(tint)) }
     android.graphics.Canvas(out).drawBitmap(src.asAndroidBitmap(), 0f, 0f, paint)
     return out.frozen().asImageBitmap()
 }
