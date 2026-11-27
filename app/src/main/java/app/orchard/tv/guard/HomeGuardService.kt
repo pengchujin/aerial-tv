@@ -631,7 +631,18 @@ class HomeGuardService : AccessibilityService() {
         if (run != chooserCheckRun || left <= 0 || aerialResumed) return
         handler.postDelayed({ closeChooserAfterWake(run, left - 1) }, WAKE_CHOOSER_RECHECK_MS)
         if (SystemClock.uptimeMillis() - aerialPausedAt > WAKE_CHOOSER_MS) return
-        val front = foreground()?.first ?: return
+        // Read off the main thread, as the foreground check is: called from Aerial's onPause in
+        // the boot window, the Binder call to usage stats held MainActivity's pause on MiTV4-ANSM0
+        // (Android 6.0.1, 1 GB) after a cold boot until the input dispatch timed out (issue #1783,
+        // the reporter's ANR stack on 2.17; #1284 was the same call from the periodic check).
+        usageWorker.post {
+            val front = foreground()?.first
+            handler.post { if (front != null && isRunning) answerChooserAfterWake(run, front) }
+        }
+    }
+
+    private fun answerChooserAfterWake(run: Int, front: Pair<String, String>) {
+        if (run != chooserCheckRun || aerialResumed) return
         if (!isHomeChooser(front.first, front.second)) return
         val since = SystemClock.uptimeMillis() - aerialPausedAt
         Log.i(TAG, "the Home chooser is in front after the wake; closing it")
