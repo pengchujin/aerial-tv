@@ -132,6 +132,11 @@
     <string name="st_clock_hours_24">24 години</string>
     <string name="st_clock_hours_12">12 годин</string>
     <string name="st_clock_hours_hint">«Як на ТБ» іде за налаштуванням часу телевізора, а якщо його немає, показує 24 години.</string>
+    <string name="st_clock_weight">Товщина цифр</string>
+    <string name="st_clock_weight_bold">Жирні</string>
+    <string name="st_clock_weight_normal">Звичайні</string>
+    <string name="st_clock_weight_light">Тонкі</string>
+    <string name="st_clock_weight_hint">Як малювати цифри годинника. «Жирні» — так вони виглядали завжди.</string>
     <string name="st_names">Назви застосунків</string>
     <string name="st_names_focused">Вибраний застосунок</string>
     <string name="st_names_all">Усі застосунки</string>

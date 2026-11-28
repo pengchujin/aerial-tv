@@ -140,6 +140,11 @@
     <string name="st_clock_hours_24">24-Hour</string>
     <string name="st_clock_hours_12">12-Hour</string>
     <string name="st_clock_hours_hint">As the TV follows the TV’s own time setting, and shows 24-hour time where it has none.</string>
+    <string name="st_clock_weight">Clock Weight</string>
+    <string name="st_clock_weight_bold">Bold</string>
+    <string name="st_clock_weight_normal">Regular</string>
+    <string name="st_clock_weight_light">Light</string>
+    <string name="st_clock_weight_hint">How heavy the clock\'s digits are drawn. Bold is how Aerial has always drawn them.</string>
     <string name="st_names">App Names</string>
     <string name="st_names_focused">Selected App</string>
     <string name="st_names_all">All Apps</string>
